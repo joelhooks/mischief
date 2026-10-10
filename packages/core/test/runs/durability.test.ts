@@ -1,0 +1,413 @@
+import { expect, it } from "@effect/vitest";
+import { Deferred, Effect, Exit, Fiber, Option, Schema } from "effect";
+import * as Arbitrary from "effect/Arbitrary";
+
+import { decodePlan } from "../../src/plans/schema.js";
+import { RunHost } from "../../src/runs/host.js";
+import { RunStore } from "../../src/runs/run-store.js";
+import { RunStateSchema } from "../../src/runs/schema.js";
+import type { RunReport } from "../../src/runs/schema.js";
+import { Judge } from "../../src/steps/judge.js";
+import { Mail } from "../../src/steps/mail.js";
+import { Operator } from "../../src/steps/operator.js";
+import { StepFailed } from "../../src/steps/step-failed.js";
+import { Thinker } from "../../src/steps/thinker.js";
+import { launchNoteAmendment, launchNotePlan } from "./launch-note.js";
+import { simulate, toJson } from "./plan-model.js";
+import type { Fixture, Fixtures, ModelCall } from "./plan-model.js";
+
+const RUN = "prop-run";
+
+const WIDTH = 2;
+
+const BRANCH_STEPS = [
+  "research.product.gather",
+  "research.product.summarize",
+  "research.audience.gather",
+] as const;
+
+const Judgement = Schema.Struct({
+  fallback: Schema.optionalKey(
+    Schema.Struct({
+      confidence: Schema.Literals([0.3, 0.9]),
+      pickFirst: Schema.Boolean,
+    })
+  ),
+  lean: Schema.Literals([0.05, 0.5, 0.95]),
+});
+
+const InterruptionSchema = Schema.Struct({
+  at: Schema.Int.check(Schema.isBetween({ maximum: 16, minimum: 1 })),
+  kind: Schema.Literals(["cancel", "crash", "crashInStep", "pause"]),
+});
+
+type Interruption = typeof InterruptionSchema.Type;
+
+const judgements = Arbitrary.array(Arbitrary.schema(Judgement), {
+  maxLength: 12,
+  minLength: 12,
+});
+
+const WorldArbitrary = Arbitrary.all({
+  assess: judgements,
+  failures: Arbitrary.array(
+    Arbitrary.array(Arbitrary.schema(Schema.Literals([0, 1, 2, 3])), {
+      maxLength: 12,
+      minLength: 12,
+    }),
+    { maxLength: 3, minLength: 3 }
+  ),
+  interruptions: Arbitrary.array(Arbitrary.schema(InterruptionSchema), {
+    maxLength: 4,
+  }),
+  join: Arbitrary.schema(Schema.Literals(["allSettled", "failFast"])),
+  maxSteps: Arbitrary.schema(
+    Schema.Int.check(Schema.isBetween({ maximum: 40, minimum: 2 }))
+  ),
+  publishAnswers: Arbitrary.array(
+    Arbitrary.schema(Schema.Literals(["approve", "hold"])),
+    { maxLength: 3 }
+  ),
+  shipAnswers: Arbitrary.array(
+    Arbitrary.schema(Schema.Literals(["ship", "revise"])),
+    { maxLength: 6 }
+  ),
+  shipCheck: judgements,
+});
+
+type World =
+  typeof WorldArbitrary extends Arbitrary.Arbitrary<infer A> ? A : never;
+
+const fixturesFor = (world: World): Fixtures => {
+  const fixtures: Record<string, Fixture> = {};
+
+  const judge = (
+    key: string,
+    [first, second]: readonly [string, string],
+    list: World["assess"]
+  ) => {
+    for (const [index, { fallback, lean }] of list.entries()) {
+      fixtures[`${key}#${index + 1}`] = {
+        probs: { [first]: lean, [second]: 1 - lean },
+      };
+
+      if (fallback !== undefined) {
+        fixtures[`${key}#${index + 1}:think`] = {
+          choice: fallback.pickFirst ? first : second,
+          confidence: fallback.confidence,
+        };
+      }
+    }
+  };
+
+  judge("assess", ["enough", "thin"], world.assess);
+  judge("ship_check", ["ship", "revise"], world.shipCheck);
+
+  for (const [index, answer] of world.shipAnswers.entries()) {
+    fixtures[`ship_check#${index + 1}:joel`] = { answer };
+  }
+
+  for (const [index, answer] of world.publishAnswers.entries()) {
+    fixtures[`publish#${index + 1}:joel`] = { answer };
+  }
+
+  for (const [index, key] of BRANCH_STEPS.entries()) {
+    for (const [visit, roll] of (world.failures[index] ?? []).entries()) {
+      fixtures[`${key}#${visit + 1}`] =
+        roll === 0 ? { fail: true } : { output: `${key} v${visit + 1}` };
+    }
+  }
+
+  for (let visit = 1; visit <= 30; visit += 1) {
+    fixtures[`draft.write#${visit}`] = { output: `draft v${visit}` };
+    fixtures[`draft.review#${visit}`] = { reply: `review ${visit}` };
+    fixtures[`draft#${visit}`] = { amendment: launchNoteAmendment };
+  }
+
+  return fixtures;
+};
+
+const planFor = (world: World) => {
+  const { research } = launchNotePlan.machine.states;
+
+  return {
+    ...launchNotePlan,
+    envelope: { ...launchNotePlan.envelope, maxSteps: world.maxSteps },
+    machine: {
+      ...launchNotePlan.machine,
+      states: {
+        ...launchNotePlan.machine.states,
+        research: {
+          ...research,
+          meta: { step: { ...research.meta.step, join: world.join } },
+        },
+      },
+    },
+  };
+};
+
+const outcome = <A>(key: string, found: Fixture, value: A) =>
+  found.fail === true
+    ? Effect.fail(new StepFailed({ key, reason: "fixture failure" }))
+    : Effect.succeed(value);
+
+const fakes = (fixtures: Fixtures, calls: ModelCall[]) => {
+  const fixture = (key: string, visit: number, suffix = "") =>
+    fixtures[`${key}#${visit}${suffix}`] ?? {};
+
+  const record = (key: string, kind: string, visit: number) =>
+    Effect.sync(() => {
+      calls.push({ key, kind, visit });
+    });
+
+  return {
+    judge: Judge.of({
+      choose: ({ key, options, visit }) =>
+        record(key, "jev", visit).pipe(
+          Effect.as(
+            fixture(key, visit).probs ??
+              Object.fromEntries(
+                options.map((option) => [option, 1 / options.length])
+              )
+          )
+        ),
+    }),
+    mail: Mail.of({
+      ask: ({ key, visit }) =>
+        record(key, "ask", visit).pipe(
+          Effect.andThen(() => {
+            const found = fixture(key, visit);
+
+            return outcome(key, found, found.reply ?? "");
+          })
+        ),
+    }),
+    operator: Operator.of({ notify: () => Effect.void }),
+    thinker: Thinker.of({
+      decide: ({ key, visit }) =>
+        record(key, "think-fallback", visit).pipe(
+          Effect.as(
+            Option.flatMap(
+              Option.fromUndefinedOr(fixtures[`${key}#${visit}:think`]),
+              ({ choice, confidence }) =>
+                choice === undefined
+                  ? Option.none()
+                  : Option.some({ choice, confidence: confidence ?? 0 })
+            )
+          )
+        ),
+      elaborate: ({ key, visit }) =>
+        record(key, "elaborate", visit).pipe(
+          Effect.as({
+            amendment: toJson(fixture(key, visit).amendment ?? null),
+            tokens: 0,
+          })
+        ),
+      think: ({ key, prompt, visit }) =>
+        record(key, "think", visit).pipe(
+          Effect.andThen(() => {
+            const found = fixture(key, visit);
+
+            return outcome(key, found, {
+              output: found.output ?? `(${prompt})`,
+              tokens: 0,
+            });
+          })
+        ),
+    }),
+  };
+};
+
+const incarnation = (
+  base: (typeof RunStore)["Service"],
+  fixtures: Fixtures,
+  calls: ModelCall[],
+  plan: Schema.Json,
+  first: boolean,
+  interruption?: Interruption
+) =>
+  Effect.gen(function* oneProcess() {
+    const victim = yield* Deferred.make<Fiber.Fiber<RunReport, unknown>>();
+
+    const counters = {
+      dead: false,
+      pausedWhileRunning: false,
+      saves: 0,
+      steps: 0,
+    };
+
+    const stop = (dead: boolean) =>
+      Effect.gen(function* stopProcess() {
+        counters.dead = dead;
+        const fiber = yield* Deferred.await(victim);
+        yield* Effect.forkDetach(Fiber.interrupt(fiber));
+
+        return yield* Effect.never;
+      });
+
+    const die = stop(true);
+
+    const store = RunStore.of({
+      ...base,
+      writeDoc: (runId, name, value) =>
+        counters.dead ? Effect.never : base.writeDoc(runId, name, value),
+      writeJournal: (runId, key, entry) =>
+        Effect.suspend(() => {
+          if (counters.dead) {
+            return Effect.never;
+          }
+
+          if (key.startsWith("logic:")) {
+            counters.steps += 1;
+          }
+
+          return key.startsWith("logic:") &&
+            interruption?.kind === "crashInStep" &&
+            counters.steps === interruption.at
+            ? die
+            : base.writeJournal(runId, key, entry);
+        }),
+      writePlan: (runId, next) =>
+        counters.dead ? Effect.never : base.writePlan(runId, next),
+      writeRun: (runId, state) =>
+        Effect.suspend(() => {
+          if (counters.dead) {
+            return Effect.never;
+          }
+
+          counters.saves += 1;
+          const written = base.writeRun(runId, state);
+
+          if (counters.saves !== interruption?.at) {
+            return written;
+          }
+
+          if (interruption.kind === "crash") {
+            return written.pipe(Effect.andThen(die));
+          }
+
+          if (interruption.kind === "cancel") {
+            return written.pipe(Effect.andThen(stop(false)));
+          }
+
+          if (interruption.kind === "pause") {
+            counters.pausedWhileRunning =
+              state.status === "running" && state.checkpoint !== null;
+
+            return written.pipe(Effect.andThen(base.writePaused(runId, true)));
+          }
+
+          return written;
+        }),
+    });
+
+    const { judge, mail, operator, thinker } = fakes(fixtures, calls);
+
+    const host = yield* RunHost.make.pipe(
+      Effect.provideService(RunStore, store),
+      Effect.provideService(Thinker, thinker),
+      Effect.provideService(Judge, judge),
+      Effect.provideService(Mail, mail),
+      Effect.provideService(Operator, operator)
+    );
+
+    const work = Effect.gen(function* work() {
+      let report = first
+        ? yield* host.submit(RUN, plan)
+        : yield* host.resume(RUN);
+
+      while (report.status === "waiting-for-joel" && report.question) {
+        const { answered, key, options } = report.question;
+        const reply = fixtures[`${key}#${answered + 1}:joel`]?.answer;
+
+        if (reply === undefined || !options.includes(reply)) {
+          break;
+        }
+
+        report = yield* host.answer(RUN, reply);
+      }
+
+      return report;
+    });
+
+    const fiber = yield* Effect.forkChild(work);
+    yield* Deferred.succeed(victim, fiber);
+    const exit = yield* Effect.exit(Fiber.join(fiber));
+
+    return { exit, pausedWhileRunning: counters.pausedWhileRunning };
+  });
+
+const callId = ({ key, kind, visit }: ModelCall) => `${key} ${kind} ${visit}`;
+
+const firstOccurrences = (calls: readonly ModelCall[]) => [
+  ...new Set(calls.map(callId)),
+];
+
+const stepStarts = (calls: readonly ModelCall[]) =>
+  calls.filter((call) => call.kind !== "think-fallback").length;
+
+it.effect.prop(
+  "any schedule of crashes and pauses ends where the plan model ends, and only steps running at a crash repeat",
+  { world: WorldArbitrary },
+  ({ world }) =>
+    Effect.gen(function* property() {
+      const plan = planFor(world);
+      const fixtures = fixturesFor(world);
+      const expected = simulate(plan, fixtures);
+
+      const base = yield* Effect.provide(
+        Effect.service(RunStore),
+        RunStore.memory
+      );
+
+      const calls: ModelCall[] = [];
+      let first = true;
+
+      for (const interruption of world.interruptions) {
+        const { exit, pausedWhileRunning } = yield* incarnation(
+          base,
+          fixtures,
+          calls,
+          plan,
+          first,
+          interruption
+        );
+
+        first = false;
+
+        if (pausedWhileRunning) {
+          expect(Exit.isSuccess(exit) && exit.value.status).toBe("paused");
+        }
+      }
+
+      const final = yield* incarnation(base, fixtures, calls, plan, first);
+
+      const actual = yield* final.exit;
+      const state = yield* base.readRun(RUN);
+      yield* Schema.decodeEffect(RunStateSchema)(Option.getOrThrow(state));
+      const stored = yield* base.readPlan(RUN, actual.planVersion);
+      yield* decodePlan(Option.getOrThrow(stored));
+
+      expect({
+        docs: actual.docs,
+        status: actual.status,
+        transitions: actual.transitions,
+        value: actual.value,
+      }).toEqual({
+        docs: expected.docs,
+        status: expected.status,
+        transitions: expected.transitions,
+        value: expected.value,
+      });
+      expect(firstOccurrences(calls)).toEqual(expected.calls.map(callId));
+
+      const crashesInStep = world.interruptions.filter(
+        ({ kind }) => kind === "crashInStep" || kind === "cancel"
+      ).length;
+
+      expect(
+        stepStarts(calls) - stepStarts(expected.calls)
+      ).toBeLessThanOrEqual(crashesInStep * WIDTH);
+    }),
+  { arbitrary: { runs: 600 }, timeout: 20_000 }
+);

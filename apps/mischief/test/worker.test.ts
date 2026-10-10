@@ -1,0 +1,2054 @@
+import { expect, it } from "@effect/vitest";
+import { ExecuteResult } from "@rat-stack/capability/code-mode";
+import {
+  CafeNewsList,
+  LorePathOutput,
+  NeighborsOutput,
+  ReadOutput,
+  SearchOutput,
+} from "@rat-stack/core/contracts";
+import { Effect, Layer, Schema } from "effect";
+import * as McpSchema from "effect/ai/McpSchema";
+import * as HttpRouter from "effect/http/HttpRouter";
+
+import { mischiefRoutes } from "../src/app.js";
+import type { StaticResponseCache } from "../src/app.js";
+import { rateLimitsFrom } from "../src/rate-limits.js";
+import type {
+  NativeRateLimitBinding,
+  RateLimitBindings,
+} from "../src/rate-limits.js";
+import {
+  a2aAgentCard,
+  agentSkillPath,
+  ardManifest,
+  authMarkdown,
+  contentResources,
+  lawResources,
+  loreResources,
+  linkHeader,
+  llmsText,
+  ogImagePath,
+  markdownDocument,
+  mcpVersionText,
+  publicPaths,
+  robotsText,
+  skills,
+} from "./content-fixture.js";
+import {
+  generatedReaderPage,
+  glossaryIndexDocumentHtml,
+  lawSources,
+  loreIndexDocumentHtml,
+  loreSources,
+} from "./generated-content.js";
+import { TestSandbox } from "./test-sandbox.js";
+
+type WebHandler = (request: Request) => Promise<Response>;
+
+const responseText = (handler: WebHandler, request: Request) =>
+  Effect.promise(handler.bind(undefined, request)).pipe(
+    Effect.flatMap((response) => Effect.promise(response.text.bind(response)))
+  );
+
+interface FakeStaticResponseCache extends StaticResponseCache {
+  readonly matchKeys: string[];
+  readonly putKeys: string[];
+}
+
+const makeFakeStaticResponseCache = (): FakeStaticResponseCache => {
+  const matchKeys: string[] = [];
+  const putKeys: string[] = [];
+  const responses = new Map<string, Response>();
+
+  return {
+    // oxlint-disable-next-line typescript/promise-function-async -- This fake deliberately matches Cloudflare's Promise-returning Cache API.
+    match(request) {
+      const key = request.url;
+      matchKeys.push(key);
+
+      return Promise.resolve(responses.get(key)?.clone());
+    },
+    matchKeys,
+    // oxlint-disable-next-line typescript/promise-function-async -- This fake deliberately matches Cloudflare's Promise-returning Cache API.
+    put(request, response) {
+      const key = request.url;
+      putKeys.push(key);
+      responses.set(key, response.clone());
+
+      return Promise.resolve();
+    },
+    putKeys,
+  };
+};
+
+const expectedSecurityHeaders = {
+  "cross-origin-opener-policy": "same-origin",
+  "cross-origin-resource-policy": "same-origin",
+  "permissions-policy": "camera=(), microphone=(), geolocation=()",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "strict-transport-security": "max-age=31536000; includeSubDomains",
+  "x-content-type-options": "nosniff",
+  "x-fence": "electrified",
+  "x-frame-options": "DENY",
+} as const;
+
+const expectedContentSecurityPolicy =
+  "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; script-src https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+const expectSecurityHeaders = (response: Response, html: boolean) => {
+  for (const [name, value] of Object.entries(expectedSecurityHeaders)) {
+    expect(response.headers.get(name), name).toBe(value);
+  }
+
+  expect(response.headers.get("content-security-policy")).toBe(
+    html ? expectedContentSecurityPolicy : null
+  );
+};
+
+class FakeRateLimitBinding implements NativeRateLimitBinding {
+  readonly keys: string[] = [];
+  readonly #results: boolean[];
+
+  constructor(results: readonly boolean[] = []) {
+    this.#results = [...results];
+  }
+
+  // oxlint-disable-next-line typescript/promise-function-async -- The fake deliberately matches Cloudflare's Promise-returning binding.
+  limit(options: { readonly key: string }) {
+    this.keys.push(options.key);
+
+    return Promise.resolve({ success: this.#results.shift() ?? true });
+  }
+}
+
+const fakeRateLimitBindings = (
+  overrides: Partial<RateLimitBindings> = {}
+): RateLimitBindings => ({
+  API_PER_IP: overrides.API_PER_IP ?? new FakeRateLimitBinding(),
+  EXECUTE_GLOBAL: overrides.EXECUTE_GLOBAL ?? new FakeRateLimitBinding(),
+  EXECUTE_PER_IP: overrides.EXECUTE_PER_IP ?? new FakeRateLimitBinding(),
+  INTEREST_PER_IP: overrides.INTEREST_PER_IP ?? new FakeRateLimitBinding(),
+});
+
+const sha256 = (text: string) =>
+  Effect.promise(
+    // oxlint-disable-next-line typescript/promise-function-async -- Web Crypto owns the Promise at this test boundary.
+    () => crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))
+  ).pipe(
+    Effect.map((bytes) =>
+      Array.from(new Uint8Array(bytes), (byte) =>
+        byte.toString(16).padStart(2, "0")
+      ).join("")
+    )
+  );
+
+const metadata = {
+  "io.modelcontextprotocol/clientCapabilities": {},
+  "io.modelcontextprotocol/clientInfo": {
+    name: "MischiefTest",
+    version: "0.2.0",
+  },
+  "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+} as const;
+
+const postMcp = Effect.fnUntraced(function* postMcpRequest(
+  handler: WebHandler,
+  id: string,
+  method: string,
+  params: Readonly<Record<string, Schema.Json>> = {},
+  name?: string
+) {
+  const headers = new Headers({
+    "MCP-Protocol-Version": "2026-07-28",
+    "Mcp-Method": method,
+    accept: "application/json, text/event-stream",
+    "content-type": "application/json",
+  });
+
+  if (name !== undefined) {
+    headers.set("Mcp-Name", name);
+  }
+
+  const request = new Request("http://localhost/mcp", {
+    body: JSON.stringify({
+      id,
+      jsonrpc: "2.0",
+      method,
+      params: { ...params, _meta: metadata },
+    }),
+    headers,
+    method: "POST",
+  });
+
+  return yield* Effect.promise(handler.bind(undefined, request));
+});
+
+const decodeJson = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Json)
+);
+
+const readJson = Effect.fnUntraced(function* readJsonResponse(
+  response: Response
+) {
+  const body = yield* Effect.promise(response.text.bind(response));
+
+  return yield* decodeJson(body);
+});
+
+const postJson = Effect.fnUntraced(function* postJsonRequest(
+  handler: WebHandler,
+  path: string,
+  body: Schema.Json
+) {
+  return yield* Effect.promise(
+    handler.bind(
+      undefined,
+      new Request(`http://localhost${path}`, {
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      })
+    )
+  );
+});
+
+const withHandler = <A, E, R>(
+  use: (handler: WebHandler) => Effect.Effect<A, E, R>,
+  rateLimits: RateLimitBindings = fakeRateLimitBindings(),
+  staticCache?: StaticResponseCache
+) =>
+  Effect.acquireUseRelease(
+    Effect.sync(() =>
+      HttpRouter.toWebHandler(
+        mischiefRoutes({
+          rateLimits: rateLimitsFrom(rateLimits),
+          staticCache,
+        }).pipe(Layer.provide(TestSandbox)),
+        { disableLogger: true }
+      )
+    ),
+    ({ handler }) => use(handler),
+    ({ dispose }) => Effect.promise(dispose)
+  );
+
+const ErrorResponse = Schema.Struct({
+  error: Schema.Struct({
+    code: Schema.Finite,
+    message: Schema.String,
+  }),
+  id: Schema.String,
+});
+
+const DiscoverResponse = Schema.Struct({
+  id: Schema.String,
+  result: Schema.Struct({
+    instructions: Schema.optional(Schema.String),
+    supportedVersions: Schema.Array(Schema.String),
+  }),
+});
+
+const NamedListResponse = Schema.Struct({
+  result: Schema.Struct({
+    prompts: Schema.optional(
+      Schema.Array(Schema.Struct({ name: Schema.String }))
+    ),
+    resources: Schema.optional(
+      Schema.Array(Schema.Struct({ name: Schema.String, uri: Schema.String }))
+    ),
+    tools: Schema.optional(
+      Schema.Array(
+        Schema.Struct({
+          description: Schema.optional(Schema.String),
+          name: Schema.String,
+        })
+      )
+    ),
+  }),
+});
+
+const ToolCallResponse = Schema.Struct({
+  result: Schema.Struct({
+    isError: Schema.optional(Schema.Boolean),
+    structuredContent: Schema.Unknown,
+  }),
+});
+
+const ToolErrorResponse = Schema.Struct({
+  result: Schema.Struct({
+    content: Schema.Array(
+      Schema.Struct({ text: Schema.String, type: Schema.Literal("text") })
+    ),
+    isError: Schema.Literal(true),
+  }),
+});
+
+const ReadResourceResponse = Schema.Struct({
+  id: Schema.String,
+  result: Schema.Struct({
+    contents: Schema.Array(
+      Schema.Struct({
+        text: Schema.String,
+        uri: Schema.String,
+      })
+    ),
+  }),
+});
+
+const A2aCard = Schema.Struct({
+  name: Schema.String,
+  skills: Schema.Array(
+    Schema.Struct({
+      description: Schema.String,
+      id: Schema.String,
+      name: Schema.String,
+    })
+  ),
+  supportedInterfaces: Schema.Array(
+    Schema.Struct({
+      protocolBinding: Schema.String,
+      protocolVersion: Schema.String,
+      url: Schema.String,
+    })
+  ),
+  version: Schema.String,
+});
+
+const A2aResponse = Schema.Struct({
+  id: Schema.String,
+  jsonrpc: Schema.Literal("2.0"),
+  result: Schema.Struct({
+    kind: Schema.Literal("message"),
+    parts: Schema.Array(
+      Schema.Struct({ kind: Schema.Literal("text"), text: Schema.String })
+    ),
+    role: Schema.Literal("agent"),
+  }),
+});
+
+const ArdManifest = Schema.Struct({
+  entries: Schema.Array(
+    Schema.Struct({
+      displayName: Schema.String,
+      identifier: Schema.String,
+      representativeQueries: Schema.Array(Schema.String),
+      type: Schema.String,
+      url: Schema.String,
+    })
+  ),
+  host: Schema.Struct({
+    displayName: Schema.String,
+    identifier: Schema.String,
+  }),
+  specVersion: Schema.String,
+});
+
+const WebBotKeyDirectory = Schema.Struct({
+  keys: Schema.Array(
+    Schema.Struct({
+      alg: Schema.String,
+      crv: Schema.String,
+      kid: Schema.String,
+      kty: Schema.String,
+      use: Schema.String,
+      x: Schema.String,
+    })
+  ),
+});
+
+const makeTestPrivateJwk = Effect.promise(
+  // oxlint-disable-next-line typescript/promise-function-async -- Web Crypto owns the Promise at this test boundary.
+  () => crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"])
+).pipe(
+  Effect.flatMap((keyPair) => {
+    if (!("privateKey" in keyPair)) {
+      return Effect.die("Ed25519 key generation did not return a pair");
+    }
+
+    return Effect.promise(
+      // oxlint-disable-next-line typescript/promise-function-async -- Web Crypto owns the Promise at this test boundary.
+      () => crypto.subtle.exportKey("jwk", keyPair.privateKey)
+    );
+  }),
+  Effect.map(JSON.stringify)
+);
+
+it.effect(
+  "serves the catalogue as Markdown and keeps the generated reader documents complete",
+  () =>
+    withHandler((handler) =>
+      Effect.gen(function* testCatalogue() {
+        const markdownResponse = yield* Effect.promise(
+          handler.bind(undefined, new Request("http://localhost/"))
+        );
+
+        const resource = lawResources.find(
+          (candidate) =>
+            candidate.routePath === "/resources/effect-4-reference-projects"
+        );
+
+        if (resource === undefined) {
+          throw new Error("Missing Effect 4 reference resource");
+        }
+
+        const resourceMarkdownResponse = yield* Effect.promise(
+          handler.bind(
+            undefined,
+            new Request(`http://localhost${resource.routePath}`)
+          )
+        );
+
+        const markdown = yield* Effect.promise(
+          markdownResponse.text.bind(markdownResponse)
+        );
+
+        const html = generatedReaderPage("/");
+
+        const skillsHtml = generatedReaderPage("/skills");
+
+        const skillHtml = generatedReaderPage("/skills/learn-rat-stack");
+
+        const resourceMarkdown = yield* Effect.promise(
+          resourceMarkdownResponse.text.bind(resourceMarkdownResponse)
+        );
+
+        const resourceHtml = generatedReaderPage(resource.routePath);
+
+        const agentsHtml = generatedReaderPage("/AGENTS.md");
+
+        const logResponse = yield* Effect.promise(
+          handler.bind(undefined, new Request("http://localhost/log.md"))
+        );
+
+        const logMarkdown = yield* Effect.promise(
+          logResponse.text.bind(logResponse)
+        );
+
+        expect(markdownResponse.status).toBe(200);
+        expect(markdownResponse.headers.get("content-type")).toContain(
+          "text/markdown"
+        );
+        expect(markdownResponse.headers.get("link")).toBe(linkHeader);
+        expect(markdown).toBe(markdownDocument("https://ratstack.sh"));
+        expect(markdown).toContain("an app and its cloud as one typed program");
+        expect(markdown).toContain("## Four ideas");
+        expect(markdown.indexOf("## Connect an agent")).toBeLessThan(
+          markdown.indexOf("## Four ideas")
+        );
+        expect(markdown).toContain(
+          "Read https://ratstack.sh/llms.txt and use rat-stack as the reference\n"
+        );
+        expect(markdown).toContain(
+          "claude mcp add --transport http rat-stack https://ratstack.sh/mcp"
+        );
+        expect(markdown).toContain("│  defineContract");
+        expect(markdown).toContain("/.well-known/agent-skills/index.json");
+        expect(markdown).toContain("## Source files");
+        expect(markdown).toContain(
+          "[Agent rules for rat-stack (AGENTS.md)](/AGENTS.md)"
+        );
+        expect(markdown).toContain(
+          "[Purpose and boundaries of rat-stack (VISION.md)](/VISION.md)"
+        );
+        expect(markdown).toContain("## Connect an agent");
+        expect(html).toContain(
+          "<title>Rat Stack: an app and its cloud as one typed program</title>"
+        );
+        expect(html).toContain('<h1 id="rat-stack">Rat Stack</h1>');
+        expect(html.match(/🐀/gu)).toHaveLength(1);
+        expect(html.match(/<h1\b/gu)).toHaveLength(1);
+        expect(html).toContain("<strong>🐀 Rat Stack</strong>");
+        expect(skillHtml).toContain("<strong>🐀 Rat Stack</strong>");
+        expect(skillHtml.match(/<h1\b/gu)).toHaveLength(1);
+        expect(html).toContain("<pre><code>");
+        expect(skillHtml).toContain('<pre class="shiki catppuccin-latte"');
+        expect(skillHtml).not.toContain('<link rel="stylesheet"');
+        expect(html).toContain("│  defineContract");
+        expect(html).toContain('class="copy-label">Copy prompt</span>');
+        expect(markdown).not.toContain("Copy prompt");
+        expect(markdown).not.toContain("<button");
+        expect(markdown).not.toContain("<CopyPrompt");
+        expect(html).not.toContain("prefers-color-scheme");
+        expect(html).not.toMatch(/(?:html|body)\s*\{[^}]*background/u);
+        expect(html).toContain(
+          '<link rel="icon" href="/favicon.ico" sizes="48x48"'
+        );
+        expect(html).toContain('href="/apple-touch-icon.png"');
+        expect(html).toMatch(/<style(?: id="[^"]+")?>/u);
+        expect(html).toMatch(/max-width:\s*80ch/u);
+        expect(html).toContain("ui-monospace");
+        expect(html).toMatch(/pre\s*\{[^}]*overflow-x:\s*auto;/u);
+        expect(html).toMatch(/figure pre[^{]*\{[^}]*font-size:\s*clamp\(/u);
+        expect(html).toMatch(/\.table-wrapper\s*\{[^}]*overflow-x:\s*auto;/u);
+        expect(html).not.toContain('rel="stylesheet"');
+        expect(html).not.toContain("<img");
+        expect(html).toMatch(
+          /<meta property="og:image" content="https:\/\/ratstack\.sh\/og\/[\w./-]+\.png\?v=[0-9a-f]+"/u
+        );
+        expect(html).toContain(
+          '<meta property="og:site_name" content="ratstack.sh"'
+        );
+        expect(html).toContain(
+          '<meta name="twitter:card" content="summary_large_image"'
+        );
+        expect(skillsHtml).toContain('<h1 id="learn-the-stack">');
+        expect(skillsHtml).toContain(
+          "working app to teach the pieces inside it"
+        );
+        expect(skillHtml).toContain('<nav aria-label="Breadcrumb"');
+        expect(skillHtml).toContain('<h1 id="learn-the-stack">');
+        expect(skillHtml).toContain("Trace one action");
+        expect(skillHtml).not.toContain("description:");
+        expect(skillHtml).toContain(
+          '<a href="https://github.com/joelhooks/rat-stack/blob/5c0f78e03d69ff9ea00f6b95d02cc36a3de91a0b/packages/core/src/inspect-file.ts#L7-L11">packages/core/src/inspect-file.ts · 5c0f78e0</a>'
+        );
+        expect(skillHtml).toContain(
+          '<a href="https://github.com/joelhooks/rat-stack/blob/5c0f78e03d69ff9ea00f6b95d02cc36a3de91a0b/apps/cli/src/surfaces.ts#L21-L32">apps/cli/src/surfaces.ts · 5c0f78e0</a>'
+        );
+        expect(skillHtml).toContain(
+          '<a href="/AGENTS.md"><code>AGENTS.md</code></a>'
+        );
+        expect(skillHtml).toContain(
+          '<a href="/skills/add-a-capability"><code>add-a-capability</code></a>'
+        );
+        expect(skillHtml).toContain(
+          "<code>node_modules/effect/AGENTS.md</code>"
+        );
+        expect(skillHtml).not.toContain(
+          'href="https://github.com/joelhooks/rat-stack/blob/main/node_modules'
+        );
+        expect(skillHtml).toContain(
+          '<a href="https://effect.website">Effect</a>'
+        );
+        expect(skillHtml).toContain(
+          '<a href="https://stately.ai/docs/xstate">XState</a>'
+        );
+        expect(skillHtml).toContain(
+          '<a href="https://github.com/microsoft/typescript-go">TypeScript 7</a>'
+        );
+        expect(skillHtml).toContain(
+          '<a href="https://alchemy.run">Alchemy</a>'
+        );
+        expect(skillHtml).toContain(
+          '<a href="https://lefthook.dev">lefthook</a>'
+        );
+        expect(skillHtml.split('href="https://effect.website"')).toHaveLength(
+          2
+        );
+        expect(skillHtml).not.toMatch(
+          /<h[1-6][^>]*>[^<]*<a href="https:\/\/(?:effect\.website|stately\.ai)/u
+        );
+        expect(skillHtml).not.toMatch(
+          /<code>[^<]*<a href="https:\/\/effect\.website"/u
+        );
+        expect(agentsHtml).toContain('id="linked-from"');
+        expect(agentsHtml).toContain(
+          '<a href="https://github.com/joelhooks/rat-stack/blob/main/AGENTS.md">Source on GitHub</a>'
+        );
+        expect(agentsHtml).toMatch(
+          /Last changed \d{4}-\d{2}-\d{2} in <a href="https:\/\/github\.com\/joelhooks\/rat-stack\/commit\/[0-9a-f]{40}">[0-9a-f]{7,}<\/a>/u
+        );
+        expect(agentsHtml).toContain(
+          '<a href="/skills/learn-rat-stack">learn-rat-stack</a>'
+        );
+        expect(agentsHtml).not.toContain(
+          '<a href="/AGENTS.md"><code>AGENTS.md</code></a>'
+        );
+        expect(logResponse.status).toBe(200);
+        expect(logResponse.headers.get("content-type")).toContain(
+          "text/markdown"
+        );
+        expect(logMarkdown.startsWith("# Change log\n")).toBe(true);
+        expect(resourceMarkdownResponse.headers.get("content-type")).toContain(
+          "text/markdown"
+        );
+        expect(resourceMarkdown).toBe(resource.text);
+        expect(resourceHtml).toContain(
+          `<title>${resource.title} | rat-stack</title>`
+        );
+        expect(resourceHtml).toContain(
+          '<h1 id="effect-4-reference-projects-studied-2026-09-18">'
+        );
+        expect(resourceHtml).toMatch(/<table\b[^>]*>/u);
+        expect(resourceHtml).not.toContain("<script");
+
+        const favicon = yield* Effect.promise(
+          handler.bind(undefined, new Request("http://localhost/favicon.svg"))
+        );
+
+        const faviconBody = yield* Effect.promise(favicon.text.bind(favicon));
+        expect(favicon.status).toBe(200);
+        expect(favicon.headers.get("content-type")).toContain("image/svg+xml");
+        expect(faviconBody).toMatch(/^<svg /u);
+        expect(faviconBody).not.toContain("<!--");
+
+        for (const [iconPath, contentType] of [
+          ["/favicon.ico", "image/x-icon"],
+          ["/apple-touch-icon.png", "image/png"],
+        ] as const) {
+          const icon = yield* Effect.promise(
+            handler.bind(undefined, new Request(`http://localhost${iconPath}`))
+          );
+
+          expect(icon.status, iconPath).toBe(200);
+          expect(icon.headers.get("content-type"), iconPath).toBe(contentType);
+        }
+
+        for (const route of [
+          "/",
+          "/skills",
+          "/skills/learn-rat-stack",
+          "/AGENTS.md",
+          "/log.md",
+        ]) {
+          const imagePath = `/og${route === "/" ? "/home" : route}.png`;
+
+          const image = yield* Effect.promise(
+            handler.bind(undefined, new Request(`http://localhost${imagePath}`))
+          );
+
+          const bytes = new Uint8Array(
+            yield* Effect.promise(image.arrayBuffer.bind(image))
+          );
+
+          expect(image.status).toBe(200);
+          expect(image.headers.get("content-type")).toBe("image/png");
+          expect(bytes.subarray(0, 8)).toEqual(
+            new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
+          );
+          const view = new DataView(bytes.buffer);
+          expect(view.getUint32(16)).toBe(1200);
+          expect(view.getUint32(20)).toBe(630);
+        }
+      })
+    )
+);
+
+it.effect(
+  "publishes lore to agent surfaces and the generated reader document",
+  () =>
+    withHandler((handler) =>
+      Effect.gen(function* testLoreSurfaces() {
+        const page = loreResources.find(
+          (resource) => resource.name === "one-capability-every-surface"
+        );
+
+        if (page === undefined) {
+          throw new Error("Missing capability lore page");
+        }
+
+        const loreSource = loreSources.find(
+          (source) => source.slug === page.name
+        );
+
+        const [source] = loreSource?.sources ?? [];
+
+        if (source === undefined) {
+          throw new Error("Capability lore page has no public source");
+        }
+
+        const loreIndexMarkdown = yield* responseText(
+          handler,
+          new Request("http://localhost/lore")
+        );
+
+        const loreIndexHtml = loreIndexDocumentHtml;
+
+        const pageMarkdown = yield* responseText(
+          handler,
+          new Request(`http://localhost${page.routePath}`)
+        );
+
+        const pageHtml = loreSource?.documentHtml ?? "";
+
+        const llms = yield* responseText(
+          handler,
+          new Request("http://localhost/llms.txt")
+        );
+
+        const llmsFull = yield* responseText(
+          handler,
+          new Request("http://localhost/llms-full.txt")
+        );
+
+        const sitemap = yield* responseText(
+          handler,
+          new Request("http://localhost/sitemap.xml")
+        );
+
+        expect(loreIndexMarkdown).toContain(
+          `[${page.title}](${page.routePath})`
+        );
+        expect(loreIndexHtml).toContain('<a href="/lore">lore</a>');
+        expect(loreIndexHtml).toContain("Rat Stack lore | rat-stack");
+        expect(pageMarkdown).toBe(page.text);
+        expect(pageHtml).toContain(`<title>${page.title} | rat-stack</title>`);
+        expect(pageHtml).toContain('<h2 id="sources">Sources</h2><ol>');
+        expect(pageHtml).toContain(`<a href="${source}">`);
+        expect(pageHtml).not.toContain(`>${source}</a>`);
+        expect(pageHtml).toContain("Accessed 2026-10-01.");
+        expect(pageHtml).toContain(
+          '<li><a href="/lore/an-mcp-your-users-want">An MCP your users want</a>'
+        );
+        expect(llms).toContain("## Lore");
+        expect(llms).toContain(`[${page.title}](${page.routePath})`);
+        expect(llmsFull).toContain(page.bodyMarkdown);
+        expect(sitemap).toContain(`https://ratstack.sh${page.routePath}`);
+
+        const searchResponse = yield* postMcp(
+          handler,
+          "search-lore",
+          "tools/call",
+          {
+            arguments: { limit: 20, query: "one capability every surface" },
+            name: "search",
+          },
+          "search"
+        );
+
+        const searchResult = yield* Schema.decodeUnknownEffect(SearchOutput)(
+          (yield* Schema.decodeUnknownEffect(ToolCallResponse)(
+            yield* readJson(searchResponse)
+          )).result.structuredContent
+        );
+
+        const match = searchResult.matches.find(
+          (entry) => entry.id === page.id
+        );
+
+        expect(match).toMatchObject({ id: page.id, kind: "lore" });
+
+        const readResponse = yield* postMcp(
+          handler,
+          "read-lore",
+          "tools/call",
+          { arguments: { id: page.id }, name: "read" },
+          "read"
+        );
+
+        const readResult = yield* Schema.decodeUnknownEffect(ReadOutput)(
+          (yield* Schema.decodeUnknownEffect(ToolCallResponse)(
+            yield* readJson(readResponse)
+          )).result.structuredContent
+        );
+
+        expect(readResult).toMatchObject({
+          id: page.id,
+          kind: "lore",
+          text: page.text,
+        });
+
+        const resourcesResponse = yield* postMcp(
+          handler,
+          "list-lore-resources",
+          "resources/list"
+        );
+
+        const resources = yield* Schema.decodeUnknownEffect(NamedListResponse)(
+          yield* readJson(resourcesResponse)
+        );
+
+        expect(
+          resources.result.resources?.map((resource) => resource.name)
+        ).toContain(page.name);
+      })
+    )
+);
+
+it.effect(
+  "serves the debt ledger to agents and the generated reader document",
+  () =>
+    withHandler((handler) =>
+      Effect.gen(function* testDebtLedgerPage() {
+        const debt = lawResources.find(
+          (resource) => resource.routePath === "/debt.md"
+        );
+
+        if (debt === undefined) {
+          throw new Error("Missing debt ledger resource");
+        }
+
+        const markdownResponse = yield* Effect.promise(
+          handler.bind(undefined, new Request("http://localhost/debt.md"))
+        );
+
+        const markdown = yield* Effect.promise(
+          markdownResponse.text.bind(markdownResponse)
+        );
+
+        const page =
+          lawSources.find((source) => source.routePath === "/debt.md")
+            ?.documentHtml ?? "";
+
+        const fullText = yield* responseText(
+          handler,
+          new Request("http://localhost/llms-full.txt")
+        );
+
+        const imageResponse = yield* Effect.promise(
+          handler.bind(
+            undefined,
+            new Request(`http://localhost${ogImagePath(debt.routePath)}`)
+          )
+        );
+
+        const searchResponse = yield* postMcp(
+          handler,
+          "search-debt-ledger",
+          "tools/call",
+          {
+            arguments: { limit: 10, query: "Debt only shrinks" },
+            name: "search",
+          },
+          "search"
+        );
+
+        const searchResult = yield* Schema.decodeUnknownEffect(SearchOutput)(
+          (yield* Schema.decodeUnknownEffect(ToolCallResponse)(
+            yield* readJson(searchResponse)
+          )).result.structuredContent
+        );
+
+        const match = searchResult.matches.find(
+          (entry) => entry.id === debt.id
+        );
+
+        const readResponse = yield* postMcp(
+          handler,
+          "read-debt-ledger",
+          "tools/call",
+          { arguments: { id: debt.id }, name: "read" },
+          "read"
+        );
+
+        const readResult = yield* Schema.decodeUnknownEffect(ReadOutput)(
+          (yield* Schema.decodeUnknownEffect(ToolCallResponse)(
+            yield* readJson(readResponse)
+          )).result.structuredContent
+        );
+
+        expect(markdownResponse.status).toBe(200);
+        expect(markdownResponse.headers.get("content-type")).toContain(
+          "text/markdown"
+        );
+        expect(markdown).toContain('> "Debt only shrinks."');
+        expect(markdown).toContain("Total: **");
+        expect(markdown).toContain("no reason given");
+        expect(markdown).toContain("tools/oxlint/anti-slop/");
+        expect(page).toMatch(/<table\b[^>]*>/u);
+        expect(fullText).toContain(`# ${debt.routePath}`);
+        expect(llmsText("https://ratstack.sh")).toContain(
+          `[Lint and type escape ledger (debt.md)](${debt.routePath})`
+        );
+        expect(publicPaths).toContain(debt.routePath);
+        expect(imageResponse.status).toBe(200);
+        expect(imageResponse.headers.get("content-type")).toBe("image/png");
+        expect(match).toMatchObject({ id: debt.id, kind: "law" });
+        expect(readResult).toMatchObject({
+          id: debt.id,
+          kind: "law",
+          text: debt.text,
+        });
+      })
+    )
+);
+
+it.effect("sets security headers on every response", () =>
+  withHandler((handler) =>
+    Effect.gen(function* testSecurityHeaders() {
+      const htmlResponse = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request("http://localhost/not-found", {
+            headers: { accept: "text/html" },
+          })
+        )
+      );
+
+      const markdownResponse = yield* Effect.promise(
+        handler.bind(undefined, new Request("http://localhost/"))
+      );
+
+      const openapiResponse = yield* Effect.promise(
+        handler.bind(undefined, new Request("http://localhost/openapi.json"))
+      );
+
+      const notFoundResponse = yield* Effect.promise(
+        handler.bind(undefined, new Request("http://localhost/not-found"))
+      );
+
+      expect(htmlResponse.status).toBe(404);
+      expectSecurityHeaders(htmlResponse, true);
+      expectSecurityHeaders(markdownResponse, false);
+      expectSecurityHeaders(openapiResponse, false);
+      expectSecurityHeaders(notFoundResponse, false);
+      expect(notFoundResponse.status).toBe(404);
+
+      const openapi: unknown = yield* Effect.promise(
+        openapiResponse.json.bind(openapiResponse)
+      );
+
+      const executeResponses = (yield* Schema.decodeUnknownEffect(
+        Schema.Struct({
+          paths: Schema.Record(
+            Schema.String,
+            Schema.Struct({
+              post: Schema.Struct({
+                responses: Schema.Record(Schema.String, Schema.Unknown),
+              }),
+            })
+          ),
+        })
+      )(openapi)).paths["/api/execute"]?.post.responses;
+
+      expect(Object.keys(executeResponses ?? {})).toContain("429");
+
+      const imageResponse = yield* Effect.promise(
+        handler.bind(undefined, new Request("http://localhost/og/home.png"))
+      );
+
+      expect(imageResponse.headers.get("cross-origin-resource-policy")).toBe(
+        "cross-origin"
+      );
+      expect(imageResponse.headers.get("x-content-type-options")).toBe(
+        "nosniff"
+      );
+      expect(htmlResponse.headers.get("cross-origin-resource-policy")).toBe(
+        "same-origin"
+      );
+
+      const headHome = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request("http://localhost/", { method: "HEAD" })
+        )
+      );
+
+      const headImage = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request("http://localhost/og/home.png", { method: "HEAD" })
+        )
+      );
+
+      const headMissing = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request("http://localhost/nope", { method: "HEAD" })
+        )
+      );
+
+      expect(headHome.status).toBe(200);
+      expect(headHome.headers.get("content-type")).toContain("text/markdown");
+      expect(headImage.status).toBe(200);
+      expect(headImage.headers.get("content-type")).toBe("image/png");
+      expect(headMissing.status).toBe(404);
+    })
+  )
+);
+
+it.effect("serves no-verify trap aliases as 403 Markdown and HTML", () =>
+  withHandler((handler) =>
+    Effect.gen(function* testNoVerifyTrap() {
+      const markdownResponse = yield* Effect.promise(
+        handler.bind(undefined, new Request("http://localhost/no-verify"))
+      );
+
+      const markdown = yield* Effect.promise(
+        markdownResponse.text.bind(markdownResponse)
+      );
+
+      const htmlResponse = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request("http://localhost/--no-verify", {
+            headers: { accept: "text/html" },
+          })
+        )
+      );
+
+      const page = yield* Effect.promise(htmlResponse.text.bind(htmlResponse));
+
+      expect(markdownResponse.status).toBe(403);
+      expect(markdownResponse.headers.get("content-type")).toContain(
+        "text/markdown"
+      );
+      expect(markdown).toContain("The rat looks disappointed.");
+      expect(markdown).toContain("/lore/the-fence");
+      expect(markdown).toContain(
+        "https://github.com/joelhooks/rat-stack/blob/main/scripts/vcs-command-policy.js"
+      );
+      expect(htmlResponse.status).toBe(403);
+      expect(htmlResponse.headers.get("content-type")).toContain("text/html");
+      expect(page).toContain('<a href="/lore/the-fence">the fence</a>');
+      expect(page).toContain("scripts/vcs-command-policy.js");
+      expect(page).not.toContain("<script");
+      expectSecurityHeaders(markdownResponse, false);
+      expectSecurityHeaders(htmlResponse, true);
+    })
+  )
+);
+
+it.effect(
+  "searches from unknown content paths but preserves machine 404s",
+  () =>
+    withHandler((handler) =>
+      Effect.gen(function* testSearchableNotFound() {
+        const markdownResponse = yield* Effect.promise(
+          handler.bind(
+            undefined,
+            new Request("http://localhost/add-a-lifecycle-machine.md")
+          )
+        );
+
+        const markdown = yield* Effect.promise(
+          markdownResponse.text.bind(markdownResponse)
+        );
+
+        const htmlResponse = yield* Effect.promise(
+          handler.bind(
+            undefined,
+            new Request("http://localhost/add-a-lifecycle-machine.md", {
+              headers: { accept: "text/html" },
+            })
+          )
+        );
+
+        const page = yield* Effect.promise(
+          htmlResponse.text.bind(htmlResponse)
+        );
+
+        const machineResponses: Response[] = [];
+
+        for (const path of [
+          "/api/no-such-capability",
+          "/mcp/no-such-method",
+          "/openapi.json/no-such-document",
+          "/.well-known/no-such-card",
+        ]) {
+          machineResponses.push(
+            yield* Effect.promise(
+              handler.bind(undefined, new Request(`http://localhost${path}`))
+            )
+          );
+        }
+
+        expect(markdownResponse.status).toBe(404);
+        expect(markdownResponse.headers.get("content-type")).toContain(
+          "text/markdown"
+        );
+        expect(markdown.startsWith("# 404 Not found")).toBe(true);
+        expect(markdown).toContain("That bin got pulled out.");
+        expect(markdown).toContain("/add-a-lifecycle-machine.md");
+        expect(markdown).toContain("/skills/add-a-lifecycle-machine");
+        expect(page).toContain("<header>");
+        expect(page).toContain("<footer>");
+        expect(page).toContain('class="error-code">404</span>');
+        expect(page).not.toContain('class="house-ad"');
+        expect(page).not.toContain("<ol></ol>");
+        expect(htmlResponse.status).toBe(404);
+        expect(htmlResponse.headers.get("content-type")).toContain("text/html");
+        expect(page).toContain("That bin got pulled out.");
+        expect(page).toContain('href="/skills/add-a-lifecycle-machine"');
+        expect(page).toContain('href="/llms.txt"');
+        expect(page).not.toContain("<script");
+
+        for (const response of machineResponses) {
+          expect(response.status).toBe(404);
+          expect(response.headers.get("content-type")).toContain("text/plain");
+          expectSecurityHeaders(response, false);
+          expect(yield* Effect.promise(response.text.bind(response))).toBe(
+            "Not found.\n"
+          );
+        }
+
+        expectSecurityHeaders(markdownResponse, false);
+        expectSecurityHeaders(htmlResponse, true);
+      })
+    )
+);
+
+it.effect(
+  "keeps asset representations and validators out of the generic discovery cache",
+  () => {
+    const cache = makeFakeStaticResponseCache();
+
+    return withHandler(
+      (handler) =>
+        Effect.gen(function* testStaticCache() {
+          const markdownResponse = yield* Effect.promise(
+            handler.bind(undefined, new Request("http://localhost/"))
+          );
+
+          const cachedMarkdown = yield* Effect.promise(
+            handler.bind(undefined, new Request("http://localhost/"))
+          );
+
+          const markdownBody = yield* Effect.promise(
+            markdownResponse.text.bind(markdownResponse)
+          );
+
+          const cachedMarkdownBody = yield* Effect.promise(
+            cachedMarkdown.text.bind(cachedMarkdown)
+          );
+
+          const etag = markdownResponse.headers.get("etag");
+
+          const revalidated = yield* Effect.promise(
+            handler.bind(
+              undefined,
+              new Request("http://localhost/", {
+                headers: { "if-none-match": etag ?? "missing" },
+              })
+            )
+          );
+
+          const mcp = yield* Effect.promise(
+            handler.bind(undefined, new Request("http://localhost/mcp"))
+          );
+
+          const favicon = yield* Effect.promise(
+            handler.bind(undefined, new Request("http://localhost/favicon.svg"))
+          );
+
+          expect(cachedMarkdown.headers.get("x-ratstack-cache")).toBe("MISS");
+          expect(cachedMarkdownBody).toBe(markdownBody);
+          expect(markdownResponse.headers.get("cache-control")).toContain(
+            "s-maxage=31536000"
+          );
+          expect(markdownResponse.headers.get("vary")).toBe("Accept");
+          expect(etag).toMatch(/^W\//u);
+          expect(markdownResponse.headers.get("x-ratstack-cache")).toBe("MISS");
+          expect(revalidated.status).toBe(304);
+          expect(revalidated.headers.get("x-ratstack-cache")).toBe(
+            "REVALIDATED"
+          );
+          expectSecurityHeaders(revalidated, false);
+          expect(mcp.headers.get("x-ratstack-cache")).toBeNull();
+          expect(mcp.headers.get("x-fence")).toBe("electrified");
+          expect(favicon.headers.get("x-ratstack-cache")).toBe("MISS");
+          expect(favicon.headers.get("x-fence")).toBe("electrified");
+          expect(favicon.headers.get("cache-control")).toContain(
+            "s-maxage=31536000"
+          );
+          expect(cache.matchKeys).toHaveLength(0);
+          expect(cache.putKeys).toHaveLength(0);
+
+          const discovery = yield* Effect.promise(
+            handler.bind(
+              undefined,
+              new Request("http://localhost/openapi.json")
+            )
+          );
+
+          const cachedDiscovery = yield* Effect.promise(
+            handler.bind(
+              undefined,
+              new Request("http://localhost/openapi.json")
+            )
+          );
+
+          expect(discovery.headers.get("x-ratstack-cache")).toBe("MISS");
+          expect(cachedDiscovery.headers.get("x-ratstack-cache")).toBe("HIT");
+          expect(cache.matchKeys).toHaveLength(2);
+          expect(cache.putKeys).toHaveLength(1);
+          expect(cache.matchKeys[0]).toContain("__ratstack_content=");
+          expect(cache.matchKeys[0]).toContain(
+            "__ratstack_representation=default"
+          );
+          expect(cache.matchKeys[1]).toBe(cache.matchKeys[0]);
+          expect(cache.putKeys[0]).toBe(cache.matchKeys[0]);
+        }),
+      fakeRateLimitBindings(),
+      cache
+    );
+  }
+);
+
+it.effect(
+  "serves the glossary Markdown and points agents at it from the generated reader document",
+  () =>
+    withHandler((handler) =>
+      Effect.gen(function* glossaryDiscovery() {
+        const plain = yield* Effect.promise(
+          handler.bind(undefined, new Request("http://localhost/glossary"))
+        );
+
+        const markdown = yield* Effect.promise(plain.text.bind(plain));
+        const html = glossaryIndexDocumentHtml;
+
+        expect(plain.status).toBe(200);
+        expect(plain.headers.get("content-type")).toContain("text/markdown");
+        expect(markdown).toContain("[port](/lore/hexagonal-architecture) →");
+        expect(markdown).toContain(
+          "> For agents: start with the [agent guide](https://ratstack.sh/llms.txt)."
+        );
+        expect(html).toContain(
+          '<link rel="alternate" type="text/markdown" href="/glossary"'
+        );
+        expect(plain.headers.get("link")).toContain(
+          '</glossary>; rel="alternate"; type="text/markdown"'
+        );
+        expect(html.indexOf("For agents:")).toBeLessThan(
+          html.indexOf('<h1 id="glossary"')
+        );
+        expect(html).toContain(
+          '<p class="agent-pointer visually-hidden" aria-hidden="true">'
+        );
+        expect(html).toContain('<a href="/resources/peers">peers</a>');
+      })
+    )
+);
+
+it.effect("serves every public GET route and exact skill discovery bytes", () =>
+  withHandler((handler) =>
+    Effect.gen(function* testPublicRoutes() {
+      for (const path of publicPaths) {
+        const response = yield* Effect.promise(
+          handler.bind(undefined, new Request(`http://localhost${path}`))
+        );
+
+        expect(response.status, path).toBe(200);
+      }
+
+      for (const skill of skills) {
+        const friendly = yield* Effect.promise(
+          handler.bind(
+            undefined,
+            new Request(`http://localhost${skill.routePath}`)
+          )
+        );
+
+        const discovery = yield* Effect.promise(
+          handler.bind(
+            undefined,
+            new Request(`http://localhost${agentSkillPath(skill.name)}`)
+          )
+        );
+
+        const friendlyText = yield* Effect.promise(
+          friendly.text.bind(friendly)
+        );
+
+        const discoveryText = yield* Effect.promise(
+          discovery.text.bind(discovery)
+        );
+
+        const digest = yield* sha256(discoveryText);
+
+        expect(friendlyText).toBe(skill.text);
+        expect(discoveryText).toBe(skill.text);
+        expect(`sha256:${digest}`).toBe(`sha256:${skill.digest}`);
+      }
+    })
+  )
+);
+
+it.effect("serves agent indexes, cards, sitemap, and robots policy", () =>
+  withHandler((handler) =>
+    Effect.gen(function* testDiscoveryDocuments() {
+      const llms = yield* Effect.promise(
+        handler.bind(undefined, new Request("http://localhost/llms.txt"))
+      );
+
+      const robots = yield* Effect.promise(
+        handler.bind(undefined, new Request("http://localhost/robots.txt"))
+      );
+
+      const index = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request("http://localhost/.well-known/agent-skills/index.json")
+        )
+      );
+
+      const apiCatalog = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request("http://localhost/.well-known/api-catalog")
+        )
+      );
+
+      const mcpCard = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request("http://localhost/.well-known/mcp.json")
+        )
+      );
+
+      const openapi = yield* Effect.promise(
+        handler.bind(undefined, new Request("http://localhost/openapi.json"))
+      );
+
+      const llmsBody = yield* Effect.promise(llms.text.bind(llms));
+      expect(llmsBody).toBe(llmsText("https://ratstack.sh"));
+      expect(llmsBody).toContain("## Connect with MCP");
+      expect(llmsBody).toContain("Protocol 2026-07-28 is stateless");
+      expect(llmsBody).toContain("no `initialize` handshake");
+      expect(llmsBody).toContain("Mcp-Method: tools/list");
+      expect(llmsBody).toContain("params._meta");
+      expect(llmsBody).toContain("## Run code");
+      expect(llmsBody).toContain('"result":2');
+      expect(llmsBody).toContain(
+        "6 calls per IP and 300 total calls per 60 seconds"
+      );
+      expect(yield* Effect.promise(robots.text.bind(robots))).toBe(robotsText);
+      expect(robotsText).toContain(
+        "Content-Signal: ai-train=no, search=yes, ai-input=yes"
+      );
+      expect(index.headers.get("access-control-allow-origin")).toBe("*");
+      expect(index.headers.get("content-type")).toContain("application/json");
+      expect(apiCatalog.headers.get("content-type")).toContain(
+        "application/linkset+json"
+      );
+      expect(JSON.stringify(yield* readJson(mcpCard))).toContain(
+        "Mcp-Method: tools/list"
+      );
+
+      const openapiBody = yield* readJson(openapi);
+
+      const OpenApiDocument = Schema.Struct({
+        info: Schema.Struct({ title: Schema.String }),
+        paths: Schema.Record(Schema.String, Schema.Unknown),
+      });
+
+      const document =
+        yield* Schema.decodeUnknownEffect(OpenApiDocument)(openapiBody);
+
+      expect(document.info.title).toBe("ratstack.sh");
+      expect(JSON.stringify(openapiBody)).toContain('"lore"');
+      expect(Object.keys(document.paths).toSorted()).toEqual([
+        "/api/backlinks",
+        "/api/execute",
+        "/api/getPrompt",
+        "/api/joinInterest",
+        "/api/learnCard",
+        "/api/learnDeck",
+        "/api/learnNext",
+        "/api/learnRecord",
+        "/api/listCafeNews",
+        "/api/listCafeProjects",
+        "/api/listPrompts",
+        "/api/mentions",
+        "/api/neighbors",
+        "/api/path",
+        "/api/read",
+        "/api/search",
+      ]);
+    })
+  )
+);
+
+it.effect(
+  "serves real A2A discovery and answers through search plus read",
+  () =>
+    withHandler((handler) =>
+      Effect.gen(function* testA2a() {
+        const canonicalCard = yield* Effect.promise(
+          handler.bind(
+            undefined,
+            new Request("http://localhost/.well-known/agent-card.json")
+          )
+        );
+
+        const legacyCard = yield* Effect.promise(
+          handler.bind(
+            undefined,
+            new Request("http://localhost/.well-known/agent.json")
+          )
+        );
+
+        const canonicalBody = yield* readJson(canonicalCard);
+        const legacyBody = yield* readJson(legacyCard);
+        const card = yield* Schema.decodeUnknownEffect(A2aCard)(canonicalBody);
+
+        expect(canonicalCard.headers.get("content-type")).toContain(
+          "application/a2a+json"
+        );
+        expect(canonicalBody).toEqual(a2aAgentCard("https://ratstack.sh"));
+        expect(legacyBody).toEqual(canonicalBody);
+        expect(card.supportedInterfaces).toEqual([
+          {
+            protocolBinding: "JSONRPC",
+            protocolVersion: "1.0",
+            url: "https://ratstack.sh/a2a",
+          },
+        ]);
+        expect(card.skills.map((skill) => skill.id)).toEqual([
+          "answer-rat-stack-question",
+        ]);
+
+        const response = yield* postJson(handler, "/a2a", {
+          id: "question-1",
+          jsonrpc: "2.0",
+          method: "message/send",
+          params: {
+            message: {
+              kind: "message",
+              messageId: "message-1",
+              parts: [{ kind: "text", text: "How do I add a capability?" }],
+              role: "user",
+            },
+          },
+        });
+
+        const answered = yield* Schema.decodeUnknownEffect(A2aResponse)(
+          yield* readJson(response)
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get("content-type")).toContain(
+          "application/a2a+json"
+        );
+        expect(answered.id).toBe("question-1");
+        expect(answered.result.parts[0]?.text).toContain(
+          "Source-grounded rat-stack matches"
+        );
+        expect(answered.result.parts[0]?.text).toContain(
+          "Resource: ratstack://"
+        );
+        expect(answered.result.parts[0]?.text).toContain("Source:");
+      })
+    )
+);
+
+it.effect("serves the ARD manifest and honest anonymous auth.md", () =>
+  withHandler((handler) =>
+    Effect.gen(function* testArdAndAuth() {
+      const ard = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request("http://localhost/.well-known/ai-catalog.json")
+        )
+      );
+
+      const auth = yield* Effect.promise(
+        handler.bind(undefined, new Request("http://localhost/auth.md"))
+      );
+
+      const manifest = yield* Schema.decodeUnknownEffect(ArdManifest)(
+        yield* readJson(ard)
+      );
+
+      const authBody = yield* Effect.promise(auth.text.bind(auth));
+
+      expect(ard.status).toBe(200);
+      expect(ard.headers.get("content-type")).toContain("application/json");
+      expect(ard.headers.get("access-control-allow-origin")).toBe("*");
+      expect(manifest).toEqual(ardManifest("https://ratstack.sh"));
+      expect(manifest.entries).toHaveLength(2);
+      expect(
+        manifest.entries.every((entry) =>
+          entry.identifier.startsWith("urn:air:ratstack.sh:")
+        )
+      ).toBe(true);
+
+      expect(auth.status).toBe(200);
+      expect(auth.headers.get("content-type")).toContain("text/markdown");
+      expect(authBody).toBe(authMarkdown);
+      expect(authBody.split("\n", 1)[0]?.toLowerCase()).toContain("auth.md");
+      expect(authBody).toContain("does not use OAuth");
+    })
+  )
+);
+
+it.effect("keeps Web Bot Auth off unless a bound private key enables it", () =>
+  withHandler((handler) =>
+    Effect.gen(function* testWebBotAuthFlag() {
+      const disabled = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request(
+            "http://localhost/.well-known/http-message-signatures-directory"
+          )
+        )
+      );
+
+      expect(disabled.status).toBe(404);
+    })
+  ).pipe(
+    Effect.andThen(
+      Effect.gen(function* testEnabledWebBotAuth() {
+        const privateJwk = yield* makeTestPrivateJwk;
+
+        return yield* Effect.acquireUseRelease(
+          Effect.sync(() =>
+            HttpRouter.toWebHandler(
+              mischiefRoutes({
+                webBotAuth: { enabled: true, privateJwk },
+              }).pipe(Layer.provide(TestSandbox)),
+              { disableLogger: true }
+            )
+          ),
+          ({ handler }) => {
+            const webHandler: WebHandler = handler;
+
+            return Effect.gen(function* testPublishedKey() {
+              const response = yield* Effect.promise(
+                webHandler.bind(
+                  undefined,
+                  new Request(
+                    "http://localhost/.well-known/http-message-signatures-directory"
+                  )
+                )
+              );
+
+              const directory = yield* Schema.decodeUnknownEffect(
+                WebBotKeyDirectory
+              )(yield* readJson(response));
+
+              const [key] = directory.keys;
+
+              expect(response.status).toBe(200);
+              expect(key).toMatchObject({
+                alg: "EdDSA",
+                crv: "Ed25519",
+                kid: "ratstack-webbot-1",
+                kty: "OKP",
+                use: "sig",
+              });
+              expect(key?.x.length).toBeGreaterThan(10);
+              expect(JSON.stringify(directory)).not.toContain('"d"');
+            });
+          },
+          ({ dispose }) => Effect.promise(dispose)
+        );
+      })
+    )
+  )
+);
+
+it.effect(
+  "projects search, read, graph queries, and execute through HTTP",
+  () =>
+    withHandler((handler) =>
+      Effect.gen(function* testHttpCapabilities() {
+        const searched = yield* postJson(handler, "/api/search", {
+          limit: 1,
+          query: "capability",
+        });
+
+        const searchResult = yield* Schema.decodeUnknownEffect(SearchOutput)(
+          yield* readJson(searched)
+        );
+
+        const id = searchResult.matches[0]?.id ?? "";
+        expect(searched.status).toBe(200);
+        expect(id).not.toBe("");
+
+        const read = yield* postJson(handler, "/api/read", { id });
+
+        const readResult = yield* Schema.decodeUnknownEffect(ReadOutput)(
+          yield* readJson(read)
+        );
+
+        expect(readResult.text).toContain("capability");
+
+        const neighbors = yield* postJson(handler, "/api/neighbors", {
+          depth: 1,
+          slug: "cartridges",
+        });
+
+        const neighborsResult = yield* Schema.decodeUnknownEffect(
+          NeighborsOutput
+        )(yield* readJson(neighbors));
+
+        expect(neighbors.status).toBe(200);
+        expect(neighborsResult.neighbors.length).toBeGreaterThan(0);
+
+        const executed = yield* postJson(handler, "/api/execute", {
+          code: [
+            "const found = await tools.search({ query: 'capability', limit: 1 });",
+            "return await tools.read({ id: found.matches[0].id });",
+          ].join("\n"),
+        });
+
+        const executeResult = yield* Schema.decodeUnknownEffect(ExecuteResult)(
+          yield* readJson(executed)
+        );
+
+        expect(executeResult.logs).toEqual(["test: search then read"]);
+        expect(executeResult.result).toMatchObject({ id });
+      })
+    )
+);
+
+it.effect("returns 429 after API_PER_IP denies a client IP", () => {
+  const apiPerIp = new FakeRateLimitBinding([true, false]);
+  const bindings = fakeRateLimitBindings({ API_PER_IP: apiPerIp });
+
+  return withHandler(
+    (handler) =>
+      Effect.gen(function* testApiPerIpLimit() {
+        // oxlint-disable-next-line typescript/promise-function-async -- Fetch owns this Promise-returning test boundary.
+        const request = () =>
+          handler(
+            new Request("http://localhost/api/search", {
+              body: JSON.stringify({ limit: 1, query: "capability" }),
+              headers: {
+                "cf-connecting-ip": "192.0.2.10",
+                "content-type": "application/json",
+              },
+              method: "POST",
+            })
+          );
+
+        const allowed = yield* Effect.promise(request);
+        const denied = yield* Effect.promise(request);
+
+        expect(allowed.status).toBe(200);
+        expect(denied.status).toBe(429);
+        expectSecurityHeaders(denied, false);
+        expect(denied.headers.get("retry-after")).toBe("60");
+        expect(yield* Effect.promise(denied.text.bind(denied))).toContain(
+          "API_PER_IP rate limit exceeded; retry after 60 seconds"
+        );
+        expect(apiPerIp.keys).toEqual(["192.0.2.10", "192.0.2.10"]);
+      }),
+    bindings
+  );
+});
+
+it.effect("returns 429 before a second execute worker is created", () => {
+  const executePerIp = new FakeRateLimitBinding([true, false]);
+  const executeGlobal = new FakeRateLimitBinding();
+
+  const bindings = fakeRateLimitBindings({
+    EXECUTE_GLOBAL: executeGlobal,
+    EXECUTE_PER_IP: executePerIp,
+  });
+
+  return withHandler(
+    (handler) =>
+      Effect.gen(function* testExecutePerIpLimit() {
+        // oxlint-disable-next-line typescript/promise-function-async -- Fetch owns this Promise-returning test boundary.
+        const request = () =>
+          handler(
+            new Request("http://localhost/api/execute", {
+              body: JSON.stringify({
+                code: [
+                  "const found = await tools.search({ query: 'capability', limit: 1 });",
+                  "return await tools.read({ id: found.matches[0].id });",
+                ].join("\n"),
+              }),
+              headers: {
+                "cf-connecting-ip": "192.0.2.20",
+                "content-type": "application/json",
+              },
+              method: "POST",
+            })
+          );
+
+        const allowed = yield* Effect.promise(request);
+        const denied = yield* Effect.promise(request);
+
+        expect(allowed.status).toBe(200);
+        expect(denied.status).toBe(429);
+        expect(yield* Effect.promise(denied.text.bind(denied))).toContain(
+          "EXECUTE_PER_IP rate limit exceeded; retry after 60 seconds"
+        );
+        expect(executePerIp.keys).toEqual(["192.0.2.20", "192.0.2.20"]);
+        expect(executeGlobal.keys).toEqual(["global"]);
+      }),
+    bindings
+  );
+});
+
+it.effect("returns an MCP tool error when EXECUTE_GLOBAL denies", () => {
+  const executeGlobal = new FakeRateLimitBinding([true, false]);
+  const bindings = fakeRateLimitBindings({ EXECUTE_GLOBAL: executeGlobal });
+
+  return withHandler(
+    (handler) =>
+      Effect.gen(function* testExecuteGlobalLimit() {
+        const code = [
+          "const found = await tools.search({ query: 'capability', limit: 1 });",
+          "return await tools.read({ id: found.matches[0].id });",
+        ].join("\n");
+
+        const allowed = yield* postMcp(
+          handler,
+          "allowed-execute",
+          "tools/call",
+          {
+            arguments: { code },
+            name: "execute",
+          },
+          "execute"
+        );
+
+        const denied = yield* postMcp(
+          handler,
+          "denied-execute",
+          "tools/call",
+          {
+            arguments: { code },
+            name: "execute",
+          },
+          "execute"
+        );
+
+        const allowedResult = yield* Schema.decodeUnknownEffect(
+          ToolCallResponse
+        )(yield* readJson(allowed));
+
+        const error = yield* Schema.decodeUnknownEffect(ToolErrorResponse)(
+          yield* readJson(denied)
+        );
+
+        expect(allowed.status).toBe(200);
+        expect(allowedResult.result.isError).not.toBe(true);
+        expect(denied.status).toBe(200);
+        expect(denied.headers.get("retry-after")).toBe("60");
+        expect(error.result.isError).toBe(true);
+        expect(error.result.content[0]?.text).toContain(
+          "EXECUTE_GLOBAL rate limit exceeded; retry after 60 seconds"
+        );
+        expect(executeGlobal.keys).toEqual(["global", "global"]);
+      }),
+    bindings
+  );
+});
+
+it.effect("explains the required MCP version in plain text", () =>
+  withHandler((handler) =>
+    Effect.gen(function* testMcpVersionHelp() {
+      const getResponse = yield* Effect.promise(
+        handler.bind(undefined, new Request("http://localhost/mcp"))
+      );
+
+      const legacyResponse = yield* Effect.promise(
+        handler.bind(
+          undefined,
+          new Request("http://localhost/mcp", {
+            body: JSON.stringify({
+              id: "legacy",
+              jsonrpc: "2.0",
+              method: "initialize",
+              params: {},
+            }),
+            headers: { "content-type": "application/json" },
+            method: "POST",
+          })
+        )
+      );
+
+      const expected = mcpVersionText("https://ratstack.sh");
+
+      expect(expected).toContain("no initialize handshake");
+      expect(expected).toContain("get a session of their own");
+      expect(expected).toContain("https://ratstack.sh/llms.txt");
+      expect(getResponse.status).toBe(200);
+      expect(getResponse.headers.get("content-type")).toContain("text/plain");
+      expect(yield* Effect.promise(getResponse.text.bind(getResponse))).toBe(
+        expected
+      );
+      expect(legacyResponse.status).toBe(400);
+      expect(legacyResponse.headers.get("content-type")).toContain(
+        "text/plain"
+      );
+      expect(
+        yield* Effect.promise(legacyResponse.text.bind(legacyResponse))
+      ).toBe(expected);
+    })
+  )
+);
+
+it.effect(
+  "exposes all tools, law resources, and skill prompts over modern MCP",
+  () =>
+    withHandler((handler) =>
+      Effect.gen(function* testMcpSurfaces() {
+        const legacyInitialize = yield* postMcp(
+          handler,
+          "legacy-initialize",
+          "initialize"
+        );
+
+        const initializeError = yield* Schema.decodeUnknownEffect(
+          ErrorResponse
+        )(yield* readJson(legacyInitialize));
+
+        expect(legacyInitialize.status).toBe(404);
+        expect(initializeError.error.code).toBe(
+          McpSchema.METHOD_NOT_FOUND_ERROR_CODE
+        );
+
+        const discovery = yield* postMcp(
+          handler,
+          "discover",
+          "server/discover"
+        );
+
+        const discovered = yield* Schema.decodeUnknownEffect(DiscoverResponse)(
+          yield* readJson(discovery)
+        );
+
+        expect(discovered.result.supportedVersions).toEqual(["2026-07-28"]);
+
+        const toolsList = yield* postMcp(handler, "tools", "tools/list");
+
+        const resourcesList = yield* postMcp(
+          handler,
+          "resources",
+          "resources/list"
+        );
+
+        const promptsList = yield* postMcp(handler, "prompts", "prompts/list");
+
+        const { tools } = (yield* Schema.decodeUnknownEffect(NamedListResponse)(
+          yield* readJson(toolsList)
+        )).result;
+
+        const toolNames = tools?.map((tool) => tool.name);
+
+        const resourceNames = (yield* Schema.decodeUnknownEffect(
+          NamedListResponse
+        )(yield* readJson(resourcesList))).result.resources?.map(
+          (resource) => resource.name
+        );
+
+        const promptNames = (yield* Schema.decodeUnknownEffect(
+          NamedListResponse
+        )(yield* readJson(promptsList))).result.prompts?.map(
+          (prompt) => prompt.name
+        );
+
+        expect(toolNames?.toSorted()).toEqual([
+          "backlinks",
+          "execute",
+          "getPrompt",
+          "joinInterest",
+          "learnCard",
+          "learnDeck",
+          "learnNext",
+          "learnRecord",
+          "listCafeNews",
+          "listCafeProjects",
+          "listPrompts",
+          "mentions",
+          "neighbors",
+          "path",
+          "read",
+          "search",
+        ]);
+
+        const executeDescription = tools?.find(
+          (tool) => tool.name === "execute"
+        )?.description;
+
+        expect(executeDescription).toContain("`code` argument");
+        expect(executeDescription).toContain('"lore"');
+        expect(executeDescription).toContain(
+          "The program is the body of an async function"
+        );
+        expect(executeDescription).toContain(
+          "Imports, exports, and `fetch` are unavailable"
+        );
+        expect(executeDescription).toContain(
+          'const found = await tools.search({ query: "capability", limit: 1 });\nreturn await tools.read({ id: found.matches[0].id });'
+        );
+        expect(resourceNames?.toSorted()).toEqual(
+          contentResources
+            .filter((resource) => resource.kind !== "skill")
+            .map((resource) => resource.name)
+            .toSorted()
+        );
+        expect(promptNames?.toSorted()).toEqual(
+          skills.map((skill) => skill.name).toSorted()
+        );
+      })
+    )
+);
+
+it.effect(
+  "calls graph capabilities directly and through code mode over MCP",
+  () =>
+    withHandler((handler) =>
+      Effect.gen(function* testMcpTools() {
+        const searchResponse = yield* postMcp(
+          handler,
+          "search",
+          "tools/call",
+          { arguments: { limit: 1, query: "capability" }, name: "search" },
+          "search"
+        );
+
+        const searched = yield* Schema.decodeUnknownEffect(ToolCallResponse)(
+          yield* readJson(searchResponse)
+        );
+
+        const searchResult = yield* Schema.decodeUnknownEffect(SearchOutput)(
+          searched.result.structuredContent
+        );
+
+        const id = searchResult.matches[0]?.id ?? "";
+        expect(id).not.toBe("");
+
+        const readResponse = yield* postMcp(
+          handler,
+          "read",
+          "tools/call",
+          { arguments: { id }, name: "read" },
+          "read"
+        );
+
+        const read = yield* Schema.decodeUnknownEffect(ToolCallResponse)(
+          yield* readJson(readResponse)
+        );
+
+        const readResult = yield* Schema.decodeUnknownEffect(ReadOutput)(
+          read.result.structuredContent
+        );
+
+        expect(readResult.id).toBe(id);
+
+        const neighborsResponse = yield* postMcp(
+          handler,
+          "neighbors",
+          "tools/call",
+          { arguments: { depth: 1, slug: "cartridges" }, name: "neighbors" },
+          "neighbors"
+        );
+
+        const neighborsPayload = yield* readJson(neighborsResponse);
+        expect(neighborsPayload).toMatchObject({
+          result: { isError: false },
+        });
+
+        const neighborsCall =
+          yield* Schema.decodeUnknownEffect(ToolCallResponse)(neighborsPayload);
+
+        const neighborsResult = yield* Schema.decodeUnknownEffect(
+          NeighborsOutput
+        )(neighborsCall.result.structuredContent);
+
+        expect(neighborsResult.neighbors.length).toBeGreaterThan(0);
+
+        const pathResponse = yield* postMcp(
+          handler,
+          "path",
+          "tools/call",
+          {
+            arguments: { from: "cartridges", to: "sam-goodwin" },
+            name: "path",
+          },
+          "path"
+        );
+
+        const pathCall = yield* Schema.decodeUnknownEffect(ToolCallResponse)(
+          yield* readJson(pathResponse)
+        );
+
+        const pathResult = yield* Schema.decodeUnknownEffect(LorePathOutput)(
+          pathCall.result.structuredContent
+        );
+
+        expect(pathResult.nodes[0]?.slug).toBe("cartridges");
+        expect(pathResult.nodes.at(-1)?.slug).toBe("sam-goodwin");
+
+        const executeResponse = yield* postMcp(
+          handler,
+          "execute",
+          "tools/call",
+          {
+            arguments: {
+              code: [
+                "const found = await tools.search({ query: 'capability', limit: 1 });",
+                "await tools.read({ id: found.matches[0].id });",
+                "return await tools.neighbors({ slug: 'cartridges', depth: 1 });",
+              ].join("\n"),
+            },
+            name: "execute",
+          },
+          "execute"
+        );
+
+        const executed = yield* Schema.decodeUnknownEffect(ToolCallResponse)(
+          yield* readJson(executeResponse)
+        );
+
+        const executeResult = yield* Schema.decodeUnknownEffect(ExecuteResult)(
+          executed.result.structuredContent
+        );
+
+        const codeModeNeighbors = yield* Schema.decodeUnknownEffect(
+          NeighborsOutput
+        )(executeResult.result);
+
+        expect(codeModeNeighbors.neighbors.length).toBeGreaterThan(0);
+
+        const [law] = lawResources;
+        expect(law).toBeDefined();
+
+        if (law === undefined) {
+          return;
+        }
+
+        const resourceResponse = yield* postMcp(
+          handler,
+          "read-law",
+          "resources/read",
+          { uri: law.id },
+          law.id
+        );
+
+        const resource = yield* Schema.decodeUnknownEffect(
+          ReadResourceResponse
+        )(yield* readJson(resourceResponse));
+
+        expect(resource.result.contents).toEqual([
+          { text: law.text, uri: law.id },
+        ]);
+      })
+    )
+);
+
+it.effect(
+  "derives the CAFE Atom feed and pages from the same reviewed data the capabilities serve",
+  () =>
+    withHandler((handler) =>
+      Effect.gen(function* testCafeSurfaces() {
+        const listed = yield* Schema.decodeUnknownEffect(CafeNewsList)(
+          yield* readJson(
+            yield* postJson(handler, "/api/listCafeNews", {
+              limit: 50,
+              sort: "newest",
+            })
+          )
+        );
+
+        const feed = yield* Effect.promise(
+          handler.bind(undefined, new Request("http://localhost/news.xml"))
+        );
+
+        const feedText = yield* Effect.promise(feed.text.bind(feed));
+
+        const feedIds = [
+          ...feedText.matchAll(
+            /<entry>\s*<title>[^<]*<\/title>\s*<link href="[^"]*"\/>\s*<id>(?<id>[^<]*)<\/id>/gu
+          ),
+        ].map((match) => match.groups?.id?.replaceAll("&amp;", "&"));
+
+        const news = yield* responseText(
+          handler,
+          new Request("http://localhost/news")
+        );
+
+        const directory = yield* responseText(
+          handler,
+          new Request("http://localhost/directory")
+        );
+
+        expect(feed.headers.get("content-type")).toBe(
+          "application/atom+xml; charset=utf-8"
+        );
+        expect(listed.items.length).toBeGreaterThan(0);
+        expect(feedIds).toStrictEqual(
+          listed.items.map((entry) => entry.item.url)
+        );
+        expect(news).toContain("## How this list is sorted");
+        expect(directory).toContain("# CAFE directory");
+      })
+    )
+);

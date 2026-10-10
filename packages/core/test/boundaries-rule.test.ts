@@ -1,0 +1,762 @@
+// @effect-diagnostics nodeBuiltinImport:off -- These tests create temporary source fixtures and run the real oxlint binary against them.
+import { spawnSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+const repoRoot = path.resolve(import.meta.dirname, "../../..");
+
+const oxlint = path.join(repoRoot, "node_modules/.bin/oxlint");
+
+const plugin = path.join(repoRoot, "scripts/oxlint-plugin-boundaries.ts");
+
+interface LintResult {
+  readonly output: string;
+  readonly status: number;
+}
+
+const lintFixture = (area: string, source: string): LintResult => {
+  const directory = mkdtempSync(path.join(tmpdir(), "rat-stack-boundaries-"));
+  const fixtureDirectory = path.join(directory, area, "boundary-fixtures");
+  const config = path.join(directory, "oxlint.json");
+  const file = path.join(fixtureDirectory, "fixture.ts");
+
+  mkdirSync(fixtureDirectory, { recursive: true });
+  writeFileSync(
+    config,
+    JSON.stringify({
+      jsPlugins: [{ name: "rat-stack-boundaries", specifier: plugin }],
+      rules: {
+        "rat-stack-boundaries/no-browser-globals-on-server": "error",
+        "rat-stack-boundaries/no-browser-server-imports": "error",
+        "rat-stack-boundaries/no-code-snippets-in-runtime": "error",
+        "rat-stack-boundaries/no-core-adapters": "error",
+        "rat-stack-boundaries/no-cross-layer-imports": "error",
+        "rat-stack-boundaries/no-devtools-in-production": "error",
+        "rat-stack-boundaries/no-feature-transport": "error",
+        "rat-stack-boundaries/no-hand-rolled-surface": "error",
+      },
+    })
+  );
+  writeFileSync(file, source);
+
+  try {
+    const result = spawnSync(oxlint, ["-c", config, "--no-ignore", file], {
+      cwd: repoRoot,
+      encoding: "utf-8",
+    });
+
+    return {
+      output: `${result.stdout}${result.stderr}`,
+      status: result.status ?? -1,
+    };
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+};
+
+const expectRule = (result: LintResult, message: string) => {
+  expect(result.status).not.toBe(0);
+  expect(result.output).toContain(message);
+};
+
+const expectRuleSoft = (result: LintResult, message: string) => {
+  expect.soft(result.status).not.toBe(0);
+  expect.soft(result.output).toContain(message);
+};
+
+describe("architecture boundary rules", () => {
+  it("keeps code-snippets and Shiki out of runtime import graphs", () => {
+    for (const source of [
+      'import { prepareCode } from "@rat-stack/code-snippets";',
+      'const engine = import("shiki");',
+      'export * from "@rat-stack/code-snippets/shiki";',
+    ]) {
+      expectRuleSoft(
+        lintFixture("apps/mischief/src", source),
+        "Code snippets and Shiki are build-only"
+      );
+      expect(lintFixture("apps/mischief/scripts", source).status).toBe(0);
+    }
+
+    expectRule(
+      lintFixture(
+        "packages/code-snippets/src",
+        'import { createHighlighter } from "shiki";'
+      ),
+      "Code-snippets core cannot import Shiki"
+    );
+  });
+
+  it("keeps clients and vendor adapters out of core through every import form", () => {
+    const sources = [
+      'import { HttpClient } from "effect/unstable/http";',
+      'import { HttpClient } from "effect/http";',
+      'import * as client from "effect/http/HttpClient";',
+      'export { HttpClientRequest } from "effect/http";',
+      'type Client = import("effect/http/HttpClient").HttpClient;',
+      'import * as client from "effect/unstable/http/HttpClient";',
+      'export { HttpClientRequest } from "effect/unstable/http";',
+      'export * from "@rat-stack/subscriber-delivery";',
+      'const adapter = import("@rat-stack/subscriber-delivery");',
+      'const adapter = require("@rat-stack/subscriber-delivery");',
+      'type Client = import("effect/unstable/http/HttpClient").HttpClient;',
+      'import { provider } from "../../adapters/provider.js";',
+      'import { provider } from "./vendor/provider.js";',
+      'import { vendor } from "postshiba";',
+    ];
+
+    for (const source of sources) {
+      expectRuleSoft(
+        lintFixture("packages/core/src", source),
+        "Core cannot import HTTP clients or adapters."
+      );
+    }
+  });
+
+  it("permits ports, lifecycle libraries, and clients in adapter code", () => {
+    for (const source of [
+      'import { Effect } from "effect";',
+      'import { types } from "xstate";',
+      'import { createEffectActor } from "@xstate/effect";',
+      'import { defineContract } from "@rat-stack/capability/contract";',
+      'import { SubscriberIntake } from "./interest-intake.js";',
+    ]) {
+      expect(lintFixture("packages/core/src", source).status).toBe(0);
+    }
+
+    expect(
+      lintFixture(
+        "packages/subscriber-delivery/src",
+        'import { HttpClient } from "effect/unstable/http";'
+      ).status
+    ).toBe(0);
+  });
+
+  it("wires browser boundary rules to the feature and client globs", () => {
+    const configSource = readFileSync(
+      path.join(repoRoot, "oxlint.config.ts"),
+      "utf-8"
+    );
+
+    for (const glob of [
+      "apps/*/src/features/**",
+      "apps/*/src/client/**",
+      "apps/*/src/dev/features/**",
+      "apps/*/src/dev/client/**",
+    ]) {
+      expect(configSource).toContain(`"${glob}"`);
+    }
+
+    expect(configSource).toContain(
+      'files: ["apps/*/src/features/**", "apps/*/src/dev/features/**"]'
+    );
+    expect(configSource).toContain(
+      '"rat-stack-boundaries/no-browser-server-imports": "error"'
+    );
+    expect(configSource).toContain(
+      '"rat-stack-boundaries/no-feature-transport": "error"'
+    );
+  });
+
+  it("blocks package imports from application code", () => {
+    const result = lintFixture(
+      "packages/core/test",
+      'import * as application from "../../../../apps/cli/src/cli.ts";\n\nexport const source = application;\n'
+    );
+
+    expectRule(result, "Packages cannot import application code.");
+  });
+
+  it("blocks domain imports from the capability projection package", () => {
+    const result = lintFixture(
+      "packages/capability/test",
+      'import * as domain from "../../../../packages/core/src/index.ts";\n\nexport const source = domain;\n'
+    );
+
+    expectRule(
+      result,
+      "packages/capability cannot import packages/core domain code."
+    );
+  });
+
+  it("keeps Stack wiring inside apps/infra", () => {
+    const result = lintFixture(
+      "apps/cli/src",
+      'import * as stack from "../../../infra/alchemy.run.ts";\n\nexport const applicationStack = stack;\n'
+    );
+
+    expectRule(
+      result,
+      "apps/infra owns its Stack wiring; import a capability or service contract instead."
+    );
+  });
+
+  it("blocks aliased require, module.require, import-equals, and asserted module strings", () => {
+    const aliased = lintFixture(
+      "packages/core/src",
+      'const load = require;\n\nload("../../../../apps/cli/src/cli.ts");\n'
+    );
+
+    const moduleRequire = lintFixture(
+      "packages/core/src",
+      'module.require("../../../../apps/cli/src/cli.ts");\n'
+    );
+
+    const destructuredRequire = lintFixture(
+      "packages/core/src",
+      'const { require: load } = module;\nload("../../../../apps/cli/src/cli.ts");\n'
+    );
+
+    const importEquals = lintFixture(
+      "packages/core/src",
+      'import cli = require("../../../../apps/cli/src/cli.ts");\nexport { cli };\n'
+    );
+
+    const asserted = lintFixture(
+      "packages/core/src",
+      'import("../../../../apps/cli/src/cli.ts" as string);\n'
+    );
+
+    const createRequire = lintFixture(
+      "packages/core/src",
+      'import { createRequire } from "node:module";\n\nconst load = createRequire(import.meta.url);\nload("../../../../apps/cli/src/cli.ts");\n'
+    );
+
+    expectRuleSoft(aliased, "Packages cannot import application code.");
+    expectRuleSoft(moduleRequire, "Packages cannot import application code.");
+    expectRuleSoft(
+      destructuredRequire,
+      "Packages cannot import application code."
+    );
+    expectRuleSoft(importEquals, "Packages cannot import application code.");
+    expectRuleSoft(asserted, "Packages cannot import application code.");
+    expectRuleSoft(createRequire, "Packages cannot import application code.");
+  });
+
+  it.each([
+    ["Node builtins", "node:fs"],
+    ["Alchemy", "alchemy/AdoptPolicy"],
+    ["Cloudflare Workers", "cloudflare:workers"],
+    ["server-only packages", "server-only"],
+    ["server-marked modules", "./database.server.js"],
+    ["infra app modules", "@rat-stack/infra"],
+  ])("blocks %s imports in feature modules", (_name, specifier) => {
+    const result = lintFixture(
+      "apps/cli/src/features",
+      `import * as importedModule from ${JSON.stringify(specifier)};\n\nexport const value = importedModule;\n`
+    );
+
+    expectRule(
+      result,
+      "Feature and client modules cannot import Node, Alchemy, Worker, infra, or server-only modules."
+    );
+  });
+
+  it("applies the server import boundary to client modules too", () => {
+    const result = lintFixture(
+      "apps/cli/src/client",
+      'import "server-only";\n\nexport const client = true;\n'
+    );
+
+    expectRule(
+      result,
+      "Feature and client modules cannot import Node, Alchemy, Worker, infra, or server-only modules."
+    );
+  });
+
+  it("blocks unprefixed Node builtins in browser modules", () => {
+    const result = lintFixture(
+      "apps/cli/src/client",
+      'import { readFile } from "fs/promises";\n\nexport const read = readFile;\n'
+    );
+
+    expectRule(
+      result,
+      "Feature and client modules cannot import Node, Alchemy, Worker, infra, or server-only modules."
+    );
+  });
+
+  it.each(["apps/cli/src/client", "apps/cli/src/features"])(
+    "allows only browser-safe contract entry points in %s",
+    (area) => {
+      const result = lintFixture(
+        area,
+        'import * as contracts from "@rat-stack/core/contracts";\nimport { toRpcGroup } from "@rat-stack/capability/rpc-group";\n\nexport const browserContract = { contracts, toRpcGroup };\n'
+      );
+
+      expect(result.status).toBe(0);
+    }
+  );
+
+  it("resolves renamed workspace scopes for browser-safe contracts", () => {
+    const result = lintFixture(
+      "apps/cli/src/client",
+      'import * as contracts from "@sample/core/contracts";\nimport { toRpcGroup } from "@sample/capability/rpc-group";\n\nexport const browserContract = { contracts, toRpcGroup };\n'
+    );
+
+    expect(result.status).toBe(0);
+  });
+
+  it.each([
+    ["the core implementation barrel", "@rat-stack/core"],
+    ["a renamed core implementation barrel", "@sample/core"],
+    [
+      "the capability implementation entry point",
+      "@rat-stack/capability/implement",
+    ],
+    [
+      "a renamed capability implementation entry point",
+      "@sample/capability/implement",
+    ],
+    [
+      "an application capability handler",
+      "../../../../mischief/src/capabilities/search.ts",
+    ],
+  ])("blocks %s from browser modules", (_name, specifier) => {
+    const result = lintFixture(
+      "apps/cli/src/client",
+      `import * as implementation from ${JSON.stringify(specifier)};\n\nexport const source = implementation;\n`
+    );
+
+    expectRule(
+      result,
+      "Feature and client modules can import only browser-safe contract entry points; capability handlers and other domain implementation modules stay server-side."
+    );
+  });
+
+  it("keeps fetch calls out of feature modules", () => {
+    const result = lintFixture(
+      "apps/cli/src/features",
+      'export const send = () => fetch("/rpc");\n'
+    );
+
+    expectRule(
+      result,
+      "Features read atoms and call named commands from apps/web/src/client; do not use fetch or construct transport clients here."
+    );
+  });
+
+  it.each([
+    'import * as Api from "effect/http-api";\nexport const client = Api;',
+    'import * as Client from "effect/http/HttpClient";\nexport const client = Client.make();',
+    'import * as Client from "effect/rpc/RpcClient";\nexport const client = Client.make();',
+    'import * as Client from "effect/reactivity/AtomRpc";\nexport const client = Client;',
+    'const Client = require("effect/http-api");\nexport const client = Client;',
+    'export const client = () => import("effect/http-api");',
+  ])("blocks stable transport entrypoints in features: %s", (source) => {
+    expectRule(
+      lintFixture("apps/cli/src/features", source),
+      "do not use fetch or construct transport clients here."
+    );
+    expect(lintFixture("apps/cli/src/client", source).status).toBe(0);
+  });
+
+  it("keeps RPC client construction out of feature modules", () => {
+    const result = lintFixture(
+      "apps/cli/src/features",
+      'import { RpcClient } from "effect/unstable/rpc";\n\nexport const client = RpcClient.make();\n'
+    );
+
+    expectRule(
+      result,
+      "Features read atoms and call named commands from apps/web/src/client; do not use fetch or construct transport clients here."
+    );
+  });
+
+  it("keeps AtomRpc access out of feature modules", () => {
+    const result = lintFixture(
+      "apps/cli/src/features",
+      'import { AtomRpc } from "effect/unstable/reactivity/AtomRpc";\n\nexport const query = AtomRpc;\n'
+    );
+
+    expectRule(
+      result,
+      "Features read atoms and call named commands from apps/web/src/client; do not use fetch or construct transport clients here."
+    );
+  });
+
+  it("keeps HTTP client construction out of feature modules", () => {
+    const result = lintFixture(
+      "apps/cli/src/features",
+      "class HttpClient {}\n\nexport const client = new HttpClient();\n"
+    );
+
+    expectRule(
+      result,
+      "Features read atoms and call named commands from apps/web/src/client; do not use fetch or construct transport clients here."
+    );
+  });
+
+  it("tracks aliased transport factories and global fetch references", () => {
+    const factory = lintFixture(
+      "apps/cli/src/features",
+      'import { createHttpClient as makeClient } from "effect/unstable/httpapi/HttpClient";\n\nexport const client = makeClient();\n'
+    );
+
+    const fetchCall = lintFixture(
+      "apps/cli/src/features",
+      'export const send = fetch.call(globalThis, "/rpc");\n'
+    );
+
+    const fetchAlias = lintFixture(
+      "apps/cli/src/features",
+      "export const send = fetch;\n"
+    );
+
+    const namespaceClient = lintFixture(
+      "apps/cli/src/features",
+      'import * as Client from "effect/unstable/rpc/RpcClient";\n\nexport const client = Client.make();\n'
+    );
+
+    const namespaceHttpApi = lintFixture(
+      "apps/cli/src/features",
+      'import * as HttpApi from "effect/unstable/httpapi";\n\nexport const api = HttpApi;\n'
+    );
+
+    const namespacedConstructor = lintFixture(
+      "apps/cli/src/features",
+      'import * as Client from "effect/unstable/rpc/RpcClient";\n\nexport const client = new Client.RpcClient();\n'
+    );
+
+    const localFactory = lintFixture(
+      "apps/cli/src/features",
+      "export const build = (makeClient: () => object) => makeClient();\n"
+    );
+
+    const requiredClient = lintFixture(
+      "apps/cli/src/features",
+      'const Client = require("effect/unstable/rpc/RpcClient");\nexport const client = Client.make();\n'
+    );
+
+    const dynamicClient = lintFixture(
+      "apps/cli/src/features",
+      'export const load = () => import("effect/unstable/rpc/RpcClient");\n'
+    );
+
+    expectRuleSoft(
+      factory,
+      "do not use fetch or construct transport clients here."
+    );
+    expectRuleSoft(
+      fetchCall,
+      "do not use fetch or construct transport clients here."
+    );
+    expectRuleSoft(
+      fetchAlias,
+      "do not use fetch or construct transport clients here."
+    );
+    expectRuleSoft(
+      namespaceClient,
+      "do not use fetch or construct transport clients here."
+    );
+    expectRuleSoft(
+      namespacedConstructor,
+      "do not use fetch or construct transport clients here."
+    );
+    expectRuleSoft(
+      namespaceHttpApi,
+      "do not use fetch or construct transport clients here."
+    );
+    expectRuleSoft(
+      requiredClient,
+      "do not use fetch or construct transport clients here."
+    );
+    expectRuleSoft(
+      dynamicClient,
+      "do not use fetch or construct transport clients here."
+    );
+    expect(localFactory.status).toBe(0);
+  });
+
+  it("allows the client module to own transport", () => {
+    const result = lintFixture(
+      "apps/cli/src/client",
+      'import { RpcClient } from "effect/unstable/rpc";\n\nexport const client = RpcClient.make();\n'
+    );
+
+    expect(result.status).toBe(0);
+  });
+
+  it("blocks hand-rolled RPC, HTTP, and MCP surfaces outside the capability package", () => {
+    const rpc = lintFixture(
+      "apps/web/src/server",
+      'import { Rpc } from "effect/unstable/rpc";\n\nexport const athlete = Rpc.make("athlete");\n'
+    );
+
+    const endpoint = lintFixture(
+      "packages/core/src",
+      'import { HttpApiEndpoint } from "effect/unstable/httpapi";\n\nexport const route = HttpApiEndpoint.post("route", "/route");\n'
+    );
+
+    const aliased = lintFixture(
+      "apps/web/src/server",
+      'import { HttpApiEndpoint as Endpoint } from "effect/unstable/httpapi";\n\nexport const route = Endpoint.get("route", "/route");\n'
+    );
+
+    const namespaced = lintFixture(
+      "apps/web/src/server",
+      'import * as Rpcs from "effect/unstable/rpc";\n\nexport const athlete = Rpcs.RpcGroup.make();\n'
+    );
+
+    expectRule(rpc, "Rpc.make hand-rolls a surface.");
+    expectRule(endpoint, "HttpApiEndpoint.post hand-rolls a surface.");
+    expectRule(aliased, "HttpApiEndpoint.get hand-rolls a surface.");
+    expectRule(namespaced, "RpcGroup.make hand-rolls a surface.");
+  });
+
+  it("blocks computed and namespaced surface constructors without mistaking computed identifiers for names", () => {
+    const computed = lintFixture(
+      "apps/web/src/server",
+      'import { Rpc } from "effect/unstable/rpc";\n\nexport const route = Rpc["make"]("route");\n'
+    );
+
+    const namespaceModule = lintFixture(
+      "apps/web/src/server",
+      'import * as R from "effect/unstable/rpc/Rpc";\n\nexport const route = R.make("route");\n'
+    );
+
+    const call = lintFixture(
+      "apps/web/src/server",
+      'import { Rpc } from "effect/unstable/rpc";\n\nexport const route = Rpc.make.call(Rpc, "route");\n'
+    );
+
+    const computedIdentifier = lintFixture(
+      "apps/web/src/server",
+      'import { Rpc } from "effect/unstable/rpc";\n\nconst make = "other";\nexport const route = Rpc[make]("route");\n'
+    );
+
+    const destructuredMethod = lintFixture(
+      "apps/web/src/server",
+      'import * as R from "effect/unstable/rpc/Rpc";\n\nconst { make: build } = R;\nexport const route = build("route");\n'
+    );
+
+    const requiredNamespace = lintFixture(
+      "apps/web/src/server",
+      'const Rpc = require("effect/unstable/rpc/Rpc");\nexport const route = Rpc.make("route");\n'
+    );
+
+    const dynamicNamespace = lintFixture(
+      "apps/web/src/server",
+      'const Rpc = await import("effect/unstable/rpc/Rpc");\nexport const route = Rpc.make("route");\n'
+    );
+
+    const destructuredRequire = lintFixture(
+      "apps/web/src/server",
+      'const { require: load } = module;\nconst Rpc = load("effect/unstable/rpc/Rpc");\nexport const route = Rpc.make("route");\n'
+    );
+
+    expectRuleSoft(computed, "Rpc.make hand-rolls a surface.");
+    expectRuleSoft(namespaceModule, "Rpc.make hand-rolls a surface.");
+    expectRuleSoft(call, "Rpc.make hand-rolls a surface.");
+    expectRuleSoft(destructuredMethod, "Rpc.make hand-rolls a surface.");
+    expectRuleSoft(requiredNamespace, "Rpc.make hand-rolls a surface.");
+    expectRuleSoft(dynamicNamespace, "Rpc.make hand-rolls a surface.");
+    expectRuleSoft(destructuredRequire, "Rpc.make hand-rolls a surface.");
+    expect.soft(computedIdentifier.status).toBe(0);
+  });
+
+  it("lets packages/capability build surfaces", () => {
+    const result = lintFixture(
+      "packages/capability/src",
+      'import { Rpc } from "effect/unstable/rpc";\n\nexport const projected = Rpc.make("projected");\n'
+    );
+
+    expect(result.status).toBe(0);
+  });
+
+  it("keeps browser globals out of server and package code", () => {
+    const route = lintFixture(
+      "apps/web/src/routes",
+      "export const here = () => window.location.href;\n"
+    );
+
+    const core = lintFixture(
+      "packages/core/src",
+      "export const title = () => document.title;\n"
+    );
+
+    const throughGlobal = lintFixture(
+      "apps/web/src/server",
+      'export const here = () => globalThis.window.location.href;\nexport const title = () => self["document"].title;\n'
+    );
+
+    const serverGlobal = lintFixture(
+      "apps/web/src/server",
+      "export const send = (request: Request) => globalThis.fetch(request);\n"
+    );
+
+    expectRule(route, "window exists only in a browser.");
+    expectRule(core, "document exists only in a browser.");
+    expectRule(throughGlobal, "window exists only in a browser.");
+    expectRule(throughGlobal, "document exists only in a browser.");
+    expect(serverGlobal.status).toBe(0);
+  });
+
+  it("blocks bare browser globals and aliases on the server", () => {
+    const bare = lintFixture(
+      "apps/web/src/server",
+      "consume(window);\nexport let target: unknown;\ntarget = document;\nexport const here = navigator;\nexport const keyed = values[window];\n"
+    );
+
+    const aliases = lintFixture(
+      "apps/web/src/server",
+      'const root = globalThis;\nexport const here = root["window"].location.href;\nconst { document: documentTitle } = self;\nexport const title = documentTitle;\n'
+    );
+
+    const templateKey = lintFixture(
+      "apps/web/src/server",
+      "export const title = globalThis[`document`].title;\n"
+    );
+
+    const typeOnlyShadow = lintFixture(
+      "apps/web/src/server",
+      "interface document { readonly title: string }\n\nexport const title: document = document;\n"
+    );
+
+    expectRuleSoft(bare, "exists only in a browser.");
+    expectRuleSoft(aliases, "exists only in a browser.");
+    expectRuleSoft(templateKey, "exists only in a browser.");
+    expectRuleSoft(typeOnlyShadow, "exists only in a browser.");
+  });
+
+  it("allows browser globals in client and feature modules", () => {
+    const client = lintFixture(
+      "apps/web/src/client",
+      'export const saved = () => localStorage.getItem("rat");\n'
+    );
+
+    const guard = lintFixture(
+      "apps/web/src/routes",
+      'export const inBrowser = () => typeof window !== "undefined";\n'
+    );
+
+    expect(client.status).toBe(0);
+    expect(guard.status).toBe(0);
+  });
+
+  it("ignores local bindings that share a browser global's name", () => {
+    const parameter = lintFixture(
+      "packages/core/src",
+      "export const width = (window: { readonly size: number }) => window.size;\n"
+    );
+
+    const binding = lintFixture(
+      "apps/web/src/server",
+      'const document = { title: "rat" };\n\nexport const title = () => document.title;\n'
+    );
+
+    expect(parameter.status).toBe(0);
+    expect(binding.status).toBe(0);
+  });
+
+  it("keeps devtools and test people out of production code", () => {
+    const worker = lintFixture(
+      "apps/web/src/server",
+      'import { devtools } from "@rat-stack/devtools";\n\nexport const tools = devtools;\n'
+    );
+
+    const testPeople = lintFixture(
+      "apps/mischief/src",
+      'import { ratTestPerson } from "@rat-stack/auth/devtools";\n\nexport const person = ratTestPerson;\n'
+    );
+
+    expectRule(worker, "Devtools and test people");
+    expectRule(testPeople, "Devtools and test people");
+  });
+
+  it("blocks devtools through require, distribution paths, and production test folders", () => {
+    const required = lintFixture(
+      "apps/web/src/server",
+      'export const tools = require("@rat-stack/devtools");\n'
+    );
+
+    const authDistribution = lintFixture(
+      "apps/web/src/server",
+      'import { ratTestPerson } from "@rat-stack/auth/dist/devtools.js";\nexport const person = ratTestPerson;\n'
+    );
+
+    const sourceTest = lintFixture(
+      "apps/web/src/test",
+      'import { devtools } from "@rat-stack/devtools";\nexport const tool = devtools;\n'
+    );
+
+    const authBarrel = lintFixture(
+      "packages/auth/src",
+      'export { ratTestPerson } from "@rat-stack/auth/devtools";\n'
+    );
+
+    const typeImport = lintFixture(
+      "apps/web/src/server",
+      'type Devtools = import("@rat-stack/devtools").Devtools;\nexport type Tools = Devtools;\n'
+    );
+
+    expectRuleSoft(required, "Devtools and test people");
+    expectRuleSoft(authDistribution, "Devtools and test people");
+    expectRuleSoft(sourceTest, "Devtools and test people");
+    expectRuleSoft(authBarrel, "Devtools and test people");
+    expectRuleSoft(typeImport, "Devtools and test people");
+  });
+
+  it("allows devtools in a dev folder, the CLI, and tests", () => {
+    const dev = lintFixture(
+      "apps/web/src/dev",
+      'import { ratTestPerson, runAsPerson } from "@rat-stack/auth/devtools";\nimport { devtools } from "@rat-stack/devtools";\n\nexport const wiring = { devtools, ratTestPerson, runAsPerson };\n'
+    );
+
+    const cli = lintFixture(
+      "apps/cli/src",
+      'import { devtools } from "@rat-stack/devtools";\n\nexport const tools = devtools;\n'
+    );
+
+    const test = lintFixture(
+      "apps/web/test",
+      'import { devtools } from "@rat-stack/devtools";\n\nexport const tools = devtools;\n'
+    );
+
+    expect(dev.status).toBe(0);
+    expect(cli.status).toBe(0);
+    expect(test.status).toBe(0);
+  });
+
+  it("keeps production code from importing an app's dev folder", () => {
+    const result = lintFixture(
+      "apps/web/src/server",
+      'import { wiring } from "../../dev/wiring.ts";\n\nexport const devWiring = wiring;\n'
+    );
+
+    expectRule(result, "Only modules inside apps/web/src/dev may import it.");
+  });
+
+  it("treats the dev client and features as browser code", () => {
+    const overlay = lintFixture(
+      "apps/web/src/dev/features/overlay",
+      'export const toggle = () => window.addEventListener("keydown", () => undefined);\n'
+    );
+
+    const contracts = lintFixture(
+      "apps/web/src/dev/client",
+      'import { devtoolsContracts } from "@rat-stack/devtools/contracts";\n\nexport const contracts = devtoolsContracts;\n'
+    );
+
+    const server = lintFixture(
+      "apps/web/src/dev/client",
+      'import { devtools } from "@rat-stack/devtools";\n\nexport const tools = devtools;\n'
+    );
+
+    expect(overlay.status).toBe(0);
+    expect(contracts.status).toBe(0);
+    expectRule(
+      server,
+      "Feature and client modules can import only browser-safe contract entry points"
+    );
+  });
+});

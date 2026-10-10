@@ -1,0 +1,71 @@
+{
+  "name": "@rat-stack/mischief",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./node-content": {
+      "types": "./src/node-content.ts",
+      "import": "./src/node-content.ts",
+      "default": "./src/node-content.ts"
+    },
+    "./capabilities": {
+      "types": "./src/capabilities/index.ts",
+      "import": "./src/capabilities/index.ts",
+      "default": "./src/capabilities/index.ts"
+    },
+    "./rpc-worker": {
+      "types": "./src/rpc-worker.ts",
+      "import": "./src/rpc-worker.ts",
+      "default": "./src/rpc-worker.ts"
+    },
+    "./rat.css": "./src/rat.css",
+    "./rat-icons": {
+      "types": "./src/rat-icons.ts",
+      "import": "./src/rat-icons.ts",
+      "default": "./src/rat-icons.ts"
+    }
+  },
+  "scripts": {
+    "generate": "node scripts/generate-content.ts",
+    "typecheck": "node scripts/prepare-content.ts && tsc --noEmit -p tsconfig.json && pnpm run --silent startup:check",
+    "startup:check": "node scripts/startup-budget.ts",
+    "startup:profile": "pnpm run --silent generate && pnpm run --silent startup:check && wrangler check startup --worker dist/startup/worker.bundle --outfile dist/startup/worker.cpuprofile",
+    "test": "vitest run",
+    "build": "node scripts/prepare-content.ts && tsc -p tsconfig.build.json",
+    "build:check-direct": "node scripts/check-direct-build.ts",
+    "check": "pnpm run typecheck",
+    "pretest": "pnpm run --silent build"
+  },
+  "dependencies": {
+    "@rat-stack/auth": "workspace:*",
+    "@rat-stack/capability": "workspace:*",
+    "@rat-stack/core": "workspace:*",
+    "@rat-stack/database": "workspace:*",
+    "@rat-stack/events": "workspace:*",
+    "@rat-stack/intake-live": "workspace:*",
+    "@rat-stack/learn": "workspace:*",
+    "@rat-stack/lore": "workspace:*",
+    "@rat-stack/subscriber-delivery": "workspace:*",
+    "alchemy": "2.0.0-beta.81",
+    "effect": "4.0.0"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "4.0.0",
+    "@effect/vitest": "4.0.0",
+    "@rat-stack/code-snippets": "workspace:*",
+    "@resvg/resvg-js": "2.6.2",
+    "@types/mdast": "4.0.4",
+    "@types/node": "24.13.6",
+    "@types/unist": "3.0.3",
+    "htmlparser2": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "remark-stringify": "11.0.0",
+    "satori": "0.33.5",
+    "typescript": "7.0.2",
+    "unified": "11.0.5",
+    "vitest": "5.0.3",
+    "yaml": "2.9.0"
+  }
+}

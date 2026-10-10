@@ -1,0 +1,65 @@
+{
+  "name": "@rat-stack/auth",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./service": {
+      "types": "./src/auth-service.ts",
+      "import": "./dist/auth-service.js",
+      "default": "./dist/auth-service.js"
+    },
+    "./d1": {
+      "types": "./src/d1-auth.ts",
+      "import": "./dist/d1-auth.js",
+      "default": "./dist/d1-auth.js"
+    },
+    "./feedback": {
+      "types": "./src/feedback.ts",
+      "import": "./dist/feedback.js",
+      "default": "./dist/feedback.js"
+    },
+    "./devtools": {
+      "types": "./src/devtools.ts",
+      "import": "./dist/devtools.js",
+      "default": "./dist/devtools.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json",
+    "check": "pnpm run typecheck",
+    "pretest": "pnpm run --silent build"
+  },
+  "dependencies": {
+    "@alchemy.run/better-auth": "2.0.0-beta.81",
+    "@rat-stack/capability": "workspace:*",
+    "@rat-stack/database": "workspace:*",
+    "alchemy": "2.0.0-beta.81",
+    "better-auth": "1.6.2",
+    "drizzle-orm": "1.0.0-rc.5-ab785fc",
+    "effect": "4.0.0",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260901.1",
+    "@effect/vitest": "4.0.0",
+    "@rat-stack/devtools": "workspace:*",
+    "@types/node": "24.13.6",
+    "@types/pg": "8.20.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

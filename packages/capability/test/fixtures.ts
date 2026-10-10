@@ -8,7 +8,7 @@ export { NotFound } from "./not-found.js";
 export class Greeter extends Context.Service<
   Greeter,
   { readonly greet: (name: string) => Effect.Effect<string> }
->()("@rat-stack/capability/test/Greeter", {
+>()("@mischief/capability/test/Greeter", {
   make: Effect.succeed({
     greet: (name: string) => Effect.succeed(`hello ${name}`),
   }),

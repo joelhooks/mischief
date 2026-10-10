@@ -40,7 +40,7 @@ export class ActorLog extends Context.Service<
     readonly append: (entry: NewActorEntry) => Effect.Effect<ActorEntry>;
     readonly snapshot: Effect.Effect<ActorLogSnapshot>;
   }
->()("@rat-stack/devtools/ActorLog") {
+>()("@mischief/devtools/ActorLog") {
   static readonly layer = (capacity: number = DEFAULT_CAPACITY) =>
     Layer.effect(this, makeActorLog(capacity));
 }

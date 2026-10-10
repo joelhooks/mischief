@@ -2,7 +2,7 @@ import type {
   ActorEvent,
   ActorWatchService,
   WatchableActor,
-} from "@rat-stack/capability/actor-watch";
+} from "@mischief/capability/actor-watch";
 import { Clock, Effect, Option, Queue, Schema } from "effect";
 
 import { ActorLog } from "./actor-log.js";

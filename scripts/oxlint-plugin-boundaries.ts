@@ -1457,7 +1457,7 @@ const noDevtoolsInProduction = defineRule({
       devFolder:
         "Only modules inside {{folder}} may import it. The dev composition is an entry of its own; production code must not reach it.",
       devtools:
-        "Devtools and test people (@rat-stack/devtools, @rat-stack/auth/devtools) belong in apps/*/src/dev/**, apps/cli, or tests. rat_call and rat_test_person bypass per-request auth and create accounts with a fixed password, so a production composition must never include them.",
+        "Devtools and test people (@mischief/devtools, @mischief/auth/devtools) belong in apps/*/src/dev/**, apps/cli, or tests. rat_call and rat_test_person bypass per-request auth and create accounts with a fixed password, so a production composition must never include them.",
     },
     type: "problem",
   },

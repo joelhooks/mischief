@@ -1,15 +1,15 @@
 {
-  "name": "@rat-stack/cli",
+  "name": "@mischief/cli",
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "rat-stack": "./bin/rat-stack"
+    "mischief": "./bin/mischief"
   },
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "build": "tsc -p tsconfig.build.json && vite build -c ratstack.config.ts",
+    "build": "tsc -p tsconfig.build.json",
     "cli": "pnpm run --silent build && node dist/cli.js",
     "check": "pnpm run typecheck",
     "pretest": "pnpm run --silent build",
@@ -17,17 +17,15 @@
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0",
-    "@rat-stack/capability": "workspace:*",
-    "@rat-stack/core": "workspace:*",
-    "@rat-stack/devtools": "workspace:*",
-    "@rat-stack/learn": "workspace:*",
+    "@mischief/capability": "workspace:*",
+    "@mischief/core": "workspace:*",
+    "@mischief/devtools": "workspace:*",
     "effect": "4.0.0"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.0",
     "@types/node": "24.13.6",
     "typescript": "7.0.2",
-    "vite": "8.0.7",
     "vitest": "5.0.3"
   }
 }

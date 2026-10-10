@@ -1,4 +1,4 @@
-import { defineContract } from "@rat-stack/capability/contract";
+import { defineContract } from "@mischief/capability/contract";
 import { Schema } from "effect";
 
 import { ActorNotFound } from "./actor-not-found.js";

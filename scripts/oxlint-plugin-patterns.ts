@@ -10,7 +10,7 @@ import type {
   Variable,
 } from "@oxlint/plugins";
 
-import { auditedStringRegexes } from "../apps/mischief/scripts/source-regex-policy.ts";
+import { auditedStringRegexes } from "./source-regex-policy.ts";
 
 type RuleContext = Context;
 
@@ -1173,7 +1173,7 @@ const watchEffectActors = defineRule({
     },
     messages: {
       unwatched:
-        'Call watchActor("<machine>", actor) from @rat-stack/capability/actor-watch after createEffectActor. It is a no-op until devtools provides a watcher, and without it rat_list_actors cannot see this machine.',
+        'Call watchActor("<machine>", actor) from @mischief/capability/actor-watch after createEffectActor. It is a no-op until devtools provides a watcher, and without it rat_list_actors cannot see this machine.',
     },
     type: "suggestion",
   },
@@ -1379,7 +1379,7 @@ const auditedContentRegex = defineRule({
       sourceRegex:
         "A regular expression over raw svx source is forbidden. Parse the source with svx-ast and match parsed values instead.",
       unaudited:
-        "Unaudited regular expression {{expression}}. Match a parsed value, then add the expression and its reason to apps/mischief/scripts/source-regex-policy.ts.",
+        "Unaudited regular expression {{expression}}. Match a parsed value, then add the expression and its reason to scripts/source-regex-policy.ts.",
     },
     type: "problem",
   },

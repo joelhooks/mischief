@@ -56,6 +56,6 @@ export class AtomLog extends Context.Service<
     ) => Effect.Effect<string>;
     readonly tabs: Effect.Effect<readonly Tab[]>;
   }
->()("@rat-stack/devtools/AtomLog") {
+>()("@mischief/devtools/AtomLog") {
   static readonly layer = Layer.effect(this, makeAtomLog);
 }

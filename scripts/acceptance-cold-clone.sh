@@ -57,21 +57,21 @@ acceptance_scope="@acceptance-$((RANDOM * 32768 + RANDOM))"
 replace_refs() {
   local file="$1"
   if sed --version >/dev/null 2>&1; then
-    sed -i "s|@rat-stack/|${acceptance_scope}/|g" "$file"
+    sed -i "s|@mischief/|${acceptance_scope}/|g" "$file"
   else
-    sed -i '' "s|@rat-stack/|${acceptance_scope}/|g" "$file"
+    sed -i '' "s|@mischief/|${acceptance_scope}/|g" "$file"
   fi
 }
 while IFS= read -r -d '' file; do
   replace_refs "$file"
 done < <(
-  rg --hidden --files-with-matches --null -F '@rat-stack/' \
+  rg --hidden --files-with-matches --null -F '@mischief/' \
     -g '!.git/**' -g '!node_modules/**' -g '!.agent_sources/**' . || true
 )
-remaining="$(rg --hidden --files-with-matches -F '@rat-stack/' \
+remaining="$(rg --hidden --files-with-matches -F '@mischief/' \
   -g '!.git/**' -g '!node_modules/**' -g '!.agent_sources/**' . || true)"
 if [[ -n "$remaining" ]]; then
-  printf 'remaining @rat-stack/ references:\n%s\n' "$remaining" >&2
+  printf 'remaining @mischief/ references:\n%s\n' "$remaining" >&2
   fail "workspace rename left old package references"
 fi
 printf 'renamed workspace scope to %s\n' "$acceptance_scope"

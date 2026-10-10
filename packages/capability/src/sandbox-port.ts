@@ -39,4 +39,4 @@ export class Sandbox extends Context.Service<
       limits?: SandboxLimits
     ) => Effect.Effect<SandboxRun, SandboxError>;
   }
->()("@rat-stack/capability/Sandbox") {}
+>()("@mischief/capability/Sandbox") {}

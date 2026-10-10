@@ -3,12 +3,12 @@ import {
   implement,
   invokerFor,
   toCatalog,
-} from "@rat-stack/capability";
-import type { AnyCapability, AnyContract, Around } from "@rat-stack/capability";
-import { ActorWatch } from "@rat-stack/capability/actor-watch";
-import type { ActorWatchService } from "@rat-stack/capability/actor-watch";
-import { CallWatch } from "@rat-stack/capability/call-watch";
-import type { CallWatchService } from "@rat-stack/capability/call-watch";
+} from "@mischief/capability";
+import type { AnyCapability, AnyContract, Around } from "@mischief/capability";
+import { ActorWatch } from "@mischief/capability/actor-watch";
+import type { ActorWatchService } from "@mischief/capability/actor-watch";
+import { CallWatch } from "@mischief/capability/call-watch";
+import type { CallWatchService } from "@mischief/capability/call-watch";
 import type { JsonSchema } from "effect";
 import { Cause, Clock, Effect, Exit, Layer, Option, Schema } from "effect";
 

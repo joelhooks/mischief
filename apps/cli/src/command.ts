@@ -1,9 +1,8 @@
-import { toCommand } from "@rat-stack/capability";
-import { formatFileStats, inspectFile } from "@rat-stack/core";
+import { toCommand } from "@mischief/capability";
+import { formatFileStats, inspectFile } from "@mischief/core";
 import { Console, Effect, Layer } from "effect";
 import { Command, Flag } from "effect/cli";
 
-import { intakeCommand } from "./intake.js";
 import {
   cliCapabilities,
   SERVE_HOST,
@@ -111,12 +110,11 @@ const catalogCommand = Command.make(
   )
 );
 
-export const rootCommand = Command.make("rat-stack").pipe(
+export const rootCommand = Command.make("mischief").pipe(
   Command.withDescription("Agent-first file inspection: CLI, REST, and MCP"),
   Command.withSubcommands([
     ...capabilityCommands,
     catalogCommand,
-    intakeCommand,
     openapiCommand,
     serveCommand,
     mcpCommand,

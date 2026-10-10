@@ -1,14 +1,12 @@
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { CafeDirectory, FileInspector, PromptLibrary } from "@rat-stack/core";
-import { CafeData } from "@rat-stack/core/contracts";
+import { FileInspector } from "@mischief/core";
 import {
   ActorLog,
   CallLog,
   OutcomeSchema,
   devtoolsLayer,
-} from "@rat-stack/devtools";
-import { Learner } from "@rat-stack/learn";
+} from "@mischief/devtools";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { HttpClient, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiClient } from "effect/http-api";
@@ -25,22 +23,12 @@ const decodeOpenApi = Schema.decodeUnknownSync(
   Schema.Struct({ paths: Schema.Record(Schema.String, Schema.Unknown) })
 );
 
-const noCafe = CafeDirectory.layer(
-  Schema.decodeSync(CafeData)({
-    news: [],
-    projects: [],
-    rankedAt: "2026-10-09",
-  })
-);
-
 const AppLayer = HttpRouter.serve(routes, {
   disableListenLog: true,
   disableLogger: true,
 }).pipe(
-  Layer.provide(Learner.layer(Effect.succeed([]))),
   Layer.provideMerge(NodeHttpServer.layerTest),
-  Layer.provide(FileInspector.layer.pipe(Layer.provide(NodeServices.layer))),
-  Layer.provide(Layer.merge(PromptLibrary.layer([]), noCafe))
+  Layer.provide(FileInspector.layer.pipe(Layer.provide(NodeServices.layer)))
 );
 
 describe("serve routes", () => {
@@ -51,13 +39,7 @@ describe("serve routes", () => {
       expect(HttpServer.formatAddress(server.address)).toMatch(
         /^http:\/\/127\.0\.0\.1:\d+$/u
       );
-    }).pipe(
-      Effect.provide(
-        serverLayer(0).pipe(
-          Layer.provide(Layer.merge(PromptLibrary.layer([]), noCafe))
-        )
-      )
-    )
+    }).pipe(Effect.provide(serverLayer(0)))
   );
 
   it.effect("publishes the OpenAPI document and the docs page", () =>
@@ -143,10 +125,8 @@ describe("serve routes", () => {
           disableListenLog: true,
           disableLogger: true,
         }).pipe(
-          Layer.provide(Learner.layer(Effect.succeed([]))),
           Layer.provideMerge(NodeHttpServer.layerTest),
           Layer.provideMerge(devtoolsLayer()),
-          Layer.provide(Layer.merge(PromptLibrary.layer([]), noCafe)),
           Layer.provide(
             FileInspector.layer.pipe(Layer.provide(NodeServices.layer))
           )

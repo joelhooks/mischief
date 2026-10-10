@@ -1,4 +1,4 @@
-import type { PlainSchema } from "@rat-stack/capability";
+import type { PlainSchema } from "@mischief/capability";
 import { Effect, Predicate, Schema } from "effect";
 
 export const ROOT = "root";

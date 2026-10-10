@@ -3,7 +3,7 @@ import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 
 import { describe, expect, it } from "@effect/vitest";
-import { CallEntrySchema, OutcomeSchema } from "@rat-stack/devtools";
+import { CallEntrySchema, OutcomeSchema } from "@mischief/devtools";
 import { Schema } from "effect";
 
 const cliDir = path.resolve(import.meta.dirname, "..");

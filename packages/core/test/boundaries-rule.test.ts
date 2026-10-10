@@ -76,9 +76,9 @@ const expectRuleSoft = (result: LintResult, message: string) => {
 describe("architecture boundary rules", () => {
   it("keeps code-snippets and Shiki out of runtime import graphs", () => {
     for (const source of [
-      'import { prepareCode } from "@rat-stack/code-snippets";',
+      'import { prepareCode } from "@mischief/code-snippets";',
       'const engine = import("shiki");',
-      'export * from "@rat-stack/code-snippets/shiki";',
+      'export * from "@mischief/code-snippets/shiki";',
     ]) {
       expectRuleSoft(
         lintFixture("apps/mischief/src", source),
@@ -105,9 +105,9 @@ describe("architecture boundary rules", () => {
       'type Client = import("effect/http/HttpClient").HttpClient;',
       'import * as client from "effect/unstable/http/HttpClient";',
       'export { HttpClientRequest } from "effect/unstable/http";',
-      'export * from "@rat-stack/subscriber-delivery";',
-      'const adapter = import("@rat-stack/subscriber-delivery");',
-      'const adapter = require("@rat-stack/subscriber-delivery");',
+      'export * from "@mischief/subscriber-delivery";',
+      'const adapter = import("@mischief/subscriber-delivery");',
+      'const adapter = require("@mischief/subscriber-delivery");',
       'type Client = import("effect/unstable/http/HttpClient").HttpClient;',
       'import { provider } from "../../adapters/provider.js";',
       'import { provider } from "./vendor/provider.js";',
@@ -127,7 +127,7 @@ describe("architecture boundary rules", () => {
       'import { Effect } from "effect";',
       'import { types } from "xstate";',
       'import { createEffectActor } from "@xstate/effect";',
-      'import { defineContract } from "@rat-stack/capability/contract";',
+      'import { defineContract } from "@mischief/capability/contract";',
       'import { SubscriberIntake } from "./interest-intake.js";',
     ]) {
       expect(lintFixture("packages/core/src", source).status).toBe(0);
@@ -248,7 +248,7 @@ describe("architecture boundary rules", () => {
     ["Cloudflare Workers", "cloudflare:workers"],
     ["server-only packages", "server-only"],
     ["server-marked modules", "./database.server.js"],
-    ["infra app modules", "@rat-stack/infra"],
+    ["infra app modules", "@mischief/infra"],
   ])("blocks %s imports in feature modules", (_name, specifier) => {
     const result = lintFixture(
       "apps/cli/src/features",
@@ -290,7 +290,7 @@ describe("architecture boundary rules", () => {
     (area) => {
       const result = lintFixture(
         area,
-        'import * as contracts from "@rat-stack/core/contracts";\nimport { toRpcGroup } from "@rat-stack/capability/rpc-group";\n\nexport const browserContract = { contracts, toRpcGroup };\n'
+        'import * as contracts from "@mischief/core/contracts";\nimport { toRpcGroup } from "@mischief/capability/rpc-group";\n\nexport const browserContract = { contracts, toRpcGroup };\n'
       );
 
       expect(result.status).toBe(0);
@@ -307,11 +307,11 @@ describe("architecture boundary rules", () => {
   });
 
   it.each([
-    ["the core implementation barrel", "@rat-stack/core"],
+    ["the core implementation barrel", "@mischief/core"],
     ["a renamed core implementation barrel", "@sample/core"],
     [
       "the capability implementation entry point",
-      "@rat-stack/capability/implement",
+      "@mischief/capability/implement",
     ],
     [
       "a renamed capability implementation entry point",
@@ -661,12 +661,12 @@ describe("architecture boundary rules", () => {
   it("keeps devtools and test people out of production code", () => {
     const worker = lintFixture(
       "apps/web/src/server",
-      'import { devtools } from "@rat-stack/devtools";\n\nexport const tools = devtools;\n'
+      'import { devtools } from "@mischief/devtools";\n\nexport const tools = devtools;\n'
     );
 
     const testPeople = lintFixture(
       "apps/mischief/src",
-      'import { ratTestPerson } from "@rat-stack/auth/devtools";\n\nexport const person = ratTestPerson;\n'
+      'import { ratTestPerson } from "@mischief/auth/devtools";\n\nexport const person = ratTestPerson;\n'
     );
 
     expectRule(worker, "Devtools and test people");
@@ -676,27 +676,27 @@ describe("architecture boundary rules", () => {
   it("blocks devtools through require, distribution paths, and production test folders", () => {
     const required = lintFixture(
       "apps/web/src/server",
-      'export const tools = require("@rat-stack/devtools");\n'
+      'export const tools = require("@mischief/devtools");\n'
     );
 
     const authDistribution = lintFixture(
       "apps/web/src/server",
-      'import { ratTestPerson } from "@rat-stack/auth/dist/devtools.js";\nexport const person = ratTestPerson;\n'
+      'import { ratTestPerson } from "@mischief/auth/dist/devtools.js";\nexport const person = ratTestPerson;\n'
     );
 
     const sourceTest = lintFixture(
       "apps/web/src/test",
-      'import { devtools } from "@rat-stack/devtools";\nexport const tool = devtools;\n'
+      'import { devtools } from "@mischief/devtools";\nexport const tool = devtools;\n'
     );
 
     const authBarrel = lintFixture(
       "packages/auth/src",
-      'export { ratTestPerson } from "@rat-stack/auth/devtools";\n'
+      'export { ratTestPerson } from "@mischief/auth/devtools";\n'
     );
 
     const typeImport = lintFixture(
       "apps/web/src/server",
-      'type Devtools = import("@rat-stack/devtools").Devtools;\nexport type Tools = Devtools;\n'
+      'type Devtools = import("@mischief/devtools").Devtools;\nexport type Tools = Devtools;\n'
     );
 
     expectRuleSoft(required, "Devtools and test people");
@@ -709,17 +709,17 @@ describe("architecture boundary rules", () => {
   it("allows devtools in a dev folder, the CLI, and tests", () => {
     const dev = lintFixture(
       "apps/web/src/dev",
-      'import { ratTestPerson, runAsPerson } from "@rat-stack/auth/devtools";\nimport { devtools } from "@rat-stack/devtools";\n\nexport const wiring = { devtools, ratTestPerson, runAsPerson };\n'
+      'import { ratTestPerson, runAsPerson } from "@mischief/auth/devtools";\nimport { devtools } from "@mischief/devtools";\n\nexport const wiring = { devtools, ratTestPerson, runAsPerson };\n'
     );
 
     const cli = lintFixture(
       "apps/cli/src",
-      'import { devtools } from "@rat-stack/devtools";\n\nexport const tools = devtools;\n'
+      'import { devtools } from "@mischief/devtools";\n\nexport const tools = devtools;\n'
     );
 
     const test = lintFixture(
       "apps/web/test",
-      'import { devtools } from "@rat-stack/devtools";\n\nexport const tools = devtools;\n'
+      'import { devtools } from "@mischief/devtools";\n\nexport const tools = devtools;\n'
     );
 
     expect(dev.status).toBe(0);
@@ -744,12 +744,12 @@ describe("architecture boundary rules", () => {
 
     const contracts = lintFixture(
       "apps/web/src/dev/client",
-      'import { devtoolsContracts } from "@rat-stack/devtools/contracts";\n\nexport const contracts = devtoolsContracts;\n'
+      'import { devtoolsContracts } from "@mischief/devtools/contracts";\n\nexport const contracts = devtoolsContracts;\n'
     );
 
     const server = lintFixture(
       "apps/web/src/dev/client",
-      'import { devtools } from "@rat-stack/devtools";\n\nexport const tools = devtools;\n'
+      'import { devtools } from "@mischief/devtools";\n\nexport const tools = devtools;\n'
     );
 
     expect(overlay.status).toBe(0);

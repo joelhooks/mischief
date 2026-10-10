@@ -43,7 +43,7 @@ export class CallLog extends Context.Service<
     readonly append: (call: NewCall) => Effect.Effect<CallEntry>;
     readonly snapshot: Effect.Effect<CallLogSnapshot>;
   }
->()("@rat-stack/devtools/CallLog") {
+>()("@mischief/devtools/CallLog") {
   static readonly layer = (capacity: number = DEFAULT_CAPACITY) =>
     Layer.effect(this, makeCallLog(capacity));
 }

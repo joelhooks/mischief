@@ -17,6 +17,6 @@ export interface CallWatchService {
 const passThrough: Around = (_contract, _input, run) => run;
 
 export const CallWatch = Context.Reference<CallWatchService>(
-  "@rat-stack/capability/CallWatch",
+  "@mischief/capability/CallWatch",
   { defaultValue: () => ({ around: passThrough }) }
 );

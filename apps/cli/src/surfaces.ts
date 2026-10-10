@@ -2,17 +2,15 @@
 import { createServer } from "node:http";
 
 import { NodeHttpServer } from "@effect/platform-node";
-import type { AnyCapability } from "@rat-stack/capability";
+import type { AnyCapability } from "@mischief/capability";
 import {
   layerSubprocess,
   toCodeMode,
   toHttpApi,
   toToolkit,
-} from "@rat-stack/capability";
-import { capabilities as coreCapabilities } from "@rat-stack/core";
-import { devtools, devtoolsLayer } from "@rat-stack/devtools";
-import { learnCapabilities } from "@rat-stack/learn";
-import { localLearnCapabilities } from "@rat-stack/learn/local";
+} from "@mischief/capability";
+import { capabilities as coreCapabilities } from "@mischief/core";
+import { devtools, devtoolsLayer } from "@mischief/devtools";
 import { Effect, Layer, Logger } from "effect";
 import { McpServer } from "effect/ai";
 import { HttpRouter } from "effect/http";
@@ -21,17 +19,11 @@ import { HttpApiBuilder, HttpApiScalar } from "effect/http-api";
 import { mcpProtocols } from "./mcp-protocols.js";
 import { VERSION } from "./version.js";
 
-export const capabilities = [
-  ...coreCapabilities,
-  ...learnCapabilities,
-] as const;
+export const capabilities = [...coreCapabilities] as const;
 
-export const cliCapabilities = [
-  ...coreCapabilities,
-  ...localLearnCapabilities,
-] as const;
+export const cliCapabilities = capabilities;
 
-export const http = toHttpApi("RatStack", capabilities);
+export const http = toHttpApi("Mischief", capabilities);
 
 export const tools = toToolkit(cliCapabilities);
 
@@ -53,7 +45,7 @@ export const webServer = (port: number) =>
   HttpRouter.serve(routes).pipe(Layer.provide(serverLayer(port)));
 
 const stdio = McpServer.layerStdio({
-  name: "rat-stack",
+  name: "mischief",
   protocols: mcpProtocols,
   version: VERSION,
 });
@@ -86,7 +78,7 @@ const toolkitServer = <const Caps extends readonly AnyCapability[]>(
 export const devtoolsRoutes = withDevtools(
   capabilities,
   ({ capabilities: all, recorded }) => {
-    const api = toHttpApi("RatStack", recorded);
+    const api = toHttpApi("Mischief", recorded);
 
     return Layer.mergeAll(
       HttpApiBuilder.layer(api.api, { openapiPath: "/openapi.json" }).pipe(
@@ -96,7 +88,7 @@ export const devtoolsRoutes = withDevtools(
       toolkitServer(all).pipe(
         Layer.provide(
           McpServer.layerHttp({
-            name: "rat-stack-devtools",
+            name: "mischief-devtools",
             path: DEVTOOLS_MCP_PATH,
             protocols: mcpProtocols,
             version: VERSION,

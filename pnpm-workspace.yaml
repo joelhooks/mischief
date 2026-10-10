@@ -4,6 +4,9 @@ packages:
   - "apps/*"
   - "packages/*"
 
+overrides:
+  "@effect/platform-node-shared": 4.0.1
+
 allowBuilds:
   "@google/genai": true
   esbuild: true
@@ -18,18 +21,18 @@ minimumReleaseAgeExclude:
   # Effect 4 unblock: stable runtime and adapters replace removed unstable imports.
   - "@alchemy.run/better-auth@2.0.0-beta.81"
   - alchemy@2.0.0-beta.81
-  - effect@4.0.0
+  - effect@4.0.1
   - "@foldkit/oxlint-plugin@0.15.3"
   - "@foldkit/devtools@0.167.0"
   - "@foldkit/ui@0.167.0"
   - "@foldkit/vite-plugin@0.27.0"
   - foldkit@0.167.0
-  - "@effect/platform-node@4.0.0"
-  - "@effect/platform-node-shared@4.0.0"
+  - "@effect/platform-node@4.0.1"
+  - "@effect/platform-node-shared@4.0.1"
   - "@effect/sql-pg@4.0.0"
   - "@effect/sql-d1@4.0.0"
   - "@effect/sql-sqlite-do@4.0.0"
-  - "@effect/vitest@4.0.0"
+  - "@effect/vitest@4.0.1"
   - xstate@6.0.0-alpha.65
   - "@xstate/effect@0.1.0-alpha.7"
   - "@distilled.cloud/aws@1.0.0-rc.13"

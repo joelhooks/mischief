@@ -34,7 +34,7 @@
     "@foldkit/oxlint-plugin": "0.15.3",
     "@oxlint/plugins": "1.83.0",
     "@types/node": "24.13.6",
-    "effect": "4.0.0",
+    "effect": "4.0.1",
     "lefthook": "2.1.14",
     "oxfmt": "0.68.0",
     "oxlint": "1.83.0",

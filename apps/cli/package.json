@@ -16,14 +16,14 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0",
+    "@effect/platform-node": "4.0.1",
     "@mischief/capability": "workspace:*",
     "@mischief/core": "workspace:*",
     "@mischief/devtools": "workspace:*",
-    "effect": "4.0.0"
+    "effect": "4.0.1"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0",
+    "@effect/vitest": "4.0.1",
     "@types/node": "24.13.6",
     "typescript": "7.0.2",
     "vitest": "5.0.3"

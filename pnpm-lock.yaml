@@ -295,6 +295,9 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.1
         version: 4.0.1(effect@4.0.1)(redis@6.2.1)
+      '@rat-king/alchemy-nest':
+        specifier: github:joelhooks/rat-king#14136ae19ca80347073b5f6bc8991790322f8407&path:/packages/alchemy-nest
+        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/14136ae19ca80347073b5f6bc8991790322f8407#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
       alchemy:
         specifier: 2.0.0-beta.81
         version: 2.0.0-beta.81(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.1)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
@@ -1628,6 +1631,10 @@ packages:
         optional: true
       yauzl:
         optional: true
+
+  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/14136ae19ca80347073b5f6bc8991790322f8407#path:/packages/alchemy-nest':
+    resolution: {gitHosted: true, integrity: sha512-8Q3HEEVfWDlyeahYU1a6eFAjG4BNQepjwqHhC6R3yHaS5Hn7CjpiD093gJRqZ7OLBdAySTdHScImJgn78jr8nQ==, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/14136ae19ca80347073b5f6bc8991790322f8407}
+    version: 0.1.0
 
   '@redis/bloom@6.2.1':
     resolution: {integrity: sha512-huQgNLaCIZfQ9SeLn4q9124uOUd8HbZDYHwwUzNcRgHqCHiHKl2dDxMqJCeWh8cMqZAoWuHR8XnWbDMIf+o7ag==}
@@ -4389,6 +4396,38 @@ snapshots:
       yargs: 18.1.0
     optionalDependencies:
       yauzl: 3.4.0
+
+  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/14136ae19ca80347073b5f6bc8991790322f8407#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)':
+    dependencies:
+      alchemy: 2.0.0-beta.81(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.1)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
+      effect: 4.0.1
+      esbuild: 0.28.2
+    transitivePeerDependencies:
+      - '@alchemy.run/frontend-frameworks'
+      - '@aws/durable-execution-sdk-js'
+      - '@effect/platform-bun'
+      - '@effect/platform-node'
+      - '@effect/sql-mysql2'
+      - '@effect/sql-pg'
+      - '@effect/vitest'
+      - '@prisma/orm-postgres'
+      - '@types/node'
+      - '@types/react'
+      - '@vercel/nft'
+      - bufferutil
+      - drizzle-kit
+      - drizzle-orm
+      - hono
+      - mongodb
+      - mysql2
+      - pg
+      - prisma
+      - proxy-agent
+      - react-devtools-core
+      - typescript
+      - utf-8-validate
+      - vite
+      - ws
 
   '@redis/bloom@6.2.1(@redis/client@6.2.1)':
     dependencies:

@@ -1,8 +1,9 @@
-import { Context } from "effect";
-import type { Effect, Option, Schema } from "effect";
+import { Context, Effect, Layer } from "effect";
+import type { Option, Schema } from "effect";
 
 import type { AgentConfig } from "../plans/schema.js";
-import type { StepCall, StepFailed } from "./step-failed.js";
+import { StepFailed } from "./step-failed.js";
+import type { StepCall } from "./step-failed.js";
 
 export interface Thought {
   readonly output: string;
@@ -18,6 +19,14 @@ export interface Elaboration {
   readonly amendment: Schema.Json;
   readonly tokens: number;
 }
+
+const unwired = (call: StepCall) =>
+  Effect.fail(
+    new StepFailed({
+      key: call.key,
+      reason: "Thinker is not wired on this host",
+    })
+  );
 
 export class Thinker extends Context.Service<
   Thinker,
@@ -38,4 +47,10 @@ export class Thinker extends Context.Service<
       call: StepCall & { readonly goal: string }
     ) => Effect.Effect<Elaboration, StepFailed>;
   }
->()("@mischief/core/Thinker") {}
+>()("@mischief/core/Thinker") {
+  static readonly unwired = Layer.succeed(this, {
+    decide: unwired,
+    elaborate: unwired,
+    think: unwired,
+  });
+}

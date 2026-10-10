@@ -1,6 +1,14 @@
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { FileInspector } from "@mischief/core";
+import {
+  FileInspector,
+  Judge,
+  Mail,
+  Operator,
+  RunHost,
+  RunStore,
+  Thinker,
+} from "@mischief/core";
 import {
   ActorLog,
   CallLog,
@@ -23,12 +31,25 @@ const decodeOpenApi = Schema.decodeUnknownSync(
   Schema.Struct({ paths: Schema.Record(Schema.String, Schema.Unknown) })
 );
 
+const memoryRuns = RunHost.layer.pipe(
+  Layer.provide(
+    Layer.mergeAll(
+      RunStore.memory,
+      Thinker.unwired,
+      Judge.unwired,
+      Mail.unwired,
+      Layer.succeed(Operator, { notify: () => Effect.void })
+    )
+  )
+);
+
 const AppLayer = HttpRouter.serve(routes, {
   disableListenLog: true,
   disableLogger: true,
 }).pipe(
   Layer.provideMerge(NodeHttpServer.layerTest),
-  Layer.provide(FileInspector.layer.pipe(Layer.provide(NodeServices.layer)))
+  Layer.provide(FileInspector.layer.pipe(Layer.provide(NodeServices.layer))),
+  Layer.provide(memoryRuns)
 );
 
 describe("serve routes", () => {
@@ -129,7 +150,8 @@ describe("serve routes", () => {
           Layer.provideMerge(devtoolsLayer()),
           Layer.provide(
             FileInspector.layer.pipe(Layer.provide(NodeServices.layer))
-          )
+          ),
+          Layer.provide(memoryRuns)
         )
       )
     )

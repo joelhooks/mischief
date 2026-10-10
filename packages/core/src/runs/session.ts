@@ -1,4 +1,5 @@
-import { Effect, Exit, Option, Schema } from "effect";
+import { Effect, Option, Result, Schema } from "effect";
+import { constVoid } from "effect/Function";
 import { createAsyncLogic } from "xstate";
 import type { AnyEventObject, Snapshot } from "xstate";
 
@@ -152,18 +153,18 @@ export const driveSession = (
             : hit;
         }
 
-        const outcome = yield* Effect.exit(exec);
+        const outcome = yield* Effect.result(exec);
 
-        const entry = Exit.isSuccess(outcome)
-          ? outcome.value
-          : { error: `${key} failed` };
+        const entry = Result.isSuccess(outcome)
+          ? outcome.success
+          : { error: outcome.failure.reason };
 
         journal.set(key, entry);
         yield* store.writeJournal(runId, key, entry);
 
-        return Exit.isSuccess(outcome)
-          ? outcome.value
-          : yield* failed(key, `${key} failed`);
+        return Result.isSuccess(outcome)
+          ? outcome.success
+          : yield* outcome.failure;
       });
 
     const visitOf = (key: string) => visits.get(key) ?? 1;
@@ -291,9 +292,7 @@ export const driveSession = (
 
     const sources: Sources = {
       actions: {
-        askJoel: (_args: { readonly event: AnyEventObject }, question: Ask) => {
-          void runPromise(operator.notify(runId, question));
-        },
+        askJoel: constVoid,
       },
       actors: {
         ask: logic(AskInputSchema, ask),
@@ -353,7 +352,7 @@ export const driveSession = (
         const key = `effect:${metadata.id}:${action.type}`;
 
         const exec = Effect.try({
-          catch: () => failed(key, `${key} failed`),
+          catch: (cause) => failed(key, String(cause)),
           try: () => action.exec?.(),
         }).pipe(Effect.as(true));
 
@@ -537,6 +536,13 @@ export const driveSession = (
       run.reply = undefined;
 
       if (chosen === undefined || !question.options.includes(chosen)) {
+        const asked = (answers.get(question.key) ?? 0) + 1;
+
+        yield* journaled(
+          `announce:${question.key}#${asked}`,
+          operator.notify(runId, question).pipe(Effect.as(true))
+        ).pipe(Effect.ignore);
+
         return { kind: "halt", status: "waiting-for-joel" } satisfies Choice;
       }
 

@@ -151,7 +151,7 @@ const outcome = <A>(key: string, found: Fixture, value: A) =>
     ? Effect.fail(new StepFailed({ key, reason: "fixture failure" }))
     : Effect.succeed(value);
 
-const fakes = (fixtures: Fixtures, calls: ModelCall[]) => {
+const fakes = (fixtures: Fixtures, calls: ModelCall[], announced: string[]) => {
   const fixture = (key: string, visit: number, suffix = "") =>
     fixtures[`${key}#${visit}${suffix}`] ?? {};
 
@@ -182,7 +182,12 @@ const fakes = (fixtures: Fixtures, calls: ModelCall[]) => {
           })
         ),
     }),
-    operator: Operator.of({ notify: () => Effect.void }),
+    operator: Operator.of({
+      notify: (_runId, { key }) =>
+        Effect.sync(() => {
+          announced.push(key);
+        }),
+    }),
     thinker: Thinker.of({
       decide: ({ key, visit }) =>
         record(key, "think-fallback", visit).pipe(
@@ -218,10 +223,22 @@ const fakes = (fixtures: Fixtures, calls: ModelCall[]) => {
   };
 };
 
+const expectAnnounced = (
+  announced: readonly string[],
+  question: { readonly answered: number; readonly key: string },
+  crashes: number
+) => {
+  const times = announced.filter((key) => key === question.key).length;
+
+  expect(times).toBeGreaterThanOrEqual(question.answered + 1);
+  expect(times).toBeLessThanOrEqual(question.answered + 1 + crashes);
+};
+
 const incarnation = (
   base: (typeof RunStore)["Service"],
   fixtures: Fixtures,
   calls: ModelCall[],
+  announced: string[],
   plan: Schema.Json,
   first: boolean,
   interruption?: Interruption
@@ -301,7 +318,11 @@ const incarnation = (
         }),
     });
 
-    const { judge, mail, operator, thinker } = fakes(fixtures, calls);
+    const { judge, mail, operator, thinker } = fakes(
+      fixtures,
+      calls,
+      announced
+    );
 
     const host = yield* RunHost.make.pipe(
       Effect.provideService(RunStore, store),
@@ -317,6 +338,8 @@ const incarnation = (
         : yield* host.resume(RUN);
 
       while (report.status === "waiting-for-joel" && report.question) {
+        expectAnnounced(announced, report.question, Number.POSITIVE_INFINITY);
+
         const { answered, key, options } = report.question;
         const reply = fixtures[`${key}#${answered + 1}:joel`]?.answer;
 
@@ -361,6 +384,7 @@ it.effect.prop(
       );
 
       const calls: ModelCall[] = [];
+      const announced: string[] = [];
       let first = true;
 
       for (const interruption of world.interruptions) {
@@ -368,6 +392,7 @@ it.effect.prop(
           base,
           fixtures,
           calls,
+          announced,
           plan,
           first,
           interruption
@@ -380,9 +405,25 @@ it.effect.prop(
         }
       }
 
-      const final = yield* incarnation(base, fixtures, calls, plan, first);
+      const final = yield* incarnation(
+        base,
+        fixtures,
+        calls,
+        announced,
+        plan,
+        first
+      );
 
       const actual = yield* final.exit;
+
+      if (actual.question !== undefined) {
+        expectAnnounced(
+          announced,
+          actual.question,
+          world.interruptions.filter(({ kind }) => kind !== "pause").length
+        );
+      }
+
       const state = yield* base.readRun(RUN);
       yield* Schema.decodeEffect(RunStateSchema)(Option.getOrThrow(state));
       const stored = yield* base.readPlan(RUN, actual.planVersion);

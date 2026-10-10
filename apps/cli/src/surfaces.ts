@@ -9,7 +9,10 @@ import {
   toHttpApi,
   toToolkit,
 } from "@mischief/capability";
-import { capabilities as coreCapabilities } from "@mischief/core";
+import {
+  capabilities as coreCapabilities,
+  runCapabilities,
+} from "@mischief/core";
 import { devtools, devtoolsLayer } from "@mischief/devtools";
 import { Effect, Layer, Logger } from "effect";
 import { McpServer } from "effect/ai";
@@ -19,7 +22,7 @@ import { HttpApiBuilder, HttpApiScalar } from "effect/http-api";
 import { mcpProtocols } from "./mcp-protocols.js";
 import { VERSION } from "./version.js";
 
-export const capabilities = [...coreCapabilities] as const;
+export const capabilities = [...coreCapabilities, ...runCapabilities] as const;
 
 export const cliCapabilities = capabilities;
 

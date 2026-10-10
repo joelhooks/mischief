@@ -113,14 +113,14 @@ export class RunHost extends Context.Service<
 
       if (report.question === undefined) {
         return yield* new AnswerRefused({
-          reason: `run is ${report.status}, not waiting for an answer`,
+          reason: `the run is ${report.status} and has no open question. Call inspectRun({ runId: "${runId}" }) to see its state${report.status === "paused" ? `, or resumeRun({ runId: "${runId}" }) to continue it` : ""}.`,
           runId,
         });
       }
 
       if (!report.question.options.includes(reply)) {
         return yield* new AnswerRefused({
-          reason: `"${reply}" is not one of ${report.question.options.join(", ")}`,
+          reason: `"${reply}" is not an option for "${report.question.question}". Call answerRun({ runId: "${runId}", reply }) with reply one of: ${report.question.options.join(", ")}.`,
           runId,
         });
       }

@@ -20,7 +20,7 @@ export class PlanRefused extends Schema.TaggedError<PlanRefused>()(
   { errors: Schema.Array(Schema.String) }
 ) {
   override get message() {
-    return `Plan refused: ${this.errors.join("; ")}`;
+    return `Plan refused, nothing was stored. Fix each problem and call submitPlan again:\n${this.errors.map((error) => `- ${error}`).join("\n")}`;
   }
 }
 
@@ -48,7 +48,9 @@ const findCode = (value: Schema.Json, path: string): readonly string[] => {
 
   return children.flatMap(([key, child]) =>
     codeKeys.has(key)
-      ? [`${path}.${key}: code in plan data is refused`]
+      ? [
+          `${path}.${key}: plans are data, so @code and @expr are refused. Express the logic as steps and transitions instead`,
+        ]
       : findCode(child, `${path}.${key}`)
   );
 };
@@ -94,15 +96,21 @@ const resolveThink = (
   const errors = [
     ...(envelope.models.includes(model)
       ? []
-      : [`${where}: model "${model}" is outside the envelope`]),
+      : [
+          `${where}: model "${model}" is outside the envelope. Use one of: ${envelope.models.join(", ")}, or widen envelope.models`,
+        ]),
     ...(thinkingLevels.indexOf(thinking) >
     thinkingLevels.indexOf(envelope.maxThinking)
-      ? [`${where}: thinking "${thinking}" exceeds ${envelope.maxThinking}`]
+      ? [
+          `${where}: thinking "${thinking}" exceeds envelope.maxThinking "${envelope.maxThinking}". Use ${thinkingLevels.slice(0, thinkingLevels.indexOf(envelope.maxThinking) + 1).join(", ")}`,
+        ]
       : []),
     ...tools.flatMap((tool) =>
       allowedTools.has(tool)
         ? []
-        : [`${where}: tool "${tool}" is outside the envelope`]
+        : [
+            `${where}: tool "${tool}" is outside the envelope. Allowed: ${[...allowedTools].join(", ")}, or add it to envelope.tools`,
+          ]
     ),
   ];
 
@@ -121,7 +129,9 @@ const resolveAsk = (
   agents: 1,
   errors: plan.envelope.names.includes(step.to)
     ? []
-    : [`${where}: Rat King name "${step.to}" is not on the envelope allowlist`],
+    : [
+        `${where}: Rat King name "${step.to}" is not on the envelope allowlist. Allowed: ${plan.envelope.names.join(", ") || "none"}, or add it to envelope.names`,
+      ],
   value: step,
 });
 
@@ -161,7 +171,7 @@ const resolveBranch = (
     errors: [
       ...(branchLength(branch) === undefined
         ? [
-            `${where}: a branch must be a straight line of steps ending in a final state`,
+            `${where}: a branch must be a straight line, each step with exactly one transition, ending in a { "type": "final" } state`,
           ]
         : []),
       ...errors,
@@ -173,7 +183,7 @@ const resolveBranch = (
 const depthErrorsAt = (plan: Plan, path: readonly string[]) =>
   path.length > plan.envelope.maxDepth
     ? [
-        `${path.join(".")}: depth ${path.length} exceeds envelope maxDepth ${plan.envelope.maxDepth}`,
+        `${path.join(".")}: nesting depth ${path.length} exceeds envelope.maxDepth ${plan.envelope.maxDepth}. Flatten the compound state or raise maxDepth`,
       ]
     : [];
 
@@ -206,7 +216,9 @@ const resolveNode = (
 
   const choiceErrors =
     (step.kind === "judge" || step.kind === "ask-joel") && choiceCount < 2
-      ? [`${where}: ${step.kind} needs at least two transitions to choose from`]
+      ? [
+          `${where}: ${step.kind} needs at least two transitions in "on", one per option it can choose`,
+        ]
       : [];
 
   switch (step.kind) {
@@ -259,20 +271,26 @@ const resolveNode = (
 
       const parallelErrors = [
         ...(branches.length < 2
-          ? [`${where}: parallel needs at least two branches`]
+          ? [
+              `${where}: parallel needs at least two branches; a single branch is just a sequence of steps`,
+            ]
           : []),
         ...(node.on?.done === undefined
-          ? [`${where}: parallel needs a done transition`]
+          ? [
+              `${where}: parallel needs on.done, the state to enter when every branch settles`,
+            ]
           : []),
         ...(step.join === "failFast" && node.on?.failed === undefined
-          ? [`${where}: failFast needs a failed transition`]
+          ? [
+              `${where}: join "failFast" needs on.failed, the state to enter when the first branch fails`,
+            ]
           : []),
         ...Object.values(step.branches).flatMap((branch) =>
           Object.values(branch.states).flatMap((state) =>
             isFinal(state) || BRANCH_STEPS.has(state.meta.step.kind)
               ? []
               : [
-                  `${where}: a parallel branch may only hold think and ask steps`,
+                  `${where}: a parallel branch may only hold think and ask steps. Move judge, ask-joel, sketch or parallel steps after the fan-out`,
                 ]
           )
         ),
@@ -371,7 +389,7 @@ export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
     ...resolved.errors,
     ...(resolved.agents > plan.envelope.maxAgents
       ? [
-          `plan has ${resolved.agents} agents, envelope allows ${plan.envelope.maxAgents}`,
+          `plan has ${resolved.agents} agent steps (think and ask), envelope.maxAgents allows ${plan.envelope.maxAgents}. Cut steps or raise maxAgents`,
         ]
       : []),
   ];

@@ -1,7 +1,15 @@
-import { Context } from "effect";
-import type { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
-import type { StepCall, StepFailed } from "./step-failed.js";
+import { StepFailed } from "./step-failed.js";
+import type { StepCall } from "./step-failed.js";
+
+const unwired = (call: StepCall) =>
+  Effect.fail(
+    new StepFailed({
+      key: call.key,
+      reason: "Mail is not wired on this host",
+    })
+  );
 
 export class Mail extends Context.Service<
   Mail,
@@ -10,4 +18,8 @@ export class Mail extends Context.Service<
       call: StepCall & { readonly message: string; readonly to: string }
     ) => Effect.Effect<string, StepFailed>;
   }
->()("@mischief/core/Mail") {}
+>()("@mischief/core/Mail") {
+  static readonly unwired = Layer.succeed(this, {
+    ask: unwired,
+  });
+}

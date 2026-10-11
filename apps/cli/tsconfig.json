@@ -5,6 +5,7 @@
       {
         "name": "@effect/language-service",
         "allowedUnstableApis": [
+          "effect/Arbitrary",
           "effect/ai/McpProtocol",
           "effect/ai/McpServer",
           "effect/cli/Command",

@@ -3,7 +3,13 @@ import { Schema } from "effect";
 
 import { PlanRefused } from "../plans/validate.js";
 import { AnswerRefused } from "./answer-refused.js";
-import { DocsSchema, RunId, RunReportSchema } from "./schema.js";
+import { ReplyRefused } from "./reply-refused.js";
+import {
+  DocsSchema,
+  ReplyLineSchema,
+  RunId,
+  RunReportSchema,
+} from "./schema.js";
 import { UnknownRun } from "./unknown-run.js";
 
 const runId = RunId.annotate({ description: "Run id, lowercase kebab-case" });
@@ -69,5 +75,14 @@ export const answerRunContract = defineContract("answerRun", {
     reply: Schema.String.annotate({ description: "One of the listed options" }),
     runId,
   }),
+  output: RunReportSchema,
+});
+
+export const deliverReplyContract = defineContract("deliverReply", {
+  annotations: { openWorld: true },
+  description:
+    "Deliver a Rat King reply to the run whose ask sent the message it answers, write it to the ask's doc, and drive the run on. Takes a drained mailbox line as-is; extra fields are ignored.",
+  failure: ReplyRefused,
+  input: ReplyLineSchema,
   output: RunReportSchema,
 });

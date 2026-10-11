@@ -1,6 +1,7 @@
-import { Judge, Mail, Operator, RunHost, Thinker } from "@mischief/core";
+import { Judge, Operator, RunHost, Thinker } from "@mischief/core";
 import { Config, Console, Effect, Layer, Option, Path } from "effect";
 
+import { mailOutbox } from "./mail-outbox.js";
 import { runStoreFile } from "./run-store-file.js";
 
 const runsRoot = Effect.gen(function* resolveRunsRoot() {
@@ -27,7 +28,7 @@ export const localRunLayer = RunHost.layer.pipe(
     Layer.mergeAll(
       Thinker.unwired,
       Judge.unwired,
-      Mail.unwired,
+      Layer.unwrap(runsRoot.pipe(Effect.map(mailOutbox))),
       operatorConsole
     )
   )

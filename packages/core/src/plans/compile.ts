@@ -15,6 +15,10 @@ export const AMENDED = "mischief.amended";
 
 export const FAILED_BRANCH = "__failed";
 
+export const REPLY_SUFFIX = "__reply";
+
+export const replyEvent = (key: string) => `mischief.reply.${key}`;
+
 export interface CompiledMachine extends StateNodeJSON {
   readonly id: string;
   readonly initial: string;
@@ -92,7 +96,23 @@ const compileStep = (
   const meta = { key, step };
 
   switch (step.kind) {
-    case "think":
+    case "think": {
+      return [
+        [
+          name,
+          {
+            invoke: {
+              input: { key, ...step },
+              onDone: { target: targetOf(node.on, "done") },
+              src: "think",
+              ...errorTransition(scope),
+            },
+            meta,
+          },
+        ],
+      ];
+    }
+
     case "ask": {
       return [
         [
@@ -100,16 +120,20 @@ const compileStep = (
           {
             invoke: {
               input: { key, ...step },
-              onDone: {
-                target: targetOf(
-                  node.on,
-                  step.kind === "think" ? "done" : "replied"
-                ),
-              },
-              src: step.kind,
+              onDone: { target: `${name}${REPLY_SUFFIX}` },
+              src: "ask",
               ...errorTransition(scope),
             },
             meta,
+          },
+        ],
+        [
+          `${name}${REPLY_SUFFIX}`,
+          {
+            meta: { key, step },
+            on: {
+              [replyEvent(key)]: { target: targetOf(node.on, "replied") },
+            },
           },
         ],
       ];
@@ -314,6 +338,12 @@ export type NodeFact =
       readonly next: string;
       readonly path: readonly string[];
     }
+  | {
+      readonly kind: "await";
+      readonly key: string;
+      readonly to: string;
+      readonly writes: string | null;
+    }
   | { readonly kind: "fanout"; readonly cost: number }
   | { readonly kind: "migrate" };
 
@@ -367,10 +397,28 @@ const stepFacts = (
         .map((branch) => branchLength(branch) ?? 0)
         .reduce((sum, length) => sum + length, 0);
 
-      return [[key, { cost, kind: "fanout" }]];
+      const awaits = Object.entries(step.branches).flatMap(
+        ([branchName, branch]) =>
+          Object.entries(branch.states).flatMap(([stateName, state]) =>
+            isStep(state)
+              ? // oxlint-disable-next-line eslint/no-use-before-define -- branch steps are steps, whose facts include parallel branches.
+                stepFacts(state, [...path, branchName, stateName])
+              : []
+          )
+      );
+
+      return [[key, { cost, kind: "fanout" }], ...awaits];
     }
 
-    case "ask":
+    case "ask": {
+      return [
+        [
+          sibling(path, `${name}${REPLY_SUFFIX}`),
+          { key, kind: "await", to: step.to, writes: step.writes ?? null },
+        ],
+      ];
+    }
+
     case "think": {
       return [];
     }

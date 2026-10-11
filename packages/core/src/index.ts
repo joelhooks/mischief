@@ -33,20 +33,28 @@ export { runCapabilities } from "./runs/capabilities.js";
 
 export { RunHost } from "./runs/host.js";
 
+export { ReplyRefused } from "./runs/reply-refused.js";
+
 export { RunStore } from "./runs/run-store.js";
 
 export {
+  AwaitingSchema,
   DocsSchema,
+  ReplyLineSchema,
   RunReportSchema,
   RunStateSchema,
+  type Awaiting,
+  type ReplyLine,
   type RunReport,
 } from "./runs/schema.js";
 
 export { UnknownRun } from "./runs/unknown-run.js";
 
-export { Judge } from "./steps/judge.js";
+export { Judge, type Judgement } from "./steps/judge.js";
 
-export { Mail } from "./steps/mail.js";
+export type { Usage } from "./steps/usage.js";
+
+export { Mail, SealedSchema, type Sealed } from "./steps/mail.js";
 
 export { Operator } from "./steps/operator.js";
 

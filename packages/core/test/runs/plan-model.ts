@@ -32,6 +32,7 @@ interface ModelStep {
   readonly next?: string;
   readonly prompt?: string;
   readonly reads?: readonly string[];
+  readonly to?: string;
   readonly writes?: string;
 }
 
@@ -212,8 +213,6 @@ const makeWorld = (
       docs.set(`failed:${key}`, true);
     } else if (step.kind === "think" && step.writes !== undefined) {
       docs.set(step.writes, fixture.output ?? `(${step.prompt ?? ""})`);
-    } else if (step.kind === "ask" && step.writes !== undefined) {
-      docs.set(step.writes, fixture.reply ?? "");
     }
   };
 
@@ -412,6 +411,47 @@ const sketchMove = (
   return world.go(world.enterAt(path));
 };
 
+const askMove = (
+  world: World,
+  node: ModelNode,
+  step: ModelStep,
+  path: readonly string[]
+): Move => {
+  const key = path.join(".");
+  const visit = world.visitOf(key);
+  const fixture = world.fixtureOf(key, visit);
+
+  world.calls.push({ key, kind: "ask", visit });
+
+  if (fixture.fail === true) {
+    world.writeStep(step, fixture, key);
+
+    return advanceTo(world, path, firstTarget(node));
+  }
+
+  world.docs.set(`__sent:${key}`, {
+    messageId: `${key}#${visit}`,
+    to: step.to ?? "",
+  });
+  world.clock.transitions += 1;
+
+  const at = sibling(path, `${path.at(-1) ?? ""}__reply`).join(".");
+
+  if (world.clock.transitions >= world.maxSteps) {
+    return world.halt("envelope-exceeded", at);
+  }
+
+  if (fixture.reply === undefined) {
+    return world.halt("waiting-for-reply", at);
+  }
+
+  if (step.writes !== undefined) {
+    world.docs.set(step.writes, fixture.reply);
+  }
+
+  return advanceTo(world, path, firstTarget(node));
+};
+
 const stepMove = (
   world: World,
   node: ModelNode,
@@ -428,7 +468,11 @@ const stepMove = (
     return world.halt("envelope-exceeded", key);
   }
 
-  if (step.kind === "think" || step.kind === "ask") {
+  if (step.kind === "ask") {
+    return askMove(world, node, step, path);
+  }
+
+  if (step.kind === "think") {
     const visit = world.visitOf(key);
 
     world.calls.push({ key, kind: step.kind, visit });

@@ -1,7 +1,14 @@
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { StepFailed } from "./step-failed.js";
 import type { StepCall } from "./step-failed.js";
+
+export const SealedSchema = Schema.Struct({
+  envelope: Schema.String,
+  messageId: Schema.String,
+});
+
+export type Sealed = typeof SealedSchema.Type;
 
 const unwired = (call: StepCall) =>
   Effect.fail(
@@ -14,12 +21,17 @@ const unwired = (call: StepCall) =>
 export class Mail extends Context.Service<
   Mail,
   {
-    readonly ask: (
+    readonly seal: (
       call: StepCall & { readonly message: string; readonly to: string }
-    ) => Effect.Effect<string, StepFailed>;
+    ) => Effect.Effect<Sealed, StepFailed>;
+    readonly send: (
+      call: StepCall,
+      sealed: Sealed
+    ) => Effect.Effect<void, StepFailed>;
   }
 >()("@mischief/core/Mail") {
   static readonly unwired = Layer.succeed(this, {
-    ask: unwired,
+    seal: unwired,
+    send: unwired,
   });
 }

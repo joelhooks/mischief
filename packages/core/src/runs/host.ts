@@ -3,11 +3,12 @@ import { Context, Effect, Layer, Option, Schema } from "effect";
 import { DocKey } from "../plans/schema.js";
 import { PlanRefused, validatePlan } from "../plans/validate.js";
 import { AnswerRefused } from "./answer-refused.js";
+import { ReplyRefused } from "./reply-refused.js";
 import { RunStore } from "./run-store.js";
 import { terminalStatuses } from "./schema.js";
-import type { Docs, RunReport, RunState } from "./schema.js";
+import type { Docs, ReplyLine, RunReport, RunState } from "./schema.js";
 import { driveSession, reportOf } from "./session.js";
-import type { StepServices } from "./session.js";
+import type { Delivery, StepServices } from "./session.js";
 import { UnknownRun } from "./unknown-run.js";
 
 const decodeJsonObject = Schema.decodeUnknownOption(Schema.JsonObject);
@@ -29,6 +30,9 @@ export class RunHost extends Context.Service<
       runId: string,
       reply: string
     ) => Effect.Effect<RunReport, UnknownRun | AnswerRefused>;
+    readonly deliver: (
+      line: ReplyLine
+    ) => Effect.Effect<RunReport, ReplyRefused>;
     readonly inspect: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly pause: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly resume: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
@@ -59,7 +63,7 @@ export class RunHost extends Context.Service<
 
     const drive = Effect.fn("RunHost.drive")(function* drive(
       runId: string,
-      reply?: string
+      delivery?: Delivery
     ) {
       const opened = yield* loadRun(runId);
 
@@ -67,7 +71,7 @@ export class RunHost extends Context.Service<
         return yield* reportOf(runId, opened.plan, opened.state);
       }
 
-      return yield* driveSession(runId, opened, reply);
+      return yield* driveSession(runId, opened, delivery);
     }, Effect.provideContext(context));
 
     const inspect = Effect.fn("RunHost.inspect")(function* inspect(
@@ -115,6 +119,7 @@ export class RunHost extends Context.Service<
       const fresh: RunState = {
         answers: {},
         asking: null,
+        awaiting: [],
         checkpoint: null,
         planVersion: plan.version,
         status: "running",
@@ -147,7 +152,7 @@ export class RunHost extends Context.Service<
         });
       }
 
-      return yield* drive(runId, reply);
+      return yield* drive(runId, { kind: "answer", reply });
     });
 
     const pause = Effect.fn("RunHost.pause")(function* pause(runId: string) {
@@ -179,10 +184,65 @@ export class RunHost extends Context.Service<
       );
     });
 
+    const deliver = Effect.fn("RunHost.deliver")(function* deliver(
+      line: ReplyLine
+    ) {
+      const refuse = (reason: string) =>
+        new ReplyRefused({ reason, replyTo: line.replyTo });
+
+      const owner = yield* store.readMessage(line.replyTo);
+
+      if (Option.isNone(owner)) {
+        return yield* refuse(
+          "no run sent that message. Check replyTo against the messageId the ask sent; inspectRun shows it under awaiting."
+        );
+      }
+
+      const runId = owner.value;
+      const report = yield* inspect(runId).pipe(Effect.orDie);
+
+      const open = (report.awaiting ?? []).find(
+        ({ messageId }) => messageId === line.replyTo
+      );
+
+      const openAsks = (report.awaiting ?? [])
+        .map(
+          ({ key, messageId, to }) => `${key} to ${to} (replyTo ${messageId})`
+        )
+        .join("; ");
+
+      if (open === undefined) {
+        return yield* refuse(
+          `run ${runId} is not waiting on it (status ${report.status}). It was already delivered or the run has moved on; nothing changed. Open asks: ${openAsks || "none"}.`
+        );
+      }
+
+      if (line.from === undefined) {
+        return yield* refuse(
+          `the sender is unverified. Only a signed reply from ${open.to} can answer it.`
+        );
+      }
+
+      if (line.from !== open.to) {
+        return yield* refuse(
+          `the ask went to ${open.to}, but this reply is from ${line.from}. Only ${open.to} can answer it.`
+        );
+      }
+
+      if (open.writes !== null) {
+        yield* store.writeDoc(runId, open.writes, line.body);
+      }
+
+      return yield* drive(runId, { key: open.key, kind: "reply" }).pipe(
+        Effect.orDie
+      );
+    });
+
     return {
       abort,
       advance: (runId) => drive(runId),
       answer,
+      deliver,
       inspect,
       pause,
       resume,

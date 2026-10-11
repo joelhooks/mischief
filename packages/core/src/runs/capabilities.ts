@@ -3,6 +3,7 @@ import { implement } from "@mischief/capability/implement";
 import {
   abortRunContract,
   answerRunContract,
+  deliverReplyContract,
   inspectRunContract,
   pauseRunContract,
   resumeRunContract,
@@ -36,6 +37,10 @@ export const answerRun = implement(answerRunContract, ({ reply, runId }) =>
   RunHost.use((host) => host.answer(runId, reply))
 );
 
+export const deliverReply = implement(deliverReplyContract, (line) =>
+  RunHost.use((host) => host.deliver(line))
+);
+
 export const runCapabilities = [
   submitPlan,
   inspectRun,
@@ -43,4 +48,5 @@ export const runCapabilities = [
   resumeRun,
   abortRun,
   answerRun,
+  deliverReply,
 ] as const;

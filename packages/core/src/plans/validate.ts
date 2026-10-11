@@ -126,7 +126,7 @@ const resolveAsk = (
   step: AskStep,
   where: string
 ): Checked<AskStep> => ({
-  agents: 1,
+  agents: 0,
   errors: plan.envelope.names.includes(step.to)
     ? []
     : [
@@ -389,7 +389,7 @@ export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
     ...resolved.errors,
     ...(resolved.agents > plan.envelope.maxAgents
       ? [
-          `plan has ${resolved.agents} agent steps (think and ask), envelope.maxAgents allows ${plan.envelope.maxAgents}. Cut steps or raise maxAgents`,
+          `plan has ${resolved.agents} think steps, envelope.maxAgents allows ${plan.envelope.maxAgents}. Asks to existing Rat King names do not count. Cut think steps or raise maxAgents`,
         ]
       : []),
   ];

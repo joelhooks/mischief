@@ -29,6 +29,13 @@ export class RunStore extends Context.Service<
       doc: Schema.Json
     ) => Effect.Effect<void>;
     readonly readPaused: (runId: string) => Effect.Effect<boolean>;
+    readonly readMessage: (
+      messageId: string
+    ) => Effect.Effect<Option.Option<string>>;
+    readonly writeMessage: (
+      messageId: string,
+      runId: string
+    ) => Effect.Effect<void>;
     readonly writePaused: (
       runId: string,
       paused: boolean
@@ -41,6 +48,7 @@ export class RunStore extends Context.Service<
     const journals = new Map<string, Map<string, Schema.Json>>();
     const docs = new Map<string, Docs>();
     const paused = new Set<string>();
+    const messages = new Map<string, string>();
 
     const journalOf = (runId: string) => {
       const existing = journals.get(runId);
@@ -58,6 +66,8 @@ export class RunStore extends Context.Service<
     return RunStore.of({
       readDocs: (runId) => Effect.sync(() => ({ ...docs.get(runId) })),
       readJournal: (runId) => Effect.sync(() => new Map(journalOf(runId))),
+      readMessage: (messageId) =>
+        Effect.sync(() => Option.fromUndefinedOr(messages.get(messageId))),
       readPaused: (runId) => Effect.sync(() => paused.has(runId)),
       readPlan: (runId, version) =>
         Effect.sync(() =>
@@ -72,6 +82,10 @@ export class RunStore extends Context.Service<
       writeJournal: (runId, key, entry) =>
         Effect.sync(() => {
           journalOf(runId).set(key, structuredClone(entry));
+        }),
+      writeMessage: (messageId, runId) =>
+        Effect.sync(() => {
+          messages.set(messageId, runId);
         }),
       writePaused: (runId, value) =>
         Effect.sync(() => {

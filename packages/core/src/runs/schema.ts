@@ -11,6 +11,7 @@ export const RunStatusSchema = Schema.Literals([
   "running",
   "paused",
   "waiting-for-joel",
+  "waiting-for-reply",
   "done",
   "envelope-exceeded",
   "amendment-refused",
@@ -50,9 +51,29 @@ export const DocsSchema = Schema.Record(Schema.String, Schema.Json);
 
 export type Docs = typeof DocsSchema.Type;
 
+export const AwaitingSchema = Schema.Struct({
+  key: Schema.String,
+  messageId: Schema.String,
+  to: Schema.String,
+  writes: Schema.NullOr(Schema.String),
+});
+
+export type Awaiting = typeof AwaitingSchema.Type;
+
+export const ReplyLineSchema = Schema.Struct({
+  acceptedAt: Schema.optionalKey(Schema.String),
+  body: Schema.String,
+  from: Schema.optionalKey(Schema.String),
+  messageId: Schema.optionalKey(Schema.String),
+  replyTo: Schema.String,
+});
+
+export type ReplyLine = typeof ReplyLineSchema.Type;
+
 export const RunStateSchema = Schema.Struct({
   answers: Schema.Record(Schema.String, Count),
   asking: Schema.NullOr(QuestionInputSchema),
+  awaiting: Schema.Array(AwaitingSchema),
   checkpoint: Schema.NullOr(CheckpointSchema),
   planVersion: Count,
   status: RunStatusSchema,
@@ -70,6 +91,7 @@ export const QuestionSchema = Schema.Struct({
 export type Question = typeof QuestionSchema.Type;
 
 export const RunReportSchema = Schema.Struct({
+  awaiting: Schema.optionalKey(Schema.Array(AwaitingSchema)),
   docs: DocsSchema,
   planId: Schema.String,
   planVersion: Count,

@@ -5,7 +5,12 @@ import type { AnyEventObject, Snapshot } from "xstate";
 
 import { amendPlan } from "../plans/amend.js";
 import type { AmendPoint } from "../plans/amend.js";
-import { AMENDED, compilePlan, planFacts } from "../plans/compile.js";
+import {
+  AMENDED,
+  compilePlan,
+  planFacts,
+  replyEvent,
+} from "../plans/compile.js";
 import type { Ask } from "../plans/compile.js";
 import { decodeAmendment } from "../plans/schema.js";
 import type { Plan } from "../plans/schema.js";
@@ -25,16 +30,26 @@ import type {
   ThinkInput,
 } from "../steps/inputs.js";
 import { Judge } from "../steps/judge.js";
-import { Mail } from "../steps/mail.js";
+import { Mail, SealedSchema } from "../steps/mail.js";
 import { Operator } from "../steps/operator.js";
 import { StepFailed } from "../steps/step-failed.js";
 import { Thinker } from "../steps/thinker.js";
 import { describeValue, leaves, openExecution } from "./execution.js";
 import type { Adapter, Execution, Sources } from "./execution.js";
 import { RunStore } from "./run-store.js";
-import type { QueuedEvent, RunReport, RunState, RunStatus } from "./schema.js";
+import type {
+  Awaiting,
+  QueuedEvent,
+  RunReport,
+  RunState,
+  RunStatus,
+} from "./schema.js";
 
 export type StepServices = Judge | Mail | Operator | RunStore | Thinker;
+
+export type Delivery =
+  | { readonly kind: "answer"; readonly reply: string }
+  | { readonly kind: "reply"; readonly key: string };
 
 type Choice =
   | { readonly kind: "event"; readonly event: QueuedEvent }
@@ -47,6 +62,10 @@ const decodeFailure = Schema.decodeUnknownOption(
 );
 
 const decodeVerdict = Schema.decodeUnknownOption(OutputEventSchema);
+
+const decodeSent = Schema.decodeUnknownOption(
+  Schema.Struct({ messageId: Schema.String })
+);
 
 const decodeOutput = Schema.decodeUnknownEffect(Schema.Json);
 
@@ -91,6 +110,10 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
       value: state.value,
     };
 
+    if (state.status === "waiting-for-reply") {
+      return { ...report, awaiting: state.awaiting } satisfies RunReport;
+    }
+
     if (state.status !== "waiting-for-joel" || state.asking === null) {
       return report;
     }
@@ -107,7 +130,7 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
 export const driveSession = (
   runId: string,
   opened: { readonly plan: Plan; readonly state: RunState },
-  firstReply: string | undefined
+  delivery: Delivery | undefined
 ) =>
   Effect.gen(function* runSession() {
     const store = yield* RunStore;
@@ -134,7 +157,8 @@ export const driveSession = (
     const run = {
       facts: planFacts(opened.plan),
       plan: opened.plan,
-      reply: firstReply,
+      replied: delivery?.kind === "reply" ? delivery.key : undefined,
+      reply: delivery?.kind === "answer" ? delivery.reply : undefined,
       state: opened.state,
     };
 
@@ -197,20 +221,27 @@ export const driveSession = (
 
     const ask = (input: AskInput) =>
       Effect.gen(function* askStep() {
-        const answer = yield* step(
-          input.key,
-          mail.ask({
-            key: input.key,
-            message: input.message,
-            runId,
-            to: input.to,
-            visit: visitOf(input.key),
-          })
+        const call = { key: input.key, runId, visit: visitOf(input.key) };
+
+        const sealed = yield* journaled(
+          `seal:${input.key}#${call.visit}`,
+          step(
+            input.key,
+            mail.seal({ ...call, message: input.message, to: input.to })
+          )
+        ).pipe(
+          Effect.flatMap(Schema.decodeUnknownEffect(SealedSchema)),
+          Effect.mapError(() => failed(input.key, "sealed envelope refused"))
         );
 
-        yield* writeDoc(input.writes, answer);
+        yield* store.writeMessage(sealed.messageId, runId);
+        yield* store.writeDoc(runId, `__sent:${input.key}`, {
+          messageId: sealed.messageId,
+          to: input.to,
+        });
+        yield* step(input.key, mail.send(call, sealed));
 
-        return { output: answer, tokens: 0 };
+        return { messageId: sealed.messageId, tokens: 0 };
       });
 
     const elaborate = (input: ElaborateInput) =>
@@ -429,6 +460,23 @@ export const driveSession = (
         return fact === undefined ? [] : [fact];
       });
 
+    const awaitsHere = () =>
+      factsHere().flatMap((fact) => (fact.kind === "await" ? [fact] : []));
+
+    const awaitingOf = (
+      docs: Readonly<Record<string, Schema.Json>>
+    ): Awaiting[] =>
+      awaitsHere().flatMap((fact) =>
+        Option.toArray(decodeSent(docs[`__sent:${fact.key}`])).map(
+          ({ messageId }) => ({
+            key: fact.key,
+            messageId,
+            to: fact.to,
+            writes: fact.writes,
+          })
+        )
+      );
+
     const askHere = (): Ask | undefined =>
       factsHere().flatMap((fact) => (fact.kind === "ask" ? [fact.ask] : []))[0];
 
@@ -462,11 +510,14 @@ export const driveSession = (
     const report = Effect.suspend(() => reportOf(runId, run.plan, run.state));
 
     const save = (status: RunStatus) =>
-      Effect.suspend(() => {
+      Effect.gen(function* saveRun() {
+        const docs = yield* store.readDocs(runId);
+
         run.state = {
           ...run.state,
           answers: Object.fromEntries(answers),
           asking: askHere() ?? null,
+          awaiting: awaitingOf(docs),
           checkpoint: {
             mailbox: structuredClone(mailbox),
             snapshot: execution.persist(),
@@ -477,7 +528,7 @@ export const driveSession = (
           value: describeValue(execution.view().value),
         };
 
-        return store.writeRun(runId, run.state);
+        yield* store.writeRun(runId, run.state);
       });
 
     const mark = (status: RunStatus) =>
@@ -538,6 +589,22 @@ export const driveSession = (
 
       if (Option.isSome(next)) {
         return { event: next.value, kind: "event" } satisfies Choice;
+      }
+
+      const awaiting = awaitsHere();
+      const { replied } = run;
+
+      run.replied = undefined;
+
+      if (awaiting.some(({ key }) => key === replied)) {
+        return {
+          event: { type: replyEvent(replied ?? "") },
+          kind: "event",
+        } satisfies Choice;
+      }
+
+      if (awaiting.length > 0) {
+        return { kind: "halt", status: "waiting-for-reply" } satisfies Choice;
       }
 
       const question = askHere();

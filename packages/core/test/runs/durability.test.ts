@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Deferred, Effect, Exit, Fiber, Option, Schema } from "effect";
+import { Deferred, Effect, Exit, Fiber, Option, Random, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { decodePlan } from "../../src/plans/schema.js";
@@ -195,13 +195,18 @@ const fakes = (fixtures: Fixtures, calls: ModelCall[], announced: string[]) => {
         }),
     }),
     mail: Mail.of({
-      ask: ({ key, visit }) =>
+      seal: ({ key, visit }) =>
+        Random.next.pipe(
+          Effect.map((nonce) => ({
+            envelope: `${key}#${visit} ${nonce}`,
+            messageId: `${key}#${visit}`,
+          }))
+        ),
+      send: ({ key, visit }) =>
         record(key, "ask", visit).pipe(
-          Effect.andThen(() => {
-            const found = fixture(key, visit);
-
-            return outcome(key, found, found.reply ?? "");
-          })
+          Effect.andThen(() =>
+            outcome(key, fixture(key, visit), null).pipe(Effect.asVoid)
+          )
         ),
     }),
     operator: Operator.of({
@@ -359,7 +364,31 @@ const incarnation = (
         ? yield* host.submit(RUN, plan, launchNoteSeed)
         : yield* host.resume(RUN);
 
-      while (report.status === "waiting-for-joel" && report.question) {
+      for (;;) {
+        const [open] = report.awaiting ?? [];
+
+        if (report.status === "waiting-for-reply" && open !== undefined) {
+          const body = fixtures[open.messageId]?.reply;
+
+          if (body === undefined) {
+            break;
+          }
+
+          report = yield* host.deliver({
+            acceptedAt: "2026-10-11T00:00:00Z",
+            body,
+            from: open.to,
+            messageId: `reply:${open.messageId}`,
+            replyTo: open.messageId,
+          });
+
+          continue;
+        }
+
+        if (report.status !== "waiting-for-joel" || !report.question) {
+          break;
+        }
+
         expectAnnounced(announced, report.question, Number.POSITIVE_INFINITY);
 
         const { answered, key, options } = report.question;

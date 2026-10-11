@@ -4,11 +4,21 @@ import {
   RunStateSchema,
   RunStore,
 } from "@mischief/core";
-import { Effect, FileSystem, Layer, Option, Path, Schema } from "effect";
+import {
+  Effect,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Schema,
+  Semaphore,
+} from "effect";
 
 const JournalSchema = Schema.Record(Schema.String, Schema.Json);
 
 const PausedSchema = Schema.Boolean;
+
+const MessageSchema = Schema.Struct({ runId: Schema.String });
 
 export const runStoreFile = (root: string) =>
   Layer.effect(
@@ -16,6 +26,9 @@ export const runStoreFile = (root: string) =>
     Effect.gen(function* makeRunStoreFile() {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
+
+      const writes = yield* Semaphore.make(1);
+      const locked = writes.withPermits(1);
 
       const fileOf = (runId: string, name: string) =>
         path.join(root, runId, name);
@@ -46,6 +59,9 @@ export const runStoreFile = (root: string) =>
           yield* fs.rename(staging, file);
         }).pipe(Effect.orDie);
 
+      const messageFile = (messageId: string) =>
+        path.join(root, "__messages", `${encodeURIComponent(messageId)}.json`);
+
       const journalOf = (runId: string) =>
         readAs(JournalSchema, fileOf(runId, "journal.json")).pipe(
           Effect.map(Option.getOrElse(() => ({})))
@@ -62,6 +78,10 @@ export const runStoreFile = (root: string) =>
           journalOf(runId).pipe(
             Effect.map((entries) => new Map(Object.entries(entries)))
           ),
+        readMessage: (messageId) =>
+          readAs(MessageSchema, messageFile(messageId)).pipe(
+            Effect.map(Option.map(({ runId }) => runId))
+          ),
         readPaused: (runId) =>
           readAs(PausedSchema, fileOf(runId, "paused.json")).pipe(
             Effect.map(Option.getOrElse(() => false))
@@ -70,33 +90,41 @@ export const runStoreFile = (root: string) =>
           readAs(PlanSchema, fileOf(runId, `plan.v${version}.json`)),
         readRun: (runId) => readAs(RunStateSchema, fileOf(runId, "run.json")),
         writeDoc: (runId, name, doc) =>
-          docsOf(runId).pipe(
-            Effect.flatMap((docs) =>
-              writeAs(DocsSchema, fileOf(runId, "docs.json"), {
-                ...docs,
-                [name]: doc,
-              })
+          locked(
+            docsOf(runId).pipe(
+              Effect.flatMap((docs) =>
+                writeAs(DocsSchema, fileOf(runId, "docs.json"), {
+                  ...docs,
+                  [name]: doc,
+                })
+              )
             )
           ),
         writeJournal: (runId, key, entry) =>
-          journalOf(runId).pipe(
-            Effect.flatMap((entries) =>
-              writeAs(JournalSchema, fileOf(runId, "journal.json"), {
-                ...entries,
-                [key]: entry,
-              })
+          locked(
+            journalOf(runId).pipe(
+              Effect.flatMap((entries) =>
+                writeAs(JournalSchema, fileOf(runId, "journal.json"), {
+                  ...entries,
+                  [key]: entry,
+                })
+              )
             )
           ),
+        writeMessage: (messageId, runId) =>
+          locked(writeAs(MessageSchema, messageFile(messageId), { runId })),
         writePaused: (runId, paused) =>
-          writeAs(PausedSchema, fileOf(runId, "paused.json"), paused),
+          locked(writeAs(PausedSchema, fileOf(runId, "paused.json"), paused)),
         writePlan: (runId, plan) =>
-          writeAs(
-            PlanSchema,
-            fileOf(runId, `plan.v${plan.version}.json`),
-            plan
+          locked(
+            writeAs(
+              PlanSchema,
+              fileOf(runId, `plan.v${plan.version}.json`),
+              plan
+            )
           ),
         writeRun: (runId, state) =>
-          writeAs(RunStateSchema, fileOf(runId, "run.json"), state),
+          locked(writeAs(RunStateSchema, fileOf(runId, "run.json"), state)),
       });
     })
   );

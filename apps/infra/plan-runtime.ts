@@ -163,15 +163,19 @@ export const destroyCelld = destroy({
 export const probeCelld = teardownProbe.pipe(
   Effect.flatMap((labels) =>
     Effect.all(
-      labels.map(({ check, passed }) =>
-        Effect.log(`${check}_${passed ? "PASS" : "FAIL"}`)
+      labels.map(({ check, remaining }) =>
+        Effect.log(
+          remaining.length === 0
+            ? `${check}_PASS`
+            : `${check}_FAIL remaining: ${remaining.join(", ")}`
+        )
       )
     ).pipe(
       Effect.andThen(
-        labels.every(({ passed }) => passed)
+        labels.every(({ remaining }) => remaining.length === 0)
           ? Effect.void
           : refuse(
-              "the teardown probe found Mischief units, paths or listeners still on the host"
+              `the teardown probe found Mischief resources still on the host: ${labels.flatMap(({ remaining }) => remaining).join(", ")}. Run destroy again, then probe; do not clean by hand`
             )
       )
     )

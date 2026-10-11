@@ -51,8 +51,45 @@ export const liveServices = Layer.unwrap(
 
 export interface ProbeLabel {
   readonly check: string;
-  readonly passed: boolean;
+  readonly remaining: readonly string[];
 }
+
+export interface HostReading {
+  readonly listeners: string;
+  readonly paths: readonly (readonly [string, unknown])[];
+  readonly ports: readonly number[];
+  readonly units: string;
+}
+
+export const probeLabels = (reading: HostReading): readonly ProbeLabel[] => {
+  const listening = reading.listeners
+    .split("\n")
+    .flatMap((line) => line.trim().split(/\s+/u).slice(3, 4));
+
+  return [
+    {
+      check: "UNITS_ABSENT",
+      remaining: reading.units
+        .split("\n")
+        .flatMap((line) => line.trim().split(/\s+/u).slice(0, 1))
+        .filter((unit) => unit.length > 0),
+    },
+    {
+      check: "PATHS_ABSENT",
+      remaining: reading.paths.flatMap(([path, entry]) =>
+        entry === undefined ? [] : [path]
+      ),
+    },
+    {
+      check: "LISTENERS_ABSENT",
+      remaining: reading.ports.flatMap((port) =>
+        listening.some((address) => address.endsWith(`:${port}`))
+          ? [`port ${port}`]
+          : []
+      ),
+    },
+  ];
+};
 
 export const teardownProbe = Effect.gen(function* teardownProbe() {
   const shell = yield* HostShell;
@@ -74,23 +111,18 @@ export const teardownProbe = Effect.gen(function* teardownProbe() {
     `${INSTANCE}.slice`,
   ]);
 
-  const leftovers = yield* Effect.forEach(
+  const paths = yield* Effect.forEach(
     [layout.configuration, layout.binaryRoot, DATA_ROOT],
-    (path) => shell.stat(path)
+    (path) =>
+      shell.stat(path).pipe(Effect.map((entry) => [path, entry] as const))
   );
 
   const listeners = yield* shell.exec(["ss", "-Hltn"]);
 
-  const listening = listeners.stdout
-    .split("\n")
-    .some((line) => PORTS.some((port) => line.includes(`:${port} `)));
-
-  return [
-    { check: "UNITS_ABSENT", passed: units.stdout.trim() === "" },
-    {
-      check: "PATHS_ABSENT",
-      passed: leftovers.every((entry) => entry === undefined),
-    },
-    { check: "LISTENERS_ABSENT", passed: !listening },
-  ] satisfies readonly ProbeLabel[];
+  return probeLabels({
+    listeners: listeners.stdout,
+    paths,
+    ports: PORTS,
+    units: units.stdout,
+  });
 });

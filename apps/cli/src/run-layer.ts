@@ -3,6 +3,7 @@ import type { Mail } from "@mischief/core";
 import {
   fauxThinkerOptions,
   gatewayThinkerOptions,
+  jevJudge,
   piThinker,
 } from "@mischief/thinking";
 import { nodeSqliteStorageFor } from "@mischief/thinking/node";
@@ -15,6 +16,7 @@ import {
   Option,
   Path,
 } from "effect";
+import { FetchHttpClient } from "effect/http";
 import type { ChildProcessSpawner } from "effect/process";
 
 import { mailNest } from "./mail-nest.js";
@@ -93,7 +95,19 @@ const mail = Layer.unwrap(
   }).pipe(Effect.orDie)
 );
 
+const judge = Layer.unwrap(
+  Effect.gen(function* chooseJudge() {
+    const key = yield* Config.option(Config.Redacted("MISCHIEF_JEV_KEY"));
+
+    return Option.match(key, {
+      onNone: () => Judge.unwired,
+      onSome: (apiKey) =>
+        jevJudge({ apiKey }).pipe(Layer.provide(FetchHttpClient.layer)),
+    });
+  }).pipe(Effect.orDie)
+);
+
 export const localRunLayer = RunHost.layer.pipe(
   Layer.provideMerge(Layer.unwrap(runsRoot.pipe(Effect.map(runStoreFile)))),
-  Layer.provide(Layer.mergeAll(thinker, Judge.unwired, mail, operatorConsole))
+  Layer.provide(Layer.mergeAll(thinker, judge, mail, operatorConsole))
 );

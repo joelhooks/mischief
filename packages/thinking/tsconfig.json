@@ -8,6 +8,7 @@
         "allowedUnstableApis": [
           "effect/Arbitrary",
           "effect/http/HttpClient",
+          "effect/http/HttpClientRequest",
           "effect/http/HttpClientResponse",
           "effect/observability/OtlpSerialization",
           "effect/observability/OtlpTracer",

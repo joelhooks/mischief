@@ -14,7 +14,8 @@ const unwired = (call: StepCall) =>
   Effect.fail(
     new StepFailed({
       key: call.key,
-      reason: "Judge is not wired on this host",
+      reason:
+        "this host has no Jev judge wired. Wire one (the CLI host takes MISCHIEF_JEV_KEY, a TypeSafe key) or give the judge step a fallback transition, then resume the run",
     })
   );
 

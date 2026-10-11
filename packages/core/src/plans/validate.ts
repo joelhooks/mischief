@@ -12,6 +12,7 @@ import type {
   StateNode,
   Step,
   ThinkStep,
+  Transitions,
 } from "./schema.js";
 import { decodePlan, thinkingLevels } from "./schema.js";
 
@@ -187,6 +188,17 @@ const depthErrorsAt = (plan: Plan, path: readonly string[]) =>
       ]
     : [];
 
+const fallbackErrors = (
+  fallback: string | undefined,
+  on: Transitions | undefined,
+  where: string
+) =>
+  fallback === undefined || fallback in (on ?? {})
+    ? []
+    : [
+        `${where}: fallback "${fallback}" is not one of its transitions. Use one of: ${Object.keys(on ?? {}).join(", ")}`,
+      ];
+
 const resolveNode = (
   plan: Plan,
   node: StateNode,
@@ -245,7 +257,11 @@ const resolveNode = (
     case "judge": {
       return {
         agents: 0,
-        errors: [...depthErrors, ...choiceErrors],
+        errors: [
+          ...depthErrors,
+          ...choiceErrors,
+          ...fallbackErrors(step.fallback, node.on, where),
+        ],
         value: {
           ...node,
           meta: {

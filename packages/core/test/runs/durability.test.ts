@@ -26,6 +26,14 @@ const JEV_TOKENS = 7;
 
 const THINK_TOKENS = 11;
 
+const rungTokens = (rung: string) => {
+  if (rung === "jev") {
+    return JEV_TOKENS;
+  }
+
+  return rung === "think" ? THINK_TOKENS : 0;
+};
+
 const JudgedEntrySchema = Schema.Struct({
   ladder: Schema.NonEmptyArray(
     Schema.Struct({
@@ -77,6 +85,7 @@ const WorldArbitrary = Arbitrary.all({
     }),
     { maxLength: 3, minLength: 3 }
   ),
+  fallback: Arbitrary.schema(Schema.Literals(["none", "enough", "thin"])),
   interruptions: Arbitrary.array(Arbitrary.schema(InterruptionSchema), {
     maxLength: 4,
   }),
@@ -149,7 +158,7 @@ const fixturesFor = (world: World): Fixtures => {
 };
 
 const planFor = (world: World) => {
-  const { research } = launchNotePlan.machine.states;
+  const { assess, research } = launchNotePlan.machine.states;
 
   return {
     ...launchNotePlan,
@@ -168,6 +177,15 @@ const planFor = (world: World) => {
       ...launchNotePlan.machine,
       states: {
         ...launchNotePlan.machine.states,
+        assess:
+          world.fallback === "none"
+            ? assess
+            : {
+                ...assess,
+                meta: {
+                  step: { ...assess.meta.step, fallback: world.fallback },
+                },
+              },
         research: {
           ...research,
           meta: { step: { ...research.meta.step, join: world.join } },
@@ -519,12 +537,10 @@ it.effect.prop(
       );
 
       for (const { ladder, tokens } of judged) {
-        expect(ladder.map(({ usage }) => usage?.tokens)).toEqual(
-          [JEV_TOKENS, THINK_TOKENS].slice(0, ladder.length)
-        );
-        expect(tokens).toBe(
-          JEV_TOKENS + (ladder.length > 1 ? THINK_TOKENS : 0)
-        );
+        const spent = ladder.map(({ rung }) => rungTokens(rung));
+
+        expect(ladder.map(({ usage }) => usage?.tokens ?? 0)).toEqual(spent);
+        expect(tokens).toBe(spent.reduce<number>((sum, used) => sum + used, 0));
       }
 
       const crashesInStep = world.interruptions.filter(

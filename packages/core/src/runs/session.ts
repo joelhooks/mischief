@@ -294,7 +294,15 @@ export const driveSession = (
           return { choice: top[0], ladder: [jev], tokens: usage.tokens };
         }
 
-        const { thinkThreshold } = input;
+        const { fallback, thinkThreshold } = input;
+
+        if (fallback !== undefined) {
+          return {
+            choice: fallback,
+            ladder: [jev, { rung: "fallback" }],
+            tokens: usage.tokens,
+          };
+        }
 
         if (thinkThreshold === undefined) {
           return { escalate: true, ladder: [jev], tokens: usage.tokens };

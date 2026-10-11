@@ -25,6 +25,7 @@ interface ModelBranch {
 }
 
 interface ModelStep {
+  readonly fallback?: string;
   readonly branches?: Readonly<Record<string, ModelBranch>>;
   readonly goal?: string;
   readonly join?: string;
@@ -325,6 +326,27 @@ const advanceTo = (
   return world.onward(path, target);
 };
 
+const thinkRung = (
+  world: World,
+  key: string,
+  visit: number,
+  options: readonly string[]
+) => {
+  const { thinkThreshold } = world;
+
+  if (thinkThreshold !== undefined) {
+    world.calls.push({ key, kind: "think-fallback", visit });
+  }
+
+  return thinkThreshold === undefined
+    ? thinkThreshold
+    : confidentChoice(
+        world.fixtures[`${key}#${visit}:think`],
+        options,
+        thinkThreshold
+      );
+};
+
 const judgeMove = (
   world: World,
   node: ModelNode,
@@ -354,20 +376,13 @@ const judgeMove = (
     return advanceTo(world, path, node.on?.[picked]?.target);
   }
 
-  const { thinkThreshold } = world;
+  const fallbackTo = node.meta?.step.fallback;
 
-  if (thinkThreshold !== undefined) {
-    world.calls.push({ key, kind: "think-fallback", visit });
+  if (fallbackTo !== undefined) {
+    return advanceTo(world, path, node.on?.[fallbackTo]?.target);
   }
 
-  const fallback =
-    thinkThreshold === undefined
-      ? undefined
-      : confidentChoice(
-          world.fixtures[`${key}#${visit}:think`],
-          options,
-          thinkThreshold
-        );
+  const fallback = thinkRung(world, key, visit, options);
 
   if (fallback !== undefined) {
     return advanceTo(world, path, node.on?.[fallback]?.target);

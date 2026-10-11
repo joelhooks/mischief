@@ -165,6 +165,7 @@ const compileStep = (
             invoke: {
               input: {
                 ...ask,
+                fallback: step.fallback,
                 reads: step.reads,
                 thinkThreshold: scope.thinkThreshold,
                 threshold: step.threshold,

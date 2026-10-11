@@ -87,6 +87,7 @@ export const ThinkStepSchema = Schema.Struct({
 export type ThinkStep = typeof ThinkStepSchema.Type;
 
 export const JudgeStep = Schema.Struct({
+  fallback: Schema.optionalKey(Schema.String),
   kind: Schema.Literal("judge"),
   question: Schema.String,
   reads: Schema.optionalKey(Schema.Array(DocKey)),

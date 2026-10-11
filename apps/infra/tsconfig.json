@@ -43,6 +43,7 @@
     "celld-build.ts",
     "celld-ops.ts",
     "celld.ts",
+    "credential.ts",
     "plan-review.ts",
     "plan-runtime.ts",
     "plan.ts",

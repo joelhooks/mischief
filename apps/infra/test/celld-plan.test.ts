@@ -98,6 +98,18 @@ it.effect(
         );
       }
 
+      expect(
+        rows
+          .filter(({ type }) => type === "Mischief.CredentialBindings")
+          .map(({ props }) => props)
+      ).toStrictEqual([
+        {
+          directory: `${HOME}/.config/mischief/credential`,
+          ready: "<output>",
+          secretName: "mischief_credential",
+        },
+      ]);
+
       const paths = [...text.matchAll(/\/(?:home|data)\/[\w./-]+/gu)].map(
         ([found]) => found
       );

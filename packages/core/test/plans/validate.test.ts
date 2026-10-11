@@ -45,3 +45,27 @@ it.effect.prop(
     }),
   { arbitrary: { runs: 40 } }
 );
+
+it.effect.prop(
+  "a plan that still sets envelope.budgetTokens is refused with the fix",
+  {
+    budget: Arbitrary.schema(
+      Schema.Int.check(Schema.isBetween({ maximum: 100_000, minimum: 0 }))
+    ),
+  },
+  ({ budget }) =>
+    Effect.gen(function* property() {
+      const exit = yield* Effect.exit(
+        validatePlan({
+          ...launchNotePlan,
+          envelope: { ...launchNotePlan.envelope, budgetTokens: budget },
+          version: 1,
+        })
+      );
+
+      expect(Exit.isFailure(exit) && String(exit.cause)).toContain(
+        "envelope.budgetTokens was removed: workers get no token budgets, and maxSteps is the run's guard. Delete the field"
+      );
+    }),
+  { arbitrary: { runs: 20 } }
+);

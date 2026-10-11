@@ -11,7 +11,6 @@ export const launchNotePlan = {
     placement: "child",
   },
   envelope: {
-    budgetTokens: 50_000,
     maxAgents: 6,
     maxDepth: 2,
     maxSteps: 20,

@@ -45,7 +45,6 @@ export const thinkingLevels = [
 export const Thinking = Schema.Literals(thinkingLevels);
 
 export const EnvelopeSchema = Schema.Struct({
-  budgetTokens: Count,
   maxAgents: Count,
   maxDepth: Count,
   maxSteps: Count,

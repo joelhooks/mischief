@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { absurd, constFalse, constVoid } from "effect/Function";
 import { createAsyncLogic, createMachineFromConfig } from "xstate";
 
@@ -423,10 +423,28 @@ export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
   return resolvedPlan;
 });
 
+const decodeEnvelopeKeys = Schema.decodeUnknownOption(
+  Schema.Struct({ envelope: Schema.Record(Schema.String, Schema.Json) })
+);
+
+const refuseRetired = (input: Schema.Json) =>
+  Option.match(decodeEnvelopeKeys(input), {
+    onNone: () => Effect.void,
+    onSome: ({ envelope }) =>
+      "budgetTokens" in envelope
+        ? new PlanRefused({
+            errors: [
+              "envelope.budgetTokens was removed: workers get no token budgets, and maxSteps is the run's guard. Delete the field",
+            ],
+          })
+        : Effect.void,
+  });
+
 export const validatePlan = Effect.fn("validatePlan")(function* validatePlan(
   input: Schema.Json
 ) {
   yield* refuseCode(input);
+  yield* refuseRetired(input);
 
   const plan = yield* decodePlan(input).pipe(
     Effect.mapError((issue) => new PlanRefused({ errors: [issue.message] }))

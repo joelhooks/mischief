@@ -53,7 +53,6 @@ const branch = (name: string, to: string) => ({
 const boardPlan = {
   defaults: { agent: {} },
   envelope: {
-    budgetTokens: 0,
     maxAgents: 0,
     maxDepth: 3,
     maxSteps: 40,

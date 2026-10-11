@@ -81,7 +81,7 @@ const send = async () => {
 
   if (left > 0) {
     writeFileSync(uncertain, String(left - 1));
-    fail(6, "Uncertain: no acknowledgement");
+    fail(3, "UNCERTAIN: no acknowledgement");
   }
 
   if (existsSync(admitted)) {

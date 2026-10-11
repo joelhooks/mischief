@@ -6,7 +6,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { NestUncertain } from "./nest-uncertain.js";
 
-export const NEST_EXIT = { conflict: 5, refused: 2, uncertain: 6 } as const;
+export const NEST_EXIT = { conflict: 5, refused: 2, transport: 3 } as const;
 
 const SealedLineSchema = Schema.fromJsonString(
   Schema.Struct({ envelope: Schema.Json, messageId: Schema.String })
@@ -127,7 +127,7 @@ export const mailNest = ({
               sealed.envelope
             );
 
-            if (run.code === NEST_EXIT.uncertain) {
+            if (run.code === NEST_EXIT.transport) {
               return yield* new NestUncertain({ stderr: run.stderr });
             }
 

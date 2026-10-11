@@ -24,6 +24,15 @@ const PUBLIC_PORT = "28000";
 
 const HOME = "/home/planner";
 
+const Units = Schema.Struct({
+  sections: Schema.Array(
+    Schema.Struct({
+      lines: Schema.Array(Schema.Tuple([Schema.String, Schema.String])),
+      name: Schema.String,
+    })
+  ),
+});
+
 const CALLERS = [
   {
     authentication: ["did:web:driver.example.invalid#atproto"],
@@ -126,6 +135,39 @@ it.effect(
       }
 
       expect(text).not.toContain("CREDENTIAL");
+
+      expect(text).not.toContain("Rat King");
+
+      const sectionsOf = (fqn: string) =>
+        Schema.decodeUnknownEffect(Units)(
+          rows.find((row) => row.fqn === fqn)?.props
+        ).pipe(
+          Effect.map(({ sections }) =>
+            Object.fromEntries(
+              sections.map(({ lines, name }) => [
+                name,
+                Object.fromEntries(lines),
+              ])
+            )
+          )
+        );
+
+      const slice = yield* sectionsOf("mischief-slice");
+
+      expect(slice.Slice).toMatchObject({ CPUQuota: "100%", MemoryMax: "3G" });
+
+      expect(Object.keys(slice.Slice ?? {})).not.toContain("OOMPolicy");
+
+      for (const fqn of ["store/server", "celld/node"]) {
+        const unit = yield* sectionsOf(fqn);
+
+        expect([fqn, unit.Service]).toMatchObject([
+          fqn,
+          { CPUQuota: "100%", MemoryMax: "1.5G", OOMPolicy: "continue" },
+        ]);
+
+        expect(unit.Unit?.Description).toMatch(/^Mischief /u);
+      }
 
       const configuration = rows.find(
         ({ fqn }) => fqn === "deployment-configuration"

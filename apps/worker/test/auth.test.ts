@@ -24,6 +24,7 @@ const FAULTS = [
   "replayed",
   "foreign key",
   "unknown caller",
+  "listed without key",
   "other audience",
   "bare audience",
   "other capability",
@@ -62,6 +63,7 @@ const highS = (authorization: string) => {
 
 interface Cast {
   readonly alice: Caller;
+  readonly carol: Caller;
   readonly mallory: Caller;
 }
 
@@ -78,6 +80,7 @@ const AUTHORIZATIONS: Record<
   "high S": ({ alice }) => bearer(alice, "inspectRun").pipe(Effect.map(highS)),
   "issued later": ({ alice }, now) =>
     bearer(alice, "inspectRun", { exp: now + 40, iat: now + 10 }),
+  "listed without key": ({ carol }) => bearer(carol, "inspectRun"),
   "lives too long": ({ alice }, now) =>
     bearer(alice, "inspectRun", { exp: now + 61, iat: now }),
   "no token": () => Effect.succeed(""),
@@ -112,7 +115,12 @@ it.live.prop(
     Effect.gen(function* property() {
       const alice = yield* freshCaller("alice");
       const mallory = yield* freshCaller("mallory");
-      const world = yield* prepare(30_000, [alice]);
+      const carol = yield* freshCaller("carol");
+
+      const world = yield* prepare(30_000, [
+        alice,
+        { ...carol, document: { ...carol.document, authentication: [] } },
+      ]);
 
       yield* start(world);
 
@@ -120,7 +128,7 @@ it.live.prop(
         const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
 
         const authorization = yield* AUTHORIZATIONS[fault](
-          { alice, mallory },
+          { alice, carol, mallory },
           now
         );
 

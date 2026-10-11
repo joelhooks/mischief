@@ -58,14 +58,16 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         instance: INSTANCE,
         memoryHigh: "2.5G",
         memoryMax: "3G",
-        oomPolicy: "continue",
       });
 
       const bucket = yield* ObjectStore.Bucket("store", {
+        cpuQuota: "100%",
         dataRoot: DATA_ROOT,
         host,
         instance: INSTANCE,
+        memoryMax: "1.5G",
         name: "mischief-cells",
+        oomPolicy: "continue",
         portBase: PORT_BASE,
         slice: slice.sha256,
         volumeMax: 32,
@@ -73,8 +75,11 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
 
       const cells = yield* Celld.Node("celld", {
         bucket,
+        cpuQuota: "100%",
         host,
         instance: INSTANCE,
+        memoryMax: "1.5G",
+        oomPolicy: "continue",
         portBase: PORT_BASE,
         workerIPv4: host.tailnetIPv4,
       });

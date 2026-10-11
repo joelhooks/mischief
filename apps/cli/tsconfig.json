@@ -18,7 +18,9 @@
           "effect/http/HttpClientRequest",
           "effect/http/HttpClientResponse",
           "effect/http/HttpRouter",
-          "effect/http/HttpServer"
+          "effect/http/HttpServer",
+          "effect/process/ChildProcess",
+          "effect/process/ChildProcessSpawner"
         ]
       }
     ]

@@ -1,4 +1,5 @@
 import { Judge, Operator, RunHost, Thinker } from "@mischief/core";
+import type { Mail } from "@mischief/core";
 import {
   fauxThinkerOptions,
   gatewayThinkerOptions,
@@ -13,7 +14,9 @@ import {
   Option,
   Path,
 } from "effect";
+import type { ChildProcessSpawner } from "effect/process";
 
+import { mailNest } from "./mail-nest.js";
 import { mailOutbox } from "./mail-outbox.js";
 import { runStoreFile } from "./run-store-file.js";
 
@@ -65,14 +68,29 @@ const thinker = Layer.unwrap(
   }).pipe(Effect.orDie)
 );
 
+const mail = Layer.unwrap(
+  Effect.gen(function* chooseMail() {
+    const as = yield* Config.option(Config.String("MISCHIEF_NEST_AS"));
+
+    const bin = yield* Config.String("MISCHIEF_NEST").pipe(
+      Config.withDefault("nest")
+    );
+
+    const chosen: Layer.Layer<
+      Mail,
+      never,
+      | ChildProcessSpawner.ChildProcessSpawner
+      | FileSystem.FileSystem
+      | Path.Path
+    > = Option.isSome(as)
+      ? mailNest({ as: as.value, bin })
+      : mailOutbox(yield* runsRoot);
+
+    return chosen;
+  }).pipe(Effect.orDie)
+);
+
 export const localRunLayer = RunHost.layer.pipe(
   Layer.provideMerge(Layer.unwrap(runsRoot.pipe(Effect.map(runStoreFile)))),
-  Layer.provide(
-    Layer.mergeAll(
-      thinker,
-      Judge.unwired,
-      Layer.unwrap(runsRoot.pipe(Effect.map(mailOutbox))),
-      operatorConsole
-    )
-  )
+  Layer.provide(Layer.mergeAll(thinker, Judge.unwired, mail, operatorConsole))
 );

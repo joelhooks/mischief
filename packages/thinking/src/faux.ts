@@ -6,7 +6,6 @@ import {
 import type { FauxResponseFactory } from "@earendil-works/pi-ai/providers/faux";
 import { createRegistry } from "@earendil-works/pi-durable";
 
-import { nodeSqliteStorageFor } from "./node-storage.js";
 import type { PiThinkerOptions } from "./pi-thinker.js";
 
 export const FAUX_MODEL_NAMES = [
@@ -32,7 +31,9 @@ const echo: FauxResponseFactory = (context) => {
   );
 };
 
-export const fauxThinkerOptions = (root: string): PiThinkerOptions => {
+export const fauxThinkerOptions = (
+  storageFor: PiThinkerOptions["storageFor"]
+): PiThinkerOptions => {
   const faux = fauxProvider({ api: "faux" });
   const models = createModels();
 
@@ -45,6 +46,6 @@ export const fauxThinkerOptions = (root: string): PiThinkerOptions => {
     modelRefs: Object.fromEntries(FAUX_MODEL_NAMES.map((name) => [name, ref])),
     models,
     registry: createRegistry(),
-    storageFor: nodeSqliteStorageFor(root),
+    storageFor,
   };
 };

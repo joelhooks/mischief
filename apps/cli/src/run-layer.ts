@@ -5,6 +5,7 @@ import {
   gatewayThinkerOptions,
   piThinker,
 } from "@mischief/thinking";
+import { nodeSqliteStorageFor } from "@mischief/thinking/node";
 import {
   Config,
   Console,
@@ -56,7 +57,7 @@ const thinker = Layer.unwrap(
     yield* fs.makeDirectory(root, { recursive: true });
 
     if (model === "faux") {
-      return piThinker(fauxThinkerOptions(root));
+      return piThinker(fauxThinkerOptions(nodeSqliteStorageFor(root)));
     }
 
     const gateway = yield* Config.all({
@@ -64,7 +65,9 @@ const thinker = Layer.unwrap(
       baseUrl: Config.String("MISCHIEF_MODEL_URL"),
     });
 
-    return piThinker(gatewayThinkerOptions(root, gateway));
+    return piThinker(
+      gatewayThinkerOptions(nodeSqliteStorageFor(root), gateway)
+    );
   }).pipe(Effect.orDie)
 );
 

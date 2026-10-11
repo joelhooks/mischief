@@ -12,8 +12,8 @@ import { createRegistry } from "@earendil-works/pi-durable";
 import { Effect, Schema } from "effect";
 import { constVoid } from "effect/Function";
 
-import { nodeSqliteStorageFor } from "../dist/index.js";
 import type { PiThinkerOptions } from "../dist/index.js";
+import { nodeSqliteStorageFor } from "../dist/node-storage.js";
 
 const PICK = /^pick:(?<choice>[^:]*):(?<confidence>[0-9.]+)/u;
 

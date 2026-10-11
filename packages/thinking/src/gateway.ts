@@ -4,7 +4,6 @@ import { createModels, createProvider } from "@earendil-works/pi-ai/models";
 import { createRegistry } from "@earendil-works/pi-durable";
 import { Redacted } from "effect";
 
-import { nodeSqliteStorageFor } from "./node-storage.js";
 import type { PiThinkerOptions } from "./pi-thinker.js";
 
 export const GATEWAY_MODELS = {
@@ -21,7 +20,7 @@ export interface GatewayConfig {
 }
 
 export const gatewayThinkerOptions = (
-  root: string,
+  storageFor: PiThinkerOptions["storageFor"],
   { apiKey, baseUrl }: GatewayConfig
 ): PiThinkerOptions => {
   const models = createModels();
@@ -69,6 +68,6 @@ export const gatewayThinkerOptions = (
     ),
     models,
     registry: createRegistry(),
-    storageFor: nodeSqliteStorageFor(root),
+    storageFor,
   };
 };

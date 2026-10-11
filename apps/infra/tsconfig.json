@@ -38,5 +38,11 @@
     "moduleResolution": "Bundler",
     "target": "ESNext"
   },
-  "include": ["alchemy.run.ts", "plan.ts", "plan-runtime.ts", "test/**/*.ts"]
+  "include": [
+    "alchemy.run.ts",
+    "plan.ts",
+    "plan-runtime.ts",
+    "celld-build.ts",
+    "test/**/*.ts"
+  ]
 }

@@ -299,8 +299,8 @@ importers:
         specifier: 4.0.1
         version: 4.0.1(effect@4.0.1)(redis@6.2.1)
       '@rat-king/alchemy-nest':
-        specifier: github:joelhooks/rat-king#14136ae19ca80347073b5f6bc8991790322f8407&path:/packages/alchemy-nest
-        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/14136ae19ca80347073b5f6bc8991790322f8407#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
+        specifier: github:joelhooks/rat-king#920884e09c5b6d2ac206cd065f624396d9538d37&path:/packages/alchemy-nest
+        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/920884e09c5b6d2ac206cd065f624396d9538d37#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
       alchemy:
         specifier: 2.0.0-beta.81
         version: 2.0.0-beta.81(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.1)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
@@ -308,12 +308,21 @@ importers:
         specifier: 4.0.1
         version: 4.0.1
     devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.1
+        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
+      jiti:
+        specifier: 2.7.0
+        version: 2.7.0
       typescript:
         specifier: 7.0.2
         version: 7.0.2
+      vitest:
+        specifier: 5.0.3
+        version: 5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
 
   apps/worker:
     dependencies:
@@ -1919,8 +1928,8 @@ packages:
       yauzl:
         optional: true
 
-  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/14136ae19ca80347073b5f6bc8991790322f8407#path:/packages/alchemy-nest':
-    resolution: {gitHosted: true, integrity: sha512-8Q3HEEVfWDlyeahYU1a6eFAjG4BNQepjwqHhC6R3yHaS5Hn7CjpiD093gJRqZ7OLBdAySTdHScImJgn78jr8nQ==, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/14136ae19ca80347073b5f6bc8991790322f8407}
+  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/920884e09c5b6d2ac206cd065f624396d9538d37#path:/packages/alchemy-nest':
+    resolution: {gitHosted: true, integrity: sha512-z8ojrOoFbLJbBK7vLcWkDXo4rblyN7QOQ8SbjPBF5hhVPVfmPb8ZMOBhHCVmqod/QPyO0NuQzqhkAom9tgROzQ==, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/920884e09c5b6d2ac206cd065f624396d9538d37}
     version: 0.1.0
 
   '@redis/bloom@6.2.1':
@@ -4853,7 +4862,7 @@ snapshots:
     optionalDependencies:
       yauzl: 3.4.0
 
-  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/14136ae19ca80347073b5f6bc8991790322f8407#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)':
+  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/920884e09c5b6d2ac206cd065f624396d9538d37#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)':
     dependencies:
       alchemy: 2.0.0-beta.81(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.1)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
       effect: 4.0.1

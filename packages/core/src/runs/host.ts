@@ -130,6 +130,7 @@ export class RunHost extends Context.Service<
         checkpoint: null,
         planVersion: plan.version,
         replies: [],
+        seeded: Object.keys(docs).toSorted(),
         status: "running",
         transitions: 0,
         value: null,

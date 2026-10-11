@@ -207,6 +207,13 @@ export const driveSession = (
           : yield* outcome.failure;
       });
 
+    const recordInput = (key: string, value: string) =>
+      Effect.suspend(() => {
+        journal.set(key, value);
+
+        return store.writeJournal(runId, key, value);
+      });
+
     const visitOf = (key: string) => visits.get(key) ?? 1;
 
     const step = <A>(key: string, effect: Effect.Effect<A, StepFailed>) =>
@@ -678,6 +685,13 @@ export const driveSession = (
       const fact = awaiting.find(({ key }) => key === replied?.key);
 
       if (replied !== undefined && fact !== undefined) {
+        const sent = run.state.awaiting.find(({ key }) => key === replied.key);
+
+        yield* recordInput(
+          `reply:${sent?.messageId ?? replied.key}`,
+          replied.body
+        );
+
         if (fact.writes !== null) {
           yield* store.writeDoc(runId, fact.writes, replied.body);
         }
@@ -718,7 +732,10 @@ export const driveSession = (
         return { kind: "halt", status: "waiting-for-joel" } satisfies Choice;
       }
 
-      answers.set(question.key, (answers.get(question.key) ?? 0) + 1);
+      const answered = (answers.get(question.key) ?? 0) + 1;
+
+      yield* recordInput(`answer:${question.key}#${answered}`, chosen);
+      answers.set(question.key, answered);
 
       return { event: { type: chosen }, kind: "event" } satisfies Choice;
     });

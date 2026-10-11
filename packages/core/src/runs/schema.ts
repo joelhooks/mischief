@@ -90,6 +90,9 @@ export const RunStateSchema = Schema.Struct({
   replies: Schema.Array(PendingReplySchema).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([]))
   ),
+  seeded: Schema.NullOr(Schema.Array(Schema.String)).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
   status: RunStatusSchema,
   transitions: Count,
   value: Schema.NullOr(Schema.String),

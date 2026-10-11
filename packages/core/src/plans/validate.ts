@@ -166,6 +166,23 @@ const fallbackErrors = (
         `${where}: fallback "${fallback}" is not one of its transitions. Use one of: ${Object.keys(on ?? {}).join(", ")}`,
       ];
 
+const NEXT = { ask: "replied", think: "done" } as const;
+
+const nextErrors = (
+  kind: keyof typeof NEXT,
+  on: Transitions | undefined,
+  where: string
+) =>
+  on?.[NEXT[kind]] === undefined
+    ? [
+        `${where}: ${kind} needs on.${NEXT[kind]}, the state to enter when it ${kind === "ask" ? "gets its reply" : "finishes"}. It has ${
+          Object.keys(on ?? {})
+            .map((name) => `on.${name}`)
+            .join(", ") || "no transitions"
+        }`,
+      ]
+    : [];
+
 const resolveJudge = (
   plan: Plan,
   step: JudgeStep,
@@ -195,11 +212,21 @@ const resolveBranchStep = (
 ): Checked<BranchStep> => {
   switch (step.kind) {
     case "think": {
-      return resolveThink(plan, step, where);
+      const resolved = resolveThink(plan, step, where);
+
+      return {
+        ...resolved,
+        errors: [...nextErrors("think", on, where), ...resolved.errors],
+      };
     }
 
     case "ask": {
-      return resolveAsk(plan, step, where);
+      const resolved = resolveAsk(plan, step, where);
+
+      return {
+        ...resolved,
+        errors: [...nextErrors("ask", on, where), ...resolved.errors],
+      };
     }
 
     case "judge": {
@@ -301,7 +328,11 @@ const resolveNode = (
 
       return {
         agents: resolved.agents,
-        errors: [...depthErrors, ...resolved.errors],
+        errors: [
+          ...depthErrors,
+          ...nextErrors("think", node.on, where),
+          ...resolved.errors,
+        ],
         value: { ...node, meta: { step: resolved.value } },
       };
     }
@@ -311,7 +342,11 @@ const resolveNode = (
 
       return {
         agents: resolved.agents,
-        errors: [...depthErrors, ...resolved.errors],
+        errors: [
+          ...depthErrors,
+          ...nextErrors("ask", node.on, where),
+          ...resolved.errors,
+        ],
         value: { ...node, meta: { step: resolved.value } },
       };
     }

@@ -101,11 +101,15 @@ export const post = (
     )
   );
 
-export const getJson = ({ port }: Workerd, route: string) =>
+export const getJson = ({ port }: Workerd, route: string, token = TOKEN) =>
   HttpClientRequest.get(`http://127.0.0.1:${port}${route}`).pipe(
-    HttpClientRequest.bearerToken(TOKEN),
+    HttpClientRequest.bearerToken(token),
     HttpClient.execute,
-    Effect.flatMap((response) => response.json)
+    Effect.flatMap((response) =>
+      response.json.pipe(
+        Effect.map((json) => ({ body: json, status: response.status }))
+      )
+    )
   );
 
 const exited = (child: ChildProcess) =>

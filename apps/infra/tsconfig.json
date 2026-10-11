@@ -42,7 +42,9 @@
     "alchemy.run.ts",
     "plan.ts",
     "plan-runtime.ts",
+    "plan-review.ts",
     "celld-build.ts",
+    "celld.ts",
     "test/**/*.ts"
   ]
 }

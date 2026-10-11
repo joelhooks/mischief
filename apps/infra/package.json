@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "4.0.1",
-    "@rat-king/alchemy-nest": "github:joelhooks/rat-king#920884e09c5b6d2ac206cd065f624396d9538d37&path:/packages/alchemy-nest",
+    "@rat-king/alchemy-nest": "github:joelhooks/rat-king#78328f5cad72cc5f70cce48338b4000ef800a7be&path:/packages/alchemy-nest",
     "alchemy": "2.0.0-beta.81",
     "effect": "4.0.1"
   },

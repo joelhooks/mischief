@@ -126,8 +126,22 @@ it.live.prop(
       }
 
       const spec = yield* Schema.decodeUnknownEffect(SpecSchema)(
-        yield* getJson(world, "/openapi.json")
+        (yield* getJson(world, "/openapi.json")).body
       );
+
+      const anonymous = yield* getJson(world, "/openapi.json", "");
+
+      const identity = yield* getJson(
+        world,
+        "/.well-known/rat-king/version",
+        ""
+      );
+
+      expect(anonymous.status).toBe(401);
+      expect(identity).toEqual({
+        body: { commit: "local", version: "local" },
+        status: 200,
+      });
 
       expect(Object.keys(spec.paths)).toEqual(
         expect.arrayContaining([

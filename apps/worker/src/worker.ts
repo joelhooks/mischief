@@ -48,8 +48,24 @@ const authorized = async (request: Request, token: string) => {
   );
 };
 
+declare const __BUNDLE_COMMIT__: string;
+
+declare const __BUNDLE_VERSION__: string;
+
+const VERSION_PATH = "/.well-known/rat-king/version";
+
 export default {
   async fetch(request: Request, env: Env) {
+    if (
+      request.method === "GET" &&
+      new URL(request.url).pathname === VERSION_PATH
+    ) {
+      return Response.json({
+        commit: __BUNDLE_COMMIT__,
+        version: __BUNDLE_VERSION__,
+      });
+    }
+
     if (
       env.MISCHIEF_CREDENTIAL === undefined ||
       env.MISCHIEF_CREDENTIAL === ""

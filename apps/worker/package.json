@@ -6,7 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check": "pnpm run typecheck",
-    "build": "esbuild src/worker.ts --bundle --format=esm --platform=neutral --main-fields=module,main --conditions=workerd,worker,browser,import --external:cloudflare:* --external:node:* --outfile=dist/worker.js --log-level=warning",
+    "build": "esbuild src/worker.ts --bundle --format=esm --platform=neutral --main-fields=module,main --conditions=workerd,worker,browser,import --external:cloudflare:* --external:node:* --outfile=dist/worker.js --log-level=warning --define:__BUNDLE_COMMIT__='\"local\"' --define:__BUNDLE_VERSION__='\"local\"'",
     "test": "vitest run",
     "pretest": "pnpm run --silent build"
   },

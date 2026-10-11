@@ -12,6 +12,11 @@ const program = Effect.gen(function* plan() {
     );
   }
 
+  const target = yield* Config.Literals(
+    ["celld", "cloudflare"],
+    "MISCHIEF_TARGET"
+  ).pipe(Config.withDefault("celld" as const));
+
   const online = yield* Config.Boolean("MISCHIEF_ONLINE_PLAN").pipe(
     Config.withDefault(false)
   );
@@ -19,6 +24,12 @@ const program = Effect.gen(function* plan() {
   const approved = yield* Config.Boolean("MISCHIEF_PLAN_APPROVED").pipe(
     Config.withDefault(false)
   );
+
+  if (online && target === "celld") {
+    return yield* refuse(
+      "the celld plan is offline only for now; an online plan reads the host over SSH, which comes with the approved deploy"
+    );
+  }
 
   if (online && !approved) {
     return yield* refuse(
@@ -45,7 +56,7 @@ const program = Effect.gen(function* plan() {
     async () => await import("./plan-runtime.ts")
   );
 
-  return yield* planStack(online);
+  return yield* planStack(target, online);
 });
 
 NodeRuntime.runMain(

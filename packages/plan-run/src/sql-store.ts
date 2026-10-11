@@ -1,0 +1,232 @@
+import { PlanSchema, RunStateSchema, RunStore } from "@mischief/core";
+import { Effect, Option, Schema } from "effect";
+
+import type { SqlRow, SqlStorage, SqlValue } from "./sql.js";
+
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS mischief_runs (run_id TEXT PRIMARY KEY, state TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS mischief_plans (run_id TEXT NOT NULL, version INTEGER NOT NULL, plan TEXT NOT NULL, PRIMARY KEY (run_id, version));
+CREATE TABLE IF NOT EXISTS mischief_docs (run_id TEXT NOT NULL, name TEXT NOT NULL, doc TEXT NOT NULL, PRIMARY KEY (run_id, name));
+CREATE TABLE IF NOT EXISTS mischief_journal (run_id TEXT NOT NULL, key TEXT NOT NULL, seq INTEGER NOT NULL, entry TEXT NOT NULL, PRIMARY KEY (run_id, key));
+CREATE TABLE IF NOT EXISTS mischief_fingerprints (run_id TEXT NOT NULL, key TEXT NOT NULL, print TEXT NOT NULL, PRIMARY KEY (run_id, key));
+CREATE TABLE IF NOT EXISTS mischief_paused (run_id TEXT PRIMARY KEY, paused INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS mischief_messages (message_id TEXT PRIMARY KEY, run_id TEXT NOT NULL);
+`;
+
+const JsonText = Schema.fromJsonString(Schema.Json);
+
+const StateText = Schema.fromJsonString(RunStateSchema);
+
+const PlanText = Schema.fromJsonString(PlanSchema);
+
+const PrintText = Schema.fromJsonString(Schema.String);
+
+const textOf = (value: SqlValue | undefined) =>
+  Schema.is(Schema.String)(value) ? value : "";
+
+const read = <A, I>(codec: Schema.Codec<A, I>, text: string) =>
+  Schema.decodeUnknownEffect(codec)(text).pipe(Effect.orDie);
+
+const entriesOf = <A>(
+  found: readonly SqlRow[],
+  name: string,
+  value: string,
+  codec: Schema.Codec<A, string>
+) =>
+  Effect.all(
+    found.map((row) =>
+      read(codec, textOf(row[value])).pipe(
+        Effect.map((decoded) => [textOf(row[name]), decoded] as const)
+      )
+    )
+  );
+
+const write = <A, I>(codec: Schema.Codec<A, I>, value: A) =>
+  Schema.encodeEffect(codec)(value).pipe(Effect.orDie);
+
+export const runStoreSql = (
+  storage: SqlStorage
+): Effect.Effect<RunStore["Service"]> =>
+  Effect.gen(function* openSqlStore() {
+    const rows = (query: string, ...bindings: SqlValue[]) =>
+      storage.sql.exec(query, ...bindings).toArray();
+
+    const run = (query: string, ...bindings: SqlValue[]) =>
+      Effect.sync(() => {
+        rows(query, ...bindings);
+      });
+
+    const column = (query: string, name: string, ...bindings: SqlValue[]) =>
+      Effect.sync(() =>
+        Option.fromUndefinedOr(rows(query, ...bindings)[0]).pipe(
+          Option.map((row) => textOf(row[name]))
+        )
+      );
+
+    yield* Effect.sync(() => storage.sql.exec(SCHEMA));
+
+    const docsOf = (runId: string) =>
+      Effect.sync(() =>
+        rows("SELECT name, doc FROM mischief_docs WHERE run_id = ?", runId)
+      ).pipe(
+        Effect.flatMap((found) => entriesOf(found, "name", "doc", JsonText)),
+        Effect.map((entries) => Object.fromEntries(entries))
+      );
+
+    return RunStore.of({
+      readDocs: docsOf,
+      readFingerprints: (runId) =>
+        Effect.sync(() =>
+          rows(
+            "SELECT key, print FROM mischief_fingerprints WHERE run_id = ?",
+            runId
+          )
+        ).pipe(
+          Effect.flatMap((found) =>
+            entriesOf(found, "key", "print", PrintText)
+          ),
+          Effect.map((entries) => new Map(entries))
+        ),
+      readJournal: (runId) =>
+        Effect.sync(() =>
+          rows(
+            "SELECT key, entry FROM mischief_journal WHERE run_id = ? ORDER BY seq",
+            runId
+          )
+        ).pipe(
+          Effect.flatMap((found) => entriesOf(found, "key", "entry", JsonText)),
+          Effect.map((entries) => new Map(entries))
+        ),
+      readMessage: (messageId) =>
+        column(
+          "SELECT run_id FROM mischief_messages WHERE message_id = ?",
+          "run_id",
+          messageId
+        ),
+      readPaused: (runId) =>
+        Effect.sync(
+          () =>
+            rows(
+              "SELECT paused FROM mischief_paused WHERE run_id = ? AND paused = 1",
+              runId
+            ).length > 0
+        ),
+      readPlan: (runId, version) =>
+        column(
+          "SELECT plan FROM mischief_plans WHERE run_id = ? AND version = ?",
+          "plan",
+          runId,
+          version
+        ).pipe(
+          Effect.flatMap((text) =>
+            Option.isSome(text)
+              ? read(PlanText, text.value).pipe(Effect.asSome)
+              : Effect.succeedNone
+          )
+        ),
+      readRun: (runId) =>
+        column(
+          "SELECT state FROM mischief_runs WHERE run_id = ?",
+          "state",
+          runId
+        ).pipe(
+          Effect.flatMap((text) =>
+            Option.isSome(text)
+              ? read(StateText, text.value).pipe(Effect.asSome)
+              : Effect.succeedNone
+          )
+        ),
+      replaceDocs: (runId, docs) =>
+        Effect.all(
+          Object.entries(docs).map(([name, doc]) =>
+            write(JsonText, doc).pipe(
+              Effect.map((text) => [name, text] as const)
+            )
+          )
+        ).pipe(
+          Effect.flatMap((encoded) =>
+            Effect.sync(() => {
+              storage.transactionSync(() => {
+                rows("DELETE FROM mischief_docs WHERE run_id = ?", runId);
+
+                for (const [name, text] of encoded) {
+                  rows(
+                    "INSERT INTO mischief_docs (run_id, name, doc) VALUES (?, ?, ?)",
+                    runId,
+                    name,
+                    text
+                  );
+                }
+              });
+            })
+          )
+        ),
+      writeDoc: (runId, name, doc) =>
+        write(JsonText, doc).pipe(
+          Effect.flatMap((text) =>
+            run(
+              "INSERT INTO mischief_docs (run_id, name, doc) VALUES (?, ?, ?) ON CONFLICT (run_id, name) DO UPDATE SET doc = excluded.doc",
+              runId,
+              name,
+              text
+            )
+          )
+        ),
+      writeFingerprint: (runId, key, fingerprint) =>
+        write(PrintText, fingerprint).pipe(
+          Effect.flatMap((text) =>
+            run(
+              "INSERT INTO mischief_fingerprints (run_id, key, print) VALUES (?, ?, ?) ON CONFLICT (run_id, key) DO UPDATE SET print = excluded.print",
+              runId,
+              key,
+              text
+            )
+          )
+        ),
+      writeJournal: (runId, key, entry) =>
+        write(JsonText, entry).pipe(
+          Effect.flatMap((text) =>
+            run(
+              "INSERT INTO mischief_journal (run_id, key, seq, entry) VALUES (?, ?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM mischief_journal WHERE run_id = ?), ?) ON CONFLICT (run_id, key) DO UPDATE SET entry = excluded.entry, seq = excluded.seq",
+              runId,
+              key,
+              runId,
+              text
+            )
+          )
+        ),
+      writeMessage: (messageId, runId) =>
+        run(
+          "INSERT INTO mischief_messages (message_id, run_id) VALUES (?, ?) ON CONFLICT (message_id) DO UPDATE SET run_id = excluded.run_id",
+          messageId,
+          runId
+        ),
+      writePaused: (runId, paused) =>
+        run(
+          "INSERT INTO mischief_paused (run_id, paused) VALUES (?, ?) ON CONFLICT (run_id) DO UPDATE SET paused = excluded.paused",
+          runId,
+          paused ? 1 : 0
+        ),
+      writePlan: (runId, plan) =>
+        write(PlanText, plan).pipe(
+          Effect.flatMap((text) =>
+            run(
+              "INSERT INTO mischief_plans (run_id, version, plan) VALUES (?, ?, ?) ON CONFLICT (run_id, version) DO UPDATE SET plan = excluded.plan",
+              runId,
+              plan.version,
+              text
+            )
+          )
+        ),
+      writeRun: (runId, state) =>
+        write(StateText, state).pipe(
+          Effect.flatMap((text) =>
+            run(
+              "INSERT INTO mischief_runs (run_id, state) VALUES (?, ?) ON CONFLICT (run_id) DO UPDATE SET state = excluded.state",
+              runId,
+              text
+            )
+          )
+        ),
+    });
+  });

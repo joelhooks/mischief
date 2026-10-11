@@ -390,6 +390,31 @@ importers:
         specifier: 5.0.3
         version: 5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
 
+  packages/plan-run:
+    dependencies:
+      '@mischief/core':
+        specifier: workspace:*
+        version: link:../core
+      effect:
+        specifier: 4.0.1
+        version: 4.0.1
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 4.0.1
+        version: 4.0.1(effect@4.0.1)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 4.0.1
+        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@types/node':
+        specifier: 24.13.6
+        version: 24.13.6
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 5.0.3
+        version: 5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+
   packages/thinking:
     dependencies:
       '@earendil-works/chord':

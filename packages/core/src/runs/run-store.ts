@@ -6,6 +6,8 @@ import type { Docs, RunState } from "./schema.js";
 
 export type Journal = ReadonlyMap<string, Schema.Json>;
 
+export type Fingerprints = ReadonlyMap<string, string>;
+
 export class RunStore extends Context.Service<
   RunStore,
   {
@@ -21,6 +23,12 @@ export class RunStore extends Context.Service<
       runId: string,
       key: string,
       entry: Schema.Json
+    ) => Effect.Effect<void>;
+    readonly readFingerprints: (runId: string) => Effect.Effect<Fingerprints>;
+    readonly writeFingerprint: (
+      runId: string,
+      key: string,
+      fingerprint: string
     ) => Effect.Effect<void>;
     readonly readDocs: (runId: string) => Effect.Effect<Docs>;
     readonly writeDoc: (
@@ -49,6 +57,7 @@ export class RunStore extends Context.Service<
     const docs = new Map<string, Docs>();
     const paused = new Set<string>();
     const messages = new Map<string, string>();
+    const fingerprints = new Map<string, string>();
 
     const journalOf = (runId: string) => {
       const existing = journals.get(runId);
@@ -65,6 +74,17 @@ export class RunStore extends Context.Service<
 
     return RunStore.of({
       readDocs: (runId) => Effect.sync(() => ({ ...docs.get(runId) })),
+      readFingerprints: (runId) =>
+        Effect.sync(
+          () =>
+            new Map(
+              [...fingerprints].flatMap(([at, fingerprint]) =>
+                at.startsWith(`${runId}\n`)
+                  ? [[at.slice(runId.length + 1), fingerprint] as const]
+                  : []
+              )
+            )
+        ),
       readJournal: (runId) => Effect.sync(() => new Map(journalOf(runId))),
       readMessage: (messageId) =>
         Effect.sync(() => Option.fromUndefinedOr(messages.get(messageId))),
@@ -78,6 +98,10 @@ export class RunStore extends Context.Service<
       writeDoc: (runId, name, doc) =>
         Effect.sync(() => {
           docs.set(runId, { ...docs.get(runId), [name]: structuredClone(doc) });
+        }),
+      writeFingerprint: (runId, key, fingerprint) =>
+        Effect.sync(() => {
+          fingerprints.set(`${runId}\n${key}`, fingerprint);
         }),
       writeJournal: (runId, key, entry) =>
         Effect.sync(() => {

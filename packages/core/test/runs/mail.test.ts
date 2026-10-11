@@ -1,3 +1,4 @@
+import { NodeCrypto } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import {
   Deferred,
@@ -231,7 +232,7 @@ const oneProcess = <A, E>(
     });
 
     const host = yield* RunHost.make.pipe(
-      Effect.provide(unused),
+      Effect.provide(Layer.merge(NodeCrypto.layer, unused)),
       Effect.provideService(RunStore, store),
       Effect.provideService(Mail, mail),
       Effect.provideService(

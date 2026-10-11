@@ -16,6 +16,8 @@ import {
 
 const JournalSchema = Schema.Record(Schema.String, Schema.Json);
 
+const FingerprintsSchema = Schema.Record(Schema.String, Schema.String);
+
 const PausedSchema = Schema.Boolean;
 
 const MessageSchema = Schema.Struct({ runId: Schema.String });
@@ -76,8 +78,17 @@ export const runStoreFile = (root: string) =>
           Effect.map(Option.getOrElse(() => ({})))
         );
 
+      const fingerprintsOf = (runId: string) =>
+        readAs(FingerprintsSchema, fileOf(runId, "fingerprints.json")).pipe(
+          Effect.map(Option.getOrElse(() => ({})))
+        );
+
       return RunStore.of({
         readDocs: docsOf,
+        readFingerprints: (runId) =>
+          fingerprintsOf(runId).pipe(
+            Effect.map((entries) => new Map(Object.entries(entries)))
+          ),
         readJournal: (runId) =>
           journalOf(runId).pipe(
             Effect.map((entries) => new Map(Object.entries(entries)))
@@ -101,6 +112,18 @@ export const runStoreFile = (root: string) =>
                   ...docs,
                   [name]: doc,
                 })
+              )
+            )
+          ),
+        writeFingerprint: (runId, key, fingerprint) =>
+          locked(
+            fingerprintsOf(runId).pipe(
+              Effect.flatMap((entries) =>
+                writeAs(
+                  FingerprintsSchema,
+                  fileOf(runId, "fingerprints.json"),
+                  { ...entries, [key]: fingerprint }
+                )
               )
             )
           ),

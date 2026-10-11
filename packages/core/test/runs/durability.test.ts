@@ -1,3 +1,4 @@
+import { NodeCrypto } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Deferred, Effect, Exit, Fiber, Option, Random, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
@@ -408,6 +409,7 @@ const incarnation = (
     );
 
     const host = yield* RunHost.make.pipe(
+      Effect.provide(NodeCrypto.layer),
       Effect.provideService(RunStore, store),
       Effect.provideService(Thinker, thinker),
       Effect.provideService(Judge, judge),

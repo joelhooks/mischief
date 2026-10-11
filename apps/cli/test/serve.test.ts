@@ -1,4 +1,8 @@
-import { NodeHttpServer, NodeServices } from "@effect/platform-node";
+import {
+  NodeCrypto,
+  NodeHttpServer,
+  NodeServices,
+} from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import {
   FileInspector,
@@ -34,6 +38,7 @@ const decodeOpenApi = Schema.decodeUnknownSync(
 const memoryRuns = RunHost.layer.pipe(
   Layer.provide(
     Layer.mergeAll(
+      NodeCrypto.layer,
       RunStore.memory,
       Thinker.unwired,
       Judge.unwired,

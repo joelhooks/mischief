@@ -14,14 +14,14 @@ const NamesArbitrary = Arbitrary.array(
 );
 
 it.effect.prop(
-  "concurrent doc and journal writes to one run all survive",
+  "concurrent doc, journal and fingerprint writes to one run all survive, and read back in a fresh store",
   { names: NamesArbitrary },
   ({ names }) =>
     Effect.gen(function* property() {
       const fs = yield* FileSystem.FileSystem;
       const root = yield* fs.makeTempDirectoryScoped();
 
-      const docs = yield* Effect.gen(function* writeConcurrently() {
+      yield* Effect.gen(function* writeConcurrently() {
         const store = yield* RunStore;
 
         yield* Effect.forEach(
@@ -31,23 +31,36 @@ it.effect.prop(
               [
                 store.writeDoc("run", name, name),
                 store.writeJournal("run", `logic:${name}`, name),
+                store.writeFingerprint("run", `logic:${name}`, `print ${name}`),
               ],
               { concurrency: "unbounded" }
             ),
           { concurrency: "unbounded", discard: true }
         );
+      }).pipe(Effect.provide(runStoreFile(root)));
+
+      const read = yield* Effect.gen(function* readFresh() {
+        const store = yield* RunStore;
 
         return {
           docs: yield* store.readDocs("run"),
+          fingerprints: Object.fromEntries(
+            yield* store.readFingerprints("run")
+          ),
           journal: Object.fromEntries(yield* store.readJournal("run")),
+          other: (yield* store.readFingerprints("other")).size,
         };
       }).pipe(Effect.provide(runStoreFile(root)));
 
-      expect(docs).toEqual({
+      expect(read).toEqual({
         docs: Object.fromEntries(names.map((name) => [name, name])),
+        fingerprints: Object.fromEntries(
+          names.map((name) => [`logic:${name}`, `print ${name}`])
+        ),
         journal: Object.fromEntries(
           names.map((name) => [`logic:${name}`, name])
         ),
+        other: 0,
       });
     }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer))),
   { arbitrary: { runs: 60 }, timeout: 20_000 }

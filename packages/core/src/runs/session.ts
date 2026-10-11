@@ -1,4 +1,4 @@
-import { Effect, Option, Result, Schema } from "effect";
+import { Crypto, Effect, Option, Result, Schema } from "effect";
 import { constVoid } from "effect/Function";
 import { createAsyncLogic } from "xstate";
 import type { AnyEventObject, Snapshot } from "xstate";
@@ -37,6 +37,7 @@ import { StepFailed } from "../steps/step-failed.js";
 import { Thinker } from "../steps/thinker.js";
 import { describeValue, leaves, openExecution } from "./execution.js";
 import type { Adapter, Execution, Sources } from "./execution.js";
+import { fingerprintOf, stepOf } from "./fingerprint.js";
 import { RunStore } from "./run-store.js";
 import type {
   Awaiting,
@@ -46,7 +47,13 @@ import type {
   RunStatus,
 } from "./schema.js";
 
-export type StepServices = Judge | Mail | Operator | RunStore | Thinker;
+export type StepServices =
+  | Crypto.Crypto
+  | Judge
+  | Mail
+  | Operator
+  | RunStore
+  | Thinker;
 
 export interface Delivery {
   readonly kind: "answer";
@@ -140,6 +147,7 @@ export const driveSession = (
     const judge = yield* Judge;
     const mail = yield* Mail;
     const operator = yield* Operator;
+    const crypto = yield* Crypto.Crypto;
 
     const runPromise = Effect.runPromiseWith(
       yield* Effect.context<StepServices>()
@@ -165,7 +173,8 @@ export const driveSession = (
 
     const journaled = (
       key: string,
-      exec: Effect.Effect<Schema.Json, StepFailed>
+      exec: Effect.Effect<Schema.Json, StepFailed>,
+      fingerprint: Effect.Effect<string> = Effect.succeed("")
     ) =>
       Effect.gen(function* replayOrRun() {
         const hit = journal.get(key);
@@ -176,6 +185,12 @@ export const driveSession = (
           return Option.isSome(failure)
             ? yield* failed(key, failure.value.error)
             : hit;
+        }
+
+        const print = yield* fingerprint;
+
+        if (print !== "") {
+          yield* store.writeFingerprint(runId, key, print);
         }
 
         const outcome = yield* Effect.result(exec);
@@ -466,7 +481,10 @@ export const driveSession = (
           )
         );
 
-        return track(key, journaled(key, work));
+        return track(
+          key,
+          journaled(key, work, fingerprintOf(crypto, stepOf(actor)))
+        );
       },
       waitForEvent: () => DRAINED,
     };

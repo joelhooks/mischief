@@ -20,7 +20,7 @@ export const PORT_BASE = 28_000;
 
 export const DATA_ROOT = "/data/joel/mischief";
 
-export const celldStack = (shell: Layer.Layer<HostShell>) =>
+export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
   Stack(
     "mischief-celld",
     {
@@ -31,7 +31,7 @@ export const celldStack = (shell: Layer.Layer<HostShell>) =>
         HostDirectoryProvider(),
         RemoteFileProvider()
       ).pipe(
-        Layer.provide(shell),
+        Layer.provide(hostServices),
         Layer.provide(sourceLayer.pipe(Layer.orDie)),
         Layer.provide(FetchHttpClient.layer)
       ),

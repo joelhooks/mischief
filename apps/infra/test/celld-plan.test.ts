@@ -52,7 +52,8 @@ it.effect(
       const plan = yield* planWith(
         celldStack(offlineLayer),
         false,
-        inMemoryState()
+        inMemoryState(),
+        "prototype"
       ).pipe(
         Effect.provide(
           ConfigProvider.layer(

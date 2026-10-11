@@ -3,6 +3,8 @@ import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { offlineLayer } from "@rat-king/alchemy-nest/offline";
 import { AlchemyContextLive } from "alchemy/AlchemyContext";
 import { provideFreshArtifactStore } from "alchemy/Artifacts";
+import { deploy } from "alchemy/Deploy";
+import { destroy } from "alchemy/Destroy";
 import { layerNonInteractive } from "alchemy/Interaction";
 import * as Plan from "alchemy/Plan";
 import { evalStack } from "alchemy/Stack";
@@ -13,6 +15,7 @@ import type { Path } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 import { cloudflare } from "./alchemy.run.ts";
+import { liveServices, STAGE, teardownProbe } from "./celld-ops.ts";
 import { celldStack } from "./celld.ts";
 import { reviewRows } from "./plan-review.ts";
 
@@ -27,7 +30,8 @@ export type Target = "celld" | "cloudflare";
 export const planWith = (
   stack: typeof cloudflare | ReturnType<typeof celldStack>,
   online: boolean,
-  state: Layer.Layer<State, never, FileSystem.FileSystem | Path.Path>
+  state: Layer.Layer<State, never, FileSystem.FileSystem | Path.Path>,
+  stage: string
 ) =>
   evalStack(
     stack,
@@ -45,7 +49,7 @@ export const planWith = (
 
         return yield* Plan.make(evaluated);
       }),
-    { stage: "preview" }
+    { stage }
   ).pipe(
     provideFreshArtifactStore,
     Effect.provide(
@@ -67,7 +71,8 @@ export const planStack = (target: Target, online: boolean) =>
     const planned = yield* planWith(
       target === "celld" ? celldStack(offlineLayer) : cloudflare,
       online,
-      localState()
+      localState(),
+      target === "celld" ? STAGE : "preview"
     );
 
     if (Option.isNone(planned)) {
@@ -114,3 +119,62 @@ export const planStack = (target: Target, online: boolean) =>
       JSON.stringify({ actions, resources: Object.keys(summary.resources) })
     );
   });
+
+const alchemyLayer = Layer.mergeAll(
+  AlchemyContextLive,
+  localState(),
+  layerNonInteractive()
+).pipe(Layer.provide(NodeServices.layer));
+
+export const deployCelld = (review: string) =>
+  deploy({ stack: celldStack(liveServices), stage: STAGE }).pipe(
+    Effect.flatMap((outputs) =>
+      Effect.log(JSON.stringify({ deployed: outputs, review, stage: STAGE }))
+    ),
+    provideFreshArtifactStore,
+    Effect.provide(alchemyLayer)
+  );
+
+export const destroyPlanCelld = evalStack(
+  celldStack(offlineLayer),
+  (evaluated) => Plan.destroy(evaluated),
+  { stage: STAGE }
+).pipe(
+  Effect.flatMap((planned) =>
+    Effect.log(
+      JSON.stringify(
+        Plan.describePlan(planned).resources.map(({ action, fqn }) => ({
+          action,
+          fqn,
+        }))
+      )
+    )
+  ),
+  provideFreshArtifactStore,
+  Effect.provide(alchemyLayer),
+  Effect.provideService(FetchHttpClient.Fetch, offlineFetch)
+);
+
+export const destroyCelld = destroy({
+  stack: celldStack(liveServices),
+  stage: STAGE,
+}).pipe(provideFreshArtifactStore, Effect.provide(alchemyLayer));
+
+export const probeCelld = teardownProbe.pipe(
+  Effect.flatMap((labels) =>
+    Effect.all(
+      labels.map(({ check, passed }) =>
+        Effect.log(`${check}_${passed ? "PASS" : "FAIL"}`)
+      )
+    ).pipe(
+      Effect.andThen(
+        labels.every(({ passed }) => passed)
+          ? Effect.void
+          : refuse(
+              "the teardown probe found Mischief units, paths or listeners still on the host"
+            )
+      )
+    )
+  ),
+  Effect.provide(liveServices)
+);

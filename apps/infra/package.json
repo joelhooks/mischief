@@ -6,8 +6,12 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check": "pnpm run typecheck",
-    "plan": "jiti plan.ts",
-    "test": "vitest run"
+    "plan": "jiti plan.ts plan",
+    "test": "vitest run",
+    "destroy-plan": "jiti plan.ts destroy-plan",
+    "deploy": "jiti plan.ts deploy",
+    "destroy": "jiti plan.ts destroy",
+    "probe": "jiti plan.ts probe"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.1",

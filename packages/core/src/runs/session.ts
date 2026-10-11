@@ -240,16 +240,27 @@ export const driveSession = (
           visit: visitOf(input.key),
         };
 
-        const probs = yield* step(input.key, judge.choose(call));
+        const stored = yield* store.readDocs(runId);
 
-        const [top] = Object.entries(probs).toSorted(
+        const docs = Object.fromEntries(
+          (input.reads ?? []).flatMap((name) =>
+            name in stored ? [[name, stored[name] ?? null]] : []
+          )
+        );
+
+        const { probabilities, usage } = yield* step(
+          input.key,
+          judge.choose({ ...call, docs })
+        );
+
+        const [top] = Object.entries(probabilities).toSorted(
           (left, right) => right[1] - left[1]
         );
 
-        const jev = { probs, rung: "jev" };
+        const jev = { probs: probabilities, rung: "jev", usage: { ...usage } };
 
         if (top !== undefined && top[1] >= (input.threshold ?? 1)) {
-          return { choice: top[0], ladder: [jev], tokens: 0 };
+          return { choice: top[0], ladder: [jev], tokens: usage.tokens };
         }
 
         const decision = yield* step(input.key, thinker.decide(call));
@@ -271,8 +282,12 @@ export const driveSession = (
         );
 
         return Option.isSome(confident)
-          ? { choice: confident.value.choice, ladder: [jev, rung], tokens: 800 }
-          : { escalate: true, ladder: [jev, rung], tokens: 800 };
+          ? {
+              choice: confident.value.choice,
+              ladder: [jev, rung],
+              tokens: usage.tokens + 800,
+            }
+          : { escalate: true, ladder: [jev, rung], tokens: usage.tokens + 800 };
       });
 
     const logic = <I>(

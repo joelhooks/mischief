@@ -1,3 +1,7 @@
+export const launchNoteSeed = {
+  brief: "Mischief runs durable agent plans",
+};
+
 export const launchNotePlan = {
   defaults: {
     agent: {
@@ -30,6 +34,7 @@ export const launchNotePlan = {
           step: {
             kind: "judge",
             question: "Is the research enough to write from?",
+            reads: ["product_summary", "audience"],
           },
         },
         on: {
@@ -156,6 +161,7 @@ export const launchNotePlan = {
           step: {
             kind: "judge",
             question: "Is the note ready to publish?",
+            reads: ["brief", "note"],
           },
         },
         on: {

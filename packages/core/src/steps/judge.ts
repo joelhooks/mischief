@@ -1,7 +1,14 @@
 import { Context, Effect, Layer } from "effect";
+import type { Schema } from "effect";
 
 import { StepFailed } from "./step-failed.js";
 import type { StepCall } from "./step-failed.js";
+import type { Usage } from "./usage.js";
+
+export interface Judgement {
+  readonly probabilities: Readonly<Record<string, number>>;
+  readonly usage: Usage;
+}
 
 const unwired = (call: StepCall) =>
   Effect.fail(
@@ -16,10 +23,11 @@ export class Judge extends Context.Service<
   {
     readonly choose: (
       call: StepCall & {
+        readonly docs: Readonly<Record<string, Schema.Json>>;
         readonly options: readonly string[];
         readonly question: string;
       }
-    ) => Effect.Effect<Readonly<Record<string, number>>, StepFailed>;
+    ) => Effect.Effect<Judgement, StepFailed>;
   }
 >()("@mischief/core/Judge") {
   static readonly unwired = Layer.succeed(this, {

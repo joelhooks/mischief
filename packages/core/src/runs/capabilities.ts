@@ -10,8 +10,10 @@ import {
 } from "./contracts.js";
 import { RunHost } from "./host.js";
 
-export const submitPlan = implement(submitPlanContract, ({ plan, runId }) =>
-  RunHost.use((host) => host.submit(runId, plan))
+export const submitPlan = implement(
+  submitPlanContract,
+  ({ docs, plan, runId }) =>
+    RunHost.use((host) => host.submit(runId, plan, docs))
 );
 
 export const inspectRun = implement(inspectRunContract, ({ runId }) =>

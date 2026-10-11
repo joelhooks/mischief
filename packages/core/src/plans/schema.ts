@@ -89,6 +89,7 @@ export type ThinkStep = typeof ThinkStepSchema.Type;
 export const JudgeStep = Schema.Struct({
   kind: Schema.Literal("judge"),
   question: Schema.String,
+  reads: Schema.optionalKey(Schema.Array(DocKey)),
   threshold: Schema.optionalKey(Probability),
 });
 

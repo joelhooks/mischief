@@ -12,11 +12,29 @@ import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { StepFailed } from "../../src/steps/step-failed.js";
 import { Thinker } from "../../src/steps/thinker.js";
-import { launchNoteAmendment, launchNotePlan } from "./launch-note.js";
-import { simulate, toJson } from "./plan-model.js";
+import {
+  launchNoteAmendment,
+  launchNotePlan,
+  launchNoteSeed,
+} from "./launch-note.js";
+import { docsSeen, simulate, toJson } from "./plan-model.js";
 import type { Fixture, Fixtures, ModelCall } from "./plan-model.js";
 
 const RUN = "prop-run";
+
+const JEV_TOKENS = 7;
+
+const JudgedEntrySchema = Schema.Struct({
+  ladder: Schema.NonEmptyArray(
+    Schema.Struct({
+      rung: Schema.String,
+      usage: Schema.optionalKey(Schema.Struct({ tokens: Schema.Finite })),
+    })
+  ),
+  tokens: Schema.Finite,
+});
+
+const decodeJudged = Schema.decodeUnknownOption(JudgedEntrySchema);
 
 const WIDTH = 2;
 
@@ -162,15 +180,19 @@ const fakes = (fixtures: Fixtures, calls: ModelCall[], announced: string[]) => {
 
   return {
     judge: Judge.of({
-      choose: ({ key, options, visit }) =>
-        record(key, "jev", visit).pipe(
-          Effect.as(
-            fixture(key, visit).probs ??
+      choose: ({ docs, key, options, visit }) =>
+        Effect.sync(() => {
+          calls.push({ docs: docsSeen(docs), key, kind: "jev", visit });
+
+          return {
+            probabilities:
+              fixture(key, visit).probs ??
               Object.fromEntries(
                 options.map((option) => [option, 1 / options.length])
-              )
-          )
-        ),
+              ),
+            usage: { tokens: JEV_TOKENS },
+          };
+        }),
     }),
     mail: Mail.of({
       ask: ({ key, visit }) =>
@@ -334,7 +356,7 @@ const incarnation = (
 
     const work = Effect.gen(function* work() {
       let report = first
-        ? yield* host.submit(RUN, plan)
+        ? yield* host.submit(RUN, plan, launchNoteSeed)
         : yield* host.resume(RUN);
 
       while (report.status === "waiting-for-joel" && report.question) {
@@ -360,7 +382,8 @@ const incarnation = (
     return { exit, pausedWhileRunning: counters.pausedWhileRunning };
   });
 
-const callId = ({ key, kind, visit }: ModelCall) => `${key} ${kind} ${visit}`;
+const callId = ({ docs, key, kind, visit }: ModelCall) =>
+  `${key} ${kind} ${visit} ${docs ?? ""}`;
 
 const firstOccurrences = (calls: readonly ModelCall[]) => [
   ...new Set(calls.map(callId)),
@@ -376,7 +399,7 @@ it.effect.prop(
     Effect.gen(function* property() {
       const plan = planFor(world);
       const fixtures = fixturesFor(world);
-      const expected = simulate(plan, fixtures);
+      const expected = simulate(plan, fixtures, launchNoteSeed);
 
       const base = yield* Effect.provide(
         Effect.service(RunStore),
@@ -441,6 +464,21 @@ it.effect.prop(
         value: expected.value,
       });
       expect(firstOccurrences(calls)).toEqual(expected.calls.map(callId));
+
+      const journal = yield* base.readJournal(RUN);
+
+      const judged = [...journal.values()].flatMap((entry) =>
+        Option.toArray(decodeJudged(entry))
+      );
+
+      expect(judged.length > 0).toBe(
+        expected.calls.some(({ kind }) => kind === "jev")
+      );
+
+      for (const { ladder, tokens } of judged) {
+        expect(ladder[0].usage?.tokens).toBe(JEV_TOKENS);
+        expect(tokens).toBe(JEV_TOKENS + (ladder.length > 1 ? 800 : 0));
+      }
 
       const crashesInStep = world.interruptions.filter(
         ({ kind }) => kind === "crashInStep" || kind === "cancel"

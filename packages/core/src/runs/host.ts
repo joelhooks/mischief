@@ -1,23 +1,28 @@
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
-import { validatePlan } from "../plans/validate.js";
-import type { PlanRefused } from "../plans/validate.js";
+import { DocKey } from "../plans/schema.js";
+import { PlanRefused, validatePlan } from "../plans/validate.js";
 import { AnswerRefused } from "./answer-refused.js";
 import { RunStore } from "./run-store.js";
 import { terminalStatuses } from "./schema.js";
-import type { RunReport, RunState } from "./schema.js";
+import type { Docs, RunReport, RunState } from "./schema.js";
 import { driveSession, reportOf } from "./session.js";
 import type { StepServices } from "./session.js";
 import { UnknownRun } from "./unknown-run.js";
 
 const decodeJsonObject = Schema.decodeUnknownOption(Schema.JsonObject);
 
+const docKeyGuard = Schema.is(DocKey);
+
+const isDocKey = (name: string): boolean => docKeyGuard(name);
+
 export class RunHost extends Context.Service<
   RunHost,
   {
     readonly submit: (
       runId: string,
-      plan: Schema.Json
+      plan: Schema.Json,
+      docs?: Docs
     ) => Effect.Effect<RunReport, PlanRefused>;
     readonly advance: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly answer: (
@@ -75,10 +80,22 @@ export class RunHost extends Context.Service<
 
     const submit = Effect.fn("RunHost.submit")(function* submit(
       runId: string,
-      input: Schema.Json
+      input: Schema.Json,
+      docs: Docs = {}
     ) {
       if (Option.isSome(yield* store.readRun(runId))) {
         return yield* drive(runId).pipe(Effect.orDie);
+      }
+
+      const badNames = Object.keys(docs).filter((name) => !isDocKey(name));
+
+      if (badNames.length > 0) {
+        return yield* new PlanRefused({
+          errors: badNames.map(
+            (name) =>
+              `docs.${name}: seed doc names are lowercase, start with a letter and use only a-z, 0-9, _ and -, up to 64 characters`
+          ),
+        });
       }
 
       const plan = yield* validatePlan(
@@ -89,6 +106,11 @@ export class RunHost extends Context.Service<
       );
 
       yield* store.writePlan(runId, plan);
+      yield* Effect.forEach(
+        Object.entries(docs),
+        ([name, doc]) => store.writeDoc(runId, name, doc),
+        { discard: true }
+      );
 
       const fresh: RunState = {
         answers: {},

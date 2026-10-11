@@ -138,7 +138,7 @@ const compileStep = (
           name,
           {
             invoke: {
-              input: { ...ask, threshold: step.threshold },
+              input: { ...ask, reads: step.reads, threshold: step.threshold },
               onDone: [
                 ...ask.options.map((option) => ({
                   guard: picked(option),

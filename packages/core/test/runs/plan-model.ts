@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 export interface ModelCall {
+  readonly docs?: string;
   readonly key: string;
   readonly kind: string;
   readonly visit: number;
@@ -30,6 +31,7 @@ interface ModelStep {
   readonly kind: string;
   readonly next?: string;
   readonly prompt?: string;
+  readonly reads?: readonly string[];
   readonly writes?: string;
 }
 
@@ -132,11 +134,22 @@ interface FanoutResult {
   readonly used: number;
 }
 
-const makeWorld = (plan: ModelPlan, fixtures: Fixtures) => {
+export const docsSeen = (docs: Readonly<Record<string, Schema.Json>>) =>
+  JSON.stringify(
+    Object.entries(docs).toSorted(([left], [right]) =>
+      left.localeCompare(right)
+    )
+  );
+
+const makeWorld = (
+  plan: ModelPlan,
+  fixtures: Fixtures,
+  seed: Readonly<Record<string, Schema.Json>>
+) => {
   const visits = new Map<string, number>();
   const answers = new Map<string, number>();
   const calls: ModelCall[] = [];
-  const docs = new Map<string, Schema.Json>();
+  const docs = new Map<string, Schema.Json>(Object.entries(seed));
   const states = new Map(Object.entries(plan.machine.states));
   const { maxSteps } = plan.envelope;
   const clock = { transitions: 1 };
@@ -320,7 +333,15 @@ const judgeMove = (
   const options = Object.keys(node.on ?? {});
   const visit = world.visitOf(key);
 
-  world.calls.push({ key, kind: "jev", visit });
+  const seen = Object.fromEntries(
+    (node.meta?.step.reads ?? []).flatMap((name) => {
+      const doc = world.docs.get(name);
+
+      return doc === undefined ? [] : [[name, doc]];
+    })
+  );
+
+  world.calls.push({ docs: docsSeen(seen), key, kind: "jev", visit });
 
   const probs =
     world.fixtureOf(key, visit).probs ??
@@ -433,8 +454,12 @@ const stepMove = (
     : advanceTo(world, path, "");
 };
 
-export const simulate = (plan: ModelPlan, fixtures: Fixtures): ModelOutcome => {
-  const world = makeWorld(plan, fixtures);
+export const simulate = (
+  plan: ModelPlan,
+  fixtures: Fixtures,
+  seed: Readonly<Record<string, Schema.Json>> = {}
+): ModelOutcome => {
+  const world = makeWorld(plan, fixtures, seed);
 
   let move = world.go(world.enterAt([plan.machine.initial]));
 

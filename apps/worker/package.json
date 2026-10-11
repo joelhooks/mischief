@@ -15,7 +15,7 @@
     "@mischief/core": "workspace:*",
     "@mischief/plan-run": "workspace:*",
     "@mischief/thinking": "workspace:*",
-    "@rat-king/mailbox-client": "github:joelhooks/rat-king#0c86041133507283d0055b4bcc591d651067b03a&path:/packages/mailbox-client/bundle",
+    "@rat-king/mailbox-client": "github:joelhooks/rat-king#f20dd1bafceb2b6beb192027878f5303738525fe&path:/packages/mailbox-client/bundle",
     "effect": "4.0.1"
   },
   "devDependencies": {

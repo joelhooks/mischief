@@ -5,12 +5,9 @@ import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
 import { Effect, Layer, Option, Result, Schema } from "effect";
 
 import type { Env } from "./plan-run-object.js";
-import {
-  AuthRefused,
-  authenticate,
-  NSID_PREFIX,
-  ServiceTokens,
-} from "./service-auth.js";
+import { replayLedger } from "./replay-ledger.js";
+import { authenticate, NSID_PREFIX } from "./service-auth.js";
+import type { AuthRefused } from "./service-auth.js";
 
 export { PlanRun } from "./plan-run-object.js";
 
@@ -46,25 +43,7 @@ const CallersFromJson = Schema.fromJsonString(Documents);
 const servicesFor = (env: Env, callers: DocumentsValue) =>
   Layer.merge(
     staticResolver(callers),
-    Layer.succeed(
-      ServiceTokens,
-      ServiceTokens.of({
-        consume: (claims, now) =>
-          Effect.tryPromise({
-            catch: () =>
-              new AuthRefused({
-                reason:
-                  "the host could not record this token's jti, so it refuses it. Send a fresh token again shortly",
-              }),
-            try: async () =>
-              await env.SERVICE_TOKENS.getByName(claims.iss).consume(
-                claims.jti,
-                claims.exp,
-                now
-              ),
-          }),
-      })
-    )
+    replayLedger((issuer) => env.SERVICE_TOKENS.getByName(issuer))
   );
 
 const refused = (error: AuthRefused) =>

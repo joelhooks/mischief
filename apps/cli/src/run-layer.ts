@@ -1,5 +1,9 @@
 import { Judge, Operator, RunHost, Thinker } from "@mischief/core";
-import { fauxThinkerOptions, piThinker } from "@mischief/thinking";
+import {
+  fauxThinkerOptions,
+  gatewayThinkerOptions,
+  piThinker,
+} from "@mischief/thinking";
 import {
   Config,
   Console,
@@ -40,7 +44,7 @@ const thinker = Layer.unwrap(
       Config.withDefault("unwired")
     );
 
-    if (model !== "faux") {
+    if (model !== "faux" && model !== "gateway") {
       return Thinker.unwired;
     }
 
@@ -48,7 +52,16 @@ const thinker = Layer.unwrap(
 
     yield* fs.makeDirectory(root, { recursive: true });
 
-    return piThinker(fauxThinkerOptions(root));
+    if (model === "faux") {
+      return piThinker(fauxThinkerOptions(root));
+    }
+
+    const gateway = yield* Config.all({
+      apiKey: Config.Redacted("MISCHIEF_MODEL_KEY"),
+      baseUrl: Config.String("MISCHIEF_MODEL_URL"),
+    });
+
+    return piThinker(gatewayThinkerOptions(root, gateway));
   }).pipe(Effect.orDie)
 );
 

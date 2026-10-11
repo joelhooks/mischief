@@ -45,6 +45,7 @@ export class Thinker extends Context.Service<
     ) => Effect.Effect<Thought, StepFailed>;
     readonly decide: (
       call: StepCall & {
+        readonly agent: AgentConfig;
         readonly options: readonly string[];
         readonly question: string;
       }

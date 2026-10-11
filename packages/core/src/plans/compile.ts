@@ -2,6 +2,7 @@ import { absurd } from "effect/Function";
 import type { StateNodeJSON, TransitionJSON } from "xstate";
 
 import type {
+  AgentConfig,
   Branch,
   BranchState,
   CompoundState,
@@ -29,6 +30,7 @@ export interface CompiledMachine extends StateNodeJSON {
 interface Scope {
   readonly machineId: string;
   readonly onError: string | undefined;
+  readonly thinkAgent: AgentConfig | undefined;
   readonly thinkThreshold: number | undefined;
 }
 
@@ -167,6 +169,7 @@ const compileStep = (
                 ...ask,
                 fallback: step.fallback,
                 reads: step.reads,
+                thinkAgent: scope.thinkAgent,
                 thinkThreshold: scope.thinkThreshold,
                 threshold: step.threshold,
               },
@@ -328,6 +331,13 @@ export const compilePlan = (plan: Plan): CompiledMachine => ({
   states: compileStates(plan.machine.states, [], {
     machineId: plan.machine.id,
     onError: undefined,
+    thinkAgent:
+      plan.envelope.thresholds.think === undefined
+        ? undefined
+        : {
+            model: plan.defaults.agent.model ?? plan.envelope.models[0],
+            thinking: plan.defaults.agent.thinking ?? "low",
+          },
     thinkThreshold: plan.envelope.thresholds.think,
   }),
   version: String(plan.version),

@@ -1,5 +1,14 @@
 import { Judge, Operator, RunHost, Thinker } from "@mischief/core";
-import { Config, Console, Effect, Layer, Option, Path } from "effect";
+import { fauxThinkerOptions, piThinker } from "@mischief/thinking";
+import {
+  Config,
+  Console,
+  Effect,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+} from "effect";
 
 import { mailOutbox } from "./mail-outbox.js";
 import { runStoreFile } from "./run-store-file.js";
@@ -22,11 +31,32 @@ const operatorConsole = Layer.succeed(Operator, {
     ),
 });
 
+const thinker = Layer.unwrap(
+  Effect.gen(function* chooseThinker() {
+    const path = yield* Path.Path;
+    const fs = yield* FileSystem.FileSystem;
+
+    const model = yield* Config.String("MISCHIEF_MODEL").pipe(
+      Config.withDefault("unwired")
+    );
+
+    if (model !== "faux") {
+      return Thinker.unwired;
+    }
+
+    const root = path.join(yield* runsRoot, "__thinking");
+
+    yield* fs.makeDirectory(root, { recursive: true });
+
+    return piThinker(fauxThinkerOptions(root));
+  }).pipe(Effect.orDie)
+);
+
 export const localRunLayer = RunHost.layer.pipe(
   Layer.provideMerge(Layer.unwrap(runsRoot.pipe(Effect.map(runStoreFile)))),
   Layer.provide(
     Layer.mergeAll(
-      Thinker.unwired,
+      thinker,
       Judge.unwired,
       Layer.unwrap(runsRoot.pipe(Effect.map(mailOutbox))),
       operatorConsole

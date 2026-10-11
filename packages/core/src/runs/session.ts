@@ -264,6 +264,7 @@ export const driveSession = (
     const decide = (input: JudgeInput) =>
       Effect.gen(function* decideStep() {
         const call = {
+          agent: input.thinkAgent ?? {},
           key: input.key,
           options: input.options,
           question: input.question,

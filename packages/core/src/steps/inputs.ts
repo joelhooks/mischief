@@ -37,6 +37,7 @@ export const JudgeInputSchema = Schema.Struct({
   ...QuestionInputSchema.fields,
   fallback: Schema.optional(Schema.String),
   reads: Schema.optional(Schema.Array(DocKey)),
+  thinkAgent: Schema.optional(AgentConfigSchema),
   thinkThreshold: Schema.optional(Probability),
   threshold: Schema.optional(Probability),
 });

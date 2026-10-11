@@ -52,6 +52,9 @@ minimumReleaseAgeExclude:
   - "@earendil-works/pi-coding-agent@0.86.1"
   - "@earendil-works/pi-telemetry@0.86.1"
   - "@earendil-works/pi-tui@0.86.1"
+  - "@earendil-works/chord@1.1.0"
+  - "@earendil-works/pi-ai@1.1.0"
+  - "@earendil-works/pi-durable@1.1.0"
   - better-auth@1.6.2
   - satori@0.33.5
   - shiki@3.23.0

@@ -71,3 +71,14 @@ export { Operator } from "./steps/operator.js";
 export { StepFailed } from "./steps/step-failed.js";
 
 export { Thinker } from "./steps/thinker.js";
+
+export type {
+  Decision,
+  Deliberation,
+  Elaboration,
+  Thought,
+} from "./steps/thinker.js";
+
+export type { StepCall } from "./steps/step-failed.js";
+
+export type { AgentConfig } from "./plans/schema.js";

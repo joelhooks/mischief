@@ -20,6 +20,7 @@
     "@mischief/capability": "workspace:*",
     "@mischief/core": "workspace:*",
     "@mischief/devtools": "workspace:*",
+    "@mischief/thinking": "workspace:*",
     "effect": "4.0.1"
   },
   "devDependencies": {

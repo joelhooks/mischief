@@ -158,6 +158,16 @@ it.effect.prop(
 
       expect(report.status).toBe("done");
       expect(report.docs.took).toBe(expectedRoute(value, cases, fallback));
+
+      const journal = yield* (yield* RunStore).readJournal("run");
+      const entry = [...journal].find(([key]) => key.includes(".gate#"))?.[1];
+
+      expect(entry).toEqual({
+        choice: expectedRoute(value, cases, fallback),
+        defaulted: !Object.hasOwn(cases, value),
+        tokens: 0,
+        value,
+      });
     }).pipe(Effect.provide(services)),
   { arbitrary: { runs: 120 } }
 );

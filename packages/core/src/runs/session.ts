@@ -401,8 +401,16 @@ export const driveSession = (
         }
 
         const text = docText(value).trim();
+        const matched = Object.hasOwn(input.cases, text);
 
-        return { choice: input.cases[text] ?? input.default, tokens: 0 };
+        return {
+          choice: matched
+            ? (input.cases[text] ?? input.default)
+            : input.default,
+          defaulted: !matched,
+          tokens: 0,
+          value: text.slice(0, 200),
+        };
       });
 
     const elaborate = (input: ElaborateInput) =>

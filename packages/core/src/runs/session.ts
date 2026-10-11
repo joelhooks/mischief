@@ -94,8 +94,18 @@ const statusAfter = (machine: string): RunStatus => {
 };
 
 const decodeFailure = Schema.decodeUnknownOption(
-  Schema.Struct({ error: Schema.String })
+  Schema.Struct({
+    error: Schema.String,
+    reason: Schema.optionalKey(Schema.String),
+  })
 );
+
+const reasonOf = (failure: {
+  readonly error: string;
+  readonly reason?: string;
+}) => failure.reason ?? failure.error;
+
+const isStepFailed = Schema.is(StepFailed);
 
 const decodeVerdict = Schema.decodeUnknownOption(OutputEventSchema);
 
@@ -136,7 +146,15 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
   Effect.gen(function* buildReport() {
     const store = yield* RunStore;
 
-    const report: RunReport = {
+    const failures = [...(yield* store.readJournal(runId))].flatMap(
+      ([key, entry]) =>
+        Option.match(decodeFailure(entry), {
+          onNone: () => [],
+          onSome: (failure) => [{ key, reason: reasonOf(failure) }],
+        })
+    );
+
+    const base: RunReport = {
       docs: yield* store.readDocs(runId),
       planId: plan.id,
       planVersion: state.planVersion,
@@ -145,6 +163,9 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
       transitions: state.transitions,
       value: state.value,
     };
+
+    const report: RunReport =
+      failures.length > 0 ? { ...base, failures } : base;
 
     if (state.awaiting.length > 0 && state.status !== "waiting-for-joel") {
       return { ...report, awaiting: state.awaiting } satisfies RunReport;
@@ -266,7 +287,7 @@ export const driveSession = (
 
         const entry = Result.isSuccess(outcome)
           ? outcome.success
-          : { error: outcome.failure.reason };
+          : { error: `${key} failed`, reason: outcome.failure.reason };
 
         journal.set(key, entry);
         yield* store.writeJournal(runId, key, entry);
@@ -596,7 +617,8 @@ export const driveSession = (
         const key = `logic:${actor.address}#${visit}`;
 
         const work = Effect.tryPromise({
-          catch: () => failed(key, `${key} failed`),
+          catch: (cause) =>
+            failed(key, isStepFailed(cause) ? cause.reason : `${key} failed`),
           // oxlint-disable-next-line typescript/promise-function-async -- xstate hands the step body over as a Promise factory.
           try: () => {
             visits.set(stepKeyOf(actor.address), visit);

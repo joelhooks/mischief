@@ -112,9 +112,15 @@ export const QuestionSchema = Schema.Struct({
 
 export type Question = typeof QuestionSchema.Type;
 
+export const FailureSchema = Schema.Struct({
+  key: Schema.String,
+  reason: Schema.String,
+});
+
 export const RunReportSchema = Schema.Struct({
   awaiting: Schema.optionalKey(Schema.Array(AwaitingSchema)),
   docs: DocsSchema,
+  failures: Schema.optionalKey(Schema.Array(FailureSchema)),
   planId: Schema.String,
   planVersion: Count,
   question: Schema.optionalKey(QuestionSchema),

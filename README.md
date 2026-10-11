@@ -10,7 +10,7 @@ Mischief started from the [rat-stack](https://github.com/joelhooks/rat-stack) te
 
 ## Status
 
-Day one. The workspace builds, the fence runs, and the CLI serves the template's reference capability. The first build step is the `plan-run` cartridge: a `PlanRun` Durable Object on celld driven by the durability property from the prototype.
+Early, and dogfooded daily. Today a run executes from the CLI with a file store: plans validate and compile, steps journal before their effects, and a run survives kills mid-step without redoing finished work. Agent turns run on Pi Durable against a real model, judges gate work (including inside parallel branches), and mail goes out and comes back over Rat King, exactly once across crashes. Next: replaying a revised plan from its journal, forking agent sessions, and the `PlanRun` Durable Object on celld and Cloudflare.
 
 ## Run it
 
@@ -28,12 +28,12 @@ pnpm cli stats README.md
 
 | Piece            | Pin                                                     |
 | ---------------- | ------------------------------------------------------- |
-| Effect           | `4.0.0`                                                 |
+| Effect           | `4.0.1`                                                 |
 | XState           | `6.0.0-alpha.65` (`xstate/durable` runs the plan graph) |
 | `@xstate/effect` | `0.1.0-alpha.7`                                         |
 | Alchemy          | `2.0.0-beta.81`                                         |
 | TypeScript       | `7.0.2`, patched by `@effect/tsgo`                      |
-| Vitest           | `5.0.3` with `@effect/vitest` `4.0.0`                   |
+| Vitest           | `5.0.3` with `@effect/vitest` `4.0.1`                   |
 
 ## Workspace
 

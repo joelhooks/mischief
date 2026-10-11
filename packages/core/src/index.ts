@@ -53,6 +53,7 @@ export {
   AwaitingSchema,
   DocsSchema,
   ReplyLineSchema,
+  RunRecordSchema,
   RunReportSchema,
   RunStateSchema,
   type Awaiting,

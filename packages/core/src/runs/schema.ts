@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 
-import { Count } from "../plans/schema.js";
+import { Count, PlanSchema } from "../plans/schema.js";
 import { QuestionInputSchema } from "../steps/inputs.js";
 
 export const RunId = Schema.String.check(
@@ -140,3 +140,17 @@ export const RevisionReportSchema = Schema.Struct({
 });
 
 export type RevisionReport = typeof RevisionReportSchema.Type;
+
+export const JournalLineSchema = Schema.Struct({
+  entry: Schema.Json,
+  key: Schema.String,
+});
+
+export const RunRecordSchema = Schema.Struct({
+  journal: Schema.Array(JournalLineSchema),
+  plan: PlanSchema,
+  planVersion: Count,
+  runId: RunId,
+});
+
+export type RunRecord = typeof RunRecordSchema.Type;

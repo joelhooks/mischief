@@ -11,6 +11,7 @@ import {
   ReplyLineSchema,
   RevisionReportSchema,
   RunId,
+  RunRecordSchema,
   RunReportSchema,
 } from "./schema.js";
 import { UnknownRun } from "./unknown-run.js";
@@ -42,6 +43,15 @@ export const inspectRunContract = defineContract("inspectRun", {
   failure: UnknownRun,
   input: Schema.Struct({ runId }),
   output: RunReportSchema,
+});
+
+export const readRunContract = defineContract("readRun", {
+  annotations: { idempotent: true, readOnly: true },
+  description:
+    "Read a run's current plan and its whole journal in the order it was written, for viewers that draw the plan's states and what each step recorded",
+  failure: UnknownRun,
+  input: Schema.Struct({ runId }),
+  output: RunRecordSchema,
 });
 
 export const pauseRunContract = defineContract("pauseRun", {

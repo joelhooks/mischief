@@ -7,6 +7,7 @@ import {
   extendRunContract,
   inspectRunContract,
   pauseRunContract,
+  readRunContract,
   resumeRunContract,
   reviseRunContract,
   submitPlanContract,
@@ -21,6 +22,10 @@ export const submitPlan = implement(
 
 export const inspectRun = implement(inspectRunContract, ({ runId }) =>
   RunHost.use((host) => host.inspect(runId))
+);
+
+export const readRun = implement(readRunContract, ({ runId }) =>
+  RunHost.use((host) => host.read(runId))
 );
 
 export const pauseRun = implement(pauseRunContract, ({ runId }) =>
@@ -56,6 +61,7 @@ export const reviseRun = implement(
 export const runCapabilities = [
   submitPlan,
   inspectRun,
+  readRun,
   pauseRun,
   resumeRun,
   abortRun,

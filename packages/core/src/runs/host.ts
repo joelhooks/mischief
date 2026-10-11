@@ -14,6 +14,7 @@ import type {
   Docs,
   ReplyLine,
   RevisionReport,
+  RunRecord,
   RunReport,
   RunState,
 } from "./schema.js";
@@ -53,6 +54,7 @@ export class RunHost extends Context.Service<
       dryRun: boolean
     ) => Effect.Effect<RevisionReport, UnknownRun | RevisionRefused>;
     readonly inspect: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
+    readonly read: (runId: string) => Effect.Effect<RunRecord, UnknownRun>;
     readonly pause: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly resume: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly abort: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
@@ -101,6 +103,18 @@ export class RunHost extends Context.Service<
 
       return yield* reportOf(runId, plan, state);
     }, Effect.provideContext(context));
+
+    const read = Effect.fn("RunHost.read")(function* read(runId: string) {
+      const { plan, state } = yield* loadRun(runId);
+      const journal = yield* store.readJournal(runId);
+
+      return {
+        journal: [...journal].map(([key, entry]) => ({ entry, key })),
+        plan,
+        planVersion: state.planVersion,
+        runId,
+      } satisfies RunRecord;
+    });
 
     const submit = Effect.fn("RunHost.submit")(function* submit(
       runId: string,
@@ -413,6 +427,7 @@ export class RunHost extends Context.Service<
       extend,
       inspect,
       pause,
+      read,
       resume,
       revise,
       submit,

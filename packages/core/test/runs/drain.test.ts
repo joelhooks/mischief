@@ -70,6 +70,7 @@ const stubHost = (says: HostSays, delivered: ReplyLine[]) =>
       extend: unused,
       inspect: unused,
       pause: unused,
+      read: unused,
       resume: unused,
       revise: unused,
       submit: unused,

@@ -29,6 +29,7 @@ export interface CompiledMachine extends StateNodeJSON {
 interface Scope {
   readonly machineId: string;
   readonly onError: string | undefined;
+  readonly thinkThreshold: number | undefined;
 }
 
 export const isFinal = (
@@ -162,7 +163,12 @@ const compileStep = (
           name,
           {
             invoke: {
-              input: { ...ask, reads: step.reads, threshold: step.threshold },
+              input: {
+                ...ask,
+                reads: step.reads,
+                thinkThreshold: scope.thinkThreshold,
+                threshold: step.threshold,
+              },
               onDone: [
                 ...ask.options.map((option) => ({
                   guard: picked(option),
@@ -321,6 +327,7 @@ export const compilePlan = (plan: Plan): CompiledMachine => ({
   states: compileStates(plan.machine.states, [], {
     machineId: plan.machine.id,
     onError: undefined,
+    thinkThreshold: plan.envelope.thresholds.think,
   }),
   version: String(plan.version),
 });

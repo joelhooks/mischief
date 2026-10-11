@@ -35,8 +35,9 @@ export type QuestionInput = typeof QuestionInputSchema.Type;
 
 export const JudgeInputSchema = Schema.Struct({
   ...QuestionInputSchema.fields,
-  reads: Schema.optionalKey(Schema.Array(DocKey)),
-  threshold: Schema.optionalKey(Probability),
+  reads: Schema.optional(Schema.Array(DocKey)),
+  thinkThreshold: Schema.optional(Probability),
+  threshold: Schema.optional(Probability),
 });
 
 export type JudgeInput = typeof JudgeInputSchema.Type;

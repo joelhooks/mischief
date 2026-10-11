@@ -57,7 +57,7 @@ export type Fixtures = Readonly<Record<string, Fixture>>;
 export interface ModelPlan {
   readonly envelope: {
     readonly maxSteps: number;
-    readonly thresholds: { readonly judge: number };
+    readonly thresholds: { readonly judge: number; readonly think?: number };
   };
   readonly machine: {
     readonly initial: string;
@@ -114,10 +114,11 @@ const topChoice = (
 
 const confidentChoice = (
   think: Fixture | undefined,
-  options: readonly string[]
+  options: readonly string[],
+  threshold: number
 ) =>
   think?.choice !== undefined &&
-  (think.confidence ?? 0) >= 0.6 &&
+  (think.confidence ?? 0) >= threshold &&
   options.includes(think.choice)
     ? think.choice
     : undefined;
@@ -233,6 +234,7 @@ const makeWorld = (
     nodeAt,
     onward,
     states,
+    thinkThreshold: plan.envelope.thresholds.think,
     threshold: plan.envelope.thresholds.judge,
     visitOf,
     writeStep,
@@ -352,12 +354,20 @@ const judgeMove = (
     return advanceTo(world, path, node.on?.[picked]?.target);
   }
 
-  world.calls.push({ key, kind: "think-fallback", visit });
+  const { thinkThreshold } = world;
 
-  const fallback = confidentChoice(
-    world.fixtures[`${key}#${visit}:think`],
-    options
-  );
+  if (thinkThreshold !== undefined) {
+    world.calls.push({ key, kind: "think-fallback", visit });
+  }
+
+  const fallback =
+    thinkThreshold === undefined
+      ? undefined
+      : confidentChoice(
+          world.fixtures[`${key}#${visit}:think`],
+          options,
+          thinkThreshold
+        );
 
   if (fallback !== undefined) {
     return advanceTo(world, path, node.on?.[fallback]?.target);

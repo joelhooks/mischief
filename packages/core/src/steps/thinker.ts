@@ -4,6 +4,7 @@ import type { Option, Schema } from "effect";
 import type { AgentConfig } from "../plans/schema.js";
 import { StepFailed } from "./step-failed.js";
 import type { StepCall } from "./step-failed.js";
+import type { Usage } from "./usage.js";
 
 export interface Thought {
   readonly output: string;
@@ -13,6 +14,11 @@ export interface Thought {
 export interface Decision {
   readonly choice: string;
   readonly confidence: number;
+}
+
+export interface Deliberation {
+  readonly decision: Option.Option<Decision>;
+  readonly usage: Usage;
 }
 
 export interface Elaboration {
@@ -42,7 +48,7 @@ export class Thinker extends Context.Service<
         readonly options: readonly string[];
         readonly question: string;
       }
-    ) => Effect.Effect<Option.Option<Decision>, StepFailed>;
+    ) => Effect.Effect<Deliberation, StepFailed>;
     readonly elaborate: (
       call: StepCall & { readonly goal: string }
     ) => Effect.Effect<Elaboration, StepFailed>;

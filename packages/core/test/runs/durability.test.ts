@@ -24,6 +24,8 @@ const RUN = "prop-run";
 
 const JEV_TOKENS = 7;
 
+const THINK_TOKENS = 11;
+
 const JudgedEntrySchema = Schema.Struct({
   ladder: Schema.NonEmptyArray(
     Schema.Struct({
@@ -91,6 +93,7 @@ const WorldArbitrary = Arbitrary.all({
     { maxLength: 6 }
   ),
   shipCheck: judgements,
+  thinkThreshold: Arbitrary.schema(Schema.Literals(["none", 0.5, 0.95])),
 });
 
 type World =
@@ -150,7 +153,17 @@ const planFor = (world: World) => {
 
   return {
     ...launchNotePlan,
-    envelope: { ...launchNotePlan.envelope, maxSteps: world.maxSteps },
+    envelope: {
+      ...launchNotePlan.envelope,
+      maxSteps: world.maxSteps,
+      thresholds:
+        world.thinkThreshold === "none"
+          ? launchNotePlan.envelope.thresholds
+          : {
+              ...launchNotePlan.envelope.thresholds,
+              think: world.thinkThreshold,
+            },
+    },
     machine: {
       ...launchNotePlan.machine,
       states: {
@@ -218,15 +231,16 @@ const fakes = (fixtures: Fixtures, calls: ModelCall[], announced: string[]) => {
     thinker: Thinker.of({
       decide: ({ key, visit }) =>
         record(key, "think-fallback", visit).pipe(
-          Effect.as(
-            Option.flatMap(
+          Effect.as({
+            decision: Option.flatMap(
               Option.fromUndefinedOr(fixtures[`${key}#${visit}:think`]),
               ({ choice, confidence }) =>
                 choice === undefined
                   ? Option.none()
                   : Option.some({ choice, confidence: confidence ?? 0 })
-            )
-          )
+            ),
+            usage: { tokens: THINK_TOKENS },
+          })
         ),
       elaborate: ({ key, visit }) =>
         record(key, "elaborate", visit).pipe(
@@ -505,8 +519,12 @@ it.effect.prop(
       );
 
       for (const { ladder, tokens } of judged) {
-        expect(ladder[0].usage?.tokens).toBe(JEV_TOKENS);
-        expect(tokens).toBe(JEV_TOKENS + (ladder.length > 1 ? 800 : 0));
+        expect(ladder.map(({ usage }) => usage?.tokens)).toEqual(
+          [JEV_TOKENS, THINK_TOKENS].slice(0, ladder.length)
+        );
+        expect(tokens).toBe(
+          JEV_TOKENS + (ladder.length > 1 ? THINK_TOKENS : 0)
+        );
       }
 
       const crashesInStep = world.interruptions.filter(

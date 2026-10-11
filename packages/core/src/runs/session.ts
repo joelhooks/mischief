@@ -294,31 +294,35 @@ export const driveSession = (
           return { choice: top[0], ladder: [jev], tokens: usage.tokens };
         }
 
-        const decision = yield* step(input.key, thinker.decide(call));
+        const { thinkThreshold } = input;
 
-        const rung = Option.match(decision, {
-          onNone: () => ({ rung: "think" }),
+        if (thinkThreshold === undefined) {
+          return { escalate: true, ladder: [jev], tokens: usage.tokens };
+        }
+
+        const deliberation = yield* step(input.key, thinker.decide(call));
+        const tokens = usage.tokens + deliberation.usage.tokens;
+
+        const rung = Option.match(deliberation.decision, {
+          onNone: () => ({ rung: "think", usage: { ...deliberation.usage } }),
           onSome: ({ choice, confidence }) => ({
             choice,
             confidence,
             rung: "think",
+            usage: { ...deliberation.usage },
           }),
         });
 
-        const confident = decision.pipe(
+        const confident = deliberation.decision.pipe(
           Option.filter(
             ({ choice, confidence }) =>
-              confidence >= 0.6 && input.options.includes(choice)
+              confidence >= thinkThreshold && input.options.includes(choice)
           )
         );
 
         return Option.isSome(confident)
-          ? {
-              choice: confident.value.choice,
-              ladder: [jev, rung],
-              tokens: usage.tokens + 800,
-            }
-          : { escalate: true, ladder: [jev, rung], tokens: usage.tokens + 800 };
+          ? { choice: confident.value.choice, ladder: [jev, rung], tokens }
+          : { escalate: true, ladder: [jev, rung], tokens };
       });
 
     const logic = <I>(

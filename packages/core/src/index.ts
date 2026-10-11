@@ -33,6 +33,8 @@ export { runCapabilities } from "./runs/capabilities.js";
 
 export { RunHost } from "./runs/host.js";
 
+export { ExtendRefused } from "./runs/extend-refused.js";
+
 export { ReplyRefused } from "./runs/reply-refused.js";
 
 export { RunStore } from "./runs/run-store.js";

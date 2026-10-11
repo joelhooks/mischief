@@ -3,6 +3,7 @@ import { Context, Effect, Layer, Option, Schema } from "effect";
 import { DocKey } from "../plans/schema.js";
 import { PlanRefused, validatePlan } from "../plans/validate.js";
 import { AnswerRefused } from "./answer-refused.js";
+import { ExtendRefused } from "./extend-refused.js";
 import { ReplyRefused } from "./reply-refused.js";
 import { RunStore } from "./run-store.js";
 import { terminalStatuses } from "./schema.js";
@@ -33,6 +34,10 @@ export class RunHost extends Context.Service<
     readonly deliver: (
       line: ReplyLine
     ) => Effect.Effect<RunReport, ReplyRefused>;
+    readonly extend: (
+      runId: string,
+      maxSteps: number
+    ) => Effect.Effect<RunReport, UnknownRun | ExtendRefused>;
     readonly inspect: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly pause: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly resume: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
@@ -120,8 +125,10 @@ export class RunHost extends Context.Service<
         answers: {},
         asking: null,
         awaiting: [],
+        capped: null,
         checkpoint: null,
         planVersion: plan.version,
+        replies: [],
         status: "running",
         transitions: 0,
         value: null,
@@ -199,21 +206,21 @@ export class RunHost extends Context.Service<
       }
 
       const runId = owner.value;
-      const report = yield* inspect(runId).pipe(Effect.orDie);
+      const { state } = yield* loadRun(runId).pipe(Effect.orDie);
 
-      const open = (report.awaiting ?? []).find(
+      const open = state.awaiting.find(
         ({ messageId }) => messageId === line.replyTo
       );
 
-      const openAsks = (report.awaiting ?? [])
+      const openAsks = state.awaiting
         .map(
           ({ key, messageId, to }) => `${key} to ${to} (replyTo ${messageId})`
         )
         .join("; ");
 
-      if (open === undefined) {
+      if (terminalStatuses.has(state.status) || open === undefined) {
         return yield* refuse(
-          `run ${runId} is not waiting on it (status ${report.status}). It was already delivered or the run has moved on; nothing changed. Open asks: ${openAsks || "none"}.`
+          `run ${runId} is not waiting on it (status ${state.status}). It was already delivered or the run has moved on; nothing changed. Open asks: ${openAsks || "none"}.`
         );
       }
 
@@ -229,13 +236,45 @@ export class RunHost extends Context.Service<
         );
       }
 
-      if (open.writes !== null) {
-        yield* store.writeDoc(runId, open.writes, line.body);
+      yield* store.writeRun(runId, {
+        ...state,
+        replies: [...state.replies, { body: line.body, key: open.key }],
+      });
+
+      return yield* drive(runId).pipe(Effect.orDie);
+    });
+
+    const extend = Effect.fn("RunHost.extend")(function* extend(
+      runId: string,
+      maxSteps: number
+    ) {
+      const { plan, state } = yield* loadRun(runId);
+      const current = plan.envelope.maxSteps;
+
+      if (terminalStatuses.has(state.status)) {
+        return yield* new ExtendRefused({
+          reason: `the run is ${state.status}, so there is nothing to extend. Submit a new run instead.`,
+          runId,
+        });
       }
 
-      return yield* drive(runId, { key: open.key, kind: "reply" }).pipe(
-        Effect.orDie
-      );
+      if (maxSteps <= current) {
+        return yield* new ExtendRefused({
+          reason: `maxSteps ${maxSteps} is not above the current ${current}. Call extendRun({ runId: "${runId}", maxSteps }) with more than ${current}; the run has used ${state.transitions}.`,
+          runId,
+        });
+      }
+
+      const extended = {
+        ...plan,
+        envelope: { ...plan.envelope, maxSteps },
+        version: plan.version + 1,
+      };
+
+      yield* store.writePlan(runId, extended);
+      yield* store.writeRun(runId, { ...state, planVersion: extended.version });
+
+      return yield* drive(runId);
     });
 
     return {
@@ -243,6 +282,7 @@ export class RunHost extends Context.Service<
       advance: (runId) => drive(runId),
       answer,
       deliver,
+      extend,
       inspect,
       pause,
       resume,

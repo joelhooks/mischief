@@ -23,7 +23,6 @@ export type RunStatus = typeof RunStatusSchema.Type;
 
 export const terminalStatuses: ReadonlySet<RunStatus> = new Set([
   "done",
-  "envelope-exceeded",
   "amendment-refused",
   "aborted",
 ]);
@@ -70,12 +69,21 @@ export const ReplyLineSchema = Schema.Struct({
 
 export type ReplyLine = typeof ReplyLineSchema.Type;
 
+export const PendingReplySchema = Schema.Struct({
+  body: Schema.String,
+  key: Schema.String,
+});
+
+export type PendingReply = typeof PendingReplySchema.Type;
+
 export const RunStateSchema = Schema.Struct({
   answers: Schema.Record(Schema.String, Count),
   asking: Schema.NullOr(QuestionInputSchema),
   awaiting: Schema.Array(AwaitingSchema),
+  capped: Schema.NullOr(Schema.String),
   checkpoint: Schema.NullOr(CheckpointSchema),
   planVersion: Count,
+  replies: Schema.Array(PendingReplySchema),
   status: RunStatusSchema,
   transitions: Count,
   value: Schema.NullOr(Schema.String),

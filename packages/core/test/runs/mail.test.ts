@@ -111,6 +111,10 @@ const WorldArbitrary = Arbitrary.all({
   }),
   impostor: Arbitrary.schema(Schema.Boolean),
   order: Arbitrary.schema(Schema.Literals([0, 1, 2, 3, 4, 5])),
+  paused: Arbitrary.array(Arbitrary.schema(Schema.Boolean), {
+    maxLength: 4,
+    minLength: 4,
+  }),
 });
 
 const PERMUTATIONS = [
@@ -324,8 +328,23 @@ it.effect.prop(
           }
         }
 
+        if (world.paused[index] === true) {
+          yield* settled((host) => host.pause(RUN));
+
+          const held = yield* settled((host) =>
+            host.deliver(lineFor(messageId, ask.to))
+          );
+
+          expect(
+            held.crashed ||
+              (Exit.isSuccess(held.exit) && held.exit.value.status === "paused")
+          ).toBe(true);
+        }
+
         const { crashed, exit } = yield* settled((host) =>
-          host.deliver(lineFor(messageId, ask.to))
+          world.paused[index] === true
+            ? host.resume(RUN).pipe(Effect.orDie)
+            : host.deliver(lineFor(messageId, ask.to))
         );
 
         expect(Exit.isSuccess(exit) || crashed).toBe(true);

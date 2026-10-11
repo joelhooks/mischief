@@ -78,6 +78,12 @@ const judgements = Arbitrary.array(Arbitrary.schema(Judgement), {
 
 const WorldArbitrary = Arbitrary.all({
   assess: judgements,
+  extensions: Arbitrary.array(
+    Arbitrary.schema(
+      Schema.Int.check(Schema.isBetween({ maximum: 12, minimum: 1 }))
+    ),
+    { maxLength: 3 }
+  ),
   failures: Arbitrary.array(
     Arbitrary.array(Arbitrary.schema(Schema.Literals([0, 1, 2, 3])), {
       maxLength: 12,
@@ -195,6 +201,23 @@ const planFor = (world: World) => {
   };
 };
 
+const withLimit = (plan: ReturnType<typeof planFor>, maxSteps: number) => ({
+  ...plan,
+  envelope: { ...plan.envelope, maxSteps },
+});
+
+const limitsFor = (world: World) => {
+  const limits: number[] = [];
+  let limit = world.maxSteps;
+
+  for (const extra of world.extensions) {
+    limit += extra;
+    limits.push(limit);
+  }
+
+  return limits;
+};
+
 const outcome = <A>(key: string, found: Fixture, value: A) =>
   found.fail === true
     ? Effect.fail(new StepFailed({ key, reason: "fixture failure" }))
@@ -298,11 +321,12 @@ const incarnation = (
   fixtures: Fixtures,
   calls: ModelCall[],
   announced: string[],
-  plan: Schema.Json,
+  script: { readonly limits: readonly number[]; readonly plan: Schema.Json },
   first: boolean,
   interruption?: Interruption
 ) =>
   Effect.gen(function* oneProcess() {
+    const { limits, plan } = script;
     const victim = yield* Deferred.make<Fiber.Fiber<RunReport, unknown>>();
 
     const counters = {
@@ -391,12 +415,64 @@ const incarnation = (
       Effect.provideService(Operator, operator)
     );
 
+    const pastEnvelope = (report: RunReport) =>
+      Effect.gen(function* holdThenExtend() {
+        expect(
+          (report.awaiting ?? []).map(({ key }) => `${key}__reply`)
+        ).toEqual(
+          report.value?.endsWith("__reply") === true ? [report.value] : []
+        );
+
+        const [pending] = report.awaiting ?? [];
+
+        const early =
+          pending === undefined
+            ? undefined
+            : fixtures[pending.messageId]?.reply;
+
+        if (pending !== undefined && early !== undefined) {
+          const held = yield* host.deliver({
+            body: early,
+            from: pending.to,
+            replyTo: pending.messageId,
+          });
+
+          expect(held.status).toBe("envelope-exceeded");
+          expect(held.awaiting).toEqual(report.awaiting);
+        }
+
+        const current = yield* store.readPlan(RUN, report.planVersion);
+
+        const limit = Option.match(current, {
+          onNone: () => Number.POSITIVE_INFINITY,
+          onSome: ({ envelope }) => envelope.maxSteps,
+        });
+
+        const next = limits.find((candidate) => candidate > limit);
+
+        return next === undefined
+          ? Option.none<RunReport>()
+          : Option.some(yield* host.extend(RUN, next));
+      });
+
     const work = Effect.gen(function* work() {
       let report = first
         ? yield* host.submit(RUN, plan, launchNoteSeed)
         : yield* host.resume(RUN);
 
       for (;;) {
+        if (report.status === "envelope-exceeded") {
+          const extended = yield* pastEnvelope(report);
+
+          if (Option.isNone(extended)) {
+            break;
+          }
+
+          report = extended.value;
+
+          continue;
+        }
+
         const [open] = report.awaiting ?? [];
 
         if (report.status === "waiting-for-reply" && open !== undefined) {
@@ -460,7 +536,16 @@ it.effect.prop(
     Effect.gen(function* property() {
       const plan = planFor(world);
       const fixtures = fixturesFor(world);
-      const expected = simulate(plan, fixtures, launchNoteSeed);
+      const limits = limitsFor(world);
+      let expected = simulate(plan, fixtures, launchNoteSeed);
+
+      for (const limit of limits) {
+        if (expected.status !== "envelope-exceeded") {
+          break;
+        }
+
+        expected = simulate(withLimit(plan, limit), fixtures, launchNoteSeed);
+      }
 
       const base = yield* Effect.provide(
         Effect.service(RunStore),
@@ -477,7 +562,7 @@ it.effect.prop(
           fixtures,
           calls,
           announced,
-          plan,
+          { limits, plan },
           first,
           interruption
         );
@@ -494,11 +579,15 @@ it.effect.prop(
         fixtures,
         calls,
         announced,
-        plan,
+        { limits, plan },
         first
       );
 
       const actual = yield* final.exit;
+
+      if (actual.status === "envelope-exceeded") {
+        expect(announced).toContain("__envelope");
+      }
 
       if (actual.question !== undefined) {
         expectAnnounced(

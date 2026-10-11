@@ -47,9 +47,10 @@ import type {
 
 export type StepServices = Judge | Mail | Operator | RunStore | Thinker;
 
-export type Delivery =
-  | { readonly kind: "answer"; readonly reply: string }
-  | { readonly kind: "reply"; readonly key: string };
+export interface Delivery {
+  readonly kind: "answer";
+  readonly reply: string;
+}
 
 type Choice =
   | { readonly kind: "event"; readonly event: QueuedEvent }
@@ -110,7 +111,7 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
       value: state.value,
     };
 
-    if (state.status === "waiting-for-reply") {
+    if (state.awaiting.length > 0 && state.status !== "waiting-for-joel") {
       return { ...report, awaiting: state.awaiting } satisfies RunReport;
     }
 
@@ -157,8 +158,7 @@ export const driveSession = (
     const run = {
       facts: planFacts(opened.plan),
       plan: opened.plan,
-      replied: delivery?.kind === "reply" ? delivery.key : undefined,
-      reply: delivery?.kind === "answer" ? delivery.reply : undefined,
+      reply: delivery?.reply,
       state: opened.state,
     };
 
@@ -457,9 +457,14 @@ export const driveSession = (
       adapter,
       {
         persisted: Option.fromNullOr(checkpoint).pipe(
-          // SAFETY: the checkpoint snapshot was written by getPersistedSnapshot for this plan version.
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-          Option.map(({ snapshot }) => snapshot as Snapshot<unknown>)
+          Option.map(({ snapshot }) =>
+            migrateTo(
+              // SAFETY: the checkpoint snapshot was written by getPersistedSnapshot for this run's plan.
+              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+              snapshot as Snapshot<unknown>,
+              run.plan
+            )
+          )
         ),
         transitionIndex: checkpoint?.transitionIndex ?? 0,
       }
@@ -504,20 +509,35 @@ export const driveSession = (
           return fact?.kind === "fanout" ? [{ cost: fact.cost, key }] : [];
         })[0];
 
-    const overCap = (before: readonly (readonly string[])[]) => {
+    const overBy = (cost: number) =>
+      run.state.transitions + cost > run.plan.envelope.maxSteps;
+
+    const cappedFanout = (before: readonly (readonly string[])[]) => {
       const entered = leaves(execution.view().value)
         .map((path) => fanoutOf(path))
         .find((fanout) => fanout !== undefined);
 
-      if (
-        entered === undefined ||
-        before.some((path) => fanoutOf(path)?.key === entered.key)
-      ) {
-        return false;
-      }
-
-      return run.state.transitions + entered.cost > run.plan.envelope.maxSteps;
+      return entered === undefined ||
+        before.some((path) => fanoutOf(path)?.key === entered.key) ||
+        !overBy(entered.cost)
+        ? undefined
+        : entered.key;
     };
+
+    const announceEnvelope = Effect.suspend(() => {
+      const { maxSteps } = run.plan.envelope;
+
+      return journaled(
+        `announce:__envelope#${maxSteps}`,
+        operator
+          .notify(runId, {
+            key: "__envelope",
+            options: ["extendRun", "abortRun"],
+            question: `used ${run.state.transitions} of its ${maxSteps} steps and paused. Raise the limit with extendRun({ runId: "${runId}", maxSteps }) or stop it with abortRun({ runId: "${runId}" })`,
+          })
+          .pipe(Effect.as(true))
+      ).pipe(Effect.ignore);
+    });
 
     const report = Effect.suspend(() => reportOf(runId, run.plan, run.state));
 
@@ -604,13 +624,25 @@ export const driveSession = (
       }
 
       const awaiting = awaitsHere();
-      const { replied } = run;
 
-      run.replied = undefined;
+      const replied = run.state.replies.find(({ key }) =>
+        awaiting.some((fact) => fact.key === key)
+      );
 
-      if (awaiting.some(({ key }) => key === replied)) {
+      const fact = awaiting.find(({ key }) => key === replied?.key);
+
+      if (replied !== undefined && fact !== undefined) {
+        if (fact.writes !== null) {
+          yield* store.writeDoc(runId, fact.writes, replied.body);
+        }
+
+        run.state = {
+          ...run.state,
+          replies: run.state.replies.filter(({ key }) => key !== replied.key),
+        };
+
         return {
-          event: { type: replyEvent(replied ?? "") },
+          event: { type: replyEvent(replied.key) },
           kind: "event",
         } satisfies Choice;
       }
@@ -691,13 +723,16 @@ export const driveSession = (
         run.state = { ...run.state, transitions: run.state.transitions + 1 };
 
         const { status } = execution.view();
+        const capped = status === "active" ? cappedFanout(before) : undefined;
 
         if (
           status === "active" &&
           (run.state.transitions >= run.plan.envelope.maxSteps ||
-            overCap(before))
+            capped !== undefined)
         ) {
+          run.state = { ...run.state, capped: capped ?? null };
           yield* save("envelope-exceeded");
+          yield* announceEnvelope;
 
           return false;
         }
@@ -713,8 +748,12 @@ export const driveSession = (
         countStarts(execution.started);
         run.state = { ...run.state, transitions: run.state.transitions + 1 };
 
-        if (overCap([])) {
+        const capped = cappedFanout([]);
+
+        if (capped !== undefined) {
+          run.state = { ...run.state, capped };
           yield* save("envelope-exceeded");
+          yield* announceEnvelope;
 
           return false;
         }
@@ -724,6 +763,21 @@ export const driveSession = (
 
         return true;
       }
+
+      const { capped } = run.state;
+      const fact = capped === null ? undefined : run.facts.get(capped);
+
+      if (
+        run.state.transitions >= run.plan.envelope.maxSteps ||
+        (fact?.kind === "fanout" && overBy(fact.cost))
+      ) {
+        yield* announceEnvelope;
+        yield* mark("envelope-exceeded");
+
+        return false;
+      }
+
+      run.state = { ...run.state, capped: null };
 
       const { children } = execution.view();
 
@@ -748,6 +802,8 @@ export const driveSession = (
         }
 
         if (run.state.transitions >= run.plan.envelope.maxSteps) {
+          yield* announceEnvelope;
+
           return yield* mark("envelope-exceeded");
         }
 

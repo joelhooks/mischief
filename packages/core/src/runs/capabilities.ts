@@ -4,6 +4,7 @@ import {
   abortRunContract,
   answerRunContract,
   deliverReplyContract,
+  extendRunContract,
   inspectRunContract,
   pauseRunContract,
   resumeRunContract,
@@ -41,6 +42,10 @@ export const deliverReply = implement(deliverReplyContract, (line) =>
   RunHost.use((host) => host.deliver(line))
 );
 
+export const extendRun = implement(extendRunContract, ({ maxSteps, runId }) =>
+  RunHost.use((host) => host.extend(runId, maxSteps))
+);
+
 export const runCapabilities = [
   submitPlan,
   inspectRun,
@@ -49,4 +54,5 @@ export const runCapabilities = [
   abortRun,
   answerRun,
   deliverReply,
+  extendRun,
 ] as const;

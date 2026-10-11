@@ -3,6 +3,7 @@ import { Schema } from "effect";
 
 import { PlanRefused } from "../plans/validate.js";
 import { AnswerRefused } from "./answer-refused.js";
+import { ExtendRefused } from "./extend-refused.js";
 import { ReplyRefused } from "./reply-refused.js";
 import {
   DocsSchema,
@@ -84,5 +85,19 @@ export const deliverReplyContract = defineContract("deliverReply", {
     "Deliver a Rat King reply to the run whose ask sent the message it answers, write it to the ask's doc, and drive the run on. Takes a drained mailbox line as-is; extra fields are ignored.",
   failure: ReplyRefused,
   input: ReplyLineSchema,
+  output: RunReportSchema,
+});
+
+export const extendRunContract = defineContract("extendRun", {
+  annotations: { openWorld: true },
+  description:
+    "Raise a run's maxSteps when it paused at its envelope, record it as a new plan version, and drive the run on. The owner decides this; nothing a worker sees ever carries the limit.",
+  failure: Schema.Union([UnknownRun, ExtendRefused]),
+  input: Schema.Struct({
+    maxSteps: Schema.Int.check(Schema.isGreaterThan(0)).annotate({
+      description: "The new step limit, above the current one",
+    }),
+    runId,
+  }),
   output: RunReportSchema,
 });

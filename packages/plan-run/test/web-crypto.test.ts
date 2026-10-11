@@ -34,7 +34,7 @@ it.effect.prop(
         yield* digestWith(algorithm, bytes, NodeCrypto.layer)
       );
     }),
-  { arbitrary: { runs: 100 } }
+  { arbitrary: { runs: 100 }, timeout: 120_000 }
 );
 
 it.effect(

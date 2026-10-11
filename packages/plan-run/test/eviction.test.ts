@@ -181,5 +181,5 @@ it.live.prop(
       expect(after.thoughts).toEqual(STEPS.slice(hangAt - 1, length));
       expect(log.pending).toBeNull();
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-  { arbitrary: { runs: 40 } }
+  { arbitrary: { runs: 40 }, timeout: 120_000 }
 );

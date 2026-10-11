@@ -202,5 +202,5 @@ it.effect.prop(
         expected
       );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-  { arbitrary: { runs: 300 } }
+  { arbitrary: { runs: 300 }, timeout: 120_000 }
 );

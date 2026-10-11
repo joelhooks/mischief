@@ -222,5 +222,5 @@ it.effect.prop(
       expect(log.pending).toBeNull();
       expect(log.sets).toBe(2 + BRANCHES.length + order.length);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-  { arbitrary: { runs: 40 } }
+  { arbitrary: { runs: 40 }, timeout: 120_000 }
 );

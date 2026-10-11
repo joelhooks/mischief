@@ -14,11 +14,8 @@ import * as Output from "alchemy/Output";
 import { Config, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 
+import { callersFromConfig } from "./callers.ts";
 import { buildWorker, INSTANCE } from "./celld-build.ts";
-import {
-  CredentialBindings,
-  CredentialBindingsProvider,
-} from "./credential.ts";
 
 export const PORT_BASE = 28_000;
 
@@ -33,8 +30,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         Celld.providers(),
         Celld.deploymentProvider(),
         HostDirectoryProvider(),
-        RemoteFileProvider(),
-        CredentialBindingsProvider()
+        RemoteFileProvider()
       ).pipe(
         Layer.provide(hostServices),
         Layer.provide(sourceLayer.pipe(Layer.orDie)),
@@ -52,15 +48,9 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
       const commit = yield* Config.String("MISCHIEF_COMMIT");
       const version = yield* Config.String("MISCHIEF_VERSION");
 
-      const desk = yield* Config.String("MISCHIEF_DESK").pipe(
-        Config.withDefault("mischief")
-      );
+      const { callers, did } = yield* callersFromConfig;
 
-      const secretName = yield* Config.String(
-        "MISCHIEF_CREDENTIAL_SECRET"
-      ).pipe(Config.withDefault("mischief_credential"));
-
-      const prepared = yield* buildWorker({ commit, desk, version });
+      const prepared = yield* buildWorker({ callers, commit, did, version });
 
       const slice = yield* ObjectStore.Slice({
         cpuQuota: "100%",
@@ -103,13 +93,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
       const configuration = yield* RemoteFile("deployment-configuration", {
         content: prepared.configuration,
         mode: 0o600,
-        path: Output.interpolate`${staging.path}/wrangler.public.json`,
-      });
-
-      const credential = yield* CredentialBindings("credential", {
-        directory: `${cells.layout.configuration}/credential`,
-        ready: cells.unit.sha256,
-        secretName,
+        path: Output.interpolate`${staging.path}/wrangler.json`,
       });
 
       const deployment = yield* Celld.Deployment(
@@ -118,21 +102,18 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
           cells.publicUrl,
           cells.internalUrl,
           staging.path,
-          credential.bindings,
           worker.sha256,
           configuration.sha256,
           cells.unit.sha256
         ).pipe(
           Output.map(
-            ([workerUrl, internalUrl, directory, bindingsFile]) =>
+            ([workerUrl, internalUrl, directory]) =>
               ({
                 ...prepared,
                 binary: `${cells.layout.bin}/celld`,
-                bindingsFile,
                 directory,
                 environmentFile: `${cells.layout.configuration}/celld.env`,
                 internalUrl,
-                secretNames: ["MISCHIEF_CREDENTIAL"],
                 workerUrl,
               }) satisfies DeploymentProps
           )

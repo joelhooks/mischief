@@ -126,31 +126,3 @@ it.live.prop(
 it("some killed run was still running at restart, so the alarm path was exercised", () => {
   expect(seen.recovered).toBeGreaterThan(0);
 });
-
-it.live.prop(
-  "the Worker serves only a request bearing its token",
-  {
-    token: Arbitrary.schema(
-      Schema.Literals(["", "test-toke", "test-token2", "other"])
-    ),
-  },
-  ({ token }) =>
-    Effect.gen(function* property() {
-      const world = yield* prepare(GUARD_MS);
-
-      yield* start(world);
-
-      const refused = yield* post(
-        world,
-        "inspectRun",
-        { runId: "line" },
-        token
-      );
-
-      const allowed = yield* post(world, "inspectRun", { runId: "line" });
-
-      expect(refused.status).toBe(401);
-      expect(allowed.status).not.toBe(401);
-    }).pipe(Effect.scoped, Effect.provide(services)),
-  { arbitrary: { runs: 4 }, timeout: 60_000 }
-);

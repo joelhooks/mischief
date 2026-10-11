@@ -8,12 +8,15 @@ import { fauxThinkerOptions, piThinker } from "@mischief/thinking";
 import { DurableObject } from "cloudflare:workers";
 import { Effect, Layer } from "effect";
 
+import type { ServiceTokenLedger } from "./service-tokens.js";
+
 export interface Env {
   readonly PLAN_RUN: DurableObjectNamespace<PlanRun>;
-  readonly MISCHIEF_DESK: string;
+  readonly SERVICE_TOKENS: DurableObjectNamespace<ServiceTokenLedger>;
+  readonly MISCHIEF_DID?: string;
+  readonly MISCHIEF_CALLERS?: string;
   readonly MISCHIEF_MODEL: string;
   readonly MISCHIEF_GUARD_MS: string;
-  readonly MISCHIEF_CREDENTIAL?: string;
 }
 
 const operator = Layer.succeed(

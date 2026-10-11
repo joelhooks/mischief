@@ -3,13 +3,20 @@ import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 
+import type { DocumentsValue } from "@rat-king/mailbox-client";
 import { Effect, FileSystem, Option, Path, Schedule, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 
-export const TOKEN = "test-token";
+import { bearer, freshCaller, MISCHIEF_DID } from "./callers.js";
+import type { Caller } from "./callers.js";
+
+export { AUDIENCE, bearer, freshCaller, MISCHIEF_DID } from "./callers.js";
+
+export type { Caller, ClaimsChange } from "./callers.js";
 
 export interface Workerd {
   readonly dir: string;
+  readonly driver: Caller;
   readonly port: number;
 }
 
@@ -35,7 +42,8 @@ const freePort = Effect.callback<number>((resume) => {
 const configOf = (
   dir: string,
   port: number,
-  guardMs: number
+  guardMs: number,
+  callers: DocumentsValue
 ) => `using Workerd = import "/workerd/workerd.capnp";
 const config :Workerd.Config = (
   services = [
@@ -47,14 +55,18 @@ const config :Workerd.Config = (
 const worker :Workerd.Worker = (
   modules = [(name = "worker.js", esModule = embed "worker.js")],
   compatibilityDate = "2026-09-01",
-  durableObjectNamespaces = [(className = "PlanRun", uniqueKey = "mischief-plan-run", enableSql = true)],
+  durableObjectNamespaces = [
+    (className = "PlanRun", uniqueKey = "mischief-plan-run", enableSql = true),
+    (className = "ServiceTokenLedger", uniqueKey = "mischief-service-tokens", enableSql = true),
+  ],
   durableObjectStorage = (localDisk = "disk"),
   bindings = [
     (name = "PLAN_RUN", durableObjectNamespace = "PlanRun"),
-    (name = "MISCHIEF_DESK", text = "mischief"),
+    (name = "SERVICE_TOKENS", durableObjectNamespace = "ServiceTokenLedger"),
+    (name = "MISCHIEF_DID", text = "${MISCHIEF_DID}"),
+    (name = "MISCHIEF_CALLERS", text = ${JSON.stringify(JSON.stringify(callers))}),
     (name = "MISCHIEF_MODEL", text = "faux"),
     (name = "MISCHIEF_GUARD_MS", text = "${guardMs}"),
-    (name = "MISCHIEF_CREDENTIAL", text = "${TOKEN}"),
   ],
 );
 `;
@@ -63,8 +75,9 @@ const appDir = Path.Path.use(({ resolve }) =>
   Effect.succeed(resolve(import.meta.dirname, ".."))
 );
 
-export const prepare = (guardMs: number) =>
+export const prepare = (guardMs: number, others: readonly Caller[] = []) =>
   Effect.gen(function* prepareWorkerd() {
+    const driver = yield* freshCaller("driver");
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const app = yield* appDir;
@@ -78,20 +91,25 @@ export const prepare = (guardMs: number) =>
     );
     yield* fs.writeFileString(
       path.join(dir, "config.capnp"),
-      configOf(dir, port, guardMs)
+      configOf(
+        dir,
+        port,
+        guardMs,
+        [driver, ...others].map(({ document }) => document)
+      )
     );
 
-    return { dir, port } satisfies Workerd;
+    return { dir, driver, port } satisfies Workerd;
   });
 
-export const post = (
+export const postAs = (
   { port }: Workerd,
   capability: string,
   body: Schema.Json,
-  token = TOKEN
+  authorization: string
 ) =>
   HttpClientRequest.post(`http://127.0.0.1:${port}/${capability}`).pipe(
-    HttpClientRequest.bearerToken(token),
+    HttpClientRequest.setHeader("authorization", authorization),
     HttpClientRequest.bodyJsonUnsafe(body),
     HttpClient.execute,
     Effect.flatMap((response) =>
@@ -101,9 +119,21 @@ export const post = (
     )
   );
 
-export const getJson = ({ port }: Workerd, route: string, token = TOKEN) =>
+export const post = (
+  world: Workerd,
+  capability: string,
+  body: Schema.Json,
+  caller: Caller = world.driver
+) =>
+  bearer(caller, capability).pipe(
+    Effect.flatMap((authorization) =>
+      postAs(world, capability, body, authorization)
+    )
+  );
+
+export const getJson = ({ port }: Workerd, route: string, authorization = "") =>
   HttpClientRequest.get(`http://127.0.0.1:${port}${route}`).pipe(
-    HttpClientRequest.bearerToken(token),
+    HttpClientRequest.setHeader("authorization", authorization),
     HttpClient.execute,
     Effect.flatMap((response) =>
       response.json.pipe(

@@ -9,6 +9,7 @@ import {
   Layer,
   Option,
   Path,
+  Schema,
 } from "effect";
 
 import { celldStack } from "../celld.ts";
@@ -22,6 +23,26 @@ const DATA_ROOT = "/data/joel/mischief";
 const PUBLIC_PORT = "28000";
 
 const HOME = "/home/planner";
+
+const CALLERS = [
+  {
+    authentication: ["did:web:driver.example.invalid#atproto"],
+    id: "did:web:driver.example.invalid",
+    keyAgreement: [],
+    verificationMethod: [
+      {
+        controller: "did:web:driver.example.invalid",
+        id: "did:web:driver.example.invalid#atproto",
+        publicKeyJwk: {
+          crv: "P-256",
+          kty: "EC",
+          x: "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+          y: "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0",
+        },
+      },
+    ],
+  },
+];
 
 const inventoryOf = (dataRoot: string) => ({
   domains: ["example.test"],
@@ -43,6 +64,10 @@ it.effect(
       const dir = yield* fs.makeTempDirectoryScoped();
       const inventory = path.join(dir, "instance.json");
 
+      const callers = path.join(dir, "callers.json");
+
+      yield* fs.writeFileString(callers, JSON.stringify(CALLERS));
+
       yield* fs.writeFileString(
         inventory,
         JSON.stringify(inventoryOf("/data/planner")),
@@ -58,8 +83,10 @@ it.effect(
         Effect.provide(
           ConfigProvider.layer(
             ConfigProvider.fromEnvRecord({
+              MISCHIEF_CALLERS_FILE: callers,
               MISCHIEF_CELLD_NODE: "node",
               MISCHIEF_COMMIT: "0123456",
+              MISCHIEF_DID: "did:web:mischief.example.invalid",
               MISCHIEF_VERSION: "0.1.0",
               RATS_NEST_INSTANCE: inventory,
             })
@@ -98,17 +125,26 @@ it.effect(
         );
       }
 
-      expect(
-        rows
-          .filter(({ type }) => type === "Mischief.CredentialBindings")
-          .map(({ props }) => props)
-      ).toStrictEqual([
-        {
-          directory: `${HOME}/.config/mischief/credential`,
-          ready: "<output>",
-          secretName: "mischief_credential",
-        },
-      ]);
+      expect(text).not.toContain("CREDENTIAL");
+
+      const configuration = rows.find(
+        ({ fqn }) => fqn === "deployment-configuration"
+      );
+
+      const { content } = yield* Schema.decodeUnknownEffect(
+        Schema.Struct({ content: Schema.String })
+      )(configuration?.props);
+
+      const { vars } = yield* Schema.decodeUnknownEffect(
+        Schema.fromJsonString(
+          Schema.Struct({ vars: Schema.Record(Schema.String, Schema.String) })
+        )
+      )(content);
+
+      expect(vars).toMatchObject({
+        MISCHIEF_CALLERS: JSON.stringify(CALLERS),
+        MISCHIEF_DID: "did:web:mischief.example.invalid",
+      });
 
       const paths = [...text.matchAll(/\/(?:home|data)\/[\w./-]+/gu)].map(
         ([found]) => found

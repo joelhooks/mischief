@@ -1,6 +1,8 @@
 import { localState, Stack } from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
-import { Config, Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path } from "effect";
+
+import { callersFromConfig } from "./callers.ts";
 
 export const WORKER_NAME = "mischief";
 
@@ -11,6 +13,8 @@ export const cloudflare = Stack(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
+    const { callers, did } = yield* callersFromConfig;
+
     const script = yield* fs.readFileString(
       path.resolve(import.meta.dirname, "../worker/dist/worker.js")
     );
@@ -19,14 +23,15 @@ export const cloudflare = Stack(
       bundle: false,
       compatibility: { date: "2026-09-01", flags: [] },
       env: {
-        MISCHIEF_CREDENTIAL: yield* Config.Redacted("MISCHIEF_CREDENTIAL"),
-        MISCHIEF_DESK: yield* Config.String("MISCHIEF_DESK").pipe(
-          Config.withDefault("mischief")
-        ),
+        MISCHIEF_CALLERS: callers,
+        MISCHIEF_DID: did,
         MISCHIEF_GUARD_MS: "30000",
         MISCHIEF_MODEL: "faux",
         PLAN_RUN: Cloudflare.DurableObject("PLAN_RUN", {
           className: "PlanRun",
+        }),
+        SERVICE_TOKENS: Cloudflare.DurableObject("SERVICE_TOKENS", {
+          className: "ServiceTokenLedger",
         }),
       },
       name: WORKER_NAME,

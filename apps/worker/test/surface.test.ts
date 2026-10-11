@@ -4,7 +4,7 @@ import { Effect, Layer, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import { FetchHttpClient } from "effect/http";
 
-import { getJson, post, prepare, start } from "./workerd.js";
+import { bearer, getJson, post, prepare, start } from "./workerd.js";
 
 const DESKS = ["alpha", "beta"] as const;
 
@@ -126,16 +126,16 @@ it.live.prop(
       }
 
       const spec = yield* Schema.decodeUnknownEffect(SpecSchema)(
-        (yield* getJson(world, "/openapi.json")).body
+        (yield* getJson(
+          world,
+          "/openapi.json",
+          yield* bearer(world.driver, "openApi")
+        )).body
       );
 
-      const anonymous = yield* getJson(world, "/openapi.json", "");
+      const anonymous = yield* getJson(world, "/openapi.json");
 
-      const identity = yield* getJson(
-        world,
-        "/.well-known/rat-king/version",
-        ""
-      );
+      const identity = yield* getJson(world, "/.well-known/rat-king/version");
 
       expect(anonymous.status).toBe(401);
       expect(identity).toEqual({

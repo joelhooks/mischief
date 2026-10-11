@@ -23,8 +23,9 @@ it.effect(
   () =>
     Effect.gen(function* built() {
       const prepared = yield* buildWorker({
+        callers: "[]",
         commit: "0123456",
-        desk: "mischief",
+        did: "did:web:mischief.example.invalid",
         version: "0.1.0",
       });
 
@@ -35,18 +36,21 @@ it.effect(
       expect(configuration.name).toBe(declaration.name);
       expect(configuration.durable_objects.bindings).toEqual([
         { class_name: "PlanRun", name: "PLAN_RUN" },
+        { class_name: "ServiceTokenLedger", name: "SERVICE_TOKENS" },
       ]);
       expect(
         configuration.migrations.flatMap(
           ({ new_sqlite_classes }) => new_sqlite_classes
         )
-      ).toEqual(["PlanRun"]);
+      ).toEqual(["PlanRun", "ServiceTokenLedger"]);
       expect(Object.keys(configuration.vars).toSorted()).toEqual([
-        "MISCHIEF_DESK",
+        "MISCHIEF_CALLERS",
+        "MISCHIEF_DID",
         "MISCHIEF_GUARD_MS",
         "MISCHIEF_MODEL",
       ]);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPlanRun\b/u);
+      expect(prepared.bundle).toMatch(/export \{[^}]*\bServiceTokenLedger\b/u);
       expect(prepared.bundle).not.toMatch(/from "node:/u);
     }).pipe(Effect.provide(NodeServices.layer)),
   60_000

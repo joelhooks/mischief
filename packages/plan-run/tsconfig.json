@@ -8,6 +8,7 @@
         "allowedUnstableApis": [
           "effect/Arbitrary",
           "effect/http-api/HttpApiBuilder",
+          "effect/http-api/OpenApi",
           "effect/http/HttpClient",
           "effect/http/HttpClientResponse",
           "effect/http/HttpRouter",

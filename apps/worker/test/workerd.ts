@@ -101,6 +101,13 @@ export const post = (
     )
   );
 
+export const getJson = ({ port }: Workerd, route: string) =>
+  HttpClientRequest.get(`http://127.0.0.1:${port}${route}`).pipe(
+    HttpClientRequest.bearerToken(TOKEN),
+    HttpClient.execute,
+    Effect.flatMap((response) => response.json)
+  );
+
 const exited = (child: ChildProcess) =>
   Effect.callback<string>((resume) => {
     if (child.exitCode !== null || child.signalCode !== null) {

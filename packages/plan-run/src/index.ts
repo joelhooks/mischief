@@ -6,6 +6,6 @@ export { webCrypto } from "./web-crypto.js";
 
 export { mailOutboxSql } from "./outbox.js";
 
-export { makePlanRun } from "./plan-run.js";
+export { makePlanRun, runApiSpec } from "./plan-run.js";
 
 export type { Alarms, PlanRun, PlanRunOptions } from "./plan-run.js";

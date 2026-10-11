@@ -1,16 +1,32 @@
 // @effect-diagnostics asyncFunction:off -- the Worker's fetch handler is a Promise API.
+import { runApiSpec } from "@mischief/plan-run";
 import { Option, Schema } from "effect";
 
 import type { Env } from "./plan-run-object.js";
 
 export { PlanRun } from "./plan-run-object.js";
 
-const decodeRunId = Schema.decodeUnknownOption(
-  Schema.fromJsonString(Schema.Struct({ runId: Schema.String }))
+const decodeAddress = Schema.decodeUnknownOption(
+  Schema.fromJsonString(
+    Schema.Struct({
+      replyTo: Schema.optionalKey(Schema.String),
+      runId: Schema.optionalKey(Schema.String),
+    })
+  )
 );
 
+const runIdOf = (body: string) =>
+  decodeAddress(body).pipe(
+    Option.flatMap(({ replyTo, runId }) =>
+      Option.orElse(Option.fromUndefinedOr(runId), () =>
+        Option.fromUndefinedOr(replyTo?.split("/")[0])
+      )
+    ),
+    Option.filter((runId) => runId !== "")
+  );
+
 const NO_RUN_ID =
-  "this request names no run. Every run capability takes a JSON body with runId; deliverReply goes through the mail role, which finds the run from replyTo. Add runId to the body and send it again";
+  "this request names no run. Every run capability takes a JSON body with runId, and deliverReply finds its run from replyTo (<runId>/<step>#<visit>). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 const NO_TOKEN =
   "this Mischief host has no MISCHIEF_TOKEN secret, so it serves nobody. Set the secret on the Worker, then call again with Authorization: Bearer <token>";
@@ -42,15 +58,22 @@ export default {
       return Response.json({ error: BAD_TOKEN }, { status: 401 });
     }
 
+    if (
+      request.method === "GET" &&
+      new URL(request.url).pathname === "/openapi.json"
+    ) {
+      return Response.json(runApiSpec());
+    }
+
     const body = await request.text();
-    const runId = decodeRunId(body);
+    const runId = runIdOf(body);
 
     if (Option.isNone(runId)) {
       return Response.json({ error: NO_RUN_ID }, { status: 400 });
     }
 
     const run = env.PLAN_RUN.get(
-      env.PLAN_RUN.idFromName(`${env.MISCHIEF_DESK}/${runId.value.runId}`)
+      env.PLAN_RUN.idFromName(`${env.MISCHIEF_DESK}/${runId.value}`)
     );
 
     return await run.fetch(

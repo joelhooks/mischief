@@ -12,7 +12,7 @@ import {
   Semaphore,
 } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
-import { HttpApiBuilder } from "effect/http-api";
+import { HttpApiBuilder, OpenApi } from "effect/http-api";
 
 import { runStoreSql } from "./sql-store.js";
 import type { SqlStorage } from "./sql.js";
@@ -37,6 +37,8 @@ export interface PlanRun {
 }
 
 const http = toHttpApi("Mischief", runCapabilities);
+
+export const runApiSpec = () => OpenApi.fromApi(http.api);
 
 const isText = Schema.is(Schema.String);
 

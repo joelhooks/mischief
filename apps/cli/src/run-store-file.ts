@@ -33,7 +33,7 @@ export const runStoreFile = (root: string) =>
       const fileOf = (runId: string, name: string) =>
         path.join(root, runId, name);
 
-      const readAs = <A>(schema: Schema.Codec<A>, file: string) =>
+      const readAs = <A, I>(schema: Schema.Codec<A, I>, file: string) =>
         Effect.gen(function* readJsonFile() {
           if (!(yield* fs.exists(file))) {
             return Option.none<A>();
@@ -46,7 +46,11 @@ export const runStoreFile = (root: string) =>
           );
         }).pipe(Effect.orDie);
 
-      const writeAs = <A>(schema: Schema.Codec<A>, file: string, value: A) =>
+      const writeAs = <A, I>(
+        schema: Schema.Codec<A, I>,
+        file: string,
+        value: A
+      ) =>
         Effect.gen(function* writeJsonFile() {
           const text = yield* Schema.encodeEffect(
             Schema.fromJsonString(schema)

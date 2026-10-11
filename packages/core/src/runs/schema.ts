@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { Count } from "../plans/schema.js";
 import { QuestionInputSchema } from "../steps/inputs.js";
@@ -79,11 +79,17 @@ export type PendingReply = typeof PendingReplySchema.Type;
 export const RunStateSchema = Schema.Struct({
   answers: Schema.Record(Schema.String, Count),
   asking: Schema.NullOr(QuestionInputSchema),
-  awaiting: Schema.Array(AwaitingSchema),
-  capped: Schema.NullOr(Schema.String),
+  awaiting: Schema.Array(AwaitingSchema).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([]))
+  ),
+  capped: Schema.NullOr(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
   checkpoint: Schema.NullOr(CheckpointSchema),
   planVersion: Count,
-  replies: Schema.Array(PendingReplySchema),
+  replies: Schema.Array(PendingReplySchema).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([]))
+  ),
   status: RunStatusSchema,
   transitions: Count,
   value: Schema.NullOr(Schema.String),

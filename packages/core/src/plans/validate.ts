@@ -3,6 +3,7 @@ import { absurd, constFalse, constVoid } from "effect/Function";
 import { createAsyncLogic, createMachineFromConfig } from "xstate";
 
 import { branchLength, compilePlan, isCompound, isFinal } from "./compile.js";
+import { docRefErrors } from "./doc-refs.js";
 import type {
   AgentConfig,
   AskStep,
@@ -411,7 +412,8 @@ export const refuseCode = (input: Schema.Json) => {
 };
 
 export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
-  plan: Plan
+  plan: Plan,
+  seeded: readonly string[] = []
 ) {
   const resolved = resolveStates(plan, plan.machine.states, []);
 
@@ -427,6 +429,7 @@ export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
           `plan has ${resolved.agents} think steps, envelope.maxAgents allows ${plan.envelope.maxAgents}. Asks to existing Rat King names do not count. Cut think steps or raise maxAgents`,
         ]
       : []),
+    ...docRefErrors(resolvedPlan, seeded),
   ];
 
   if (errors.length > 0) {
@@ -460,7 +463,8 @@ const refuseRetired = (input: Schema.Json) =>
   });
 
 export const validatePlan = Effect.fn("validatePlan")(function* validatePlan(
-  input: Schema.Json
+  input: Schema.Json,
+  seeded: readonly string[] = []
 ) {
   yield* refuseCode(input);
   yield* refuseRetired(input);
@@ -469,5 +473,5 @@ export const validatePlan = Effect.fn("validatePlan")(function* validatePlan(
     Effect.mapError((issue) => new PlanRefused({ errors: [issue.message] }))
   );
 
-  return yield* checkPlan(plan);
+  return yield* checkPlan(plan, seeded);
 });

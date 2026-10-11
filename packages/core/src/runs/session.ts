@@ -12,6 +12,7 @@ import {
   replyEvent,
 } from "../plans/compile.js";
 import type { Ask } from "../plans/compile.js";
+import { docRefs, interpolate } from "../plans/doc-refs.js";
 import { decodeAmendment } from "../plans/schema.js";
 import type { Plan } from "../plans/schema.js";
 import { checkPlan, refuseCode } from "../plans/validate.js";
@@ -201,17 +202,39 @@ export const driveSession = (
     const writeDoc = (name: string | undefined, doc: Schema.Json) =>
       name === undefined ? Effect.void : store.writeDoc(runId, name, doc);
 
+    const withDocs = (key: string, text: string) =>
+      docRefs(text).length === 0
+        ? Effect.succeed(text)
+        : store.readDocs(runId).pipe(
+            Effect.flatMap((docs) => {
+              const filled = interpolate(text, docs);
+
+              return filled.missing.length === 0
+                ? Effect.succeed(filled.text)
+                : Effect.fail(
+                    new StepFailed({
+                      key,
+                      reason: `it reads ${filled.missing.map((name) => `{{docs.${name}}}`).join(", ")}, which no step has written on this run's path yet. Make the writing step run before this one, or seed the doc at submit`,
+                    })
+                  );
+            })
+          );
+
     const think = (input: ThinkInput) =>
       Effect.gen(function* thinkStep() {
         const thought = yield* step(
           input.key,
-          thinker.think({
-            agent: input.agent ?? {},
-            key: input.key,
-            prompt: input.prompt,
-            runId,
-            visit: visitOf(input.key),
-          })
+          withDocs(input.key, input.prompt).pipe(
+            Effect.flatMap((prompt) =>
+              thinker.think({
+                agent: input.agent ?? {},
+                key: input.key,
+                prompt,
+                runId,
+                visit: visitOf(input.key),
+              })
+            )
+          )
         );
 
         yield* writeDoc(input.writes, thought.output);
@@ -227,7 +250,11 @@ export const driveSession = (
           `seal:${input.key}#${call.visit}`,
           step(
             input.key,
-            mail.seal({ ...call, message: input.message, to: input.to })
+            withDocs(input.key, input.message).pipe(
+              Effect.flatMap((message) =>
+                mail.seal({ ...call, message, to: input.to })
+              )
+            )
           )
         ).pipe(
           Effect.flatMap(Schema.decodeUnknownEffect(SealedSchema)),
@@ -693,7 +720,8 @@ export const driveSession = (
         }
 
         const next = yield* checkPlan(
-          amendPlan(run.plan, point, amendment.value)
+          amendPlan(run.plan, point, amendment.value),
+          Object.keys(yield* store.readDocs(runId))
         ).pipe(Effect.option);
 
         if (Option.isNone(next)) {

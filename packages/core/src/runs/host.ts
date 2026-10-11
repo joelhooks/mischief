@@ -111,7 +111,8 @@ export class RunHost extends Context.Service<
         Option.match(decodeJsonObject(input), {
           onNone: () => input,
           onSome: (fields) => ({ ...fields, version: 1 }),
-        })
+        }),
+        Object.keys(docs)
       );
 
       yield* store.writePlan(runId, plan);

@@ -302,8 +302,8 @@ importers:
         specifier: github:joelhooks/rat-king#682f4cd67d6a88f4d9fcfd3eba899d475cc9ee95&path:/packages/alchemy-nest
         version: https://codeload.github.com/joelhooks/rat-king/tar.gz/682f4cd67d6a88f4d9fcfd3eba899d475cc9ee95#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
       '@rat-king/mailbox-client':
-        specifier: github:joelhooks/rat-king#376339d67218b03ea29e0ba4765f84219089fbba&path:/packages/mailbox-client/bundle
-        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/376339d67218b03ea29e0ba4765f84219089fbba#path:/packages/mailbox-client/bundle
+        specifier: github:joelhooks/rat-king#e996cf4a329e8415c15760cadc237bbcc52818c5&path:/packages/mailbox-client/bundle
+        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/e996cf4a329e8415c15760cadc237bbcc52818c5#path:/packages/mailbox-client/bundle
       alchemy:
         specifier: 2.0.0-beta.81
         version: 2.0.0-beta.81(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.1)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
@@ -342,8 +342,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/thinking
       '@rat-king/mailbox-client':
-        specifier: github:joelhooks/rat-king#376339d67218b03ea29e0ba4765f84219089fbba&path:/packages/mailbox-client/bundle
-        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/376339d67218b03ea29e0ba4765f84219089fbba#path:/packages/mailbox-client/bundle
+        specifier: github:joelhooks/rat-king#e996cf4a329e8415c15760cadc237bbcc52818c5&path:/packages/mailbox-client/bundle
+        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/e996cf4a329e8415c15760cadc237bbcc52818c5#path:/packages/mailbox-client/bundle
       effect:
         specifier: 4.0.1
         version: 4.0.1
@@ -1969,8 +1969,8 @@ packages:
     resolution: {gitHosted: true, integrity: sha512-g3/UllYc4lDD+8FpJLq7TWhocf0n2k2BwwxQHLUF3k2cGEDSweCymuNrQG0QJYULVKm/4jbCO/wuHEVqTHhM4A==, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/682f4cd67d6a88f4d9fcfd3eba899d475cc9ee95}
     version: 0.1.0
 
-  '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/376339d67218b03ea29e0ba4765f84219089fbba#path:/packages/mailbox-client/bundle':
-    resolution: {gitHosted: true, integrity: sha512-LWP+0NW7uKwFdZoh2CzHVi7Fq1kBEpzJ3ECeulX/CeZQzQT388HetWNqKlMtODSAfzbs/Bgqz47CY6KvlaYTIg==, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/376339d67218b03ea29e0ba4765f84219089fbba}
+  '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/e996cf4a329e8415c15760cadc237bbcc52818c5#path:/packages/mailbox-client/bundle':
+    resolution: {gitHosted: true, integrity: sha512-30nL285VSxgr/Ki/f36+Za1QguQTb8kezk1wJtPCsWk+78IJXTHrJy/7uUBkhj2luTrKtCPcZt6PxbyMFSZDKQ==, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/e996cf4a329e8415c15760cadc237bbcc52818c5}
     version: 0.1.0
 
   '@redis/bloom@6.2.1':
@@ -3348,10 +3348,6 @@ packages:
   safe-buffer@5.2.1:
     resolution: {integrity: sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==}
 
-  saxes@6.0.0:
-    resolution: {integrity: sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==}
-    engines: {node: '>=v12.22.7'}
-
   semver@7.8.5:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
     engines: {node: '>=10'}
@@ -3646,13 +3642,6 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
-
-  xmlchars@2.2.0:
-    resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
-
-  xstate@6.0.0-alpha.59:
-    resolution: {integrity: sha512-IDBLFTCkMgRzoxecswgXKnZin6aca237WhogmMeuebGnYn+NeQUq9IcAeWKuf/Y0TDYZFwupnx5tP23GMSl1Ww==}
-    hasBin: true
 
   xstate@6.0.0-alpha.65:
     resolution: {integrity: sha512-fCRPjxUeefg4AFzEcnBv/Z6A1UoNLBVWeWaXQ7C3DQ3iuobV/A9OLneLDN0SosN2exYmwLxMP4N1Sy0G7oHpsg==}
@@ -5006,14 +4995,14 @@ snapshots:
       - vite
       - ws
 
-  '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/376339d67218b03ea29e0ba4765f84219089fbba#path:/packages/mailbox-client/bundle':
+  '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/e996cf4a329e8415c15760cadc237bbcc52818c5#path:/packages/mailbox-client/bundle':
     dependencies:
       '@atproto/lex-data': 0.1.8
       '@atproto/lexicon': 0.7.16
       '@hpke/core': 1.9.0
       '@ipld/dag-cbor': 10.0.2
       effect: 4.0.1
-      xstate: 6.0.0-alpha.59
+      xstate: 6.0.0-alpha.65
 
   '@redis/bloom@6.2.1(@redis/client@6.2.1)':
     dependencies:
@@ -6191,10 +6180,6 @@ snapshots:
 
   safe-buffer@5.2.1: {}
 
-  saxes@6.0.0:
-    dependencies:
-      xmlchars: 2.2.0
-
   semver@7.8.5: {}
 
   sharp@0.35.4(@types/node@24.13.6):
@@ -6480,12 +6465,6 @@ snapshots:
       strip-ansi: 7.2.0
 
   ws@8.22.0: {}
-
-  xmlchars@2.2.0: {}
-
-  xstate@6.0.0-alpha.59:
-    dependencies:
-      saxes: 6.0.0
 
   xstate@6.0.0-alpha.65: {}
 

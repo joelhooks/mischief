@@ -68,7 +68,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         name: "mischief-cells",
         oomPolicy: "continue",
         portBase: PORT_BASE,
-        purgeOnDelete: true,
+        purgeOnDelete: false,
         slice: slice.sha256,
         volumeMax: 32,
       });
@@ -81,7 +81,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         memoryMax: "1.5G",
         oomPolicy: "continue",
         portBase: PORT_BASE,
-        purgeOnDelete: true,
+        purgeOnDelete: false,
         workerIPv4: host.tailnetIPv4,
       });
 

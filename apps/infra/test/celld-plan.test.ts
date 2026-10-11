@@ -64,11 +64,7 @@ const inventoryOf = (dataRoot: string) => ({
   sites: ["example"],
 });
 
-const Purging = Schema.Struct({
-  name: Schema.optionalKey(Schema.String),
-  purgeOnDelete: Schema.Boolean,
-  purgeRoot: Schema.optionalKey(Schema.String),
-});
+const Purging = Schema.Struct({ purgeOnDelete: Schema.Boolean });
 
 it.effect(
   "the celld plan only creates, carries the mischief instance everywhere, and keeps every port but the public one on loopback",
@@ -179,14 +175,14 @@ it.effect(
         rows.flatMap(({ fqn, props }) => {
           const declared = Schema.decodeUnknownOption(Purging)(props);
 
-          return Option.isSome(declared) && declared.value.purgeOnDelete
-            ? [[fqn, declared.value.purgeRoot ?? declared.value.name]]
+          return Option.isSome(declared)
+            ? [[fqn, declared.value.purgeOnDelete]]
             : [];
         })
       ).toStrictEqual([
-        ["store/data", DATA_ROOT],
-        ["store/bucket", "mischief-cells"],
-        ["celld/data", DATA_ROOT],
+        ["store/data", false],
+        ["store/bucket", false],
+        ["celld/data", false],
       ]);
 
       const configuration = rows.find(

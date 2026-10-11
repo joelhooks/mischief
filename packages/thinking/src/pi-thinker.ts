@@ -47,6 +47,7 @@ interface OpenRun {
 }
 
 interface Answer {
+  readonly cacheRead: number;
   readonly text: string;
   readonly tokens: number;
   readonly usd: number;
@@ -339,6 +340,7 @@ export const piThinker = (options: PiThinkerOptions) =>
           });
 
           return {
+            cacheRead: totals.reduce((sum, u) => sum + u.cacheRead, 0),
             text,
             tokens: totals.reduce((sum, u) => sum + u.totalTokens, 0),
             usd: totals.reduce((sum, u) => sum + u.cost.total, 0),
@@ -371,7 +373,11 @@ export const piThinker = (options: PiThinkerOptions) =>
           ),
         think: (call) =>
           answer(call, call.agent, call.prompt).pipe(
-            Effect.map(({ text, tokens }) => ({ output: text, tokens }))
+            Effect.map(({ cacheRead, text, tokens }) => ({
+              cacheRead,
+              output: text,
+              tokens,
+            }))
           ),
       });
     })

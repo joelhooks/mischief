@@ -58,7 +58,11 @@ const services = Layer.mergeAll(
       decide: () => Effect.die("unused"),
       elaborate: () => Effect.die("unused"),
       think: ({ prompt }) =>
-        Effect.succeed({ output: `${prompt} written`, tokens: prompt.length }),
+        Effect.succeed({
+          cacheRead: prompt.length * 7,
+          output: `${prompt} written`,
+          tokens: prompt.length,
+        }),
     })
   ),
   Layer.succeed(Judge, Judge.of({ choose: () => Effect.die("unused") })),
@@ -73,7 +77,7 @@ const services = Layer.mergeAll(
 );
 
 it.effect.prop(
-  "readRun returns the run's current plan and every step's journal line in the order the steps ran",
+  "readRun returns the run's current plan and every step's journal line, with its tokens and cache reads, in the order the steps ran",
   {
     length: Arbitrary.schema(
       Schema.Int.check(Schema.isBetween({ maximum: 4, minimum: 1 }))
@@ -106,6 +110,7 @@ it.effect.prop(
       );
       expect(steps.map(({ entry }) => entry)).toEqual(
         STEPS.slice(0, length).map((name) => ({
+          cacheRead: name.length * 7,
           output: `${name} written`,
           tokens: name.length,
         }))

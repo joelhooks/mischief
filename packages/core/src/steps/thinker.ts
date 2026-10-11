@@ -9,6 +9,7 @@ import type { Usage } from "./usage.js";
 export interface Thought {
   readonly output: string;
   readonly tokens: number;
+  readonly cacheRead?: number;
 }
 
 export interface Decision {

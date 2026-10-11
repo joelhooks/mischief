@@ -366,7 +366,11 @@ export const driveSession = (
 
         yield* writeDoc(input.writes, thought.output);
 
-        return { output: thought.output, tokens: thought.tokens };
+        return {
+          cacheRead: thought.cacheRead ?? 0,
+          output: thought.output,
+          tokens: thought.tokens,
+        };
       });
 
     const ask = (input: AskInput) =>

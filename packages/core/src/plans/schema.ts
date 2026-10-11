@@ -89,13 +89,15 @@ export const ThinkStepSchema = Schema.Struct({
 
 export type ThinkStep = typeof ThinkStepSchema.Type;
 
-export const JudgeStep = Schema.Struct({
+export const JudgeStepSchema = Schema.Struct({
   fallback: Schema.optionalKey(Schema.String),
   kind: Schema.Literal("judge"),
   question: Schema.String,
   reads: Schema.optionalKey(Schema.Array(DocKey)),
   threshold: Schema.optionalKey(Probability),
 });
+
+export type JudgeStep = typeof JudgeStepSchema.Type;
 
 export const AskStepSchema = Schema.Struct({
   kind: Schema.Literal("ask"),
@@ -127,8 +129,16 @@ export type Transitions = typeof TransitionsSchema.Type;
 
 export const FinalState = Schema.Struct({ type: Schema.Literal("final") });
 
+export const BranchStepSchema = Schema.Union([
+  ThinkStepSchema,
+  AskStepSchema,
+  JudgeStepSchema,
+]);
+
+export type BranchStep = typeof BranchStepSchema.Type;
+
 export const BranchStepState = Schema.Struct({
-  meta: Schema.Struct({ step: Schema.Union([ThinkStepSchema, AskStepSchema]) }),
+  meta: Schema.Struct({ step: BranchStepSchema }),
   on: TransitionsSchema,
 });
 
@@ -155,7 +165,7 @@ export type ParallelStep = typeof ParallelStepSchema.Type;
 
 export const StepSchema = Schema.Union([
   ThinkStepSchema,
-  JudgeStep,
+  JudgeStepSchema,
   AskStepSchema,
   AskJoelStep,
   SketchStepSchema,

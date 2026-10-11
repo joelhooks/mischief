@@ -9,9 +9,10 @@ import type {
   AskStep,
   Branch,
   BranchState,
+  BranchStep,
+  JudgeStep,
   Plan,
   StateNode,
-  Step,
   ThinkStep,
   Transitions,
 } from "./schema.js";
@@ -32,8 +33,6 @@ export const BASE_TOOLS = [
   "report",
   "ask-parent",
 ] as const;
-
-const BRANCH_STEPS = new Set<Step["kind"]>(["think", "ask"]);
 
 const codeKeys = new Set(["@code", "@expr"]);
 
@@ -156,6 +155,63 @@ const resolveAsk = (
   value: step,
 });
 
+const fallbackErrors = (
+  fallback: string | undefined,
+  on: Transitions | undefined,
+  where: string
+) =>
+  fallback === undefined || fallback in (on ?? {})
+    ? []
+    : [
+        `${where}: fallback "${fallback}" is not one of its transitions. Use one of: ${Object.keys(on ?? {}).join(", ")}`,
+      ];
+
+const resolveJudge = (
+  plan: Plan,
+  step: JudgeStep,
+  on: Transitions | undefined,
+  where: string
+): Checked<JudgeStep> => ({
+  agents: 0,
+  errors: [
+    ...(Object.keys(on ?? {}).length < 2
+      ? [
+          `${where}: judge needs at least two transitions in "on", one per option it can choose`,
+        ]
+      : []),
+    ...fallbackErrors(step.fallback, on, where),
+  ],
+  value: {
+    ...step,
+    threshold: step.threshold ?? plan.envelope.thresholds.judge,
+  },
+});
+
+const resolveBranchStep = (
+  plan: Plan,
+  step: BranchStep,
+  on: Transitions,
+  where: string
+): Checked<BranchStep> => {
+  switch (step.kind) {
+    case "think": {
+      return resolveThink(plan, step, where);
+    }
+
+    case "ask": {
+      return resolveAsk(plan, step, where);
+    }
+
+    case "judge": {
+      return resolveJudge(plan, step, on, where);
+    }
+
+    default: {
+      return absurd(step);
+    }
+  }
+};
+
 const resolveBranch = (
   plan: Plan,
   branch: Branch,
@@ -172,10 +228,7 @@ const resolveBranch = (
       const nodeWhere = `${where}.${name}`;
       const { step } = node.meta;
 
-      const resolved =
-        step.kind === "think"
-          ? resolveThink(plan, step, nodeWhere)
-          : resolveAsk(plan, step, nodeWhere);
+      const resolved = resolveBranchStep(plan, step, node.on, nodeWhere);
 
       return {
         agents: resolved.agents,
@@ -192,7 +245,7 @@ const resolveBranch = (
     errors: [
       ...(branchLength(branch) === undefined
         ? [
-            `${where}: a branch must be a straight line, each step with exactly one transition, ending in a { "type": "final" } state`,
+            `${where}: every state in a branch must lead to a { "type": "final" } state, and every transition must target a state in the same branch. Loops are fine: each pass costs steps, and a run that runs out pauses for its owner`,
           ]
         : []),
       ...errors,
@@ -207,17 +260,6 @@ const depthErrorsAt = (plan: Plan, path: readonly string[]) =>
         `${path.join(".")}: nesting depth ${path.length} exceeds envelope.maxDepth ${plan.envelope.maxDepth}. Flatten the compound state or raise maxDepth`,
       ]
     : [];
-
-const fallbackErrors = (
-  fallback: string | undefined,
-  on: Transitions | undefined,
-  where: string
-) =>
-  fallback === undefined || fallback in (on ?? {})
-    ? []
-    : [
-        `${where}: fallback "${fallback}" is not one of its transitions. Use one of: ${Object.keys(on ?? {}).join(", ")}`,
-      ];
 
 const resolveNode = (
   plan: Plan,
@@ -247,7 +289,7 @@ const resolveNode = (
   const choiceCount = Object.keys(node.on ?? {}).length;
 
   const choiceErrors =
-    (step.kind === "judge" || step.kind === "ask-joel") && choiceCount < 2
+    step.kind === "ask-joel" && choiceCount < 2
       ? [
           `${where}: ${step.kind} needs at least two transitions in "on", one per option it can choose`,
         ]
@@ -275,22 +317,12 @@ const resolveNode = (
     }
 
     case "judge": {
+      const resolved = resolveJudge(plan, step, node.on, where);
+
       return {
         agents: 0,
-        errors: [
-          ...depthErrors,
-          ...choiceErrors,
-          ...fallbackErrors(step.fallback, node.on, where),
-        ],
-        value: {
-          ...node,
-          meta: {
-            step: {
-              ...step,
-              threshold: step.threshold ?? plan.envelope.thresholds.judge,
-            },
-          },
-        },
+        errors: [...depthErrors, ...resolved.errors],
+        value: { ...node, meta: { step: resolved.value } },
       };
     }
 
@@ -321,15 +353,6 @@ const resolveNode = (
               `${where}: join "failFast" needs on.failed, the state to enter when the first branch fails`,
             ]
           : []),
-        ...Object.values(step.branches).flatMap((branch) =>
-          Object.values(branch.states).flatMap((state) =>
-            isFinal(state) || BRANCH_STEPS.has(state.meta.step.kind)
-              ? []
-              : [
-                  `${where}: a parallel branch may only hold think and ask steps. Move judge, ask-joel, sketch or parallel steps after the fan-out`,
-                ]
-          )
-        ),
       ];
 
       return {

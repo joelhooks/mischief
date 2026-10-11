@@ -44,33 +44,67 @@ export const isCompound = (node: StateNode): node is CompoundState =>
 export const isStep = (node: StateNode | BranchState): node is StepState =>
   "meta" in node && node.meta !== undefined && "step" in node.meta;
 
-export const branchLength = (branch: Branch): number | undefined => {
+const targetsIn = (branch: Branch, name: string) => {
+  const node = branch.states[name];
+
+  return node === undefined || isFinal(node)
+    ? []
+    : Object.values(node.on).map(({ target }) => target);
+};
+
+const reachableFrom = (branch: Branch, from: string) => {
   const seen = new Set<string>();
-  let at = branch.initial;
-  let length = 0;
+  const queue = [from];
 
-  for (;;) {
-    const node = branch.states[at];
-
-    if (node === undefined || seen.has(at)) {
-      return undefined;
+  for (let at = queue.shift(); at !== undefined; at = queue.shift()) {
+    if (!seen.has(at)) {
+      seen.add(at);
+      queue.push(...targetsIn(branch, at));
     }
-
-    if (isFinal(node)) {
-      return length;
-    }
-
-    const targets = Object.values(node.on);
-    const [next] = targets;
-
-    if (targets.length !== 1 || next === undefined) {
-      return undefined;
-    }
-
-    seen.add(at);
-    at = next.target;
-    length += 1;
   }
+
+  return seen;
+};
+
+const longestFrom = (
+  branch: Branch,
+  at: string,
+  seen: ReadonlySet<string>
+): number => {
+  const node = branch.states[at];
+
+  if (node === undefined) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  if (isFinal(node)) {
+    return 0;
+  }
+
+  const onward = new Set([...seen, at]);
+
+  return Math.max(
+    Number.NEGATIVE_INFINITY,
+    ...targetsIn(branch, at)
+      .filter((target) => !onward.has(target))
+      .map((target) => 1 + longestFrom(branch, target, onward))
+  );
+};
+
+export const branchLength = (branch: Branch): number | undefined => {
+  const reachable = reachableFrom(branch, branch.initial);
+
+  const sound = [...reachable].every((name) => {
+    const leads = reachableFrom(branch, name);
+
+    return [...leads].some((target) => {
+      const node = branch.states[target];
+
+      return node !== undefined && isFinal(node);
+    });
+  });
+
+  return sound ? longestFrom(branch, branch.initial, new Set()) : undefined;
 };
 
 const targetOf = (on: Transitions | undefined, event: string) =>

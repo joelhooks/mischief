@@ -2,7 +2,14 @@
 import { toHttpApi } from "@mischief/capability";
 import { RunHost, RunStore, runCapabilities } from "@mischief/core";
 import type { Judge, Mail, Operator, Thinker } from "@mischief/core";
-import { Effect, Layer, ManagedRuntime, Schema, Semaphore } from "effect";
+import {
+  Effect,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Schema,
+  Semaphore,
+} from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 
@@ -32,6 +39,21 @@ const http = toHttpApi("Mischief", runCapabilities);
 
 const isText = Schema.is(Schema.String);
 
+const decodeStatus = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Struct({ status: Schema.String }))
+);
+
+const anyRunning = (storage: SqlStorage) =>
+  storage.sql
+    .exec("SELECT state FROM mischief_runs")
+    .toArray()
+    .some((row) =>
+      Option.exists(
+        decodeStatus(row.state),
+        ({ status }) => status === "running"
+      )
+    );
+
 const runIdsOf = (storage: SqlStorage) =>
   storage.sql
     .exec("SELECT run_id FROM mischief_runs ORDER BY run_id")
@@ -59,9 +81,11 @@ export const makePlanRun = ({
       await alarms.set(now() + guardMs);
     }).pipe(
       Effect.andThen(effect),
-      Effect.tap(() =>
+      Effect.ensuring(
         Effect.promise(async () => {
-          await alarms.clear();
+          if (!anyRunning(storage)) {
+            await alarms.clear();
+          }
         })
       ),
       lock.withPermits(1)

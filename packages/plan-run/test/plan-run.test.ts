@@ -1,4 +1,3 @@
-// @effect-diagnostics asyncFunction:off -- the alarm port and fetch are the Durable Object's Promise surface.
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Judge, Mail, Operator, Thinker } from "@mischief/core";
@@ -9,6 +8,8 @@ import { nodeSqlStorage } from "../src/node-sql.js";
 import { mailOutboxSql } from "../src/outbox.js";
 import { makePlanRun } from "../src/plan-run.js";
 import type { SqlStorage } from "../src/sql.js";
+import { alarmsFor, call, decodeReport } from "./support.js";
+import type { AlarmLog } from "./support.js";
 
 const BRANCHES = ["alpha", "beta", "gamma"] as const;
 
@@ -76,11 +77,6 @@ const plan = {
   },
 };
 
-interface AlarmLog {
-  pending: number | null;
-  sets: number;
-}
-
 interface Tally {
   readonly thoughts: Map<string, number>;
   readonly sends: Map<string, number>;
@@ -126,10 +122,10 @@ const countedMail = (storage: SqlStorage, tally: Tally) =>
 
       return Mail.of({
         seal: outbox.seal,
-        send: (call, sealed) =>
+        send: (step, sealed) =>
           Effect.sync(() => {
             bump(tally.sends, sealed.messageId);
-          }).pipe(Effect.andThen(outbox.send(call, sealed))),
+          }).pipe(Effect.andThen(outbox.send(step, sealed))),
       });
     })
   ).pipe(Layer.provide(mailOutboxSql(storage)));
@@ -141,15 +137,7 @@ const planRunOn = (
   tally: Tally
 ) =>
   makePlanRun({
-    alarms: {
-      clear: async () => {
-        log.pending = await Promise.resolve(null);
-      },
-      set: async (at) => {
-        log.pending = await Promise.resolve(at);
-        log.sets += 1;
-      },
-    },
+    alarms: alarmsFor(log),
     guardMs: 30_000,
     now: () => 0,
     services: Layer.mergeAll(
@@ -160,33 +148,6 @@ const planRunOn = (
     ),
     storage,
   });
-
-const call = (
-  run: ReturnType<typeof makePlanRun>,
-  capability: string,
-  body: Schema.Json
-) =>
-  Effect.promise(async () => {
-    const response = await run.fetch(
-      new Request(`http://plan-run/${capability}`, {
-        body: JSON.stringify(body),
-        headers: { "content-type": "application/json" },
-        method: "POST",
-      })
-    );
-
-    return { body: await response.json(), status: response.status };
-  });
-
-const ReportSchema = Schema.Struct({
-  awaiting: Schema.optionalKey(
-    Schema.Array(Schema.Struct({ messageId: Schema.String }))
-  ),
-  docs: Schema.Record(Schema.String, Schema.Json),
-  status: Schema.String,
-});
-
-const decodeReport = Schema.decodeUnknownSync(ReportSchema);
 
 it.effect.prop(
   "replies delivered to one run all at once are each taken exactly once, and no ask or think runs twice, in any order, with duplicates",

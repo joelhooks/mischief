@@ -3,6 +3,7 @@ import { formatFileStats, inspectFile } from "@mischief/core";
 import { Console, Effect, Layer } from "effect";
 import { Command, Flag } from "effect/cli";
 
+import { drainCommand } from "./drain-command.js";
 import {
   cliCapabilities,
   SERVE_HOST,
@@ -115,6 +116,7 @@ export const rootCommand = Command.make("mischief").pipe(
   Command.withSubcommands([
     ...capabilityCommands,
     catalogCommand,
+    drainCommand,
     openapiCommand,
     serveCommand,
     mcpCommand,

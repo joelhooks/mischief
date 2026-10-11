@@ -4,7 +4,7 @@ import { Config, Console, Effect, Layer, Option, Path } from "effect";
 import { mailOutbox } from "./mail-outbox.js";
 import { runStoreFile } from "./run-store-file.js";
 
-const runsRoot = Effect.gen(function* resolveRunsRoot() {
+export const runsRoot = Effect.gen(function* resolveRunsRoot() {
   const path = yield* Path.Path;
   const configured = yield* Config.option(Config.String("MISCHIEF_RUNS"));
   const home = yield* Config.String("HOME");

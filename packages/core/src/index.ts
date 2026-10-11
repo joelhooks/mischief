@@ -31,6 +31,14 @@ export { AnswerRefused } from "./runs/answer-refused.js";
 
 export { runCapabilities } from "./runs/capabilities.js";
 
+export {
+  consumeDrained,
+  DrainOutcomeSchema,
+  UNROUTED_REASON,
+} from "./runs/drain.js";
+
+export type { DrainOutcome } from "./runs/drain.js";
+
 export { RunHost } from "./runs/host.js";
 
 export { ExtendRefused } from "./runs/extend-refused.js";

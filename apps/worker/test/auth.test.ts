@@ -30,6 +30,7 @@ const FAULTS = [
   "other capability",
   "expired",
   "issued later",
+  "clock a little ahead",
   "lives too long",
   "high S",
   "no token",
@@ -37,6 +38,8 @@ const FAULTS = [
 ] as const;
 
 type Fault = (typeof FAULTS)[number];
+
+const ACCEPTED = new Set<Fault>(["valid", "replayed", "clock a little ahead"]);
 
 const services = Layer.merge(NodeServices.layer, FetchHttpClient.layer);
 
@@ -73,13 +76,15 @@ const AUTHORIZATIONS: Record<
 > = {
   "bare audience": ({ alice }) =>
     bearer(alice, "inspectRun", { aud: MISCHIEF_DID }),
+  "clock a little ahead": ({ alice }, now) =>
+    bearer(alice, "inspectRun", { exp: now + 34, iat: now + 4 }),
   expired: ({ alice }, now) =>
     bearer(alice, "inspectRun", { exp: now - 1, iat: now - 31 }),
   "foreign key": ({ alice, mallory }) =>
     bearer({ ...alice, key: mallory.key }, "inspectRun"),
   "high S": ({ alice }) => bearer(alice, "inspectRun").pipe(Effect.map(highS)),
   "issued later": ({ alice }, now) =>
-    bearer(alice, "inspectRun", { exp: now + 40, iat: now + 10 }),
+    bearer(alice, "inspectRun", { exp: now + 37, iat: now + 7 }),
   "listed without key": ({ carol }) => bearer(carol, "inspectRun"),
   "lives too long": ({ alice }, now) =>
     bearer(alice, "inspectRun", { exp: now + 61, iat: now }),
@@ -134,7 +139,7 @@ it.live.prop(
 
         const first = yield* inspect(world, authorization);
 
-        if (fault === "valid" || fault === "replayed") {
+        if (ACCEPTED.has(fault)) {
           expect(first).not.toBe(401);
         } else {
           expect([fault, first]).toStrictEqual([fault, 401]);
@@ -146,6 +151,37 @@ it.live.prop(
       }
     }).pipe(Effect.scoped, Effect.provide(services)),
   { arbitrary: { runs: 8 }, timeout: 180_000 }
+);
+
+it.live(
+  "a caller whose clock runs up to five seconds ahead is served, and seven seconds ahead is refused",
+  () =>
+    Effect.gen(function* skew() {
+      const alice = yield* freshCaller("alice");
+      const mallory = yield* freshCaller("mallory");
+      const carol = yield* freshCaller("carol");
+      const world = yield* prepare(30_000, [alice]);
+
+      yield* start(world);
+
+      const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+      const cast = { alice, carol, mallory };
+
+      const ahead = yield* inspect(
+        world,
+        yield* AUTHORIZATIONS["clock a little ahead"](cast, now)
+      );
+
+      const later = yield* inspect(
+        world,
+        yield* AUTHORIZATIONS["issued later"](cast, now)
+      );
+
+      expect(ahead).not.toBe(401);
+
+      expect(later).toBe(401);
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  60_000
 );
 
 const PlanSchema = Schema.Struct({

@@ -14,6 +14,8 @@ const P256_ORDER =
 
 const WINDOW_SECONDS = 60;
 
+const SKEW_SECONDS = 5;
+
 export class ServiceTokens extends Context.Service<
   ServiceTokens,
   {
@@ -96,7 +98,7 @@ export const authenticate = Effect.fn("Mischief.authenticate")(
     }
 
     if (
-      claims.iat > now ||
+      claims.iat > now + SKEW_SECONDS ||
       claims.exp <= now ||
       claims.exp - claims.iat > WINDOW_SECONDS
     ) {

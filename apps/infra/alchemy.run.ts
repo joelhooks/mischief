@@ -19,12 +19,12 @@ export const cloudflare = Stack(
       bundle: false,
       compatibility: { date: "2026-09-01", flags: [] },
       env: {
+        MISCHIEF_CREDENTIAL: yield* Config.Redacted("MISCHIEF_CREDENTIAL"),
         MISCHIEF_DESK: yield* Config.String("MISCHIEF_DESK").pipe(
           Config.withDefault("mischief")
         ),
         MISCHIEF_GUARD_MS: "30000",
         MISCHIEF_MODEL: "faux",
-        MISCHIEF_TOKEN: yield* Config.Redacted("MISCHIEF_TOKEN"),
         PLAN_RUN: Cloudflare.DurableObject("PLAN_RUN", {
           className: "PlanRun",
         }),

@@ -54,7 +54,7 @@ const worker :Workerd.Worker = (
     (name = "MISCHIEF_DESK", text = "mischief"),
     (name = "MISCHIEF_MODEL", text = "faux"),
     (name = "MISCHIEF_GUARD_MS", text = "${guardMs}"),
-    (name = "MISCHIEF_TOKEN", text = "${TOKEN}"),
+    (name = "MISCHIEF_CREDENTIAL", text = "${TOKEN}"),
   ],
 );
 `;

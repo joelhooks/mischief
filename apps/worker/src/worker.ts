@@ -29,10 +29,10 @@ const NO_RUN_ID =
   "this request names no run. Every run capability takes a JSON body with runId, and deliverReply finds its run from replyTo (<runId>/<step>#<visit>). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 const NO_TOKEN =
-  "this Mischief host has no MISCHIEF_TOKEN secret, so it serves nobody. Set the secret on the Worker, then call again with Authorization: Bearer <token>";
+  "this Mischief host has no MISCHIEF_CREDENTIAL secret, so it serves nobody. Set the secret on the Worker, then call again with Authorization: Bearer <token>";
 
 const BAD_TOKEN =
-  "this request carries no valid bearer token. Send Authorization: Bearer <token> with the host's MISCHIEF_TOKEN";
+  "this request carries no valid bearer token. Send Authorization: Bearer <token> with the host's MISCHIEF_CREDENTIAL";
 
 const encoder = new TextEncoder();
 
@@ -50,11 +50,14 @@ const authorized = async (request: Request, token: string) => {
 
 export default {
   async fetch(request: Request, env: Env) {
-    if (env.MISCHIEF_TOKEN === undefined || env.MISCHIEF_TOKEN === "") {
+    if (
+      env.MISCHIEF_CREDENTIAL === undefined ||
+      env.MISCHIEF_CREDENTIAL === ""
+    ) {
       return Response.json({ error: NO_TOKEN }, { status: 503 });
     }
 
-    if (!(await authorized(request, env.MISCHIEF_TOKEN))) {
+    if (!(await authorized(request, env.MISCHIEF_CREDENTIAL))) {
       return Response.json({ error: BAD_TOKEN }, { status: 401 });
     }
 

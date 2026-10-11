@@ -1,0 +1,30 @@
+{
+  "name": "@mischief/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "pnpm run typecheck",
+    "build": "esbuild src/worker.ts --bundle --format=esm --platform=neutral --main-fields=module,main --conditions=workerd,worker,browser,import --external:cloudflare:* --external:node:* --outfile=dist/worker.js --log-level=warning",
+    "test": "vitest run",
+    "pretest": "pnpm run --silent build"
+  },
+  "dependencies": {
+    "@earendil-works/pi-durable": "1.1.0",
+    "@mischief/core": "workspace:*",
+    "@mischief/plan-run": "workspace:*",
+    "@mischief/thinking": "workspace:*",
+    "effect": "4.0.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261001.1",
+    "@effect/platform-node": "4.0.1",
+    "@effect/vitest": "4.0.1",
+    "@types/node": "24.13.6",
+    "esbuild": "0.25.12",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3",
+    "workerd": "1.20260918.1"
+  }
+}

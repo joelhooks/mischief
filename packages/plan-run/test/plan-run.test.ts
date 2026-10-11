@@ -139,7 +139,6 @@ const planRunOn = (
   makePlanRun({
     alarms: alarmsFor(log),
     guardMs: 30_000,
-    now: () => 0,
     services: Layer.mergeAll(
       slowThinker(delays, tally),
       Judge.unwired,

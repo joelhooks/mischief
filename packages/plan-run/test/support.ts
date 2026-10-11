@@ -12,6 +12,7 @@ export const alarmsFor = (log: AlarmLog): Alarms => ({
   clear: async () => {
     log.pending = await Promise.resolve(null);
   },
+  get: async () => await Promise.resolve(log.pending),
   set: async (at) => {
     log.pending = await Promise.resolve(at);
     log.sets += 1;

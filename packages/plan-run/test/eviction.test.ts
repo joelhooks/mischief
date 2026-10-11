@@ -96,7 +96,6 @@ const runOn = (
   makePlanRun({
     alarms: alarmsFor(log),
     guardMs: 30_000,
-    now: () => 0,
     services: Layer.mergeAll(
       thinker,
       Judge.unwired,
@@ -106,7 +105,7 @@ const runOn = (
     storage,
   });
 
-it.effect.prop(
+it.live.prop(
   "a run evicted mid-think is finished by its alarm, even when a request arrives first, and only the unfinished think runs again",
   {
     crashAt: Arbitrary.schema(
@@ -153,12 +152,16 @@ it.effect.prop(
       );
 
       if (inspectFirst) {
+        const armed = log.pending;
+
+        yield* Effect.sleep("5 millis");
+
         const seen = decodeReport(
           (yield* call(second, "inspectRun", { runId: "line" })).body
         );
 
         expect(seen.status).toBe("running");
-        expect(log.pending).not.toBeNull();
+        expect(log.pending).toBe(armed);
       }
 
       yield* Effect.promise(async () => {

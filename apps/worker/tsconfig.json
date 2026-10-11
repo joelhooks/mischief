@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "allowedUnstableApis": [
+          "effect/Arbitrary",
+          "effect/http-api/HttpApiBuilder",
+          "effect/http/FetchHttpClient",
+          "effect/http/HttpClient",
+          "effect/http/HttpClientRequest",
+          "effect/http/HttpClientResponse",
+          "effect/http/HttpRouter",
+          "effect/http/HttpServer",
+          "effect/observability/OtlpSerialization",
+          "effect/observability/OtlpTracer",
+          "effect/process/ChildProcess",
+          "effect/process/ChildProcessSpawner"
+        ]
+      }
+    ],
+    "types": ["node", "@cloudflare/workers-types"],
+    "lib": ["ES2023"]
+  }
+}

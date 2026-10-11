@@ -1,8 +1,9 @@
 // @effect-diagnostics asyncFunction:off -- fetch, alarm and the alarm port are the Durable Object's Promise surface.
-import { toHttpApi } from "@mischief/capability";
+import { toHttpApi } from "@mischief/capability/http-api";
 import { RunHost, RunStore, runCapabilities } from "@mischief/core";
 import type { Judge, Mail, Operator, Thinker } from "@mischief/core";
 import {
+  Clock,
   Effect,
   Layer,
   ManagedRuntime,
@@ -18,6 +19,7 @@ import type { SqlStorage } from "./sql.js";
 import { webCrypto } from "./web-crypto.js";
 
 export interface Alarms {
+  readonly get: () => Promise<number | null>;
   readonly set: (at: number) => Promise<void>;
   readonly clear: () => Promise<void>;
 }
@@ -27,7 +29,6 @@ export interface PlanRunOptions {
   readonly alarms: Alarms;
   readonly services: Layer.Layer<Thinker | Judge | Mail | Operator>;
   readonly guardMs: number;
-  readonly now: () => number;
 }
 
 export interface PlanRun {
@@ -63,7 +64,6 @@ const runIdsOf = (storage: SqlStorage) =>
 export const makePlanRun = ({
   alarms,
   guardMs,
-  now,
   services,
   storage,
 }: PlanRunOptions): PlanRun => {
@@ -77,9 +77,16 @@ export const makePlanRun = ({
   const lock = Semaphore.makeUnsafe(1);
 
   const guarded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    Effect.promise(async () => {
-      await alarms.set(now() + guardMs);
-    }).pipe(
+    Clock.currentTimeMillis.pipe(
+      Effect.flatMap((now) =>
+        Effect.promise(async () => {
+          const pending = await alarms.get();
+
+          if (pending === null || pending > now + guardMs) {
+            await alarms.set(now + guardMs);
+          }
+        })
+      ),
       Effect.andThen(effect),
       Effect.ensuring(
         Effect.promise(async () => {

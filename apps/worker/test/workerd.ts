@@ -6,6 +6,8 @@ import { createServer } from "node:net";
 import { Effect, FileSystem, Option, Path, Schedule, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 
+export const TOKEN = "test-token";
+
 export interface Workerd {
   readonly dir: string;
   readonly port: number;
@@ -52,6 +54,7 @@ const worker :Workerd.Worker = (
     (name = "MISCHIEF_DESK", text = "mischief"),
     (name = "MISCHIEF_MODEL", text = "faux"),
     (name = "MISCHIEF_GUARD_MS", text = "${guardMs}"),
+    (name = "MISCHIEF_TOKEN", text = "${TOKEN}"),
   ],
 );
 `;
@@ -84,9 +87,11 @@ export const prepare = (guardMs: number) =>
 export const post = (
   { port }: Workerd,
   capability: string,
-  body: Schema.Json
+  body: Schema.Json,
+  token = TOKEN
 ) =>
   HttpClientRequest.post(`http://127.0.0.1:${port}/${capability}`).pipe(
+    HttpClientRequest.bearerToken(token),
     HttpClientRequest.bodyJsonUnsafe(body),
     HttpClient.execute,
     Effect.flatMap((response) =>

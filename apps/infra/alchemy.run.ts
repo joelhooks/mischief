@@ -24,6 +24,7 @@ export const cloudflare = Stack(
         ),
         MISCHIEF_GUARD_MS: "30000",
         MISCHIEF_MODEL: "faux",
+        MISCHIEF_TOKEN: yield* Config.Redacted("MISCHIEF_TOKEN"),
         PLAN_RUN: Cloudflare.DurableObject("PLAN_RUN", {
           className: "PlanRun",
         }),

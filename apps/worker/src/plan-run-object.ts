@@ -13,6 +13,7 @@ export interface Env {
   readonly MISCHIEF_DESK: string;
   readonly MISCHIEF_MODEL: string;
   readonly MISCHIEF_GUARD_MS: string;
+  readonly MISCHIEF_TOKEN?: string;
 }
 
 const operator = Layer.succeed(

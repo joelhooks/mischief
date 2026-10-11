@@ -74,6 +74,20 @@ const merge = <A>(parts: readonly Checked<A>[]): Merged<A> => ({
   values: parts.map((part) => part.value),
 });
 
+const outsideEnvelope = (
+  where: string,
+  kind: "extension" | "skill" | "tool",
+  used: readonly string[],
+  allowed: readonly string[]
+) =>
+  used.flatMap((name) =>
+    allowed.includes(name)
+      ? []
+      : [
+          `${where}: ${kind} "${name}" is outside the envelope. Allowed: ${allowed.join(", ") || "none"}, or add it to envelope.${kind}s`,
+        ]
+  );
+
 const resolveThink = (
   plan: Plan,
   step: ThinkStep,
@@ -89,10 +103,8 @@ const resolveThink = (
   const model = merged.model ?? envelope.models[0];
   const thinking = merged.thinking ?? "low";
 
-  const allowedTools = new Set<string>([
-    ...BASE_TOOLS,
-    ...(envelope.tools ?? []),
-  ]);
+  const skills = [...new Set(merged.skills)];
+  const extensions = [...new Set(merged.extensions)];
 
   const errors = [
     ...(envelope.models.includes(model)
@@ -106,19 +118,26 @@ const resolveThink = (
           `${where}: thinking "${thinking}" exceeds envelope.maxThinking "${envelope.maxThinking}". Use ${thinkingLevels.slice(0, thinkingLevels.indexOf(envelope.maxThinking) + 1).join(", ")}`,
         ]
       : []),
-    ...tools.flatMap((tool) =>
-      allowedTools.has(tool)
-        ? []
-        : [
-            `${where}: tool "${tool}" is outside the envelope. Allowed: ${[...allowedTools].join(", ")}, or add it to envelope.tools`,
-          ]
+    ...outsideEnvelope(where, "tool", tools, [
+      ...BASE_TOOLS,
+      ...(envelope.tools ?? []),
+    ]),
+    ...outsideEnvelope(where, "skill", skills, envelope.skills ?? []),
+    ...outsideEnvelope(
+      where,
+      "extension",
+      extensions,
+      envelope.extensions ?? []
     ),
   ];
 
   return {
     agents: 1,
     errors,
-    value: { ...step, agent: { model, placement, thinking, tools } },
+    value: {
+      ...step,
+      agent: { extensions, model, placement, skills, thinking, tools },
+    },
   };
 };
 

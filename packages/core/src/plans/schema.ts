@@ -45,12 +45,14 @@ export const thinkingLevels = [
 export const Thinking = Schema.Literals(thinkingLevels);
 
 export const EnvelopeSchema = Schema.Struct({
+  extensions: Schema.optionalKey(Schema.Array(ToolName)),
   maxAgents: Count,
   maxDepth: Count,
   maxSteps: Count,
   maxThinking: Thinking,
   models: Schema.NonEmptyArray(ModelRef),
   names: Schema.Array(RatKingName),
+  skills: Schema.optionalKey(Schema.Array(ToolName)),
   thresholds: Schema.Struct({
     judge: Probability,
     think: Schema.optionalKey(Probability),
@@ -68,8 +70,10 @@ export const PlacementSchema = Schema.Union([
 export type Placement = typeof PlacementSchema.Type;
 
 export const AgentConfigSchema = Schema.Struct({
+  extensions: Schema.optionalKey(Schema.Array(ToolName)),
   model: Schema.optionalKey(ModelRef),
   placement: Schema.optionalKey(PlacementSchema),
+  skills: Schema.optionalKey(Schema.Array(ToolName)),
   thinking: Schema.optionalKey(Thinking),
   tools: Schema.optionalKey(Schema.Array(ToolName)),
 });

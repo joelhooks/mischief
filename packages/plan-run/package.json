@@ -28,6 +28,7 @@
     "pretest": "pnpm run --silent build"
   },
   "dependencies": {
+    "@mischief/capability": "workspace:*",
     "@mischief/core": "workspace:*",
     "effect": "4.0.1"
   },

@@ -7,8 +7,11 @@
         "name": "@effect/language-service",
         "allowedUnstableApis": [
           "effect/Arbitrary",
+          "effect/http-api/HttpApiBuilder",
           "effect/http/HttpClient",
           "effect/http/HttpClientResponse",
+          "effect/http/HttpRouter",
+          "effect/http/HttpServer",
           "effect/observability/OtlpSerialization",
           "effect/observability/OtlpTracer",
           "effect/process/ChildProcess",

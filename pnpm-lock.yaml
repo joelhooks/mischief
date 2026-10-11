@@ -392,6 +392,9 @@ importers:
 
   packages/plan-run:
     dependencies:
+      '@mischief/capability':
+        specifier: workspace:*
+        version: link:../capability
       '@mischief/core':
         specifier: workspace:*
         version: link:../core

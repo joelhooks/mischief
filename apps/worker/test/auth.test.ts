@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { base64url, unbase64url } from "@rat-king/mailbox-client";
+import { base64url, unbase64url } from "@rat-king/mailbox-client/auth";
 import { Clock, Effect, Layer, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import { FetchHttpClient } from "effect/http";
@@ -180,6 +180,24 @@ it.live(
       expect(ahead).not.toBe(401);
 
       expect(later).toBe(401);
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  60_000
+);
+
+it.live(
+  "a token is served once: the same token again is refused",
+  () =>
+    Effect.gen(function* replay() {
+      const alice = yield* freshCaller("alice");
+      const world = yield* prepare(30_000, [alice]);
+
+      yield* start(world);
+
+      const authorization = yield* bearer(alice, "inspectRun");
+
+      expect(yield* inspect(world, authorization)).not.toBe(401);
+
+      expect(yield* inspect(world, authorization)).toBe(401);
     }).pipe(Effect.scoped, Effect.provide(services)),
   60_000
 );

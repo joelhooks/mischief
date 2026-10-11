@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 
-import type { DocumentsValue } from "@rat-king/mailbox-client";
+import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
 import { Effect, FileSystem, Option, Path, Schedule, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 

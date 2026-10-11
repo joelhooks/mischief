@@ -1,12 +1,11 @@
 import {
   Celld,
-  HostDirectory,
   HostDirectoryProvider,
   ObjectStore,
   RatsNest,
-  RemoteFile,
   RemoteFileProvider,
   sourceLayer,
+  stageDeploymentFiles,
 } from "@rat-king/alchemy-nest";
 import type { DeploymentProps, HostShell } from "@rat-king/alchemy-nest";
 import { localState, Stack } from "alchemy";
@@ -84,39 +83,30 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         workerIPv4: host.tailnetIPv4,
       });
 
-      const staging = yield* HostDirectory("deployment-directory", {
-        mode: 0o700,
-        path: Output.interpolate`${bucket.configuration}/deployment`,
-      });
-
-      const worker = yield* RemoteFile("deployment-worker", {
-        content: prepared.bundle,
-        mode: 0o600,
-        path: Output.interpolate`${staging.path}/worker.mjs`,
-      });
-
-      const configuration = yield* RemoteFile("deployment-configuration", {
-        content: prepared.configuration,
-        mode: 0o600,
-        path: Output.interpolate`${staging.path}/wrangler.json`,
-      });
+      const [worker, configuration] = yield* stageDeploymentFiles(
+        host.home,
+        prepared,
+        true,
+        cells.layout,
+        bucket.configuration
+      );
 
       const deployment = yield* Celld.Deployment(
         "planrun",
         Output.all(
           cells.publicUrl,
           cells.internalUrl,
-          staging.path,
-          worker.sha256,
-          configuration.sha256,
+          bucket.configuration,
+          worker,
+          configuration,
           cells.unit.sha256
         ).pipe(
           Output.map(
-            ([workerUrl, internalUrl, directory]) =>
+            ([workerUrl, internalUrl, configurationRoot]) =>
               ({
                 ...prepared,
                 binary: `${cells.layout.bin}/celld`,
-                directory,
+                directory: `${configurationRoot}/deployment`,
                 environmentFile: `${cells.layout.configuration}/celld.env`,
                 internalUrl,
                 workerUrl,

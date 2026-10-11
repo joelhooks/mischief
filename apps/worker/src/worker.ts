@@ -1,7 +1,7 @@
 // @effect-diagnostics asyncFunction:off -- the Worker's fetch handler is a Promise API.
 import { runApiSpec } from "@mischief/plan-run";
-import { Documents, staticResolver } from "@rat-king/mailbox-client";
-import type { DocumentsValue } from "@rat-king/mailbox-client";
+import { Documents, staticResolver } from "@rat-king/mailbox-client/auth";
+import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
 import { Effect, Layer, Option, Result, Schema } from "effect";
 
 import type { Env } from "./plan-run-object.js";

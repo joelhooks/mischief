@@ -170,7 +170,7 @@ it.effect(
       }
 
       const configuration = rows.find(
-        ({ fqn }) => fqn === "deployment-configuration"
+        ({ fqn }) => fqn === "mischief-deployment-stage-configuration"
       );
 
       const { content } = yield* Schema.decodeUnknownEffect(

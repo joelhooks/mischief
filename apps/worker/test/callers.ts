@@ -1,6 +1,6 @@
 // @effect-diagnostics asyncFunction:off -- WebCrypto key generation and export are Promise APIs.
-import { base64url, serviceToken } from "@rat-king/mailbox-client";
-import type { DocumentsValue } from "@rat-king/mailbox-client";
+import { base64url, serviceToken } from "@rat-king/mailbox-client/auth";
+import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
 import { Clock, Effect } from "effect";
 
 export const MISCHIEF_DID = "did:web:mischief.ratking-fleet.invalid";

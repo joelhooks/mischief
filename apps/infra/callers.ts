@@ -1,4 +1,4 @@
-import { Documents } from "@rat-king/mailbox-client";
+import { Documents } from "@rat-king/mailbox-client/auth";
 import { Config, Effect, FileSystem, Schema } from "effect";
 
 const MischiefDid = Schema.String.check(

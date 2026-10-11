@@ -7,7 +7,6 @@
   "type": "module",
   "scripts": {
     "acceptance:cold-clone": "bash scripts/acceptance-cold-clone.sh",
-    "alchemy": "pnpm --filter @mischief/infra exec alchemy",
     "build": "turbo run build",
     "check": "pnpm run lockfile:check && varlock load && turbo run typecheck && ultracite check && oxfmt --check .",
     "cli": "turbo run build --filter=@mischief/cli && node apps/cli/dist/cli.js",
@@ -17,9 +16,6 @@
     "lockfile:check": "pnpm --config.optimistic-repeat-install=false install --frozen-lockfile --offline --lockfile-only --ignore-scripts",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "infra:deploy": "pnpm --filter @mischief/infra deploy",
-    "infra:destroy": "pnpm --filter @mischief/infra destroy",
-    "infra:dev": "pnpm --filter @mischief/infra dev",
     "infra:plan": "pnpm --filter @mischief/infra plan",
     "prepare": "effect-tsgo patch && if git rev-parse --git-dir >/dev/null 2>&1; then lefthook install; fi",
     "test": "turbo run test",

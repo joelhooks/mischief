@@ -6,11 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check": "pnpm run typecheck",
-    "plan": "alchemy plan",
-    "deploy": "alchemy deploy",
-    "destroy": "alchemy destroy",
-    "dev": "alchemy dev",
-    "logs": "alchemy logs"
+    "plan": "node plan.ts"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.1",

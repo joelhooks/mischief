@@ -296,8 +296,35 @@ const compileStep = (
       ];
     }
 
+    case "switch": {
+      const chosen = [...new Set([...Object.values(step.cases), step.default])];
+
+      return [
+        [
+          name,
+          {
+            invoke: {
+              input: {
+                cases: step.cases,
+                default: step.default,
+                key,
+                reads: step.reads,
+              },
+              onDone: chosen.map((option) => ({
+                guard: picked(option),
+                target: targetOf(node.on, option),
+              })),
+              src: "switch",
+              ...errorTransition(scope),
+            },
+            meta,
+          },
+        ],
+      ];
+    }
+
     default: {
-      return [];
+      return absurd(step);
     }
   }
 };
@@ -471,6 +498,7 @@ const stepFacts = (
       ];
     }
 
+    case "switch":
     case "think": {
       return [];
     }

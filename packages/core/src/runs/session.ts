@@ -12,7 +12,7 @@ import {
   replyEvent,
 } from "../plans/compile.js";
 import type { Ask } from "../plans/compile.js";
-import { docRefs, interpolate } from "../plans/doc-refs.js";
+import { docRefs, docText, interpolate } from "../plans/doc-refs.js";
 import { decodeAmendment } from "../plans/schema.js";
 import type { Plan } from "../plans/schema.js";
 import { checkPlan, refuseCode } from "../plans/validate.js";
@@ -21,12 +21,14 @@ import {
   ElaborateInputSchema,
   JudgeInputSchema,
   OutputEventSchema,
+  SwitchInputSchema,
   ThinkInputSchema,
 } from "../steps/inputs.js";
 import type {
   AskInput,
   ElaborateInput,
   JudgeInput,
+  SwitchInput,
   JudgeVerdict,
   ThinkInput,
 } from "../steps/inputs.js";
@@ -381,6 +383,28 @@ export const driveSession = (
         return { messageId: sealed.messageId, tokens: 0 };
       });
 
+    const branchOn = (input: SwitchInput) =>
+      Effect.gen(function* switchStep() {
+        const docs = yield* store.readDocs(runId);
+        const value = docs[input.reads];
+
+        if (value === undefined) {
+          return yield* step(
+            input.key,
+            Effect.fail(
+              failed(
+                input.key,
+                `it switches on doc "${input.reads}", which no step has written on this run's path yet. Make the writing step run before this switch, or seed the doc at submit`
+              )
+            )
+          );
+        }
+
+        const text = docText(value).trim();
+
+        return { choice: input.cases[text] ?? input.default, tokens: 0 };
+      });
+
     const elaborate = (input: ElaborateInput) =>
       Effect.gen(function* elaborateStep() {
         const result = yield* step(
@@ -496,6 +520,7 @@ export const driveSession = (
         ask: logic(AskInputSchema, ask),
         elaborate: logic(ElaborateInputSchema, elaborate),
         judge: logic(JudgeInputSchema, decide),
+        switch: logic(SwitchInputSchema, branchOn),
         think: logic(ThinkInputSchema, think),
       },
       guards: {

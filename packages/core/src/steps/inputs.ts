@@ -44,6 +44,15 @@ export const JudgeInputSchema = Schema.Struct({
 
 export type JudgeInput = typeof JudgeInputSchema.Type;
 
+export const SwitchInputSchema = Schema.Struct({
+  cases: Schema.Record(Schema.String, Schema.String),
+  default: Schema.String,
+  key: Schema.String,
+  reads: DocKey,
+});
+
+export type SwitchInput = typeof SwitchInputSchema.Type;
+
 export const ElaborateInputSchema = Schema.Struct({
   goal: Schema.String,
   key: Schema.String,

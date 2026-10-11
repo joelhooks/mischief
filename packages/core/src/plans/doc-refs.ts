@@ -90,6 +90,10 @@ const refsOf = (step: Step): readonly string[] => {
       return docRefs(step.message);
     }
 
+    case "switch": {
+      return [step.reads];
+    }
+
     case "ask-joel":
     case "judge":
     case "parallel":

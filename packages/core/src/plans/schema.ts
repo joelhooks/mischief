@@ -99,6 +99,15 @@ export const JudgeStepSchema = Schema.Struct({
 
 export type JudgeStep = typeof JudgeStepSchema.Type;
 
+export const SwitchStepSchema = Schema.Struct({
+  cases: Schema.Record(Schema.String, EventName),
+  default: EventName,
+  kind: Schema.Literal("switch"),
+  reads: DocKey,
+});
+
+export type SwitchStep = typeof SwitchStepSchema.Type;
+
 export const AskStepSchema = Schema.Struct({
   kind: Schema.Literal("ask"),
   message: Schema.String,
@@ -133,6 +142,7 @@ export const BranchStepSchema = Schema.Union([
   ThinkStepSchema,
   AskStepSchema,
   JudgeStepSchema,
+  SwitchStepSchema,
 ]);
 
 export type BranchStep = typeof BranchStepSchema.Type;
@@ -166,6 +176,7 @@ export type ParallelStep = typeof ParallelStepSchema.Type;
 export const StepSchema = Schema.Union([
   ThinkStepSchema,
   JudgeStepSchema,
+  SwitchStepSchema,
   AskStepSchema,
   AskJoelStep,
   SketchStepSchema,

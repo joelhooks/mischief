@@ -11,6 +11,7 @@ import type {
   BranchState,
   BranchStep,
   JudgeStep,
+  SwitchStep,
   Plan,
   StateNode,
   ThinkStep,
@@ -183,6 +184,34 @@ const nextErrors = (
       ]
     : [];
 
+const resolveSwitch = (
+  step: SwitchStep,
+  on: Transitions | undefined,
+  where: string
+): Checked<SwitchStep> => {
+  const declared = Object.keys(on ?? {});
+  const listed = declared.join(", ") || "none";
+  const missing = (option: string) => !declared.includes(option);
+
+  return {
+    agents: 0,
+    errors: [
+      ...Object.entries(step.cases)
+        .filter(([, option]) => missing(option))
+        .map(
+          ([value, option]) =>
+            `${where}: switch case "${value}" goes to "${option}", which is not one of its transitions. Use one of: ${listed}, or add on.${option}`
+        ),
+      ...(missing(step.default)
+        ? [
+            `${where}: switch default "${step.default}" is not one of its transitions. Use one of: ${listed}, or add on.${step.default}`,
+          ]
+        : []),
+    ],
+    value: step,
+  };
+};
+
 const resolveJudge = (
   plan: Plan,
   step: JudgeStep,
@@ -231,6 +260,10 @@ const resolveBranchStep = (
 
     case "judge": {
       return resolveJudge(plan, step, on, where);
+    }
+
+    case "switch": {
+      return resolveSwitch(step, on, where);
     }
 
     default: {
@@ -411,6 +444,16 @@ const resolveNode = (
       };
     }
 
+    case "switch": {
+      const resolved = resolveSwitch(step, node.on, where);
+
+      return {
+        agents: 0,
+        errors: [...depthErrors, ...resolved.errors],
+        value: node,
+      };
+    }
+
     default: {
       return absurd(step);
     }
@@ -446,6 +489,7 @@ const probeSources = {
     ask: probeLogic,
     elaborate: probeLogic,
     judge: probeLogic,
+    switch: probeLogic,
     think: probeLogic,
   },
   guards: { escalated: constFalse, picked: constFalse },

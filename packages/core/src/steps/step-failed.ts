@@ -10,6 +10,7 @@ export class StepFailed extends Schema.TaggedError<StepFailed>()("StepFailed", {
 }
 
 export interface StepCall {
+  readonly epoch: number;
   readonly key: string;
   readonly runId: string;
   readonly visit: number;

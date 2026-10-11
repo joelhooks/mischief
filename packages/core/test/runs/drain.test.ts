@@ -71,6 +71,7 @@ const stubHost = (says: HostSays, delivered: ReplyLine[]) =>
       inspect: unused,
       pause: unused,
       resume: unused,
+      revise: unused,
       submit: unused,
     })
   );

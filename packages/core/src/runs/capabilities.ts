@@ -8,6 +8,7 @@ import {
   inspectRunContract,
   pauseRunContract,
   resumeRunContract,
+  reviseRunContract,
   submitPlanContract,
 } from "./contracts.js";
 import { RunHost } from "./host.js";
@@ -46,6 +47,12 @@ export const extendRun = implement(extendRunContract, ({ maxSteps, runId }) =>
   RunHost.use((host) => host.extend(runId, maxSteps))
 );
 
+export const reviseRun = implement(
+  reviseRunContract,
+  ({ dryRun, plan, runId }) =>
+    RunHost.use((host) => host.revise(runId, plan, dryRun))
+);
+
 export const runCapabilities = [
   submitPlan,
   inspectRun,
@@ -55,4 +62,5 @@ export const runCapabilities = [
   answerRun,
   deliverReply,
   extendRun,
+  reviseRun,
 ] as const;

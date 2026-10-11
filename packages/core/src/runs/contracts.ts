@@ -5,9 +5,11 @@ import { PlanRefused } from "../plans/validate.js";
 import { AnswerRefused } from "./answer-refused.js";
 import { ExtendRefused } from "./extend-refused.js";
 import { ReplyRefused } from "./reply-refused.js";
+import { RevisionRefused } from "./revision-refused.js";
 import {
   DocsSchema,
   ReplyLineSchema,
+  RevisionReportSchema,
   RunId,
   RunReportSchema,
 } from "./schema.js";
@@ -86,6 +88,22 @@ export const deliverReplyContract = defineContract("deliverReply", {
   failure: ReplyRefused,
   input: ReplyLineSchema,
   output: RunReportSchema,
+});
+
+export const reviseRunContract = defineContract("reviseRun", {
+  annotations: { openWorld: true },
+  description:
+    "Rebuild a run under a revised plan with the same envelope. Steps whose definition and input docs are unchanged reuse their recorded results; the rest run live, an unchanged ask keeps its message and reply, and Joel is asked again only after work changed. dryRun reports what would be reused and the first live step on each path without touching the run.",
+  failure: Schema.Union([UnknownRun, RevisionRefused]),
+  input: Schema.Struct({
+    dryRun: Schema.Boolean.annotate({
+      description:
+        "Preview only: report reuse and the first live steps, change nothing",
+    }),
+    plan: Schema.Json.annotate({ description: "The revised plan, as JSON" }),
+    runId,
+  }),
+  output: RevisionReportSchema,
 });
 
 export const extendRunContract = defineContract("extendRun", {

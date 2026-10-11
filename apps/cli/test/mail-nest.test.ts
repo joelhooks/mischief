@@ -20,7 +20,7 @@ const WorldSchema = Schema.Struct({
   unknownName: Schema.Boolean,
 });
 
-const call = { key: "check", runId: "run-1", visit: 1 };
+const call = { epoch: 0, key: "check", runId: "run-1", visit: 1 };
 
 const failureText = <A, E>(exit: Exit.Exit<A, E>) =>
   Exit.isFailure(exit) ? String(exit.cause) : "";

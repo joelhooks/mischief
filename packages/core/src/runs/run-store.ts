@@ -31,6 +31,7 @@ export class RunStore extends Context.Service<
       fingerprint: string
     ) => Effect.Effect<void>;
     readonly readDocs: (runId: string) => Effect.Effect<Docs>;
+    readonly replaceDocs: (runId: string, docs: Docs) => Effect.Effect<void>;
     readonly writeDoc: (
       runId: string,
       name: string,
@@ -95,6 +96,10 @@ export class RunStore extends Context.Service<
         ),
       readRun: (runId) =>
         Effect.sync(() => Option.fromUndefinedOr(runs.get(runId))),
+      replaceDocs: (runId, next) =>
+        Effect.sync(() => {
+          docs.set(runId, structuredClone(next));
+        }),
       writeDoc: (runId, name, doc) =>
         Effect.sync(() => {
           docs.set(runId, { ...docs.get(runId), [name]: structuredClone(doc) });

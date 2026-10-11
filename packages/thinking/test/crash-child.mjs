@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { piThinker } from "../dist/index.js";
 import { fauxWorld } from "./faux-world.ts";
 
-const [dir, runId, key, visit, prompt, mode] = process.argv.slice(2);
+const [dir, runId, key, visit, prompt, epoch, mode] = process.argv.slice(2);
 
 const hang = mode === "hang";
 
@@ -19,6 +19,7 @@ const program = Effect.gen(function* child() {
 
   const thought = yield* thinker.think({
     agent: { model: "sol", thinking: "low" },
+    epoch: Number(epoch),
     key,
     prompt,
     runId,

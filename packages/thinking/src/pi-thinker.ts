@@ -71,7 +71,10 @@ const pi = <A>(call: StepCall, operation: string, run: () => Promise<A>) =>
     try: run,
   });
 
-const addressOf = (call: StepCall) => `${call.key}#${call.visit}`;
+const addressOf = (call: StepCall) =>
+  call.epoch === 0
+    ? `${call.key}#${call.visit}`
+    : `${call.key}#${call.visit}@v${call.epoch}`;
 
 export const piThinker = (options: PiThinkerOptions) =>
   Layer.effect(

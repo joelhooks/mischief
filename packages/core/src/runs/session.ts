@@ -38,6 +38,7 @@ import { Thinker } from "../steps/thinker.js";
 import { describeValue, leaves, openExecution } from "./execution.js";
 import type { Adapter, Execution, Sources } from "./execution.js";
 import { fingerprintOf, stepOf } from "./fingerprint.js";
+import { docWrites, docsRead } from "./replay.js";
 import { RunStore } from "./run-store.js";
 import type {
   Awaiting,
@@ -55,6 +56,12 @@ export type StepServices =
   | RunStore
   | Thinker;
 
+export interface RevisionWatch {
+  readonly dryRun: boolean;
+  readonly live: string[];
+  readonly reused: string[];
+}
+
 export interface Delivery {
   readonly kind: "answer";
   readonly reply: string;
@@ -65,6 +72,24 @@ type Choice =
   | { readonly kind: "halt"; readonly status: RunStatus };
 
 const DRAINED = { type: "mischief.drained" };
+
+const isText = Schema.is(Schema.String);
+
+const statusAfter = (machine: string): RunStatus => {
+  switch (machine) {
+    case "done": {
+      return "done";
+    }
+
+    case "error": {
+      return "failed";
+    }
+
+    default: {
+      return "running";
+    }
+  }
+};
 
 const decodeFailure = Schema.decodeUnknownOption(
   Schema.Struct({ error: Schema.String })
@@ -139,7 +164,8 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
 export const driveSession = (
   runId: string,
   opened: { readonly plan: Plan; readonly state: RunState },
-  delivery: Delivery | undefined
+  delivery: Delivery | undefined,
+  watch?: RevisionWatch
 ) =>
   Effect.gen(function* runSession() {
     const store = yield* RunStore;
@@ -154,6 +180,7 @@ export const driveSession = (
     );
 
     const journal = new Map(yield* store.readJournal(runId));
+    const prints = new Map(yield* store.readFingerprints(runId));
     const mailbox: QueuedEvent[] = [];
     const pending = new Map<symbol, Promise<Schema.Json>>();
     const visits = new Map<string, number>();
@@ -171,15 +198,29 @@ export const driveSession = (
       state: opened.state,
     };
 
+    const strictFor = (key: string) =>
+      run.state.revision !== null &&
+      (key.startsWith("logic:") || key.startsWith("seal:"));
+
+    const diverge = (key: string) => {
+      const { revision } = run.state;
+
+      if (revision !== null && !revision.diverged && key.startsWith("logic:")) {
+        run.state = { ...run.state, revision: { ...revision, diverged: true } };
+      }
+    };
+
     const journaled = (
       key: string,
       exec: Effect.Effect<Schema.Json, StepFailed>,
-      fingerprint: Effect.Effect<string> = Effect.succeed("")
+      fingerprint: Effect.Effect<string> = Effect.succeed(""),
+      reuse: (entry: Schema.Json) => Effect.Effect<void> = () => Effect.void
     ) =>
       Effect.gen(function* replayOrRun() {
         const hit = journal.get(key);
+        const strict = strictFor(key);
 
-        if (hit !== undefined) {
+        if (hit !== undefined && !strict) {
           const failure = decodeFailure(hit);
 
           return Option.isSome(failure)
@@ -189,7 +230,33 @@ export const driveSession = (
 
         const print = yield* fingerprint;
 
+        if (
+          hit !== undefined &&
+          print !== "" &&
+          prints.get(key) === print &&
+          Option.isNone(decodeFailure(hit))
+        ) {
+          if (key.startsWith("logic:")) {
+            watch?.reused.push(key);
+          }
+
+          yield* reuse(hit);
+
+          return hit;
+        }
+
+        if (strict && key.startsWith("logic:")) {
+          watch?.live.push(key);
+
+          if (watch?.dryRun === true) {
+            return yield* failed(key, "a dry run stops where live work starts");
+          }
+        }
+
+        diverge(key);
+
         if (print !== "") {
+          prints.set(key, print);
           yield* store.writeFingerprint(runId, key, print);
         }
 
@@ -207,6 +274,18 @@ export const driveSession = (
           : yield* outcome.failure;
       });
 
+    const printOf = (step: Schema.Json) =>
+      store.readDocs(runId).pipe(
+        Effect.flatMap((docs) =>
+          fingerprintOf(crypto, {
+            docs: Object.fromEntries(
+              docsRead(step).map((name) => [name, docs[name] ?? null])
+            ),
+            step,
+          })
+        )
+      );
+
     const recordInput = (key: string, value: string) =>
       Effect.suspend(() => {
         journal.set(key, value);
@@ -215,6 +294,8 @@ export const driveSession = (
       });
 
     const visitOf = (key: string) => visits.get(key) ?? 1;
+
+    const epochOf = () => (run.state.revision === null ? 0 : run.plan.version);
 
     const step = <A>(key: string, effect: Effect.Effect<A, StepFailed>) =>
       effect.pipe(
@@ -250,6 +331,7 @@ export const driveSession = (
             Effect.flatMap((prompt) =>
               thinker.think({
                 agent: input.agent ?? {},
+                epoch: epochOf(),
                 key: input.key,
                 prompt,
                 runId,
@@ -266,7 +348,12 @@ export const driveSession = (
 
     const ask = (input: AskInput) =>
       Effect.gen(function* askStep() {
-        const call = { key: input.key, runId, visit: visitOf(input.key) };
+        const call = {
+          epoch: epochOf(),
+          key: input.key,
+          runId,
+          visit: visitOf(input.key),
+        };
 
         const sealed = yield* journaled(
           `seal:${input.key}#${call.visit}`,
@@ -277,7 +364,8 @@ export const driveSession = (
                 mail.seal({ ...call, message, to: input.to })
               )
             )
-          )
+          ),
+          printOf({ input, src: "ask" })
         ).pipe(
           Effect.flatMap(Schema.decodeUnknownEffect(SealedSchema)),
           Effect.mapError(() => failed(input.key, "sealed envelope refused"))
@@ -298,6 +386,7 @@ export const driveSession = (
         const result = yield* step(
           input.key,
           thinker.elaborate({
+            epoch: epochOf(),
             goal: input.goal,
             key: input.key,
             runId,
@@ -314,6 +403,7 @@ export const driveSession = (
       Effect.gen(function* decideStep() {
         const call = {
           agent: input.thinkAgent ?? {},
+          epoch: epochOf(),
           key: input.key,
           options: input.options,
           question: input.question,
@@ -490,7 +580,13 @@ export const driveSession = (
 
         return track(
           key,
-          journaled(key, work, fingerprintOf(crypto, stepOf(actor)))
+          journaled(key, work, printOf(stepOf(actor)), (entry) =>
+            Effect.forEach(
+              docWrites(stepOf(actor), entry),
+              ([name, doc]) => store.writeDoc(runId, name, doc),
+              { discard: true }
+            )
+          )
         );
       },
       waitForEvent: () => DRAINED,
@@ -529,6 +625,23 @@ export const driveSession = (
 
         return fact === undefined ? [] : [fact];
       });
+
+    const loggedReply = (sent: readonly Awaiting[]) =>
+      sent.flatMap(({ key, messageId }) => {
+        const body = journal.get(`reply:${messageId}`);
+
+        return isText(body) ? [{ body, key }] : [];
+      })[0];
+
+    const loggedAnswer = (question: Ask) => {
+      const answer = journal.get(
+        `answer:${question.key}#${(answers.get(question.key) ?? 0) + 1}`
+      );
+
+      return run.state.revision?.diverged === false && isText(answer)
+        ? answer
+        : undefined;
+    };
 
     const awaitsHere = () =>
       factsHere().flatMap((fact) => (fact.kind === "await" ? [fact] : []));
@@ -678,14 +791,17 @@ export const driveSession = (
 
       const awaiting = awaitsHere();
 
-      const replied = run.state.replies.find(({ key }) =>
-        awaiting.some((fact) => fact.key === key)
-      );
+      const sentNow = awaitingOf(yield* store.readDocs(runId));
+
+      const replied =
+        run.state.replies.find(({ key }) =>
+          awaiting.some((fact) => fact.key === key)
+        ) ?? loggedReply(sentNow);
 
       const fact = awaiting.find(({ key }) => key === replied?.key);
 
       if (replied !== undefined && fact !== undefined) {
-        const sent = run.state.awaiting.find(({ key }) => key === replied.key);
+        const sent = sentNow.find(({ key }) => key === replied.key);
 
         yield* recordInput(
           `reply:${sent?.messageId ?? replied.key}`,
@@ -717,7 +833,7 @@ export const driveSession = (
         return { kind: "halt", status: "stuck" } satisfies Choice;
       }
 
-      const chosen = run.reply;
+      const chosen = run.reply ?? loggedAnswer(question);
 
       run.reply = undefined;
 
@@ -725,7 +841,7 @@ export const driveSession = (
         const asked = (answers.get(question.key) ?? 0) + 1;
 
         yield* journaled(
-          `announce:${question.key}#${asked}`,
+          `announce:${question.key}#${asked}${run.state.revision === null ? "" : `@v${run.plan.version}`}`,
           operator.notify(runId, question).pipe(Effect.as(true))
         ).pipe(Effect.ignore);
 
@@ -801,13 +917,25 @@ export const driveSession = (
           return false;
         }
 
-        yield* save(status === "done" ? "done" : "running");
+        yield* save(statusAfter(status));
         yield* execution.flush();
 
         return true;
       });
 
     const begin = Effect.gen(function* beginSession() {
+      if (checkpoint === null && run.state.revision !== null) {
+        const docs = yield* store.readDocs(runId);
+        const seeded = new Set(run.state.seeded);
+
+        yield* store.replaceDocs(
+          runId,
+          Object.fromEntries(
+            Object.entries(docs).filter(([name]) => seeded.has(name))
+          )
+        );
+      }
+
       if (checkpoint === null) {
         countStarts(execution.started);
         run.state = { ...run.state, transitions: run.state.transitions + 1 };

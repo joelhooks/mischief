@@ -3,7 +3,7 @@ import type { Crypto } from "effect";
 import { Hex } from "effect/encoding";
 import type { AnyActor } from "xstate";
 
-const canonical = (value: Schema.Json): string => {
+export const canonical = (value: Schema.Json): string => {
   if (Schema.is(Schema.Array(Schema.Json))(value)) {
     return `[${value.map((item) => canonical(item)).join(",")}]`;
   }

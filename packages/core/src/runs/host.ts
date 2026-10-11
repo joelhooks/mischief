@@ -2,14 +2,23 @@ import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import { DocKey } from "../plans/schema.js";
 import { PlanRefused, validatePlan } from "../plans/validate.js";
+import { Operator } from "../steps/operator.js";
 import { AnswerRefused } from "./answer-refused.js";
 import { ExtendRefused } from "./extend-refused.js";
+import { canonical } from "./fingerprint.js";
 import { ReplyRefused } from "./reply-refused.js";
+import { RevisionRefused } from "./revision-refused.js";
 import { RunStore } from "./run-store.js";
 import { terminalStatuses } from "./schema.js";
-import type { Docs, ReplyLine, RunReport, RunState } from "./schema.js";
+import type {
+  Docs,
+  ReplyLine,
+  RevisionReport,
+  RunReport,
+  RunState,
+} from "./schema.js";
 import { driveSession, reportOf } from "./session.js";
-import type { Delivery, StepServices } from "./session.js";
+import type { Delivery, RevisionWatch, StepServices } from "./session.js";
 import { UnknownRun } from "./unknown-run.js";
 
 const decodeJsonObject = Schema.decodeUnknownOption(Schema.JsonObject);
@@ -38,6 +47,11 @@ export class RunHost extends Context.Service<
       runId: string,
       maxSteps: number
     ) => Effect.Effect<RunReport, UnknownRun | ExtendRefused>;
+    readonly revise: (
+      runId: string,
+      plan: Schema.Json,
+      dryRun: boolean
+    ) => Effect.Effect<RevisionReport, UnknownRun | RevisionRefused>;
     readonly inspect: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly pause: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly resume: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
@@ -47,6 +61,7 @@ export class RunHost extends Context.Service<
   make: Effect.gen(function* makeRunHost() {
     const context = yield* Effect.context<StepServices>();
     const store = yield* RunStore;
+    const operator = yield* Operator;
 
     const loadRun = Effect.fn("RunHost.loadRun")(function* loadRun(
       runId: string
@@ -130,6 +145,7 @@ export class RunHost extends Context.Service<
         checkpoint: null,
         planVersion: plan.version,
         replies: [],
+        revision: null,
         seeded: Object.keys(docs).toSorted(),
         status: "running",
         transitions: 0,
@@ -279,6 +295,116 @@ export class RunHost extends Context.Service<
       return yield* drive(runId);
     });
 
+    const scratchOf = (runId: string, docs: Docs) =>
+      Effect.gen(function* copyRun() {
+        const scratch = yield* RunStore.pipe(
+          Effect.provide(Layer.fresh(RunStore.memory))
+        );
+
+        yield* scratch.replaceDocs(runId, docs);
+        yield* Effect.forEach(
+          yield* store.readJournal(runId),
+          ([key, entry]) => scratch.writeJournal(runId, key, entry),
+          { discard: true }
+        );
+        yield* Effect.forEach(
+          yield* store.readFingerprints(runId),
+          ([key, print]) => scratch.writeFingerprint(runId, key, print),
+          { discard: true }
+        );
+
+        return scratch;
+      });
+
+    const revise = Effect.fn("RunHost.revise")(function* revise(
+      runId: string,
+      input: Schema.Json,
+      dryRun: boolean
+    ) {
+      const opened = yield* loadRun(runId);
+      const refuse = (reason: string) => new RevisionRefused({ reason, runId });
+
+      if (opened.state.seeded === null) {
+        return yield* refuse(
+          `the run started before Mischief logged its inputs (answers, replies and seeded docs), so it cannot be rebuilt. Let it finish or abortRun it, then submitPlan the revised plan as a new run.`
+        );
+      }
+
+      if (opened.state.status === "aborted") {
+        return yield* refuse(
+          `the run was aborted and stays ended. submitPlan the revised plan as a new run.`
+        );
+      }
+
+      const plan = yield* validatePlan(
+        Option.match(decodeJsonObject(input), {
+          onNone: () => input,
+          onSome: (fields) => ({
+            ...fields,
+            version: opened.plan.version + 1,
+          }),
+        }),
+        opened.state.seeded
+      ).pipe(
+        Effect.mapError((refused) =>
+          refuse(
+            `the revised plan is invalid. Fix each problem and call reviseRun again:\n${refused.errors.map((error) => `- ${error}`).join("\n")}`
+          )
+        )
+      );
+
+      if (canonical(plan.envelope) !== canonical(opened.plan.envelope)) {
+        return yield* refuse(
+          `a revision keeps the run's envelope. To raise maxSteps call extendRun({ runId: "${runId}", maxSteps }); any other envelope change needs a new run.`
+        );
+      }
+
+      const state: RunState = {
+        ...opened.state,
+        answers: {},
+        asking: null,
+        awaiting: [],
+        capped: null,
+        checkpoint: null,
+        planVersion: plan.version,
+        replies: [],
+        revision: { diverged: false, from: opened.plan.version },
+        status: "running",
+        transitions: 0,
+        value: null,
+      };
+
+      const watch: RevisionWatch = { dryRun, live: [], reused: [] };
+
+      const target = dryRun
+        ? yield* scratchOf(runId, yield* store.readDocs(runId))
+        : store;
+
+      yield* target.writePlan(runId, plan);
+      yield* target.writeRun(runId, state);
+
+      const report = yield* driveSession(
+        runId,
+        { plan, state },
+        undefined,
+        watch
+      ).pipe(
+        Effect.provideService(RunStore, target),
+        Effect.provideService(
+          Operator,
+          dryRun ? Operator.of({ notify: () => Effect.void }) : operator
+        ),
+        Effect.provideContext(context)
+      );
+
+      return {
+        dryRun,
+        live: [...watch.live],
+        reused: [...watch.reused],
+        run: report,
+      } satisfies RevisionReport;
+    });
+
     return {
       abort,
       advance: (runId) => drive(runId),
@@ -288,6 +414,7 @@ export class RunHost extends Context.Service<
       inspect,
       pause,
       resume,
+      revise,
       submit,
     };
   }),

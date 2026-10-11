@@ -18,13 +18,15 @@ const RUN = "run-1";
 
 const StepSchema = Schema.Struct({
   crash: Schema.Literals(["none", "mid-call", "after-answer"]),
+  epoch: Schema.Literals([0, 2]),
   key: Schema.Literals(["draft", "review", "ship"]),
   visit: Schema.Int.check(Schema.isBetween({ maximum: 2, minimum: 1 })),
 });
 
 type Step = typeof StepSchema.Type;
 
-const promptOf = ({ key, visit }: Step) => `write ${key} pass ${visit}`;
+const promptOf = ({ epoch, key, visit }: Step) =>
+  `write ${key} pass ${visit} plan ${epoch}`;
 
 const crashChild = (dir: string, step: Step) =>
   Effect.callback<string>((resume) => {
@@ -37,6 +39,7 @@ const crashChild = (dir: string, step: Step) =>
         step.key,
         String(step.visit),
         promptOf(step),
+        String(step.epoch),
         step.crash === "mid-call" ? "hang" : "answer",
       ],
       { stdio: ["ignore", "pipe", "inherit"] }
@@ -63,6 +66,7 @@ const thinkHere = (dir: string, step: Step) =>
 
     return yield* thinker.think({
       agent: { model: "sol", thinking: "low" },
+      epoch: step.epoch,
       key: step.key,
       prompt: promptOf(step),
       runId: RUN,
@@ -86,7 +90,7 @@ it.effect.prop(
       const seen = new Map<string, Step>();
 
       for (const step of steps) {
-        const address = `${step.key}#${step.visit}`;
+        const address = `${step.key}#${step.visit}@${step.epoch}`;
         const first = !seen.has(address);
 
         if (first) {
@@ -128,6 +132,7 @@ it.effect.prop(
 
         return yield* thinker.decide({
           agent: { model: "sol" },
+          epoch: 0,
           key: "gate",
           options: ["ship", "hold"],
           question: `pick:${choice}:${confidence / 100}`,

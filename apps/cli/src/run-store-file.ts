@@ -104,6 +104,8 @@ export const runStoreFile = (root: string) =>
         readPlan: (runId, version) =>
           readAs(PlanSchema, fileOf(runId, `plan.v${version}.json`)),
         readRun: (runId) => readAs(RunStateSchema, fileOf(runId, "run.json")),
+        replaceDocs: (runId, docs) =>
+          locked(writeAs(DocsSchema, fileOf(runId, "docs.json"), docs)),
         writeDoc: (runId, name, doc) =>
           locked(
             docsOf(runId).pipe(

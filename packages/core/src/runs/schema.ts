@@ -17,6 +17,7 @@ export const RunStatusSchema = Schema.Literals([
   "amendment-refused",
   "aborted",
   "stuck",
+  "failed",
 ]);
 
 export type RunStatus = typeof RunStatusSchema.Type;
@@ -25,6 +26,7 @@ export const terminalStatuses: ReadonlySet<RunStatus> = new Set([
   "done",
   "amendment-refused",
   "aborted",
+  "failed",
 ]);
 
 export const QueuedEventSchema = Schema.StructWithRest(
@@ -90,6 +92,9 @@ export const RunStateSchema = Schema.Struct({
   replies: Schema.Array(PendingReplySchema).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([]))
   ),
+  revision: Schema.NullOr(
+    Schema.Struct({ diverged: Schema.Boolean, from: Count })
+  ).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
   seeded: Schema.NullOr(Schema.Array(Schema.String)).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(null))
   ),
@@ -120,3 +125,12 @@ export const RunReportSchema = Schema.Struct({
 });
 
 export type RunReport = typeof RunReportSchema.Type;
+
+export const RevisionReportSchema = Schema.Struct({
+  dryRun: Schema.Boolean,
+  live: Schema.Array(Schema.String),
+  reused: Schema.Array(Schema.String),
+  run: RunReportSchema,
+});
+
+export type RevisionReport = typeof RevisionReportSchema.Type;

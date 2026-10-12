@@ -6,6 +6,7 @@ import {
 } from "@rat-king/mailbox-client";
 import type {
   IdentityValue,
+  LeaseFence,
   OpenedMessage,
   SealedMessage,
   SendOutcome,
@@ -60,15 +61,21 @@ export const decodeEnvelope = (text: string) =>
     Effect.mapError(() => failed("the stored envelope did not decode"))
   );
 
-const verdictOf = (outcome: SendOutcome): SendVerdictValue => {
+export const verdictOf = (outcome: SendOutcome): SendVerdictValue => {
   if (Predicate.isTagged(outcome, "Accepted")) {
     return SendVerdict.cases.Accepted.make({});
   }
 
   if (Predicate.isTagged(outcome, "Rejected")) {
-    return outcome.error.status === 409
-      ? SendVerdict.cases.Conflict.make({})
-      : SendVerdict.cases.Refused.make({ reason: outcome.error.reason });
+    const { error, reason, status } = outcome.error;
+
+    if (status === 409 && error === "Conflict") {
+      return SendVerdict.cases.Conflict.make({});
+    }
+
+    return error === "LeaseMismatch"
+      ? SendVerdict.cases.Uncertain.make({ reason })
+      : SendVerdict.cases.Refused.make({ reason });
   }
 
   if (Predicate.isTagged(outcome, "Uncertain")) {
@@ -97,6 +104,7 @@ export const openMailroom = (config: MailroomConfig) =>
 
     const names: Record<string, string> = {};
     const known = new Set<string>();
+    let fence: LeaseFence | undefined;
 
     const prepared = yield* prepare({
       endpoint: config.endpoint,
@@ -158,7 +166,9 @@ export const openMailroom = (config: MailroomConfig) =>
           onFailure: ({ reason }) =>
             Effect.succeed(SendVerdict.cases.Refused.make({ reason })),
           onSuccess: (decoded) =>
-            prepared.sendSealed(decoded).pipe(Effect.map(verdictOf)),
+            Effect.suspend(() => prepared.sendSealed(decoded, fence)).pipe(
+              Effect.map(verdictOf)
+            ),
         })
       );
 
@@ -192,29 +202,45 @@ export const openMailroom = (config: MailroomConfig) =>
       handler: (message: Inbound, seq: number) => Effect.Effect<void, E, R>,
       afterSeq: number
     ) =>
-      prepared.consume((message, { seq }) => handler(inboundOf(message), seq), {
-        afterSeq,
-        harness: {
-          $type: "sh.mschf.ratking.runtime.lease#other",
-          kind: "mischief-postbox",
-        },
-        onSkip: ({ reason, seq }) =>
-          Effect.logWarning(`Postbox skipped message ${seq}: ${reason}`),
-        unopenable: (event) =>
-          prepared.refresh(event.envelope.aad.senderDid).pipe(
-            Effect.tap(() =>
-              Effect.sync(() => known.add(event.envelope.aad.senderDid))
+      prepared
+        .consume((message, { seq }) => handler(inboundOf(message), seq), {
+          afterSeq,
+          harness: {
+            $type: "sh.mschf.ratking.runtime.lease#other",
+            kind: "mischief-postbox",
+          },
+          onLease: (lease) =>
+            Effect.sync(() => {
+              fence = {
+                did: config.identity.did,
+                generation: lease.generation,
+                leaseId: lease.leaseId,
+              };
+            }),
+          onSkip: ({ reason, seq }) =>
+            Effect.logWarning(`Postbox skipped message ${seq}: ${reason}`),
+          unopenable: (event) =>
+            prepared.refresh(event.envelope.aad.senderDid).pipe(
+              Effect.tap(() =>
+                Effect.sync(() => known.add(event.envelope.aad.senderDid))
+              ),
+              Effect.flatMap(() => prepared.open(event.envelope)),
+              Effect.matchEffect({
+                onFailure: (failure) =>
+                  Effect.logWarning(
+                    `Postbox could not open message ${event.seq} from ${event.envelope.aad.senderDid}: ${failure.reason}`
+                  ).pipe(Effect.as(Option.none())),
+                onSuccess: (opened) => Effect.succeed(Option.some(opened)),
+              })
             ),
-            Effect.flatMap(() => prepared.open(event.envelope)),
-            Effect.matchEffect({
-              onFailure: (failure) =>
-                Effect.logWarning(
-                  `Postbox could not open message ${event.seq} from ${event.envelope.aad.senderDid}: ${failure.reason}`
-                ).pipe(Effect.as(Option.none())),
-              onSuccess: (opened) => Effect.succeed(Option.some(opened)),
+        })
+        .pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              fence = undefined;
             })
-          ),
-      });
+          )
+        );
 
     return { consume, layer };
   });

@@ -21,6 +21,14 @@ const decodeVerdict = Schema.decodeUnknownOption(
 
 const NO_USAGE = { tokens: 0 };
 
+const refused = (key: string, why: string, options: readonly string[]) =>
+  Effect.fail(
+    new StepFailed({
+      key,
+      reason: `${why}. ${SHADOW_JUDGE} replies with JSON {"choice": "<option>"} or {"probabilities": {"<option>": 0..1}}, where each option is one of: ${options.join(", ")}`,
+    })
+  );
+
 export const shadowJudge = Layer.succeed(
   Judge,
   Judge.of({
@@ -30,20 +38,25 @@ export const shadowJudge = Layer.succeed(
         onSome: (body) =>
           Option.match(decodeVerdict(body), {
             onNone: () =>
-              Effect.fail(
-                new StepFailed({
-                  key,
-                  reason: `the shadow verdict did not decode. ${SHADOW_JUDGE} replies with JSON {"probabilities": {"<option>": 0..1}} or {"choice": "<option>"}, one of ${options.join(", ")}`,
-                })
-              ),
-            onSome: (verdict) =>
-              Effect.succeed({
-                probabilities:
-                  "choice" in verdict
-                    ? { [verdict.choice]: 1 }
-                    : verdict.probabilities,
-                usage: NO_USAGE,
-              }),
+              refused(key, "the shadow verdict did not decode", options),
+            onSome: (verdict) => {
+              const probabilities =
+                "choice" in verdict
+                  ? { [verdict.choice]: 1 }
+                  : verdict.probabilities;
+
+              const unknown = Object.keys(probabilities).filter(
+                (option) => !options.includes(option)
+              );
+
+              return unknown.length === 0
+                ? Effect.succeed({ probabilities, usage: NO_USAGE })
+                : refused(
+                    key,
+                    `the shadow verdict names ${unknown.map((option) => `"${option}"`).join(", ")}, which this judge does not offer`,
+                    options
+                  );
+            },
           }),
       }),
   })

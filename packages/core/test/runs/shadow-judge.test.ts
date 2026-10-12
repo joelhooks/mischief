@@ -114,3 +114,30 @@ it.effect(
       expect(garbled.docs["failed:gate"]).toBe(true);
     }).pipe(Effect.provide(RunStore.memory))
 );
+
+it.effect(
+  "a verdict naming an option the judge does not offer fails the step and lists the options it does",
+  () =>
+    Effect.gen(function* misMirrored() {
+      const runs = yield* host;
+
+      yield* runs.submit("mirrored", gatePlan);
+
+      const wrong = yield* runs.deliver({
+        body: '{"choice":"pass"}',
+        from: SHADOW_JUDGE,
+        replyTo: "mirrored/gate#1",
+      });
+
+      expect(wrong.status).not.toBe("done");
+      expect(wrong.docs["failed:gate"]).toBe(true);
+
+      const record = yield* RunStore.use((store) =>
+        store.readJournal("mirrored")
+      );
+
+      expect(JSON.stringify([...record.values()])).toContain(
+        'names \\"pass\\", which this judge does not offer'
+      );
+    }).pipe(Effect.provide(RunStore.memory))
+);

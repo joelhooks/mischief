@@ -26,6 +26,7 @@ it.effect(
         callers: "[]",
         commit: "0123456",
         did: "did:web:mischief.example.invalid",
+        judge: "shadow",
         mailbox: {
           did: "did:web:mailbox.example.invalid",
           url: "http://mailbox.example.invalid",

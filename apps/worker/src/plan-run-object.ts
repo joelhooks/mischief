@@ -10,9 +10,10 @@ import {
 } from "@mischief/core";
 import { makePlanRun, mailOutboxSql } from "@mischief/plan-run";
 import type { PlanRun as Runtime } from "@mischief/plan-run";
-import { fauxThinkerOptions, piThinker } from "@mischief/thinking";
+import { fauxThinkerOptions, jevJudge, piThinker } from "@mischief/thinking";
 import { DurableObject } from "cloudflare:workers";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Redacted } from "effect";
+import { FetchHttpClient } from "effect/http";
 
 import { OBJECT_HEADER, postboxMail, rememberObject } from "./postbox-mail.js";
 import { POSTBOX_NAME } from "./postbox-object.js";
@@ -27,11 +28,24 @@ export interface Env {
   readonly MISCHIEF_MODEL: string;
   readonly MISCHIEF_GUARD_MS: string;
   readonly MISCHIEF_JUDGE?: string;
+  readonly MISCHIEF_JEV_KEY?: string;
   readonly MISCHIEF_IDENTITY?: string;
   readonly MISCHIEF_MAILBOX_URL?: string;
   readonly MISCHIEF_MAILBOX_DID?: string;
   readonly POSTBOX: DurableObjectNamespace<Postbox>;
 }
+
+const judgeFor = (env: Env) => {
+  const key = env.MISCHIEF_JEV_KEY ?? "";
+
+  if (env.MISCHIEF_JUDGE === "jev" && key !== "") {
+    return jevJudge({ apiKey: Redacted.make(key) }).pipe(
+      Layer.provide(FetchHttpClient.layer)
+    );
+  }
+
+  return env.MISCHIEF_JUDGE === "shadow" ? shadowJudge : Judge.unwired;
+};
 
 const operator = Layer.succeed(
   Operator,
@@ -81,7 +95,7 @@ export class PlanRun extends DurableObject<Env> {
       guardMs: Number(env.MISCHIEF_GUARD_MS),
       services: Layer.mergeAll(
         thinker,
-        env.MISCHIEF_JUDGE === "shadow" ? shadowJudge : Judge.unwired,
+        judgeFor(env),
         env.MISCHIEF_IDENTITY === undefined || env.MISCHIEF_IDENTITY === ""
           ? mailOutboxSql(ctx.storage)
           : postboxMail(ctx.storage, () =>

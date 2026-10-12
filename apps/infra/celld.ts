@@ -69,10 +69,16 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         Config.String("MISCHIEF_BINDINGS_FILE")
       );
 
+      const judge = yield* Config.Literals(
+        ["jev", "shadow"],
+        "MISCHIEF_JUDGE"
+      ).pipe(Config.withDefault("shadow" as const));
+
       const prepared = yield* buildWorker({
         callers,
         commit,
         did,
+        judge,
         mailbox,
         version,
       });
@@ -133,7 +139,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
                   onNone: () => ({}),
                   onSome: (file) => ({
                     bindingsFile: file,
-                    secretNames: ["MISCHIEF_IDENTITY"],
+                    secretNames: ["MISCHIEF_IDENTITY", "MISCHIEF_JEV_KEY"],
                   }),
                 }),
                 internalUrl,

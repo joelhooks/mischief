@@ -25,6 +25,7 @@ export interface BuildInput {
   readonly callers: string;
   readonly commit: string;
   readonly did: string;
+  readonly judge: "jev" | "shadow";
   readonly mailbox: { readonly did: string; readonly url: string };
   readonly version: string;
 }
@@ -33,6 +34,7 @@ export const buildWorker = ({
   callers,
   commit,
   did,
+  judge,
   mailbox,
   version,
 }: BuildInput) =>
@@ -48,7 +50,7 @@ export const buildWorker = ({
           MISCHIEF_CALLERS: callers,
           MISCHIEF_DID: did,
           MISCHIEF_GUARD_MS: "30000",
-          MISCHIEF_JUDGE: "shadow",
+          MISCHIEF_JUDGE: judge,
           MISCHIEF_MAILBOX_DID: mailbox.did,
           MISCHIEF_MAILBOX_URL: mailbox.url,
           MISCHIEF_MODEL: "faux",

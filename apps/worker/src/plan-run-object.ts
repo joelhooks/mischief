@@ -14,6 +14,9 @@ import { fauxThinkerOptions, piThinker } from "@mischief/thinking";
 import { DurableObject } from "cloudflare:workers";
 import { Effect, Layer } from "effect";
 
+import { OBJECT_HEADER, postboxMail, rememberObject } from "./postbox-mail.js";
+import { POSTBOX_NAME } from "./postbox-object.js";
+import type { Postbox } from "./postbox-object.js";
 import type { ServiceTokenLedger } from "./service-tokens.js";
 
 export interface Env {
@@ -24,6 +27,10 @@ export interface Env {
   readonly MISCHIEF_MODEL: string;
   readonly MISCHIEF_GUARD_MS: string;
   readonly MISCHIEF_JUDGE?: string;
+  readonly MISCHIEF_IDENTITY?: string;
+  readonly MISCHIEF_MAILBOX_URL?: string;
+  readonly MISCHIEF_MAILBOX_DID?: string;
+  readonly POSTBOX: DurableObjectNamespace<Postbox>;
 }
 
 const operator = Layer.succeed(
@@ -75,7 +82,11 @@ export class PlanRun extends DurableObject<Env> {
       services: Layer.mergeAll(
         thinker,
         env.MISCHIEF_JUDGE === "shadow" ? shadowJudge : Judge.unwired,
-        mailOutboxSql(ctx.storage),
+        env.MISCHIEF_IDENTITY === undefined || env.MISCHIEF_IDENTITY === ""
+          ? mailOutboxSql(ctx.storage)
+          : postboxMail(ctx.storage, () =>
+              env.POSTBOX.get(env.POSTBOX.idFromName(POSTBOX_NAME))
+            ),
         operator
       ),
       storage: ctx.storage,
@@ -83,6 +94,8 @@ export class PlanRun extends DurableObject<Env> {
   }
 
   override async fetch(request: Request) {
+    rememberObject(this.ctx.storage, request.headers.get(OBJECT_HEADER));
+
     return await this.runtime.fetch(request);
   }
 

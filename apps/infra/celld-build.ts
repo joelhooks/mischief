@@ -11,10 +11,12 @@ export const declaration: typeof Declaration.Type = {
     bindings: [
       { class_name: "PlanRun", name: "PLAN_RUN" },
       { class_name: "ServiceTokenLedger", name: "SERVICE_TOKENS" },
+      { class_name: "Postbox", name: "POSTBOX" },
     ],
   },
   migrations: [
     { new_sqlite_classes: ["PlanRun", "ServiceTokenLedger"], tag: "v1" },
+    { new_sqlite_classes: ["Postbox"], tag: "v2" },
   ],
   name: INSTANCE,
 };
@@ -23,10 +25,17 @@ export interface BuildInput {
   readonly callers: string;
   readonly commit: string;
   readonly did: string;
+  readonly mailbox: { readonly did: string; readonly url: string };
   readonly version: string;
 }
 
-export const buildWorker = ({ callers, commit, did, version }: BuildInput) =>
+export const buildWorker = ({
+  callers,
+  commit,
+  did,
+  mailbox,
+  version,
+}: BuildInput) =>
   Effect.gen(function* buildMischiefWorker() {
     const path = yield* Path.Path;
 
@@ -40,6 +49,8 @@ export const buildWorker = ({ callers, commit, did, version }: BuildInput) =>
           MISCHIEF_DID: did,
           MISCHIEF_GUARD_MS: "30000",
           MISCHIEF_JUDGE: "shadow",
+          MISCHIEF_MAILBOX_DID: mailbox.did,
+          MISCHIEF_MAILBOX_URL: mailbox.url,
           MISCHIEF_MODEL: "faux",
         },
         version,

@@ -5,11 +5,14 @@ import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
 import { Effect, Layer, Option, Result, Schema } from "effect";
 
 import type { Env } from "./plan-run-object.js";
+import { OBJECT_HEADER } from "./postbox-mail.js";
 import { replayLedger } from "./replay-ledger.js";
 import { authenticate, NSID_PREFIX } from "./service-auth.js";
 import type { AuthRefused } from "./service-auth.js";
 
 export { PlanRun } from "./plan-run-object.js";
+
+export { Postbox } from "./postbox-object.js";
 
 export { ServiceTokenLedger } from "./service-tokens.js";
 
@@ -114,7 +117,10 @@ export default {
     return await run.fetch(
       new Request(request.url, {
         body,
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          [OBJECT_HEADER]: `${caller.success.iss}/${runId.value}`,
+        },
         method: request.method,
       })
     );

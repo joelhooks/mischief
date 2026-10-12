@@ -26,6 +26,10 @@ it.effect(
         callers: "[]",
         commit: "0123456",
         did: "did:web:mischief.example.invalid",
+        mailbox: {
+          did: "did:web:mailbox.example.invalid",
+          url: "http://mailbox.example.invalid",
+        },
         version: "0.1.0",
       });
 
@@ -37,21 +41,25 @@ it.effect(
       expect(configuration.durable_objects.bindings).toEqual([
         { class_name: "PlanRun", name: "PLAN_RUN" },
         { class_name: "ServiceTokenLedger", name: "SERVICE_TOKENS" },
+        { class_name: "Postbox", name: "POSTBOX" },
       ]);
       expect(
         configuration.migrations.flatMap(
           ({ new_sqlite_classes }) => new_sqlite_classes
         )
-      ).toEqual(["PlanRun", "ServiceTokenLedger"]);
+      ).toEqual(["PlanRun", "ServiceTokenLedger", "Postbox"]);
       expect(Object.keys(configuration.vars).toSorted()).toEqual([
         "MISCHIEF_CALLERS",
         "MISCHIEF_DID",
         "MISCHIEF_GUARD_MS",
         "MISCHIEF_JUDGE",
+        "MISCHIEF_MAILBOX_DID",
+        "MISCHIEF_MAILBOX_URL",
         "MISCHIEF_MODEL",
       ]);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPlanRun\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bServiceTokenLedger\b/u);
+      expect(prepared.bundle).toMatch(/export \{[^}]*\bPostbox\b/u);
       expect(prepared.bundle).not.toMatch(/from "node:/u);
     }).pipe(Effect.provide(NodeServices.layer)),
   60_000

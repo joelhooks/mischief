@@ -58,11 +58,13 @@ const worker :Workerd.Worker = (
   durableObjectNamespaces = [
     (className = "PlanRun", uniqueKey = "mischief-plan-run", enableSql = true),
     (className = "ServiceTokenLedger", uniqueKey = "mischief-service-tokens", enableSql = true),
+    (className = "Postbox", uniqueKey = "mischief-postbox", enableSql = true),
   ],
   durableObjectStorage = (localDisk = "disk"),
   bindings = [
     (name = "PLAN_RUN", durableObjectNamespace = "PlanRun"),
     (name = "SERVICE_TOKENS", durableObjectNamespace = "ServiceTokenLedger"),
+    (name = "POSTBOX", durableObjectNamespace = "Postbox"),
     (name = "MISCHIEF_DID", text = "${MISCHIEF_DID}"),
     (name = "MISCHIEF_CALLERS", text = ${JSON.stringify(JSON.stringify(callers))}),
     (name = "MISCHIEF_MODEL", text = "faux"),

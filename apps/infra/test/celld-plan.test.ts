@@ -113,10 +113,14 @@ it.effect(
         Effect.provide(
           ConfigProvider.layer(
             ConfigProvider.fromEnvRecord({
+              MISCHIEF_BINDINGS_FILE:
+                "/home/node/.config/mischief/bindings.json",
               MISCHIEF_CALLERS_FILE: callers,
               MISCHIEF_CELLD_NODE: "node",
               MISCHIEF_COMMIT: "0123456",
               MISCHIEF_DID: "did:web:mischief.example.invalid",
+              MISCHIEF_MAILBOX_DID: "did:web:mailbox.example.invalid",
+              MISCHIEF_MAILBOX_URL: "http://mailbox.example.invalid",
               MISCHIEF_VERSION: "0.1.0",
               RATS_NEST_INSTANCE: inventory,
             })
@@ -156,6 +160,7 @@ it.effect(
       }
 
       expect(text).not.toContain("CREDENTIAL");
+      expect(text).not.toMatch(/"d":/u);
 
       expect(text).not.toContain("Rat King");
 
@@ -179,12 +184,15 @@ it.effect(
 
       expect(Object.keys(slice.Slice ?? {})).not.toContain("OOMPolicy");
 
-      for (const fqn of ["store/server", "celld/node"]) {
+      for (const [fqn, memoryMax] of [
+        ["store/server", "2G"],
+        ["celld/node", "1.5G"],
+      ] as const) {
         const unit = yield* sectionsOf(fqn);
 
         expect([fqn, unit.Service]).toMatchObject([
           fqn,
-          { CPUQuota: "100%", MemoryMax: "1.5G", OOMPolicy: "continue" },
+          { CPUQuota: "100%", MemoryMax: memoryMax, OOMPolicy: "continue" },
         ]);
 
         expect(unit.Unit?.Description).toMatch(/^Mischief /u);

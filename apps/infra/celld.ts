@@ -10,7 +10,7 @@ import {
 import type { DeploymentProps, HostShell } from "@rat-king/alchemy-nest";
 import { localState, Stack } from "alchemy";
 import * as Output from "alchemy/Output";
-import { Config, Effect, Layer } from "effect";
+import { Config, Effect, Layer, Option } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 import { callersFromConfig } from "./callers.ts";
@@ -24,7 +24,7 @@ export const UNIT_LIMITS = {
   celld: { cpuQuota: "100%", memoryMax: "1.5G", oomPolicy: "continue" },
   seaweed: {
     cpuQuota: "100%",
-    memoryMax: "1.5G",
+    memoryMax: "2G",
     oomPolicy: "continue",
     volumeMax: 32,
   },
@@ -60,7 +60,22 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
 
       const { callers, did } = yield* callersFromConfig;
 
-      const prepared = yield* buildWorker({ callers, commit, did, version });
+      const mailbox = {
+        did: yield* Config.String("MISCHIEF_MAILBOX_DID"),
+        url: yield* Config.String("MISCHIEF_MAILBOX_URL"),
+      };
+
+      const bindingsFile = yield* Config.option(
+        Config.String("MISCHIEF_BINDINGS_FILE")
+      );
+
+      const prepared = yield* buildWorker({
+        callers,
+        commit,
+        did,
+        mailbox,
+        version,
+      });
 
       const slice = yield* ObjectStore.Slice({
         ...UNIT_LIMITS.slice,
@@ -92,7 +107,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
       const [worker, configuration] = yield* stageDeploymentFiles(
         host.home,
         prepared,
-        true,
+        Option.isNone(bindingsFile),
         cells.layout,
         bucket.configuration
       );
@@ -114,6 +129,13 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
                 binary: `${cells.layout.bin}/celld`,
                 directory: `${configurationRoot}/deployment`,
                 environmentFile: `${cells.layout.configuration}/celld.env`,
+                ...Option.match(bindingsFile, {
+                  onNone: () => ({}),
+                  onSome: (file) => ({
+                    bindingsFile: file,
+                    secretNames: ["MISCHIEF_IDENTITY"],
+                  }),
+                }),
                 internalUrl,
                 workerUrl,
               }) satisfies DeploymentProps

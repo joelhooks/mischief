@@ -8,6 +8,7 @@ import { fauxThinkerOptions, piThinker } from "@mischief/thinking";
 import { DurableObject } from "cloudflare:workers";
 import { Effect, Layer } from "effect";
 
+import { faultHold, faultHoldSeconds } from "./fault-hold.js";
 import type { ServiceTokenLedger } from "./service-tokens.js";
 
 export interface Env {
@@ -17,6 +18,7 @@ export interface Env {
   readonly MISCHIEF_CALLERS?: string;
   readonly MISCHIEF_MODEL: string;
   readonly MISCHIEF_GUARD_MS: string;
+  readonly MISCHIEF_FAULT_HOLD_S?: string;
 }
 
 const operator = Layer.succeed(
@@ -68,7 +70,9 @@ export class PlanRun extends DurableObject<Env> {
       services: Layer.mergeAll(
         thinker,
         Judge.unwired,
-        mailOutboxSql(ctx.storage),
+        faultHold(faultHoldSeconds(env.MISCHIEF_FAULT_HOLD_S))(
+          mailOutboxSql(ctx.storage)
+        ),
         operator
       ),
       storage: ctx.storage,

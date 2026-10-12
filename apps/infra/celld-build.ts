@@ -23,24 +23,38 @@ export interface BuildInput {
   readonly callers: string;
   readonly commit: string;
   readonly did: string;
+  readonly faultHoldSeconds?: number;
   readonly version: string;
 }
 
-export const buildWorker = ({ callers, commit, did, version }: BuildInput) =>
+export const buildWorker = ({
+  callers,
+  commit,
+  did,
+  faultHoldSeconds,
+  version,
+}: BuildInput) =>
   Effect.gen(function* buildMischiefWorker() {
     const path = yield* Path.Path;
+
+    const plain = {
+      MISCHIEF_CALLERS: callers,
+      MISCHIEF_DID: did,
+      MISCHIEF_GUARD_MS: "30000",
+      MISCHIEF_MODEL: "faux",
+    };
+
+    const vars =
+      faultHoldSeconds === undefined
+        ? plain
+        : { ...plain, MISCHIEF_FAULT_HOLD_S: String(faultHoldSeconds) };
 
     return yield* prepareDeployment(
       path.resolve(import.meta.dirname, "../worker/src/worker.ts"),
       declaration,
       {
         commit,
-        vars: {
-          MISCHIEF_CALLERS: callers,
-          MISCHIEF_DID: did,
-          MISCHIEF_GUARD_MS: "30000",
-          MISCHIEF_MODEL: "faux",
-        },
+        vars,
         version,
       }
     );

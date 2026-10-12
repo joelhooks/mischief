@@ -43,7 +43,8 @@ const configOf = (
   dir: string,
   port: number,
   guardMs: number,
-  callers: DocumentsValue
+  callers: DocumentsValue,
+  faultHold: number | undefined
 ) => `using Workerd = import "/workerd/workerd.capnp";
 const config :Workerd.Config = (
   services = [
@@ -66,7 +67,12 @@ const worker :Workerd.Worker = (
     (name = "MISCHIEF_DID", text = "${MISCHIEF_DID}"),
     (name = "MISCHIEF_CALLERS", text = ${JSON.stringify(JSON.stringify(callers))}),
     (name = "MISCHIEF_MODEL", text = "faux"),
-    (name = "MISCHIEF_GUARD_MS", text = "${guardMs}"),
+    (name = "MISCHIEF_GUARD_MS", text = "${guardMs}"),${
+      faultHold === undefined
+        ? ""
+        : `
+    (name = "MISCHIEF_FAULT_HOLD_S", text = "${faultHold}"),`
+    }
   ],
 );
 `;
@@ -75,7 +81,11 @@ const appDir = Path.Path.use(({ resolve }) =>
   Effect.succeed(resolve(import.meta.dirname, ".."))
 );
 
-export const prepare = (guardMs: number, others: readonly Caller[] = []) =>
+export const prepare = (
+  guardMs: number,
+  others: readonly Caller[] = [],
+  faultHold?: number
+) =>
   Effect.gen(function* prepareWorkerd() {
     const driver = yield* freshCaller("driver");
     const fs = yield* FileSystem.FileSystem;
@@ -95,7 +105,8 @@ export const prepare = (guardMs: number, others: readonly Caller[] = []) =>
         dir,
         port,
         guardMs,
-        [driver, ...others].map(({ document }) => document)
+        [driver, ...others].map(({ document }) => document),
+        faultHold
       )
     );
 

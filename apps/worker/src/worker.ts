@@ -4,6 +4,7 @@ import { Documents, staticResolver } from "@rat-king/mailbox-client/auth";
 import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
 import { Effect, Layer, Option, Result, Schema } from "effect";
 
+import { faultHoldSeconds } from "./fault-hold.js";
 import type { Env } from "./plan-run-object.js";
 import { replayLedger } from "./replay-ledger.js";
 import { authenticate, NSID_PREFIX } from "./service-auth.js";
@@ -63,6 +64,10 @@ export default {
     ) {
       return Response.json({
         commit: __BUNDLE_COMMIT__,
+        ...Option.match(faultHoldSeconds(env.MISCHIEF_FAULT_HOLD_S), {
+          onNone: () => ({}),
+          onSome: (faultDelay) => ({ faultDelay }),
+        }),
         version: __BUNDLE_VERSION__,
       });
     }

@@ -1219,7 +1219,7 @@ export const driveSession = (
           return false;
         }
 
-        yield* saved("running");
+        yield* saved(statusAfter(execution.view().status));
 
         yield* execution.flush();
 

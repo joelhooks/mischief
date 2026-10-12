@@ -126,6 +126,7 @@ const WorldArbitrary = Arbitrary.all({
     { maxLength: 6 }
   ),
   shipCheck: judgements,
+  startAtEnd: Arbitrary.schema(Schema.Boolean),
   thinkThreshold: Arbitrary.schema(Schema.Literals(["none", 0.5, 0.95])),
 });
 
@@ -213,6 +214,7 @@ const planFor = (world: World) => {
     },
     machine: {
       ...launchNotePlan.machine,
+      initial: world.startAtEnd ? "shipped" : launchNotePlan.machine.initial,
       states: {
         ...launchNotePlan.machine.states,
         assess:

@@ -20,6 +20,17 @@ export const PORT_BASE = 28_000;
 
 export const DATA_ROOT = "/data/joel/mischief";
 
+export const UNIT_LIMITS = {
+  celld: { cpuQuota: "100%", memoryMax: "1.5G", oomPolicy: "continue" },
+  seaweed: {
+    cpuQuota: "100%",
+    memoryMax: "1.5G",
+    oomPolicy: "continue",
+    volumeMax: 32,
+  },
+  slice: { cpuQuota: "100%", memoryHigh: "2.5G", memoryMax: "3G" },
+} as const;
+
 export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
   Stack(
     "mischief-celld",
@@ -52,34 +63,27 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
       const prepared = yield* buildWorker({ callers, commit, did, version });
 
       const slice = yield* ObjectStore.Slice({
-        cpuQuota: "100%",
+        ...UNIT_LIMITS.slice,
         home: host.home,
         instance: INSTANCE,
-        memoryHigh: "2.5G",
-        memoryMax: "3G",
       });
 
       const bucket = yield* ObjectStore.Bucket("store", {
-        cpuQuota: "100%",
+        ...UNIT_LIMITS.seaweed,
         dataRoot: DATA_ROOT,
         host,
         instance: INSTANCE,
-        memoryMax: "1.5G",
         name: "mischief-cells",
-        oomPolicy: "continue",
         portBase: PORT_BASE,
         purgeOnDelete: false,
         slice: slice.sha256,
-        volumeMax: 32,
       });
 
       const cells = yield* Celld.Node("celld", {
+        ...UNIT_LIMITS.celld,
         bucket,
-        cpuQuota: "100%",
         host,
         instance: INSTANCE,
-        memoryMax: "1.5G",
-        oomPolicy: "continue",
         portBase: PORT_BASE,
         purgeOnDelete: false,
         workerIPv4: host.tailnetIPv4,

@@ -10,14 +10,23 @@ import * as Plan from "alchemy/Plan";
 import { evalStack } from "alchemy/Stack";
 import type { State } from "alchemy/State";
 import { localState } from "alchemy/State/LocalState";
-import { Cause, Config, Effect, FileSystem, Layer, Option } from "effect";
+import {
+  Cause,
+  Config,
+  Effect,
+  FileSystem,
+  Layer,
+  Option,
+  Path as Paths,
+} from "effect";
 import type { Path } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 import { cloudflare } from "./alchemy.run.ts";
-import { liveServices, STAGE, teardownProbe } from "./celld-ops.ts";
+import { liveNode, liveServices, STAGE, teardownProbe } from "./celld-ops.ts";
 import { celldStack } from "./celld.ts";
 import { reviewRows } from "./plan-review.ts";
+import { mischiefUnits } from "./units.ts";
 
 const refuse = (reason: string) => Effect.die(new Error(reason));
 
@@ -182,3 +191,20 @@ export const probeCelld = teardownProbe.pipe(
   ),
   Effect.provide(liveServices)
 );
+
+export const renderUnitsCelld = Effect.gen(function* renderUnitsCelld() {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Paths.Path;
+  const out = path.resolve(yield* Config.String("MISCHIEF_UNITS_DIR"));
+  const units = mischiefUnits(yield* liveNode.pipe(Effect.orDie));
+
+  yield* fs.makeDirectory(out, { mode: 0o700, recursive: true });
+
+  yield* Effect.all(
+    units.map((unit) =>
+      fs
+        .writeFileString(path.join(out, path.basename(unit.path)), unit.text)
+        .pipe(Effect.andThen(Effect.log(`UNIT ${unit.path}`)))
+    )
+  );
+}).pipe(Effect.orDie);

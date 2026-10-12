@@ -11,11 +11,12 @@
     "destroy-plan": "jiti plan.ts destroy-plan",
     "deploy": "jiti plan.ts deploy",
     "destroy": "jiti plan.ts destroy",
-    "probe": "jiti plan.ts probe"
+    "probe": "jiti plan.ts probe",
+    "render-units": "jiti plan.ts render-units"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.1",
-    "@rat-king/alchemy-nest": "github:joelhooks/rat-king#0c86041133507283d0055b4bcc591d651067b03a&path:/packages/alchemy-nest",
+    "@rat-king/alchemy-nest": "github:joelhooks/rat-king#4688e64dfebf414a52fd09312713e93ddbce549e&path:/packages/alchemy-nest",
     "@rat-king/mailbox-client": "github:joelhooks/rat-king#f20dd1bafceb2b6beb192027878f5303738525fe&path:/packages/mailbox-client/bundle",
     "alchemy": "2.0.0-beta.81",
     "effect": "4.0.1"

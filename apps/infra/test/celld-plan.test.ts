@@ -15,6 +15,7 @@ import {
 import { celldStack } from "../celld.ts";
 import { reviewRows } from "../plan-review.ts";
 import { planWith } from "../plan-runtime.ts";
+import { mischiefUnits } from "../units.ts";
 
 const TAILNET = "100.64.0.7";
 
@@ -32,6 +33,23 @@ const Units = Schema.Struct({
     })
   ),
 });
+
+const sectionsIn = (text: string) =>
+  text
+    .trim()
+    .split(/\n\s*\n/u)
+    .map((block) => {
+      const [header = "", ...lines] = block.split("\n");
+
+      return {
+        lines: lines.map((line) => {
+          const at = line.indexOf("=");
+
+          return [line.slice(0, at), line.slice(at + 1)];
+        }),
+        name: header.slice(1, -1),
+      };
+    });
 
 const CALLERS = [
   {
@@ -184,6 +202,43 @@ it.effect(
         ["store/bucket", false],
         ["celld/data", false],
       ]);
+
+      const rendered = mischiefUnits({
+        dataRoot: "/data/planner",
+        home: HOME,
+        ssh: "planner@node",
+        tailnetIPv4: TAILNET,
+      });
+
+      expect(rendered.map(({ path: unit }) => path.basename(unit))).toEqual([
+        "mischief.slice",
+        "mischief-celld.service",
+        "mischief-seaweedfs.service",
+        "mischief-storage-retention.service",
+        "mischief-storage-retention.timer",
+      ]);
+
+      for (const [fqn, file] of [
+        ["mischief-slice", "mischief.slice"],
+        ["celld/node", "mischief-celld.service"],
+        ["store/server", "mischief-seaweedfs.service"],
+      ] as const) {
+        const fromPlan = yield* Schema.decodeUnknownEffect(Units)(
+          rows.find((row) => row.fqn === fqn)?.props
+        );
+
+        const fromRender =
+          rendered.find(({ path: unit }) => unit.endsWith(`/${file}`))?.text ??
+          "";
+
+        expect([fqn, sectionsIn(fromRender)]).toStrictEqual([
+          fqn,
+          fromPlan.sections.map(({ lines, name }) => ({
+            lines: lines.map(([key, value]) => [key, value]),
+            name,
+          })),
+        ]);
+      }
 
       const configuration = rows.find(
         ({ fqn }) => fqn === "mischief-deployment-stage-configuration"

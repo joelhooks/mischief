@@ -13,10 +13,19 @@ const program = Effect.gen(function* plan() {
   }
 
   const action = yield* Schema.decodeUnknownEffect(
-    Schema.Literals(["plan", "deploy", "destroy-plan", "destroy", "probe"])
+    Schema.Literals([
+      "plan",
+      "deploy",
+      "destroy-plan",
+      "destroy",
+      "probe",
+      "render-units",
+    ])
   )(process.argv[2] ?? "plan").pipe(
     Effect.catch(() =>
-      refuse("unknown action. Use plan, deploy, destroy-plan, destroy or probe")
+      refuse(
+        "unknown action. Use plan, deploy, destroy-plan, destroy, probe or render-units"
+      )
     )
   );
 
@@ -106,6 +115,7 @@ const program = Effect.gen(function* plan() {
     Match.when("destroy-plan", () => runtime.destroyPlanCelld),
     Match.when("destroy", () => runtime.destroyCelld),
     Match.when("probe", () => runtime.probeCelld),
+    Match.when("render-units", () => runtime.renderUnitsCelld),
     Match.exhaustive
   );
 });

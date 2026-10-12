@@ -299,8 +299,8 @@ importers:
         specifier: 4.0.1
         version: 4.0.1(effect@4.0.1)(redis@6.2.1)
       '@rat-king/alchemy-nest':
-        specifier: github:joelhooks/rat-king#0c86041133507283d0055b4bcc591d651067b03a&path:/packages/alchemy-nest
-        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/0c86041133507283d0055b4bcc591d651067b03a#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
+        specifier: github:joelhooks/rat-king#4688e64dfebf414a52fd09312713e93ddbce549e&path:/packages/alchemy-nest
+        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/4688e64dfebf414a52fd09312713e93ddbce549e#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
       '@rat-king/mailbox-client':
         specifier: github:joelhooks/rat-king#f20dd1bafceb2b6beb192027878f5303738525fe&path:/packages/mailbox-client/bundle
         version: https://codeload.github.com/joelhooks/rat-king/tar.gz/f20dd1bafceb2b6beb192027878f5303738525fe#path:/packages/mailbox-client/bundle
@@ -1965,8 +1965,8 @@ packages:
       yauzl:
         optional: true
 
-  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/0c86041133507283d0055b4bcc591d651067b03a#path:/packages/alchemy-nest':
-    resolution: {gitHosted: true, integrity: sha512-Ji6YFa0g0yxgeCH1h3x8LD8f78Zdr0HgM/C4F0WZ8ZGal23fQx7FT8jwwxMqyZF0PAMjfk5zwsRL3XNV2p1lWA==, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/0c86041133507283d0055b4bcc591d651067b03a}
+  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/4688e64dfebf414a52fd09312713e93ddbce549e#path:/packages/alchemy-nest':
+    resolution: {gitHosted: true, integrity: sha512-QpE5t4hB78aslfU8fWwz0WybpU56Q3WFsrLbqwD2OowEax9rmYw+dyhsowBdZI1r1+kvpYweknbLkQ5+vSRhPg==, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/4688e64dfebf414a52fd09312713e93ddbce549e}
     version: 0.1.0
 
   '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/f20dd1bafceb2b6beb192027878f5303738525fe#path:/packages/mailbox-client/bundle':
@@ -4963,7 +4963,7 @@ snapshots:
     optionalDependencies:
       yauzl: 3.4.0
 
-  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/0c86041133507283d0055b4bcc591d651067b03a#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)':
+  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/4688e64dfebf414a52fd09312713e93ddbce549e#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)':
     dependencies:
       alchemy: 2.0.0-beta.81(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.1)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
       effect: 4.0.1

@@ -155,21 +155,3 @@ it.live.prop(
     }).pipe(Effect.scoped, Effect.provide(services)),
   { arbitrary: { runs: 4 }, timeout: 120_000 }
 );
-
-it.live(
-  "a faulted bundle says so on its version route",
-  () =>
-    Effect.gen(function* faulted() {
-      const world = yield* prepare(30_000, [], 150);
-
-      yield* start(world);
-
-      expect(
-        yield* getJson(world, "/.well-known/rat-king/version")
-      ).toStrictEqual({
-        body: { commit: "local", faultDelay: 150, version: "local" },
-        status: 200,
-      });
-    }).pipe(Effect.scoped, Effect.provide(services)),
-  120_000
-);

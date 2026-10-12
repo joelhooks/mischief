@@ -55,24 +55,3 @@ it.effect(
     }).pipe(Effect.provide(NodeServices.layer)),
   60_000
 );
-
-it.effect(
-  "only a faulted build carries the send hold var",
-  () =>
-    Effect.gen(function* faulted() {
-      const prepared = yield* buildWorker({
-        callers: "[]",
-        commit: "0123456",
-        did: "did:web:mischief.example.invalid",
-        faultHoldSeconds: 150,
-        version: "0.1.0",
-      });
-
-      const configuration = yield* Schema.decodeUnknownEffect(
-        Schema.fromJsonString(ConfigurationSchema)
-      )(prepared.configuration);
-
-      expect(configuration.vars.MISCHIEF_FAULT_HOLD_S).toBe("150");
-    }).pipe(Effect.provide(NodeServices.layer)),
-  60_000
-);

@@ -10,7 +10,7 @@ import {
 import type { DeploymentProps, HostShell } from "@rat-king/alchemy-nest";
 import { localState, Stack } from "alchemy";
 import * as Output from "alchemy/Output";
-import { Config, Effect, Layer, Option } from "effect";
+import { Config, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 import { callersFromConfig } from "./callers.ts";
@@ -60,20 +60,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
 
       const { callers, did } = yield* callersFromConfig;
 
-      const faultHoldSeconds = yield* Config.Int("MISCHIEF_FAULT_HOLD_S").pipe(
-        Config.option
-      );
-
-      const prepared = yield* buildWorker({
-        callers,
-        commit,
-        did,
-        ...Option.match(faultHoldSeconds, {
-          onNone: () => ({}),
-          onSome: (seconds) => ({ faultHoldSeconds: seconds }),
-        }),
-        version,
-      });
+      const prepared = yield* buildWorker({ callers, commit, did, version });
 
       const slice = yield* ObjectStore.Slice({
         ...UNIT_LIMITS.slice,

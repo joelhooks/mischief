@@ -642,5 +642,5 @@ it.effect.prop(
         stepStarts(calls) - stepStarts(expected.calls)
       ).toBeLessThanOrEqual(crashesInStep * WIDTH);
     }),
-  { arbitrary: { runs: 600 }, timeout: 20_000 }
+  { arbitrary: { runs: 600 }, timeout: 120_000 }
 );

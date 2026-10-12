@@ -4,6 +4,7 @@ import { offlineLayer } from "@rat-king/alchemy-nest/offline";
 import { inMemoryState } from "alchemy/State";
 import {
   ConfigProvider,
+  Crypto,
   Effect,
   FileSystem,
   Layer,
@@ -15,7 +16,7 @@ import {
 import { celldStack } from "../celld.ts";
 import { reviewRows } from "../plan-review.ts";
 import { planWith } from "../plan-runtime.ts";
-import { mischiefUnits } from "../units.ts";
+import { mischiefMaintenanceScript, mischiefUnits } from "../units.ts";
 
 const TAILNET = "100.64.0.7";
 
@@ -239,6 +240,41 @@ it.effect(
           })),
         ]);
       }
+
+      const script = mischiefMaintenanceScript({
+        dataRoot: "/data/planner",
+        home: HOME,
+        ssh: "planner@node",
+        tailnetIPv4: TAILNET,
+      });
+
+      const installed = yield* Schema.decodeUnknownEffect(
+        Schema.Struct({
+          content: Schema.Struct({
+            length: Schema.Number,
+            sha256: Schema.String,
+          }),
+        })
+      )(rows.find(({ fqn }) => fqn === "store/storage-maintenance")?.props);
+
+      const digest = yield* Crypto.Crypto.use((crypto) =>
+        crypto.digest("SHA-256", new TextEncoder().encode(script.text))
+      ).pipe(Effect.provide(NodeCrypto.layer));
+
+      expect(installed.content).toStrictEqual({
+        length: script.text.length,
+        sha256: Buffer.from(digest).toString("hex"),
+      });
+
+      expect(script.text).not.toMatch(/\b1(?:8888|9333)\b/u);
+
+      expect(
+        rendered.find(({ path: unit }) =>
+          unit.endsWith("/mischief-storage-retention.service")
+        )?.text
+      ).toMatch(
+        /retain --instance "mischief" --master http:\/\/127\.0\.0\.1:28004 --filer http:\/\/127\.0\.0\.1:28002 /u
+      );
 
       const configuration = rows.find(
         ({ fqn }) => fqn === "mischief-deployment-stage-configuration"

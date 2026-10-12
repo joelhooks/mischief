@@ -26,7 +26,7 @@ import { cloudflare } from "./alchemy.run.ts";
 import { liveNode, liveServices, STAGE, teardownProbe } from "./celld-ops.ts";
 import { celldStack } from "./celld.ts";
 import { reviewRows } from "./plan-review.ts";
-import { mischiefUnits } from "./units.ts";
+import { mischiefMaintenanceScript, mischiefUnits } from "./units.ts";
 
 const refuse = (reason: string) => Effect.die(new Error(reason));
 
@@ -196,7 +196,9 @@ export const renderUnitsCelld = Effect.gen(function* renderUnitsCelld() {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Paths.Path;
   const out = path.resolve(yield* Config.String("MISCHIEF_UNITS_DIR"));
-  const units = mischiefUnits(yield* liveNode.pipe(Effect.orDie));
+  const node = yield* liveNode.pipe(Effect.orDie);
+
+  const units = [...mischiefUnits(node), mischiefMaintenanceScript(node)];
 
   yield* fs.makeDirectory(out, { mode: 0o700, recursive: true });
 

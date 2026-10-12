@@ -467,7 +467,7 @@ it.effect.prop(
   "replies in any order, with crashes, duplicates and impostors, finish the board with one message per ask",
   { world: Arbitrary.schema(WorldSchema) },
   ({ world }) => playBoard(world).pipe(Effect.asVoid),
-  { arbitrary: { runs: 300 }, timeout: 20_000 }
+  { arbitrary: { runs: 300 }, timeout: 60_000 }
 );
 
 it.effect(

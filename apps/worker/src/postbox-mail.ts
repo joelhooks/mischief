@@ -1,5 +1,7 @@
 // @effect-diagnostics asyncFunction:off -- Durable Object RPC stubs are Promise APIs.
 import { Mail, StepFailed } from "@mischief/core";
+import { mailOutboxSql } from "@mischief/plan-run";
+import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Layer, Option, Schema } from "effect";
 
 import type { Posted } from "./postbox-object.js";
@@ -20,10 +22,7 @@ const OBJECT =
 
 export const OBJECT_HEADER = "x-mischief-object";
 
-export const rememberObject = (
-  storage: DurableObjectStorage,
-  name: string | null
-) => {
+export const rememberObject = (storage: SqlStorage, name: string | null) => {
   storage.sql.exec(OBJECT);
 
   if (name !== null && name !== "") {
@@ -36,7 +35,7 @@ export const rememberObject = (
 
 const ObjectRow = Schema.Struct({ name: Schema.String });
 
-const objectOf = (storage: DurableObjectStorage) => {
+const objectOf = (storage: SqlStorage) => {
   storage.sql.exec(OBJECT);
 
   return Option.fromNullishOr(
@@ -69,34 +68,57 @@ const settled = <A extends object>(
     )
   );
 
-export const postboxMail = (
-  storage: DurableObjectStorage,
-  postbox: () => PostboxRpc
-) =>
-  Layer.succeed(
+const SHADOW = "shadow/";
+
+const OutboxEnvelope = Schema.fromJsonString(
+  Schema.Struct({ message: Schema.String, to: Schema.String })
+);
+
+const recordOnly = (envelope: string) =>
+  Option.isSome(Schema.decodeUnknownOption(OutboxEnvelope)(envelope));
+
+export const postboxMail = (storage: SqlStorage, postbox: () => PostboxRpc) =>
+  Layer.effect(
     Mail,
-    Mail.of({
-      seal: ({ key, message, to }) =>
-        Option.match(objectOf(storage), {
-          onNone: () =>
-            Effect.fail(
-              new StepFailed({
+    Effect.gen(function* routedMail() {
+      const outbox = yield* Mail;
+
+      return Mail.of({
+        seal: (call) => {
+          const { key, message, to } = call;
+
+          if (to.startsWith(SHADOW)) {
+            return outbox.seal(call);
+          }
+
+          return Option.match(objectOf(storage), {
+            onNone: () =>
+              Effect.fail(
+                new StepFailed({
+                  key,
+                  reason:
+                    "this run does not know its object name, so replies could not find it. Resubmit the run through the Worker",
+                })
+              ),
+            onSome: (name) =>
+              settled(
                 key,
-                reason:
-                  "this run does not know its object name, so replies could not find it. Resubmit the run through the Worker",
-              })
-            ),
-          onSome: (name) =>
-            settled(
-              key,
-              async () => await postbox().seal(name, to, message)
-            ).pipe(
-              Effect.map(({ envelope, messageId }) => ({ envelope, messageId }))
-            ),
-        }),
-      send: ({ key }, { envelope }) =>
-        settled(key, async () => await postbox().send(envelope)).pipe(
-          Effect.asVoid
-        ),
+                async () => await postbox().seal(name, to, message)
+              ).pipe(
+                Effect.map(({ envelope, messageId }) => ({
+                  envelope,
+                  messageId,
+                }))
+              ),
+          });
+        },
+        send: (call, sealed) =>
+          recordOnly(sealed.envelope)
+            ? outbox.send(call, sealed)
+            : settled(
+                call.key,
+                async () => await postbox().send(sealed.envelope)
+              ).pipe(Effect.asVoid),
+      });
     })
-  );
+  ).pipe(Layer.provide(mailOutboxSql(storage)));

@@ -15,6 +15,7 @@ import * as Arbitrary from "effect/Arbitrary";
 import { RunHost } from "../../src/runs/host.js";
 import { ReplyRefused } from "../../src/runs/reply-refused.js";
 import { RunStore } from "../../src/runs/run-store.js";
+import { DirectiveSchema, RunStateSchema } from "../../src/runs/schema.js";
 import type { ReplyLine, RunReport } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
@@ -103,19 +104,23 @@ const CrashSchema = Schema.Struct({
 
 type Crash = typeof CrashSchema.Type;
 
-const WorldArbitrary = Arbitrary.all({
-  crashes: Arbitrary.array(Arbitrary.schema(CrashSchema), { maxLength: 3 }),
-  duplicates: Arbitrary.array(Arbitrary.schema(Schema.Boolean), {
-    maxLength: 4,
-    minLength: 4,
-  }),
-  impostor: Arbitrary.schema(Schema.Boolean),
-  order: Arbitrary.schema(Schema.Literals([0, 1, 2, 3, 4, 5])),
-  paused: Arbitrary.array(Arbitrary.schema(Schema.Boolean), {
-    maxLength: 4,
-    minLength: 4,
-  }),
+const Four = Schema.Array(Schema.Boolean).check(
+  Schema.isMinLength(4),
+  Schema.isMaxLength(4)
+);
+
+const WorldSchema = Schema.Struct({
+  crashes: Schema.Array(CrashSchema).check(Schema.isMaxLength(3)),
+  duplicates: Four,
+  impostor: Schema.Boolean,
+  order: Schema.Literals([0, 1, 2, 3, 4, 5]),
+  paused: Four,
+  writeDelays: Schema.Array(
+    Schema.Int.check(Schema.isBetween({ maximum: 4, minimum: 0 }))
+  ).check(Schema.isMinLength(1), Schema.isMaxLength(6)),
 });
+
+type World = typeof WorldSchema.Type;
 
 const PERMUTATIONS = [
   [0, 1, 2],
@@ -133,8 +138,32 @@ interface Server {
 
 interface Armed {
   readonly crashes: Crash[];
+  readonly delays: readonly number[];
+  readonly outside: string[];
+  readonly pendingAtCrash: Map<string, number>;
+  readonly sends: Map<string, number>;
   readonly seen: Record<Crash["point"], number>;
+  writes: number;
 }
+
+const settle = (yields: number) =>
+  Effect.forEach(Array.from({ length: yields }), () => Effect.yieldNow, {
+    discard: true,
+  });
+
+const storedAsks = (base: (typeof RunStore)["Service"]) =>
+  base.readRun(RUN).pipe(
+    Effect.map(Option.flatMap(Schema.decodeUnknownOption(RunStateSchema))),
+    Effect.map((decoded) =>
+      Option.match(decoded, {
+        onNone: (): readonly string[] => [],
+        onSome: ({ checkpoint }) =>
+          (checkpoint?.pending ?? []).flatMap(({ directive }) =>
+            DirectiveSchema.guards.Ask(directive) ? [directive.messageId] : []
+          ),
+      })
+    )
+  );
 
 const fire = (armed: Armed, point: Crash["point"]) => {
   armed.seen[point] += 1;
@@ -177,6 +206,13 @@ const oneProcess = <A, E>(
     const state = { dead: false };
 
     const die = Effect.gen(function* dieNow() {
+      for (const messageId of yield* storedAsks(base)) {
+        armed.pendingAtCrash.set(
+          messageId,
+          (armed.pendingAtCrash.get(messageId) ?? 0) + 1
+        );
+      }
+
       state.dead = true;
       const fiber = yield* Deferred.await(victim);
       yield* Effect.forkDetach(Fiber.interrupt(fiber));
@@ -200,7 +236,15 @@ const oneProcess = <A, E>(
         ),
       writePlan: (runId, plan) => alive(base.writePlan(runId, plan)),
       writeRun: (runId, saved) =>
-        alive(base.writeRun(runId, saved)).pipe(
+        alive(
+          Effect.suspend(() => {
+            armed.writes += 1;
+
+            return settle(
+              armed.delays[armed.writes % armed.delays.length] ?? 0
+            ).pipe(Effect.andThen(alive(base.writeRun(runId, saved))));
+          })
+        ).pipe(
           Effect.andThen(() => (fire(armed, "saved") ? die : Effect.void))
         ),
     });
@@ -228,7 +272,30 @@ const oneProcess = <A, E>(
             messageId: `${runId}/${key}#${visit}`,
           }))
         ),
-      send: ({ key }, sealed) => alive(admit(key, sealed)),
+      send: ({ key }, sealed) =>
+        Effect.suspend(() =>
+          settle(armed.delays[(armed.writes + 1) % armed.delays.length] ?? 0)
+        ).pipe(
+          Effect.andThen(
+            alive(
+              storedAsks(base).pipe(
+                Effect.tap((pending) =>
+                  Effect.sync(() => {
+                    if (!pending.includes(sealed.messageId)) {
+                      armed.outside.push(sealed.messageId);
+                    }
+
+                    armed.sends.set(
+                      sealed.messageId,
+                      (armed.sends.get(sealed.messageId) ?? 0) + 1
+                    );
+                  })
+                ),
+                Effect.andThen(admit(key, sealed))
+              )
+            )
+          )
+        ),
     });
 
     const host = yield* RunHost.make.pipe(
@@ -251,140 +318,173 @@ const oneProcess = <A, E>(
 const awaitedKeys = (report: RunReport) =>
   (report.awaiting ?? []).map(({ key }) => key).toSorted();
 
-it.effect.prop(
-  "replies in any order, with crashes, duplicates and impostors, finish the board with one message per ask",
-  { world: WorldArbitrary },
-  ({ world }) =>
-    Effect.gen(function* property() {
-      const base = yield* RunStore;
-      const server: Server = { admitted: new Map(), conflicts: 0 };
+const playBoard = (world: World) =>
+  Effect.gen(function* property() {
+    const base = yield* RunStore;
+    const server: Server = { admitted: new Map(), conflicts: 0 };
 
-      const armed: Armed = {
-        crashes: [...world.crashes],
-        seen: { admitted: 0, saved: 0, sealed: 0 },
-      };
+    const armed: Armed = {
+      crashes: [...world.crashes],
+      delays: world.writeDelays,
+      outside: [],
+      pendingAtCrash: new Map(),
+      seen: { admitted: 0, saved: 0, sealed: 0 },
+      sends: new Map(),
+      writes: 0,
+    };
 
-      const settled = <A, E>(
-        op: (host: (typeof RunHost)["Service"]) => Effect.Effect<A, E>
-      ) =>
-        Effect.gen(function* untilSettled() {
-          let crashed = false;
+    const settled = <A, E>(
+      op: (host: (typeof RunHost)["Service"]) => Effect.Effect<A, E>
+    ) =>
+      Effect.gen(function* untilSettled() {
+        let crashed = false;
 
-          for (;;) {
-            const recovered =
-              !crashed ||
-              Option.isSome(
-                yield* oneProcess(base, server, armed, (host) =>
-                  host.resume(RUN)
-                )
-              );
+        for (;;) {
+          const recovered =
+            !crashed ||
+            Option.isSome(
+              yield* oneProcess(base, server, armed, (host) => host.resume(RUN))
+            );
 
-            const outcome = recovered
-              ? yield* oneProcess(base, server, armed, op)
-              : Option.none();
+          const outcome = recovered
+            ? yield* oneProcess(base, server, armed, op)
+            : Option.none();
 
-            if (Option.isSome(outcome)) {
-              return { crashed, exit: outcome.value };
-            }
-
-            crashed = true;
+          if (Option.isSome(outcome)) {
+            return { crashed, exit: outcome.value };
           }
-        });
 
-      const inspect = Effect.gen(function* inspectNow() {
-        const { exit } = yield* settled((host) => host.inspect(RUN));
-
-        return yield* exit;
+          crashed = true;
+        }
       });
 
-      yield* settled((host) => host.submit(RUN, boardPlan));
+    const inspect = Effect.gen(function* inspectNow() {
+      const { exit } = yield* settled((host) => host.inspect(RUN));
 
-      let waiting: AskKey[] = BRANCHES.map(
-        (name) => `build.${name}.land` as const
-      );
+      return yield* exit;
+    });
 
-      const order = [...PERMUTATIONS[world.order], 3].flatMap((index) => {
-        const ask = ASKS[index];
+    yield* settled((host) => host.submit(RUN, boardPlan));
 
-        return ask === undefined ? [] : [ask];
-      });
+    let waiting: AskKey[] = BRANCHES.map(
+      (name) => `build.${name}.land` as const
+    );
 
-      for (const [index, ask] of order.entries()) {
-        const before = yield* inspect;
+    const order = [...PERMUTATIONS[world.order], 3].flatMap((index) => {
+      const ask = ASKS[index];
 
-        expect(before.status).toBe("waiting-for-reply");
-        expect(awaitedKeys(before)).toEqual(waiting.toSorted());
+      return ask === undefined ? [] : [ask];
+    });
 
-        const open = (before.awaiting ?? []).find(({ key }) => key === ask.key);
-        const messageId = open?.messageId ?? "";
+    for (const [index, ask] of order.entries()) {
+      const before = yield* inspect;
 
-        if (world.impostor) {
-          const { from: _verified, ...unsigned } = lineFor(messageId, ask.to);
+      expect(before.status).toBe("waiting-for-reply");
+      expect(awaitedKeys(before)).toEqual(waiting.toSorted());
 
-          for (const line of [lineFor(messageId, "desk/impostor"), unsigned]) {
-            const { exit } = yield* settled((host) => host.deliver(line));
+      const open = (before.awaiting ?? []).find(({ key }) => key === ask.key);
+      const messageId = open?.messageId ?? "";
 
-            expect(Exit.isFailure(exit)).toBe(true);
-          }
-        }
+      if (world.impostor) {
+        const { from: _verified, ...unsigned } = lineFor(messageId, ask.to);
 
-        if (world.paused[index] === true) {
-          yield* settled((host) => host.pause(RUN));
+        for (const line of [lineFor(messageId, "desk/impostor"), unsigned]) {
+          const { exit } = yield* settled((host) => host.deliver(line));
 
-          const held = yield* settled((host) =>
-            host.deliver(lineFor(messageId, ask.to))
-          );
-
-          expect(
-            held.crashed ||
-              (Exit.isSuccess(held.exit) && held.exit.value.status === "paused")
-          ).toBe(true);
-        }
-
-        const { crashed, exit } = yield* settled((host) =>
-          world.paused[index] === true
-            ? host.resume(RUN).pipe(Effect.orDie)
-            : host.deliver(lineFor(messageId, ask.to))
-        );
-
-        expect(Exit.isSuccess(exit) || crashed).toBe(true);
-
-        if (world.duplicates[index] === true) {
-          const again = yield* settled((host) =>
-            host.deliver(lineFor(messageId, ask.to))
-          );
-
-          expect(
-            Exit.isFailure(again.exit) &&
-              Schema.is(ReplyRefused)(
-                Option.getOrUndefined(Exit.findErrorOption(again.exit))
-              )
-          ).toBe(true);
-        }
-
-        waiting = waiting.filter((key) => key !== ask.key);
-
-        if (waiting.length === 0 && ask.key !== "budget") {
-          waiting = ["budget"];
+          expect(Exit.isFailure(exit)).toBe(true);
         }
       }
 
-      const final = yield* inspect;
+      if (world.paused[index] === true) {
+        yield* settled((host) => host.pause(RUN));
 
-      expect(final.status).toBe("done");
-      expect(
-        Object.fromEntries(
-          ASKS.map(({ writes }) => [writes, final.docs[writes]])
-        )
-      ).toEqual(
-        Object.fromEntries(
-          ASKS.map(({ to, writes }) => [writes, `reply from ${to}`])
-        )
+        const held = yield* settled((host) =>
+          host.deliver(lineFor(messageId, ask.to))
+        );
+
+        expect(
+          held.crashed ||
+            (Exit.isSuccess(held.exit) && held.exit.value.status === "paused")
+        ).toBe(true);
+      }
+
+      const { crashed, exit } = yield* settled((host) =>
+        world.paused[index] === true
+          ? host.resume(RUN).pipe(Effect.orDie)
+          : host.deliver(lineFor(messageId, ask.to))
       );
-      expect(server.conflicts).toBe(0);
-      expect([...server.admitted.keys()].toSorted()).toEqual(
-        ASKS.map(({ key }) => `${RUN}/${key}#1`).toSorted()
-      );
-    }).pipe(Effect.provide(RunStore.memory)),
+
+      expect(Exit.isSuccess(exit) || crashed).toBe(true);
+
+      if (world.duplicates[index] === true) {
+        const again = yield* settled((host) =>
+          host.deliver(lineFor(messageId, ask.to))
+        );
+
+        expect(
+          Exit.isFailure(again.exit) &&
+            Schema.is(ReplyRefused)(
+              Option.getOrUndefined(Exit.findErrorOption(again.exit))
+            )
+        ).toBe(true);
+      }
+
+      waiting = waiting.filter((key) => key !== ask.key);
+
+      if (waiting.length === 0 && ask.key !== "budget") {
+        waiting = ["budget"];
+      }
+    }
+
+    const final = yield* inspect;
+
+    expect(final.status).toBe("done");
+    expect(
+      Object.fromEntries(ASKS.map(({ writes }) => [writes, final.docs[writes]]))
+    ).toEqual(
+      Object.fromEntries(
+        ASKS.map(({ to, writes }) => [writes, `reply from ${to}`])
+      )
+    );
+    expect(server.conflicts).toBe(0);
+    expect(armed.outside).toStrictEqual([]);
+
+    for (const [messageId, sent] of armed.sends) {
+      expect([messageId, sent]).toStrictEqual([
+        messageId,
+        Math.min(sent, 1 + (armed.pendingAtCrash.get(messageId) ?? 0)),
+      ]);
+    }
+
+    expect([...server.admitted.keys()].toSorted()).toEqual(
+      ASKS.map(({ key }) => `${RUN}/${key}#1`).toSorted()
+    );
+
+    return armed;
+  }).pipe(Effect.provide(RunStore.memory));
+
+it.effect.prop(
+  "replies in any order, with crashes, duplicates and impostors, finish the board with one message per ask",
+  { world: Arbitrary.schema(WorldSchema) },
+  ({ world }) => playBoard(world).pipe(Effect.asVoid),
   { arbitrary: { runs: 300 }, timeout: 20_000 }
+);
+
+it.effect(
+  "a crash after the desk admits an ask but before it is marked done sends that ask exactly twice",
+  () =>
+    Effect.gen(function* repeated() {
+      const armed = yield* playBoard({
+        crashes: [{ nth: 1, point: "admitted" }],
+        duplicates: [false, false, false, false],
+        impostor: false,
+        order: 0,
+        paused: [false, false, false, false],
+        writeDelays: [0],
+      });
+
+      expect(
+        [...armed.sends.values()].toSorted((left, right) => left - right)
+      ).toStrictEqual([1, 1, 1, 2]);
+    })
 );

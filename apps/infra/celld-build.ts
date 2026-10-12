@@ -12,11 +12,13 @@ export const declaration: typeof Declaration.Type = {
       { class_name: "PlanRun", name: "PLAN_RUN" },
       { class_name: "ServiceTokenLedger", name: "SERVICE_TOKENS" },
       { class_name: "Postbox", name: "POSTBOX" },
+      { class_name: "Schedule", name: "SCHEDULE" },
     ],
   },
   migrations: [
     { new_sqlite_classes: ["PlanRun", "ServiceTokenLedger"], tag: "v1" },
     { new_sqlite_classes: ["Postbox"], tag: "v2" },
+    { new_sqlite_classes: ["Schedule"], tag: "v3" },
   ],
   name: INSTANCE,
 };

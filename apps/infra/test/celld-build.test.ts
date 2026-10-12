@@ -43,12 +43,13 @@ it.effect(
         { class_name: "PlanRun", name: "PLAN_RUN" },
         { class_name: "ServiceTokenLedger", name: "SERVICE_TOKENS" },
         { class_name: "Postbox", name: "POSTBOX" },
+        { class_name: "Schedule", name: "SCHEDULE" },
       ]);
       expect(
         configuration.migrations.flatMap(
           ({ new_sqlite_classes }) => new_sqlite_classes
         )
-      ).toEqual(["PlanRun", "ServiceTokenLedger", "Postbox"]);
+      ).toEqual(["PlanRun", "ServiceTokenLedger", "Postbox", "Schedule"]);
       expect(Object.keys(configuration.vars).toSorted()).toEqual([
         "MISCHIEF_CALLERS",
         "MISCHIEF_DID",
@@ -61,6 +62,7 @@ it.effect(
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPlanRun\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bServiceTokenLedger\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPostbox\b/u);
+      expect(prepared.bundle).toMatch(/export \{[^}]*\bSchedule\b/u);
       expect(prepared.bundle).not.toMatch(/from "node:/u);
     }).pipe(Effect.provide(NodeServices.layer)),
   60_000

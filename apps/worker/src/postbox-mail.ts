@@ -35,7 +35,7 @@ export const rememberObject = (storage: SqlStorage, name: string | null) => {
 
 const ObjectRow = Schema.Struct({ name: Schema.String });
 
-const objectOf = (storage: SqlStorage) => {
+export const objectOf = (storage: SqlStorage) => {
   storage.sql.exec(OBJECT);
 
   return Option.fromNullishOr(

@@ -101,6 +101,7 @@ export {
 
 export {
   alarmFor,
+  CONFIRM_MS,
   decide,
   DONE_DOC,
   firstSlot,
@@ -109,6 +110,14 @@ export {
   type Decision as ScheduleDecision,
   type Previous,
 } from "./schedules/decide.js";
+
+export { scheduleCapabilities } from "./schedules/capabilities.js";
+
+export {
+  completeScheduleContract,
+  createScheduleContract,
+  inspectScheduleContract,
+} from "./schedules/contracts.js";
 
 export { ScheduleAlarm } from "./schedules/schedule-alarm.js";
 

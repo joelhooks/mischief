@@ -1,5 +1,5 @@
 // @effect-diagnostics asyncFunction:off -- the Worker's fetch handler is a Promise API.
-import { runApiSpec } from "@mischief/plan-run";
+import { mischiefApiSpec } from "@mischief/plan-run";
 import { Documents, staticResolver } from "@rat-king/mailbox-client/auth";
 import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
 import { Effect, Layer, Option, Result, Schema } from "effect";
@@ -8,12 +8,19 @@ import type { Env } from "./plan-run-object.js";
 import { OBJECT_HEADER } from "./postbox-mail.js";
 import { replayLedger } from "./replay-ledger.js";
 import { NO_RUN_ID, runIdOf } from "./run-address.js";
+import {
+  NO_SCHEDULE_ID,
+  SCHEDULE_CAPABILITIES,
+  scheduleIdOf,
+} from "./schedule-address.js";
 import { authenticate, NSID_PREFIX } from "./service-auth.js";
 import type { AuthRefused } from "./service-auth.js";
 
 export { PlanRun } from "./plan-run-object.js";
 
 export { Postbox } from "./postbox-object.js";
+
+export { Schedule } from "./schedule-object.js";
 
 export { ServiceTokenLedger } from "./service-tokens.js";
 
@@ -79,10 +86,32 @@ export default {
     }
 
     if (request.method === "GET" && pathname === "/openapi.json") {
-      return Response.json(runApiSpec());
+      return Response.json(mischiefApiSpec());
     }
 
     const body = await request.text();
+
+    if (SCHEDULE_CAPABILITIES.has(capability)) {
+      const scheduleId = scheduleIdOf(body);
+
+      if (Option.isNone(scheduleId)) {
+        return Response.json({ error: NO_SCHEDULE_ID }, { status: 400 });
+      }
+
+      const name = `${caller.success.iss}/${scheduleId.value}`;
+
+      return await env.SCHEDULE.get(env.SCHEDULE.idFromName(name)).fetch(
+        new Request(request.url, {
+          body,
+          headers: {
+            "content-type": "application/json",
+            [OBJECT_HEADER]: name,
+          },
+          method: request.method,
+        })
+      );
+    }
+
     const runId = runIdOf(body);
 
     if (Option.isNone(runId)) {

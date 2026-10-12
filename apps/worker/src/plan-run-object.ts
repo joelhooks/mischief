@@ -18,6 +18,7 @@ import { FetchHttpClient } from "effect/http";
 import { OBJECT_HEADER, postboxMail, rememberObject } from "./postbox-mail.js";
 import { POSTBOX_NAME } from "./postbox-object.js";
 import type { Postbox } from "./postbox-object.js";
+import type { Schedule } from "./schedule-object.js";
 import type { ServiceTokenLedger } from "./service-tokens.js";
 
 export interface Env {
@@ -33,6 +34,7 @@ export interface Env {
   readonly MISCHIEF_MAILBOX_URL?: string;
   readonly MISCHIEF_MAILBOX_DID?: string;
   readonly POSTBOX: DurableObjectNamespace<Postbox>;
+  readonly SCHEDULE: DurableObjectNamespace<Schedule>;
 }
 
 const judgeFor = (env: Env) => {

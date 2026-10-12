@@ -7,6 +7,8 @@ import type { Cadence, EndReason, ScheduleState } from "./schema.js";
 
 export const DONE_DOC = "done";
 
+export const CONFIRM_MS = 60_000;
+
 export type Previous = Data.TaggedEnum<{
   None: Record<never, never>;
   Missing: Record<never, never>;
@@ -58,6 +60,12 @@ export const alarmFor = (state: ScheduleState): number | null => {
   return state.endsAt === null
     ? state.nextAt
     : Math.min(state.nextAt, state.endsAt);
+};
+
+const confirming = (state: ScheduleState, now: number) => {
+  const at = alarmFor(state);
+
+  return at === null ? null : Math.min(at, now + CONFIRM_MS);
 };
 
 const recent = <A>(items: readonly A[], item: A) =>
@@ -130,7 +138,11 @@ const wake = (state: ScheduleState, now: number, docs: Docs): Decision => {
     wakes: recent(state.wakes, { at: now, due: state.nextAt, n, runId }),
   };
 
-  return { alarmAt: alarmFor(woken), start: { docs, runId }, state: woken };
+  return {
+    alarmAt: confirming(woken, now),
+    start: { docs, runId },
+    state: woken,
+  };
 };
 
 const skip = (state: ScheduleState, now: number, report: RunReport) =>
@@ -207,7 +219,7 @@ export const decide = (
 
   if (Predicate.isTagged(seen, "Missing") && last !== undefined) {
     return {
-      alarmAt: alarmFor(state),
+      alarmAt: confirming(state, now),
       start: { docs: state.pendingDocs, runId: last.runId },
       state,
     };

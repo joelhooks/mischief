@@ -8,6 +8,7 @@ import { FetchHttpClient } from "effect/http";
 import { openMailroom } from "./mailroom.js";
 import type { Env } from "./plan-run-object.js";
 import { PostboxFailed } from "./postbox-failed.js";
+import { leaseBook } from "./postbox-lease.js";
 import { postbox } from "./postbox.js";
 import { Delivered, Runs } from "./runs-port.js";
 import type { DeliveredValue, ReplyLine } from "./runs-port.js";
@@ -81,6 +82,7 @@ export class Postbox extends DurableObject<Env> {
     return openMailroom({
       endpoint,
       identity: identity.value,
+      leases: leaseBook(this.ctx.storage),
       serviceDid,
     }).pipe(
       Scope.provide(this.scope),

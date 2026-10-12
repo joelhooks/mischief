@@ -5,13 +5,14 @@ import {
   unbase64url,
 } from "@rat-king/mailbox-client";
 import type {
+  ConsumeOptions,
   IdentityValue,
   LeaseFence,
   OpenedMessage,
   SealedMessage,
   SendOutcome,
 } from "@rat-king/mailbox-client";
-import { Effect, Layer, Option, Predicate, Schema } from "effect";
+import { Clock, Effect, Layer, Option, Predicate, Schema } from "effect";
 import type { Scope } from "effect";
 import type { HttpClient } from "effect/http";
 
@@ -19,11 +20,13 @@ import { canonicalName, didFor, nameFor } from "./fleet-names.js";
 import { Mailroom, SendVerdict } from "./mailroom-port.js";
 import type { Inbound, SendVerdictValue } from "./mailroom-port.js";
 import { PostboxFailed } from "./postbox-failed.js";
+import type { LeaseBook } from "./postbox-lease.js";
 import { DESK, OWN_NAME } from "./postbox.js";
 
 export interface MailroomConfig {
   readonly endpoint: string;
   readonly identity: IdentityValue;
+  readonly leases: LeaseBook;
   readonly serviceDid: string;
 }
 
@@ -104,7 +107,21 @@ export const openMailroom = (config: MailroomConfig) =>
 
     const names: Record<string, string> = {};
     const known = new Set<string>();
-    let fence: LeaseFence | undefined;
+
+    const fence = Clock.currentTimeMillis.pipe(
+      Effect.map((now) =>
+        Option.getOrUndefined(
+          Option.map(
+            config.leases.held(now),
+            ({ did, generation, leaseId }): LeaseFence => ({
+              did,
+              generation,
+              leaseId,
+            })
+          )
+        )
+      )
+    );
 
     const prepared = yield* prepare({
       endpoint: config.endpoint,
@@ -166,7 +183,8 @@ export const openMailroom = (config: MailroomConfig) =>
           onFailure: ({ reason }) =>
             Effect.succeed(SendVerdict.cases.Refused.make({ reason })),
           onSuccess: (decoded) =>
-            Effect.suspend(() => prepared.sendSealed(decoded, fence)).pipe(
+            fence.pipe(
+              Effect.flatMap((held) => prepared.sendSealed(decoded, held)),
               Effect.map(verdictOf)
             ),
         })
@@ -202,45 +220,47 @@ export const openMailroom = (config: MailroomConfig) =>
       handler: (message: Inbound, seq: number) => Effect.Effect<void, E, R>,
       afterSeq: number
     ) =>
-      prepared
-        .consume((message, { seq }) => handler(inboundOf(message), seq), {
-          afterSeq,
-          harness: {
-            $type: "sh.mschf.ratking.runtime.lease#other",
-            kind: "mischief-postbox",
-          },
-          onLease: (lease) =>
-            Effect.sync(() => {
-              fence = {
-                did: config.identity.did,
-                generation: lease.generation,
-                leaseId: lease.leaseId,
-              };
-            }),
-          onSkip: ({ reason, seq }) =>
-            Effect.logWarning(`Postbox skipped message ${seq}: ${reason}`),
-          unopenable: (event) =>
-            prepared.refresh(event.envelope.aad.senderDid).pipe(
-              Effect.tap(() =>
-                Effect.sync(() => known.add(event.envelope.aad.senderDid))
+      fence.pipe(
+        Effect.flatMap((resume) => {
+          const options: ConsumeOptions = {
+            afterSeq,
+            harness: {
+              $type: "sh.mschf.ratking.runtime.lease#other",
+              kind: "mischief-postbox",
+            },
+            onLease: (lease) =>
+              Effect.sync(() => {
+                config.leases.save({
+                  did: config.identity.did,
+                  expiresAt: Date.parse(lease.expiresAt),
+                  generation: lease.generation,
+                  leaseId: lease.leaseId,
+                });
+              }),
+            onSkip: ({ reason, seq }) =>
+              Effect.logWarning(`Postbox skipped message ${seq}: ${reason}`),
+            unopenable: (event) =>
+              prepared.refresh(event.envelope.aad.senderDid).pipe(
+                Effect.tap(() =>
+                  Effect.sync(() => known.add(event.envelope.aad.senderDid))
+                ),
+                Effect.flatMap(() => prepared.open(event.envelope)),
+                Effect.matchEffect({
+                  onFailure: (failure) =>
+                    Effect.logWarning(
+                      `Postbox could not open message ${event.seq} from ${event.envelope.aad.senderDid}: ${failure.reason}`
+                    ).pipe(Effect.as(Option.none())),
+                  onSuccess: (opened) => Effect.succeed(Option.some(opened)),
+                })
               ),
-              Effect.flatMap(() => prepared.open(event.envelope)),
-              Effect.matchEffect({
-                onFailure: (failure) =>
-                  Effect.logWarning(
-                    `Postbox could not open message ${event.seq} from ${event.envelope.aad.senderDid}: ${failure.reason}`
-                  ).pipe(Effect.as(Option.none())),
-                onSuccess: (opened) => Effect.succeed(Option.some(opened)),
-              })
-            ),
+          };
+
+          return prepared.consume(
+            (message, { seq }) => handler(inboundOf(message), seq),
+            resume === undefined ? options : { ...options, resume }
+          );
         })
-        .pipe(
-          Effect.ensuring(
-            Effect.sync(() => {
-              fence = undefined;
-            })
-          )
-        );
+      );
 
     return { consume, layer };
   });

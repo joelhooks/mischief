@@ -9,6 +9,13 @@ import { Delivered, Runs } from "./runs-port.js";
 const THREADS =
   "CREATE TABLE IF NOT EXISTS postbox_threads (message_id TEXT PRIMARY KEY, run_id TEXT NOT NULL)";
 
+const PROMPTED =
+  "CREATE TABLE IF NOT EXISTS postbox_prompted (ask_id TEXT NOT NULL, sender TEXT NOT NULL, PRIMARY KEY (ask_id, sender))";
+
+const MENTIONED_IDS = /\b[2-7a-z]{13}\b/gu;
+
+const PROMPTS_PER_MESSAGE = 3;
+
 const PARKED =
   "CREATE TABLE IF NOT EXISTS postbox_parked (message_id TEXT PRIMARY KEY, sender TEXT NOT NULL, reason TEXT NOT NULL, body TEXT NOT NULL)";
 
@@ -51,6 +58,7 @@ export const postbox = (storage: SqlStorage) => {
   storage.sql.exec(PARKED);
   storage.sql.exec(CURSOR);
   storage.sql.exec(DELIVERED);
+  storage.sql.exec(PROMPTED);
 
   const delivered = (messageId: string) =>
     storage.sql
@@ -96,6 +104,39 @@ export const postbox = (storage: SqlStorage) => {
       }
     });
 
+  const prompt = (message: Inbound, sender: string) =>
+    Effect.gen(function* promptSender() {
+      const asks = [...new Set(message.body.match(MENTIONED_IDS))]
+        .filter((id) => id !== message.messageId && Option.isSome(runOf(id)))
+        .slice(0, PROMPTS_PER_MESSAGE);
+
+      const fresh = asks.filter(
+        (askId) =>
+          storage.sql
+            .exec(
+              "INSERT INTO postbox_prompted (ask_id, sender) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING ask_id",
+              askId,
+              sender
+            )
+            .toArray().length > 0
+      );
+
+      yield* Effect.forEach(
+        fresh,
+        (askId) =>
+          Mailroom.use((mailroom) =>
+            mailroom.tell(
+              sender,
+              `Your message ${message.messageId} names Mischief's ask ${askId} but is not a reply to it, so its run has not seen it`,
+              `Mischief routes an answer to its run only by replyTo. To answer the ask, send your answer as a reply:\n\nintercom({ action: "reply", replyTo: "${askId}", to: "${OWN_NAME}", summary: "...", message: "..." })\n\nNaming to lets it work even if your reader no longer holds the ask (pi-ratking f8e7e93 or later; restart your Pi if reply refuses with NoSuchMessage). Your original message ${message.messageId} is parked and will not be delivered, so the reply is not a duplicate.`
+            )
+          ),
+        { discard: true }
+      );
+
+      return fresh;
+    });
+
   const seal = (runId: string, to: string, body: string) =>
     Mailroom.use((mailroom) => mailroom.seal(to, body)).pipe(
       Effect.tap(({ messageId }) =>
@@ -121,10 +162,11 @@ export const postbox = (storage: SqlStorage) => {
 
   const receive = (message: Inbound, seq: number) =>
     Effect.gen(function* receiveMessage() {
-      const sender = Option.getOrElse(
-        yield* Mailroom.use((mailroom) => mailroom.nameOf(message.senderDid)),
-        () => message.senderDid
+      const named = yield* Mailroom.use((mailroom) =>
+        mailroom.nameOf(message.senderDid)
       );
+
+      const sender = Option.getOrElse(named, () => message.senderDid);
 
       const runId = message.replyTo.pipe(Option.flatMap(runOf));
 
@@ -133,13 +175,22 @@ export const postbox = (storage: SqlStorage) => {
       }
 
       if (Option.isNone(runId)) {
+        const prompted = Option.isSome(named)
+          ? yield* prompt(message, named.value)
+          : [];
+
+        const told =
+          prompted.length === 0
+            ? ""
+            : `; ${sender} was told how to reply to ${prompted.join(", ")}`;
+
         yield* park(
           message,
           sender,
           Option.match(message.replyTo, {
-            onNone: () => "it is not a reply to anything Mischief sent",
+            onNone: () => `it is not a reply to anything Mischief sent${told}`,
             onSome: (replyTo) =>
-              `it replies to ${replyTo}, which no Mischief run sent`,
+              `it replies to ${replyTo}, which no Mischief run sent${told}`,
           })
         );
       } else {

@@ -57,6 +57,7 @@ const fakes = (world: World, trace: Trace, parkedIds: () => Set<string>) => {
         Effect.sync(() => {
           trace.surfaced.push(summary);
         }),
+      tell: () => Effect.void,
     })
   );
 
@@ -246,6 +247,7 @@ const sending = (verdicts: readonly SendVerdictValue[]) => {
           );
         }),
       surface: () => Effect.void,
+      tell: () => Effect.void,
     })
   );
 

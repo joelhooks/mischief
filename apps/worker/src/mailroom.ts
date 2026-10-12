@@ -190,29 +190,30 @@ export const openMailroom = (config: MailroomConfig) =>
         })
       );
 
+    const tell = (to: string, summary: string, body: string) =>
+      seal(to, `${summary}\n\n${body}`).pipe(
+        Effect.flatMap(({ envelope }) => send(envelope)),
+        Effect.tap((verdict) =>
+          SendVerdict.guards.Accepted(verdict)
+            ? Effect.void
+            : Effect.logWarning(`Postbox could not reach ${to}: ${summary}`)
+        ),
+        Effect.catchTag("PostboxFailed", ({ reason }) =>
+          Effect.logWarning(
+            `Postbox could not reach ${to} (${reason}): ${summary}`
+          )
+        ),
+        Effect.asVoid
+      );
+
     const layer = Layer.succeed(
       Mailroom,
       Mailroom.of({
         nameOf: (did) => Effect.succeed(nameFor(did)),
         seal,
         send,
-        surface: (summary, body) =>
-          seal(DESK, `${summary}\n\n${body}`).pipe(
-            Effect.flatMap(({ envelope }) => send(envelope)),
-            Effect.tap((verdict) =>
-              SendVerdict.guards.Accepted(verdict)
-                ? Effect.void
-                : Effect.logWarning(
-                    `Postbox could not reach ${DESK}: ${summary}`
-                  )
-            ),
-            Effect.catchTag("PostboxFailed", ({ reason }) =>
-              Effect.logWarning(
-                `Postbox could not reach ${DESK} (${reason}): ${summary}`
-              )
-            ),
-            Effect.asVoid
-          ),
+        surface: (summary, body) => tell(DESK, summary, body),
+        tell,
       })
     );
 

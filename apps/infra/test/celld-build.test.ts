@@ -47,6 +47,7 @@ it.effect(
         "MISCHIEF_CALLERS",
         "MISCHIEF_DID",
         "MISCHIEF_GUARD_MS",
+        "MISCHIEF_JUDGE",
         "MISCHIEF_MODEL",
       ]);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPlanRun\b/u);

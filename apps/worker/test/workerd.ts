@@ -67,6 +67,7 @@ const worker :Workerd.Worker = (
     (name = "MISCHIEF_CALLERS", text = ${JSON.stringify(JSON.stringify(callers))}),
     (name = "MISCHIEF_MODEL", text = "faux"),
     (name = "MISCHIEF_GUARD_MS", text = "${guardMs}"),
+    (name = "MISCHIEF_JUDGE", text = "shadow"),
   ],
 );
 `;

@@ -155,3 +155,82 @@ it.live.prop(
     }).pipe(Effect.scoped, Effect.provide(services)),
   { arbitrary: { runs: 4 }, timeout: 120_000 }
 );
+
+const gate = {
+  initial: "gate_1",
+  states: {
+    gate_1: {
+      meta: { step: { kind: "judge", question: "Go or stop?" } },
+      on: { go: { target: "passed" }, stop: { target: "passed" } },
+    },
+    passed: { type: "final" },
+  },
+};
+
+const gatesPlan = {
+  ...askPlan,
+  envelope: { ...askPlan.envelope, names: [] },
+  goal: "Two shadow-judged gates in parallel",
+  id: "gates",
+  machine: {
+    id: "gates",
+    initial: "check",
+    states: {
+      check: {
+        meta: {
+          step: {
+            branches: { left_side: gate, right_side: gate },
+            join: "allSettled",
+            kind: "parallel",
+          },
+        },
+        on: { done: { target: "end" } },
+      },
+      end: { type: "final" },
+    },
+  },
+};
+
+it.live(
+  "on the shadow host, parallel judges park the run until shadow/judge answers each one by replyTo",
+  () =>
+    Effect.gen(function* gates() {
+      const world = yield* prepare(30_000);
+
+      yield* start(world);
+
+      const parked = decodeReport(
+        (yield* post(world, "submitPlan", {
+          plan: gatesPlan,
+          runId: "shadow-gates",
+        })).body
+      );
+
+      const ids = (parked.awaiting ?? []).map(({ messageId }) => messageId);
+
+      expect(parked.status).toBe("waiting-for-reply");
+      expect(ids.toSorted()).toStrictEqual([
+        "shadow-gates/check.left_side.gate_1#1",
+        "shadow-gates/check.right_side.gate_1#1",
+      ]);
+
+      const verdict = (replyTo: string) =>
+        post(world, "deliverReply", {
+          body: '{"choice":"go"}',
+          from: "shadow/judge",
+          replyTo,
+        }).pipe(Effect.map(({ body }) => decodeReport(body)));
+
+      const half = yield* verdict("shadow-gates/check.left_side.gate_1#1");
+
+      expect(half.status).toBe("waiting-for-reply");
+      expect(half.awaiting?.map(({ messageId }) => messageId)).toStrictEqual([
+        "shadow-gates/check.right_side.gate_1#1",
+      ]);
+
+      const done = yield* verdict("shadow-gates/check.right_side.gate_1#1");
+
+      expect(done.status).toBe("done");
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  120_000
+);

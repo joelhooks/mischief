@@ -1,6 +1,15 @@
 import { NodeCrypto } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Deferred, Effect, Exit, Fiber, Option, Random, Schema } from "effect";
+import {
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Option,
+  Predicate,
+  Random,
+  Schema,
+} from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { decodePlan } from "../../src/plans/schema.js";
@@ -11,6 +20,7 @@ import type { PendingDirective, RunReport } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
+import { shadowJudge } from "../../src/steps/shadow-judge.js";
 import { StepFailed } from "../../src/steps/step-failed.js";
 import { Thinker } from "../../src/steps/thinker.js";
 import {
@@ -27,9 +37,9 @@ const JEV_TOKENS = 7;
 
 const THINK_TOKENS = 11;
 
-const rungTokens = (rung: string) => {
+const rungTokens = (rung: string, shadow: boolean) => {
   if (rung === "jev") {
-    return JEV_TOKENS;
+    return shadow ? 0 : JEV_TOKENS;
   }
 
   return rung === "think" ? THINK_TOKENS : 0;
@@ -67,7 +77,13 @@ const Judgement = Schema.Struct({
 
 const InterruptionSchema = Schema.Struct({
   at: Schema.Int.check(Schema.isBetween({ maximum: 16, minimum: 1 })),
-  kind: Schema.Literals(["cancel", "crash", "crashInStep", "pause"]),
+  kind: Schema.Literals([
+    "cancel",
+    "crash",
+    "crashAfterStep",
+    "crashInStep",
+    "pause",
+  ]),
 });
 
 type Interruption = typeof InterruptionSchema.Type;
@@ -104,6 +120,7 @@ const WorldArbitrary = Arbitrary.all({
     Arbitrary.schema(Schema.Literals(["approve", "hold"])),
     { maxLength: 3 }
   ),
+  shadow: Arbitrary.schema(Schema.Boolean),
   shipAnswers: Arbitrary.array(
     Arbitrary.schema(Schema.Literals(["ship", "revise"])),
     { maxLength: 6 }
@@ -123,10 +140,24 @@ const fixturesFor = (world: World): Fixtures => {
     [first, second]: readonly [string, string],
     list: World["assess"]
   ) => {
-    for (const [index, { fallback, lean }] of list.entries()) {
-      fixtures[`${key}#${index + 1}`] = {
-        probs: { [first]: lean, [second]: 1 - lean },
+    for (let visit = 1; world.shadow && visit <= 30; visit += 1) {
+      fixtures[`${RUN}/${key}#${visit}`] = {
+        reply: JSON.stringify({
+          probabilities: { [first]: 0.5, [second]: 0.5 },
+        }),
       };
+    }
+
+    for (const [index, { fallback, lean }] of list.entries()) {
+      const probs = { [first]: lean, [second]: 1 - lean };
+
+      fixtures[`${key}#${index + 1}`] = { probs };
+
+      if (world.shadow) {
+        fixtures[`${RUN}/${key}#${index + 1}`] = {
+          reply: JSON.stringify({ probabilities: probs }),
+        };
+      }
 
       if (fallback !== undefined) {
         fixtures[`${key}#${index + 1}:think`] = {
@@ -264,15 +295,48 @@ const deliveredFrom = (
     )
   );
 
+type Choose = (typeof Judge)["Service"]["choose"];
+
 const fakes = (
   fixtures: Fixtures,
   calls: ModelCall[],
   announced: string[],
   base: (typeof RunStore)["Service"],
-  deliveries: Deliveries
+  deliveries: Deliveries,
+  parks: string[] | null
 ) => {
   const fixture = (key: string, visit: number, suffix = "") =>
     fixtures[`${key}#${visit}${suffix}`] ?? {};
+
+  const judged = ({ docs, key, visit }: Parameters<Choose>[0]) =>
+    Effect.sync(() => {
+      calls.push({ docs: docsSeen(docs), key, kind: "jev", visit });
+    });
+
+  const jevChoose = (call: Parameters<Choose>[0]) =>
+    judged(call).pipe(
+      Effect.as({
+        probabilities:
+          fixture(call.key, call.visit).probs ??
+          Object.fromEntries(
+            call.options.map((option) => [option, 1 / call.options.length])
+          ),
+        usage: { tokens: JEV_TOKENS },
+      })
+    );
+
+  const shadowChoose = (call: Parameters<Choose>[0], parked: string[]) =>
+    Judge.use((shadow) => shadow.choose(call)).pipe(
+      Effect.provide(shadowJudge),
+      Effect.tap(() => judged(call)),
+      Effect.tapError((failure) =>
+        Effect.sync(() => {
+          if (Predicate.isTagged(failure, "VerdictDeferred")) {
+            parked.push(`${call.key}#${call.visit}`);
+          }
+        })
+      )
+    );
 
   const record = (key: string, kind: string, visit: number) =>
     Effect.sync(() => {
@@ -281,19 +345,8 @@ const fakes = (
 
   return {
     judge: Judge.of({
-      choose: ({ docs, key, options, visit }) =>
-        Effect.sync(() => {
-          calls.push({ docs: docsSeen(docs), key, kind: "jev", visit });
-
-          return {
-            probabilities:
-              fixture(key, visit).probs ??
-              Object.fromEntries(
-                options.map((option) => [option, 1 / options.length])
-              ),
-            usage: { tokens: JEV_TOKENS },
-          };
-        }),
+      choose: (call) =>
+        parks === null ? jevChoose(call) : shadowChoose(call, parks),
     }),
     mail: Mail.of({
       seal: ({ key, visit }) =>
@@ -388,7 +441,11 @@ const incarnation = (
   calls: ModelCall[],
   announced: string[],
   deliveries: Deliveries,
-  script: { readonly limits: readonly number[]; readonly plan: Schema.Json },
+  script: {
+    readonly limits: readonly number[];
+    readonly parks: string[] | null;
+    readonly plan: Schema.Json;
+  },
   first: boolean,
   interruption?: Interruption
 ) =>
@@ -437,11 +494,18 @@ const incarnation = (
             counters.steps += 1;
           }
 
-          return key.startsWith("logic:") &&
-            interruption?.kind === "crashInStep" &&
-            counters.steps === interruption.at
-            ? die
-            : base.writeJournal(runId, key, entry);
+          const here =
+            key.startsWith("logic:") && counters.steps === interruption?.at;
+
+          if (here && interruption.kind === "crashInStep") {
+            return die;
+          }
+
+          const written = base.writeJournal(runId, key, entry);
+
+          return here && interruption.kind === "crashAfterStep"
+            ? written.pipe(Effect.andThen(die))
+            : written;
         }),
       writePlan: (runId, next) =>
         counters.dead ? Effect.never : base.writePlan(runId, next),
@@ -482,7 +546,8 @@ const incarnation = (
       calls,
       announced,
       base,
-      deliveries
+      deliveries,
+      script.parks
     );
 
     const host = yield* RunHost.make.pipe(
@@ -633,6 +698,7 @@ it.effect.prop(
 
       const calls: ModelCall[] = [];
       const announced: string[] = [];
+      const parks: string[] | null = world.shadow ? [] : null;
 
       const deliveries: Deliveries = {
         atCrash: new Set(),
@@ -649,7 +715,7 @@ it.effect.prop(
           calls,
           announced,
           deliveries,
-          { limits, plan },
+          { limits, parks, plan },
           first,
           interruption
         );
@@ -667,7 +733,7 @@ it.effect.prop(
         calls,
         announced,
         deliveries,
-        { limits, plan },
+        { limits, parks, plan },
         first
       );
 
@@ -686,7 +752,24 @@ it.effect.prop(
       }
 
       const state = yield* base.readRun(RUN);
-      yield* Schema.decodeEffect(RunStateSchema)(Option.getOrThrow(state));
+
+      const storedState = yield* Schema.decodeEffect(RunStateSchema)(
+        Option.getOrThrow(state)
+      );
+
+      if (storedState.status === "done") {
+        expect(storedState.replies).toStrictEqual([]);
+      }
+
+      if (parks !== null) {
+        const decided = calls.flatMap(({ key, kind, visit }) =>
+          kind === "jev" ? [`${key}#${visit}`] : []
+        );
+
+        expect(decided.filter((id) => !parks.includes(id))).toStrictEqual([]);
+        expect(parks.length > 0).toBe(decided.length > 0);
+      }
+
       const stored = yield* base.readPlan(RUN, actual.planVersion);
       yield* decodePlan(Option.getOrThrow(stored));
 
@@ -724,14 +807,17 @@ it.effect.prop(
       );
 
       for (const { ladder, tokens } of judged) {
-        const spent = ladder.map(({ rung }) => rungTokens(rung));
+        const spent = ladder.map(({ rung }) => rungTokens(rung, world.shadow));
 
         expect(ladder.map(({ usage }) => usage?.tokens ?? 0)).toEqual(spent);
         expect(tokens).toBe(spent.reduce<number>((sum, used) => sum + used, 0));
       }
 
       const crashesInStep = world.interruptions.filter(
-        ({ kind }) => kind === "crashInStep" || kind === "cancel"
+        ({ kind }) =>
+          kind === "crashInStep" ||
+          kind === "crashAfterStep" ||
+          kind === "cancel"
       ).length;
 
       expect(

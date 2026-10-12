@@ -38,6 +38,7 @@ import { Mail, SealedSchema } from "../steps/mail.js";
 import { Operator } from "../steps/operator.js";
 import { StepFailed } from "../steps/step-failed.js";
 import { Thinker } from "../steps/thinker.js";
+import { VerdictDeferred } from "../steps/verdict-deferred.js";
 import { describeValue, leaves, openExecution } from "./execution.js";
 import type { Adapter, Execution, Sources } from "./execution.js";
 import { fingerprintOf, stepOf } from "./fingerprint.js";
@@ -212,6 +213,7 @@ export const driveSession = (
     const prints = new Map(yield* store.readFingerprints(runId));
     const mailbox: QueuedEvent[] = [];
     const pending = new Map<symbol, Promise<Schema.Json>>();
+    const parked = new Map<string, Awaiting>();
     const visits = new Map<string, number>();
 
     const starts = new Map(
@@ -379,9 +381,13 @@ export const driveSession = (
 
     const epochOf = () => (run.state.revision === null ? 0 : run.plan.version);
 
-    const step = <A>(key: string, effect: Effect.Effect<A, StepFailed>) =>
+    const step = <A, E>(key: string, effect: Effect.Effect<A, E>) =>
       effect.pipe(
-        Effect.tapError(() => store.writeDoc(runId, `failed:${key}`, true))
+        Effect.tapError((failure) =>
+          isStepFailed(failure)
+            ? store.writeDoc(runId, `failed:${key}`, true)
+            : Effect.void
+        )
       );
 
     const writeDoc = (name: string | undefined, doc: Schema.Json) =>
@@ -558,6 +564,10 @@ export const driveSession = (
 
         const stored = yield* store.readDocs(runId);
 
+        const reply = Option.fromNullishOr(
+          run.state.replies.find(({ key }) => key === input.key)
+        );
+
         const docs = Object.fromEntries(
           (input.reads ?? []).flatMap((name) =>
             name in stored ? [[name, stored[name] ?? null]] : []
@@ -566,7 +576,11 @@ export const driveSession = (
 
         const { probabilities, usage } = yield* step(
           input.key,
-          judge.choose({ ...call, docs })
+          judge.choose({
+            ...call,
+            docs,
+            reply: reply.pipe(Option.map(({ body }) => body)),
+          })
         );
 
         const [top] = Object.entries(probabilities).toSorted(
@@ -620,7 +634,9 @@ export const driveSession = (
 
     const logic = <I>(
       schema: Schema.Decoder<I>,
-      body: (input: I) => Effect.Effect<Schema.Json, StepFailed>
+      body: (
+        input: I
+      ) => Effect.Effect<Schema.Json, StepFailed | VerdictDeferred>
     ) =>
       createAsyncLogic({
         // oxlint-disable-next-line typescript/promise-function-async -- xstate async logic consumes a Promise factory.
@@ -661,16 +677,31 @@ export const driveSession = (
       return at === -1 ? address : address.slice(at + marker.length);
     };
 
+    const consumeReply = (stepKey: string) =>
+      Effect.sync(() => {
+        run.state = {
+          ...run.state,
+          replies: run.state.replies.filter(({ key }) => key !== stepKey),
+        };
+      });
+
     // oxlint-disable-next-line typescript/promise-function-async -- runLogic must hand xstate the tracked Promise.
     const track = (
       key: string,
-      work: Effect.Effect<Schema.Json, StepFailed>
+      build: (
+        release: Effect.Effect<void>
+      ) => Effect.Effect<Schema.Json, StepFailed>
     ) => {
       const token = Symbol(key);
       const settled = { done: false };
 
+      const release = Effect.sync(() => {
+        settled.done = true;
+        pending.delete(token);
+      });
+
       const promise = runPromise(
-        work.pipe(
+        build(release).pipe(
           Effect.ensuring(
             Effect.sync(() => {
               settled.done = true;
@@ -708,9 +739,16 @@ export const driveSession = (
         const visit = starts.get(actor.address) ?? 1;
         const key = `logic:${actor.address}#${visit}`;
 
+        const stepKey = stepKeyOf(actor.address);
+
         const work = Effect.tryPromise({
           catch: (cause) =>
-            failed(key, isStepFailed(cause) ? cause.reason : `${key} failed`),
+            cause instanceof VerdictDeferred
+              ? cause
+              : failed(
+                  key,
+                  isStepFailed(cause) ? cause.reason : `${key} failed`
+                ),
           // oxlint-disable-next-line typescript/promise-function-async -- xstate hands the step body over as a Promise factory.
           try: () => {
             visits.set(stepKeyOf(actor.address), visit);
@@ -725,15 +763,35 @@ export const driveSession = (
           )
         );
 
-        return track(
-          key,
-          journaled(key, work, printOf(stepOf(actor)), (entry) =>
-            Effect.forEach(
-              docWrites(stepOf(actor), entry),
-              ([name, doc]) => store.writeDoc(runId, name, doc),
-              { discard: true }
-            )
-          )
+        const park =
+          (release: Effect.Effect<void>) => (deferred: VerdictDeferred) =>
+            Effect.gen(function* parkStep() {
+              const messageId = `${runId}/${stepKey}#${visit}`;
+
+              yield* store.writeMessage(messageId, runId);
+              parked.set(stepKey, {
+                key: stepKey,
+                messageId,
+                to: deferred.to,
+                writes: null,
+              });
+              yield* release;
+
+              return yield* Effect.never;
+            });
+
+        return track(key, (release) =>
+          journaled(
+            key,
+            work.pipe(Effect.catchTag("VerdictDeferred", park(release))),
+            printOf(stepOf(actor)),
+            (entry) =>
+              Effect.forEach(
+                docWrites(stepOf(actor), entry),
+                ([name, doc]) => store.writeDoc(runId, name, doc),
+                { discard: true }
+              )
+          ).pipe(Effect.ensuring(consumeReply(stepKey)))
         );
       },
       waitForEvent: () => DRAINED,
@@ -916,9 +974,11 @@ export const driveSession = (
         yield* saving.withPermits(1)(
           Effect.gen(function* storeStatus() {
             const { checkpoint: stored } = run.state;
+            const docs = yield* store.readDocs(runId);
 
             run.state = {
               ...run.state,
+              awaiting: [...awaitingOf(docs), ...parked.values()],
               checkpoint:
                 stored === null
                   ? null
@@ -1025,7 +1085,7 @@ export const driveSession = (
         } satisfies Choice;
       }
 
-      if (awaiting.length > 0) {
+      if (awaiting.length > 0 || parked.size > 0) {
         return { kind: "halt", status: "waiting-for-reply" } satisfies Choice;
       }
 

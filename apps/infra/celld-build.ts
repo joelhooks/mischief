@@ -39,6 +39,7 @@ export const buildWorker = ({ callers, commit, did, version }: BuildInput) =>
           MISCHIEF_CALLERS: callers,
           MISCHIEF_DID: did,
           MISCHIEF_GUARD_MS: "30000",
+          MISCHIEF_JUDGE: "shadow",
           MISCHIEF_MODEL: "faux",
         },
         version,

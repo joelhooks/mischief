@@ -1,7 +1,13 @@
 // @effect-diagnostics asyncFunction:off -- a Durable Object's fetch and alarm handlers are Promise APIs.
 import type { Storage } from "@earendil-works/pi-durable";
 import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
-import { Judge, Operator, StepFailed, Thinker } from "@mischief/core";
+import {
+  Judge,
+  Operator,
+  shadowJudge,
+  StepFailed,
+  Thinker,
+} from "@mischief/core";
 import { makePlanRun, mailOutboxSql } from "@mischief/plan-run";
 import type { PlanRun as Runtime } from "@mischief/plan-run";
 import { fauxThinkerOptions, piThinker } from "@mischief/thinking";
@@ -17,6 +23,7 @@ export interface Env {
   readonly MISCHIEF_CALLERS?: string;
   readonly MISCHIEF_MODEL: string;
   readonly MISCHIEF_GUARD_MS: string;
+  readonly MISCHIEF_JUDGE?: string;
 }
 
 const operator = Layer.succeed(
@@ -67,7 +74,7 @@ export class PlanRun extends DurableObject<Env> {
       guardMs: Number(env.MISCHIEF_GUARD_MS),
       services: Layer.mergeAll(
         thinker,
-        Judge.unwired,
+        env.MISCHIEF_JUDGE === "shadow" ? shadowJudge : Judge.unwired,
         mailOutboxSql(ctx.storage),
         operator
       ),

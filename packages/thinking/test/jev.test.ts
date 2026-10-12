@@ -1,6 +1,14 @@
 import { expect, it } from "@effect/vitest";
 import { Judge } from "@mischief/core";
-import { Effect, Exit, Layer, Predicate, Redacted, Schema } from "effect";
+import {
+  Effect,
+  Exit,
+  Layer,
+  Option,
+  Predicate,
+  Redacted,
+  Schema,
+} from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import { HttpClient, HttpClientResponse } from "effect/http";
 
@@ -151,6 +159,7 @@ it.live.prop(
             key: "classify_check",
             options: world.options,
             question: "Does every candidate pass the hard rules?",
+            reply: Option.none(),
             runId: "sweep-1",
             visit: 1,
           })

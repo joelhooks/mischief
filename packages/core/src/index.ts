@@ -65,6 +65,10 @@ export { UnknownRun } from "./runs/unknown-run.js";
 
 export { Judge, type Judgement } from "./steps/judge.js";
 
+export { SHADOW_JUDGE, shadowJudge } from "./steps/shadow-judge.js";
+
+export type { VerdictDeferred } from "./steps/verdict-deferred.js";
+
 export type { Usage } from "./steps/usage.js";
 
 export { Mail, SealedSchema, type Sealed } from "./steps/mail.js";

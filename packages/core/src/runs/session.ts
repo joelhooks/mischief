@@ -1,4 +1,4 @@
-import { Crypto, Effect, Option, Result, Schema } from "effect";
+import { Crypto, Effect, Option, Result, Schema, Semaphore } from "effect";
 import { constVoid } from "effect/Function";
 import { createAsyncLogic } from "xstate";
 import type { AnyEventObject, Snapshot } from "xstate";
@@ -30,6 +30,7 @@ import type {
   JudgeInput,
   SwitchInput,
   JudgeVerdict,
+  QuestionInput,
   ThinkInput,
 } from "../steps/inputs.js";
 import { Judge } from "../steps/judge.js";
@@ -42,8 +43,11 @@ import type { Adapter, Execution, Sources } from "./execution.js";
 import { fingerprintOf, stepOf } from "./fingerprint.js";
 import { docWrites, docsRead } from "./replay.js";
 import { RunStore } from "./run-store.js";
+import { DirectiveKey, directiveKey, DirectiveSchema } from "./schema.js";
 import type {
   Awaiting,
+  Directive,
+  PendingDirective,
   QueuedEvent,
   RunReport,
   RunState,
@@ -198,6 +202,8 @@ export const driveSession = (
     const operator = yield* Operator;
     const crypto = yield* Crypto.Crypto;
 
+    const saving = yield* Semaphore.make(1);
+
     const runPromise = Effect.runPromiseWith(
       yield* Effect.context<StepServices>()
     );
@@ -309,12 +315,65 @@ export const driveSession = (
         )
       );
 
-    const recordInput = (key: string, value: string) =>
+    const recordJournal = (key: string, value: Schema.Json) =>
       Effect.suspend(() => {
         journal.set(key, value);
 
         return store.writeJournal(runId, key, value);
       });
+
+    const recordInput = (key: string, value: string) =>
+      recordJournal(key, value);
+
+    const PRODUCED = "directive:";
+
+    const produce = (key: string, directive: Directive) =>
+      Effect.suspend(() =>
+        journal.has(`${PRODUCED}${key}`)
+          ? Effect.void
+          : recordJournal(`${PRODUCED}${key}`, directive)
+      );
+
+    const deliveryKey = (stepKey: string, cause: string) =>
+      Effect.suspend(() => {
+        const known = Schema.decodeUnknownOption(DirectiveKey)(
+          journal.get(cause)
+        );
+
+        if (Option.isSome(known)) {
+          return Effect.succeed(known.value);
+        }
+
+        const key = directiveKey({
+          index: 0,
+          runId,
+          step: stepKey,
+          visit:
+            [...journal.keys()].filter((entry) =>
+              entry.startsWith(`${PRODUCED}${runId}:${stepKey}:`)
+            ).length + 1,
+        });
+
+        return recordJournal(cause, key).pipe(Effect.as(key));
+      });
+
+    const pendingNow = Effect.suspend(() =>
+      Effect.forEach(
+        [...journal.keys()].flatMap((entry) =>
+          entry.startsWith(PRODUCED) &&
+          !journal.has(`done:${entry.slice(PRODUCED.length)}`)
+            ? [entry.slice(PRODUCED.length)]
+            : []
+        ),
+        (key) =>
+          Schema.decodeUnknownEffect(DirectiveSchema)(
+            journal.get(`${PRODUCED}${key}`)
+          ).pipe(
+            Effect.map((directive): PendingDirective => ({ directive, key })),
+            Effect.orDie
+          )
+      )
+    );
 
     const visitOf = (key: string) => visits.get(key) ?? 1;
 
@@ -403,7 +462,36 @@ export const driveSession = (
           messageId: sealed.messageId,
           to: input.to,
         });
-        yield* step(input.key, mail.send(call, sealed));
+        const key = yield* deliveryKey(input.key, `asked:${sealed.messageId}`);
+
+        yield* produce(
+          key,
+          DirectiveSchema.cases.Ask.make({
+            envelope: sealed.envelope,
+            epoch: call.epoch,
+            messageId: sealed.messageId,
+            to: input.to,
+            visit: call.visit,
+          })
+        );
+
+        if (!journal.has(`done:${key}`)) {
+          // oxlint-disable-next-line eslint/no-use-before-define -- an ask checkpoints its own directive before delivering it; save is defined with the drive loop.
+          yield* save("running");
+
+          const sent = yield* Effect.result(mail.send(call, sealed));
+
+          yield* recordJournal(
+            `done:${key}`,
+            Result.isSuccess(sent)
+              ? true
+              : { error: `${key} failed`, reason: sent.failure.reason }
+          );
+
+          if (Result.isFailure(sent)) {
+            return yield* step(input.key, Effect.fail(sent.failure));
+          }
+        }
 
         return { messageId: sealed.messageId, tokens: 0 };
       });
@@ -752,49 +840,103 @@ export const driveSession = (
     const announceEnvelope = Effect.suspend(() => {
       const { maxSteps } = run.plan.envelope;
 
-      return journaled(
-        `announce:__envelope#${maxSteps}`,
-        operator
-          .notify(runId, {
-            key: "__envelope",
-            options: ["extendRun", "abortRun"],
-            question: `used ${run.state.transitions} of its ${maxSteps} steps and paused. Raise the limit with extendRun({ runId: "${runId}", maxSteps }) or stop it with abortRun({ runId: "${runId}" })`,
-          })
-          .pipe(Effect.as(true))
-      ).pipe(Effect.ignore);
+      return journal.has(`announce:__envelope#${maxSteps}`)
+        ? Effect.void
+        : produce(
+            directiveKey({
+              index: 0,
+              runId,
+              step: "__envelope",
+              visit: maxSteps,
+            }),
+            DirectiveSchema.cases.Emit.make({
+              question: {
+                key: "__envelope",
+                options: ["extendRun", "abortRun"],
+                question: `used ${run.state.transitions} of its ${maxSteps} steps and paused. Raise the limit with extendRun({ runId: "${runId}", maxSteps }) or stop it with abortRun({ runId: "${runId}" })`,
+              },
+            })
+          );
     });
 
     const report = Effect.suspend(() => reportOf(runId, run.plan, run.state));
 
     const save = (status: RunStatus) =>
-      Effect.gen(function* saveRun() {
-        const docs = yield* store.readDocs(runId);
+      saving.withPermits(1)(
+        Effect.gen(function* saveRun() {
+          const docs = yield* store.readDocs(runId);
 
-        run.state = {
-          ...run.state,
-          answers: Object.fromEntries(answers),
-          asking: askHere() ?? null,
-          awaiting: awaitingOf(docs),
-          checkpoint: {
-            mailbox: structuredClone(mailbox),
-            pending: [],
-            snapshot: execution.persist(),
-            starts: Object.fromEntries(starts),
-            transitionIndex: execution.nextTransitionIndex(),
-          },
-          status,
-          value: describeValue(execution.view().value),
-        };
+          run.state = {
+            ...run.state,
+            answers: Object.fromEntries(answers),
+            asking: askHere() ?? null,
+            awaiting: awaitingOf(docs),
+            checkpoint: {
+              mailbox: structuredClone(mailbox),
+              pending: yield* pendingNow,
+              snapshot: execution.persist(),
+              starts: Object.fromEntries(starts),
+              transitionIndex: execution.nextTransitionIndex(),
+            },
+            status,
+            value: describeValue(execution.view().value),
+          };
 
-        yield* store.writeRun(runId, run.state);
+          yield* store.writeRun(runId, run.state);
+        })
+      );
+
+    const announce = (key: string, question: QuestionInput) =>
+      Effect.gen(function* announceNotice() {
+        const sent = yield* Effect.result(operator.notify(runId, question));
+
+        yield* recordJournal(
+          `done:${key}`,
+          Result.isSuccess(sent) ? true : { error: `${key} not announced` }
+        );
       });
+
+    const deliverPending = Effect.gen(function* deliverStored() {
+      if (watch?.dryRun === true) {
+        return;
+      }
+
+      for (const { directive, key } of run.state.checkpoint?.pending ?? []) {
+        if (
+          DirectiveSchema.guards.Emit(directive) &&
+          !journal.has(`done:${key}`)
+        ) {
+          yield* announce(key, directive.question);
+        }
+      }
+    });
 
     const mark = (status: RunStatus) =>
-      Effect.suspend(() => {
-        run.state = { ...run.state, status };
+      Effect.gen(function* markRun() {
+        yield* saving.withPermits(1)(
+          Effect.gen(function* storeStatus() {
+            const { checkpoint: stored } = run.state;
 
-        return store.writeRun(runId, run.state).pipe(Effect.andThen(report));
+            run.state = {
+              ...run.state,
+              checkpoint:
+                stored === null
+                  ? null
+                  : { ...stored, pending: yield* pendingNow },
+              status,
+            };
+
+            yield* store.writeRun(runId, run.state);
+          })
+        );
+
+        yield* deliverPending;
+
+        return yield* report;
       });
+
+    const saved = (status: RunStatus) =>
+      save(status).pipe(Effect.andThen(deliverPending));
 
     const drain = Effect.gen(function* drainCaptured() {
       for (;;) {
@@ -900,10 +1042,14 @@ export const driveSession = (
       if (chosen === undefined || !question.options.includes(chosen)) {
         const asked = (answers.get(question.key) ?? 0) + 1;
 
-        yield* journaled(
-          `announce:${question.key}#${asked}${run.state.revision === null ? "" : `@v${run.plan.version}`}`,
-          operator.notify(runId, question).pipe(Effect.as(true))
-        ).pipe(Effect.ignore);
+        const notice = `announce:${question.key}#${asked}${run.state.revision === null ? "" : `@v${run.plan.version}`}`;
+
+        if (!journal.has(notice)) {
+          yield* produce(
+            yield* deliveryKey(question.key, notice),
+            DirectiveSchema.cases.Emit.make({ question })
+          );
+        }
 
         return { kind: "halt", status: "waiting-for-joel" } satisfies Choice;
       }
@@ -949,7 +1095,9 @@ export const driveSession = (
         });
 
         run.state = { ...run.state, planVersion: run.plan.version };
-        yield* save("running");
+
+        yield* saved("running");
+
         yield* execution.flush();
 
         return true;
@@ -971,13 +1119,14 @@ export const driveSession = (
             capped !== undefined)
         ) {
           run.state = { ...run.state, capped: capped ?? null };
-          yield* save("envelope-exceeded");
           yield* announceEnvelope;
+          yield* saved("envelope-exceeded");
 
           return false;
         }
 
-        yield* save(statusAfter(status));
+        yield* saved(statusAfter(status));
+
         yield* execution.flush();
 
         return true;
@@ -1004,13 +1153,14 @@ export const driveSession = (
 
         if (capped !== undefined) {
           run.state = { ...run.state, capped };
-          yield* save("envelope-exceeded");
           yield* announceEnvelope;
+          yield* saved("envelope-exceeded");
 
           return false;
         }
 
-        yield* save("running");
+        yield* saved("running");
+
         yield* execution.flush();
 
         return true;
@@ -1042,6 +1192,7 @@ export const driveSession = (
         );
       }
 
+      yield* deliverPending;
       yield* execution.flush();
 
       return true;

@@ -13,7 +13,14 @@ import {
 const Address = Schema.Struct({
   index: Schema.Int.check(Schema.isBetween({ maximum: 12, minimum: 0 })),
   runId: Schema.Literals(["r", "run-1", "fleet-cleanup-7"]),
-  step: Schema.Literals(["ask", "classify_check", "__envelope", "a1"]),
+  step: Schema.Literals([
+    "ask",
+    "classify_check",
+    "__envelope",
+    "a1",
+    "build.alpha.ask",
+    "fan-out.b-2.ask_beta",
+  ]),
   visit: Schema.Int.check(Schema.isBetween({ maximum: 12, minimum: 1 })),
 });
 

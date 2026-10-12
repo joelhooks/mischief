@@ -42,21 +42,18 @@ export type QueuedEvent = typeof QueuedEventSchema.Type;
 export const DirectiveSchema = Schema.TaggedUnion({
   Ask: {
     envelope: Schema.String,
+    epoch: Count,
     messageId: Schema.String,
     to: Schema.String,
+    visit: Count,
   },
   Emit: { question: QuestionInputSchema },
-  Schedule: {
-    at: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-    reason: Schema.String,
-  },
-  Stop: { reason: Schema.String, status: RunStatusSchema },
 });
 
 export type Directive = typeof DirectiveSchema.Type;
 
 const DIRECTIVE_KEY =
-  /^(?<runId>[a-z0-9][a-z0-9-]{0,63}):(?<step>[a-z_][a-z0-9_]{0,63}):(?<visit>[1-9][0-9]*):(?<index>0|[1-9][0-9]*)$/u;
+  /^(?<runId>[a-z0-9][a-z0-9-]{0,63}):(?<step>[a-z_][a-z0-9_-]*(?:\.[a-z_][a-z0-9_-]*)*):(?<visit>[1-9][0-9]*):(?<index>0|[1-9][0-9]*)$/u;
 
 export const DirectiveKey = Schema.String.check(
   Schema.isPattern(DIRECTIVE_KEY)

@@ -33,6 +33,14 @@ const RunRow = Schema.Struct({ run_id: Schema.String });
 
 const SeqRow = Schema.Struct({ seq: Schema.Number });
 
+const Addressed = Schema.fromJsonString(Schema.Struct({ to: Schema.String }));
+
+const addressedElsewhere = (body: string) =>
+  Option.exists(
+    Schema.decodeUnknownOption(Addressed)(body),
+    ({ to }) => to !== OWN_NAME
+  );
+
 const settle = (
   verdict: SendVerdictValue
 ): Effect.Effect<void, PostboxFailed> =>
@@ -81,7 +89,12 @@ export const postbox = (storage: SqlStorage) => {
       Option.map(({ run_id }) => run_id)
     );
 
-  const park = (message: Inbound, sender: string, reason: string) =>
+  const park = (
+    message: Inbound,
+    sender: string,
+    reason: string,
+    quiet = false
+  ) =>
     Effect.gen(function* parkMessage() {
       const fresh =
         storage.sql
@@ -94,7 +107,7 @@ export const postbox = (storage: SqlStorage) => {
           )
           .toArray().length > 0;
 
-      if (fresh) {
+      if (fresh && !quiet) {
         yield* Mailroom.use((mailroom) =>
           mailroom.surface(
             `Mischief parked a reply from ${sender}: ${reason}`,
@@ -191,7 +204,8 @@ export const postbox = (storage: SqlStorage) => {
             onNone: () => `it is not a reply to anything Mischief sent${told}`,
             onSome: (replyTo) =>
               `it replies to ${replyTo}, which no Mischief run sent${told}`,
-          })
+          }),
+          prompted.length === 0 && addressedElsewhere(message.body)
         );
       } else {
         const outcome = yield* Runs.use((runs) =>

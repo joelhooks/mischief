@@ -107,3 +107,43 @@ it.effect(
     }).pipe(Effect.provide(layer));
   }
 );
+
+it.effect(
+  "a copy addressed to another desk is parked quietly unless it names a Mischief ask",
+  () => {
+    const { box, layer, surfaced, told } = world();
+
+    return Effect.gen(function* copies() {
+      yield* box.seal("did:web:driver/preflight", "partner/desk", "landed?");
+
+      yield* box.receive(
+        inbound(
+          "3mxot2fxoz6lt",
+          '{"body":"report is in","to":"agent-graph/desk"}'
+        ),
+        1
+      );
+
+      expect(surfaced).toStrictEqual([]);
+
+      yield* box.receive(
+        inbound(
+          "3mxoskcw6iz56",
+          `{"body":"re your ${ASK}: squashed","to":"partner/cutover"}`
+        ),
+        2
+      );
+      yield* box.receive(
+        inbound(
+          "3mxonamesmine",
+          '{"body":"what is this?","to":"mischief/worker"}'
+        ),
+        3
+      );
+
+      expect(told).toHaveLength(1);
+      expect(surfaced).toHaveLength(2);
+      expect(surfaced[0]).toContain("was told how to reply");
+    }).pipe(Effect.provide(layer));
+  }
+);

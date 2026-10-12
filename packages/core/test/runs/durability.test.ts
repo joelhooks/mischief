@@ -6,8 +6,8 @@ import * as Arbitrary from "effect/Arbitrary";
 import { decodePlan } from "../../src/plans/schema.js";
 import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
-import { RunStateSchema } from "../../src/runs/schema.js";
-import type { RunReport } from "../../src/runs/schema.js";
+import { DirectiveSchema, RunStateSchema } from "../../src/runs/schema.js";
+import type { PendingDirective, RunReport } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
@@ -224,7 +224,53 @@ const outcome = <A>(key: string, found: Fixture, value: A) =>
     ? Effect.fail(new StepFailed({ key, reason: "fixture failure" }))
     : Effect.succeed(value);
 
-const fakes = (fixtures: Fixtures, calls: ModelCall[], announced: string[]) => {
+interface Deliveries {
+  readonly atCrash: Set<string>;
+  readonly delivered: string[];
+  readonly outside: string[];
+}
+
+const storedPending = (base: (typeof RunStore)["Service"]) =>
+  base.readRun(RUN).pipe(
+    Effect.map((state) =>
+      Option.match(state, {
+        onNone: () => [],
+        onSome: (found) =>
+          Option.match(Schema.decodeUnknownOption(RunStateSchema)(found), {
+            onNone: () => [],
+            onSome: ({ checkpoint }) => checkpoint?.pending ?? [],
+          }),
+      })
+    )
+  );
+
+const deliveredFrom = (
+  base: (typeof RunStore)["Service"],
+  deliveries: Deliveries,
+  matches: (pending: PendingDirective) => boolean,
+  label: string
+) =>
+  storedPending(base).pipe(
+    Effect.flatMap((pending) =>
+      Effect.sync(() => {
+        const found = pending.find(matches);
+
+        if (found === undefined) {
+          deliveries.outside.push(label);
+        } else {
+          deliveries.delivered.push(found.key);
+        }
+      })
+    )
+  );
+
+const fakes = (
+  fixtures: Fixtures,
+  calls: ModelCall[],
+  announced: string[],
+  base: (typeof RunStore)["Service"],
+  deliveries: Deliveries
+) => {
   const fixture = (key: string, visit: number, suffix = "") =>
     fixtures[`${key}#${visit}${suffix}`] ?? {};
 
@@ -257,8 +303,16 @@ const fakes = (fixtures: Fixtures, calls: ModelCall[], announced: string[]) => {
             messageId: `${key}#${visit}`,
           }))
         ),
-      send: ({ key, visit }) =>
-        record(key, "ask", visit).pipe(
+      send: ({ key, visit }, { messageId }) =>
+        deliveredFrom(
+          base,
+          deliveries,
+          ({ directive }) =>
+            DirectiveSchema.guards.Ask(directive) &&
+            directive.messageId === messageId,
+          `ask ${messageId}`
+        ).pipe(
+          Effect.andThen(record(key, "ask", visit)),
           Effect.andThen(() =>
             outcome(key, fixture(key, visit), null).pipe(Effect.asVoid)
           )
@@ -266,9 +320,20 @@ const fakes = (fixtures: Fixtures, calls: ModelCall[], announced: string[]) => {
     }),
     operator: Operator.of({
       notify: (_runId, { key }) =>
-        Effect.sync(() => {
-          announced.push(key);
-        }),
+        deliveredFrom(
+          base,
+          deliveries,
+          ({ directive }) =>
+            DirectiveSchema.guards.Emit(directive) &&
+            directive.question.key === key,
+          `notice ${key}`
+        ).pipe(
+          Effect.andThen(
+            Effect.sync(() => {
+              announced.push(key);
+            })
+          )
+        ),
     }),
     thinker: Thinker.of({
       decide: ({ key, visit }) =>
@@ -322,6 +387,7 @@ const incarnation = (
   fixtures: Fixtures,
   calls: ModelCall[],
   announced: string[],
+  deliveries: Deliveries,
   script: { readonly limits: readonly number[]; readonly plan: Schema.Json },
   first: boolean,
   interruption?: Interruption
@@ -346,7 +412,16 @@ const incarnation = (
         return yield* Effect.never;
       });
 
-    const die = stop(true);
+    const die = storedPending(base).pipe(
+      Effect.tap((pending) =>
+        Effect.sync(() => {
+          for (const { key } of pending) {
+            deliveries.atCrash.add(key);
+          }
+        })
+      ),
+      Effect.andThen(stop(true))
+    );
 
     const store = RunStore.of({
       ...base,
@@ -405,7 +480,9 @@ const incarnation = (
     const { judge, mail, operator, thinker } = fakes(
       fixtures,
       calls,
-      announced
+      announced,
+      base,
+      deliveries
     );
 
     const host = yield* RunHost.make.pipe(
@@ -556,6 +633,13 @@ it.effect.prop(
 
       const calls: ModelCall[] = [];
       const announced: string[] = [];
+
+      const deliveries: Deliveries = {
+        atCrash: new Set(),
+        delivered: [],
+        outside: [],
+      };
+
       let first = true;
 
       for (const interruption of world.interruptions) {
@@ -564,6 +648,7 @@ it.effect.prop(
           fixtures,
           calls,
           announced,
+          deliveries,
           { limits, plan },
           first,
           interruption
@@ -581,6 +666,7 @@ it.effect.prop(
         fixtures,
         calls,
         announced,
+        deliveries,
         { limits, plan },
         first
       );
@@ -616,6 +702,16 @@ it.effect.prop(
         value: expected.value,
       });
       expect(firstOccurrences(calls)).toEqual(expected.calls.map(callId));
+
+      expect(deliveries.outside).toStrictEqual([]);
+
+      expect(
+        deliveries.delivered.filter(
+          (key, at) =>
+            deliveries.delivered.indexOf(key) !== at &&
+            !deliveries.atCrash.has(key)
+        )
+      ).toStrictEqual([]);
 
       const journal = yield* base.readJournal(RUN);
 

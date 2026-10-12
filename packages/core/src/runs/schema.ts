@@ -120,6 +120,7 @@ export const ReplyLineSchema = Schema.Struct({
   from: Schema.optionalKey(Schema.String),
   messageId: Schema.optionalKey(Schema.String),
   replyTo: Schema.String,
+  runId: Schema.optionalKey(RunId),
 });
 
 export type ReplyLine = typeof ReplyLineSchema.Type;

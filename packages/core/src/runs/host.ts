@@ -238,6 +238,13 @@ export class RunHost extends Context.Service<
       }
 
       const runId = owner.value;
+
+      if (line.runId !== undefined && line.runId !== runId) {
+        return yield* refuse(
+          `${line.replyTo} was sent by run ${runId}, not ${line.runId}. Send it again with runId "${runId}"; nothing changed.`
+        );
+      }
+
       const { state } = yield* loadRun(runId).pipe(Effect.orDie);
 
       const open = state.awaiting.find(

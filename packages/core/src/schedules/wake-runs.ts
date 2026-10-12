@@ -7,6 +7,7 @@ import type { Docs, RunReport } from "../runs/schema.js";
 export class WakeRuns extends Context.Service<
   WakeRuns,
   {
+    readonly abort: (runId: string) => Effect.Effect<void>;
     readonly inspect: (
       runId: string
     ) => Effect.Effect<Option.Option<RunReport>>;

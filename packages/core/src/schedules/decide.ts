@@ -24,6 +24,7 @@ export interface Start {
 
 export interface Decision {
   readonly state: ScheduleState;
+  readonly abort: string | null;
   readonly start: Start | null;
   readonly alarmAt: number | null;
 }
@@ -77,12 +78,14 @@ const end = (
   reason: EndReason,
   detail: string
 ): Decision => ({
+  abort: null,
   alarmAt: null,
   start: null,
   state: { ...state, ended: { at: now, detail, reason } },
 });
 
 const stay = (state: ScheduleState): Decision => ({
+  abort: null,
   alarmAt: alarmFor(state),
   start: null,
   state,
@@ -126,12 +129,18 @@ const carried = (
   });
 };
 
-const wake = (state: ScheduleState, now: number, docs: Docs): Decision => {
+const wake = (
+  state: ScheduleState,
+  now: number,
+  docs: Docs,
+  abort: string | null = null
+): Decision => {
   const n = state.wakeCount + 1;
   const runId = wakeRunId(state.scheduleId, n);
 
   const woken: ScheduleState = {
     ...state,
+    aborting: abort,
     nextAt: slotAfter(state.cadence, state.createdAt, now),
     pendingDocs: docs,
     wakeCount: n,
@@ -139,10 +148,43 @@ const wake = (state: ScheduleState, now: number, docs: Docs): Decision => {
   };
 
   return {
+    abort,
     alarmAt: confirming(woken, now),
     start: { docs, runId },
     state: woken,
   };
+};
+
+const minutes = (ms: number) => `${String(Math.round(ms / 60_000))} min`;
+
+const replace = (state: ScheduleState, now: number, report: RunReport) => {
+  const stuck = lastWake(state);
+  const runId = stuck?.runId ?? "";
+
+  return wake(
+    {
+      ...state,
+      abortCount: state.abortCount + 1,
+      aborts: recent(state.aborts, {
+        at: now,
+        reason: `${named(state)} was still ${report.status} past its wakeTimeout of ${minutes(state.wakeTimeoutMs ?? 0)}; aborted, and the next wake starts from the docs it started with`,
+        runId,
+      }),
+    },
+    now,
+    state.pendingDocs,
+    runId
+  );
+};
+
+const overdue = (state: ScheduleState, now: number) => {
+  const stuck = lastWake(state);
+
+  return (
+    state.wakeTimeoutMs !== null &&
+    stuck !== undefined &&
+    now - stuck.at >= state.wakeTimeoutMs
+  );
 };
 
 const skip = (state: ScheduleState, now: number, report: RunReport) =>
@@ -163,7 +205,9 @@ const due = (state: ScheduleState, now: number, seen: Previous): Decision =>
     None: () => wake(state, now, state.docs),
     Reported: ({ report }) => {
       if (!terminalStatuses.has(report.status)) {
-        return skip(state, now, report);
+        return overdue(state, now)
+          ? replace(state, now, report)
+          : skip(state, now, report);
       }
 
       return Result.match(carried(state, report), {
@@ -219,6 +263,7 @@ export const decide = (
 
   if (Predicate.isTagged(seen, "Missing") && last !== undefined) {
     return {
+      abort: state.aborting,
       alarmAt: confirming(state, now),
       start: { docs: state.pendingDocs, runId: last.runId },
       state,

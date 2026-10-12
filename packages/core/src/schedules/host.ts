@@ -21,6 +21,7 @@ export interface ScheduleInput {
   readonly cron?: string | undefined;
   readonly maxWakes?: number | undefined;
   readonly timeout?: string | undefined;
+  readonly wakeTimeout?: string | undefined;
   readonly carry?: readonly string[] | undefined;
   readonly docs?: Docs | undefined;
 }
@@ -92,6 +93,27 @@ const limitsOf = (
   });
 };
 
+const wakeLimitOf = (
+  input: ScheduleInput
+): Result.Result<number | null, readonly string[]> => {
+  if (input.wakeTimeout === undefined) {
+    return Result.succeed(null);
+  }
+
+  return Option.match(millisOf(input.wakeTimeout), {
+    onNone: () =>
+      Result.fail([
+        `wakeTimeout "${input.wakeTimeout}" is not a finite duration; write it as "<number> <unit>", such as "2 hours"`,
+      ]),
+    onSome: (ms) =>
+      ms < MIN_EVERY_MS
+        ? Result.fail([
+            `wakeTimeout "${input.wakeTimeout}" is shorter than 1 minute; give each wake at least a minute to finish`,
+          ])
+        : Result.succeed(ms),
+  });
+};
+
 const carryErrors = (input: ScheduleInput) => {
   const docs = input.docs ?? {};
 
@@ -127,10 +149,12 @@ export const createSchedule = Effect.fn("createSchedule")(
 
     const cadence = cadenceOf(input);
     const limit = limitsOf(input);
+    const wakeLimit = wakeLimitOf(input);
 
     const errors = [
       ...(Result.isFailure(cadence) ? cadence.failure : []),
       ...(Result.isFailure(limit) ? limit.failure : []),
+      ...(Result.isFailure(wakeLimit) ? wakeLimit.failure : []),
       ...carryErrors(input),
     ];
 
@@ -145,7 +169,8 @@ export const createSchedule = Effect.fn("createSchedule")(
     if (
       errors.length > 0 ||
       Result.isFailure(cadence) ||
-      Result.isFailure(limit)
+      Result.isFailure(limit) ||
+      Result.isFailure(wakeLimit)
     ) {
       return yield* refuse(input.scheduleId, errors);
     }
@@ -153,6 +178,9 @@ export const createSchedule = Effect.fn("createSchedule")(
     const now = yield* Clock.currentTimeMillis;
 
     const state: ScheduleState = {
+      abortCount: 0,
+      aborting: null,
+      aborts: [],
       cadence: cadence.success,
       carry: [...(input.carry ?? [])],
       createdAt: now,
@@ -167,6 +195,7 @@ export const createSchedule = Effect.fn("createSchedule")(
       skipCount: 0,
       skips: [],
       wakeCount: 0,
+      wakeTimeoutMs: wakeLimit.success,
       wakes: [],
     };
 
@@ -239,6 +268,12 @@ export const wakeSchedule = Effect.fn("wakeSchedule")(function* wakeSchedule() {
   const decision = decide(found.value, now, seen);
 
   yield* store.save(decision.state);
+
+  if (decision.abort !== null) {
+    const { abort } = decision;
+
+    yield* WakeRuns.use((runs) => runs.abort(abort));
+  }
 
   if (decision.start !== null) {
     const { docs, runId } = decision.start;

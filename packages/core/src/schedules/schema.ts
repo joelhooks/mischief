@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { Count } from "../plans/schema.js";
 import { DocsSchema } from "../runs/schema.js";
@@ -38,6 +38,14 @@ export const SkipSchema = Schema.Struct({
 
 export type Skip = typeof SkipSchema.Type;
 
+export const AbortSchema = Schema.Struct({
+  at: Millis,
+  reason: Schema.String,
+  runId: Schema.String,
+});
+
+export type Abort = typeof AbortSchema.Type;
+
 export const EndReasonSchema = Schema.Literals([
   "completed",
   "done",
@@ -57,6 +65,13 @@ export const EndedSchema = Schema.Struct({
 export type Ended = typeof EndedSchema.Type;
 
 export const ScheduleStateSchema = Schema.Struct({
+  abortCount: Count.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))),
+  aborting: Schema.NullOr(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
+  aborts: Schema.Array(AbortSchema).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([]))
+  ),
   cadence: CadenceSchema,
   carry: Schema.Array(Schema.String),
   createdAt: Millis,
@@ -71,12 +86,17 @@ export const ScheduleStateSchema = Schema.Struct({
   skipCount: Count,
   skips: Schema.Array(SkipSchema),
   wakeCount: Count,
+  wakeTimeoutMs: Schema.NullOr(Millis).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
   wakes: Schema.Array(WakeSchema),
 });
 
 export type ScheduleState = typeof ScheduleStateSchema.Type;
 
 export const ScheduleReportSchema = Schema.Struct({
+  abortCount: Count,
+  aborts: Schema.Array(AbortSchema),
   cadence: CadenceSchema,
   carry: Schema.Array(Schema.String),
   ended: Schema.NullOr(EndedSchema),
@@ -87,12 +107,15 @@ export const ScheduleReportSchema = Schema.Struct({
   skipCount: Count,
   skips: Schema.Array(SkipSchema),
   wakeCount: Count,
+  wakeTimeoutMs: Schema.NullOr(Millis),
   wakes: Schema.Array(WakeSchema),
 });
 
 export type ScheduleReport = typeof ScheduleReportSchema.Type;
 
 export const reportOf = (state: ScheduleState): ScheduleReport => ({
+  abortCount: state.abortCount,
+  aborts: state.aborts,
   cadence: state.cadence,
   carry: state.carry,
   ended: state.ended,
@@ -103,6 +126,7 @@ export const reportOf = (state: ScheduleState): ScheduleReport => ({
   skipCount: state.skipCount,
   skips: state.skips,
   wakeCount: state.wakeCount,
+  wakeTimeoutMs: state.wakeTimeoutMs,
   wakes: state.wakes,
 });
 

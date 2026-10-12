@@ -71,6 +71,19 @@ const wakeRuns = (
   };
 
   return {
+    abort: (runId) =>
+      ownerFor.pipe(
+        Effect.flatMap((owner) =>
+          Effect.promise(
+            async () => await call(owner, runId, "abortRun", { runId })
+          )
+        ),
+        Effect.flatMap(({ body, status }) =>
+          status === 200 || Option.isSome(decodeUnknown(body))
+            ? Effect.void
+            : Effect.die(`abortRun ${runId} answered ${String(status)}`)
+        )
+      ),
     inspect: (runId) =>
       ownerFor.pipe(
         Effect.flatMap((owner) =>

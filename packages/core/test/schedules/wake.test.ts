@@ -46,6 +46,7 @@ const RunScriptSchema = Schema.Struct({
   done: Schema.Boolean,
   life: Schema.Int.check(Schema.isBetween({ maximum: 3, minimum: 0 })),
   status: Schema.Literals(["done", "failed", "aborted"]),
+  stuck: Schema.Boolean,
   writesCarry: Schema.Boolean,
 });
 
@@ -68,6 +69,9 @@ const WorldSchema = Schema.Struct({
   runs: Schema.NonEmptyArray(RunScriptSchema),
   steps: Schema.Array(StepSchema).check(Schema.isMaxLength(24)),
   timeoutSlots: Schema.Int.check(Schema.isBetween({ maximum: 40, minimum: 1 })),
+  wakeTimeoutSlots: Schema.NullOr(
+    Schema.Int.check(Schema.isBetween({ maximum: 4, minimum: 1 }))
+  ),
 });
 
 type World = typeof WorldSchema.Type;
@@ -78,6 +82,7 @@ interface LiveRun {
   readonly script: RunScript;
   readonly docs: Docs;
   submits: number;
+  aborted: boolean;
 }
 
 const makeWorld = (world: World) => {
@@ -101,8 +106,15 @@ const makeWorld = (world: World) => {
         : effect;
     });
 
-  const statusOf = (run: LiveRun): RunStatus =>
-    step - run.startedStep >= run.script.life ? run.script.status : "running";
+  const statusOf = (run: LiveRun): RunStatus => {
+    if (run.aborted) {
+      return "aborted";
+    }
+
+    return !run.script.stuck && step - run.startedStep >= run.script.life
+      ? run.script.status
+      : "running";
+  };
 
   const reportOf = (run: LiveRun): RunReport => {
     const status = statusOf(run);
@@ -156,6 +168,16 @@ const makeWorld = (world: World) => {
     Layer.succeed(
       WakeRuns,
       WakeRuns.of({
+        abort: (runId) =>
+          port(
+            Effect.sync(() => {
+              const run = runs.get(runId);
+
+              if (run !== undefined && statusOf(run) === "running") {
+                run.aborted = true;
+              }
+            })
+          ),
         inspect: (runId) =>
           port(
             Effect.sync(() =>
@@ -189,16 +211,21 @@ const makeWorld = (world: World) => {
                 );
               }
 
-              const expected =
-                before === undefined ? "seed" : `from ${String(before.n)}`;
+              const fromBefore =
+                before?.aborted === true
+                  ? before.docs[CARRY]
+                  : `from ${String(before?.n)}`;
+
+              const expected = before === undefined ? "seed" : fromBefore;
 
               if (world.carry && docs[CARRY] !== expected) {
                 violations.push(
-                  `${runId} got ${CARRY} ${JSON.stringify(docs[CARRY])}, not ${expected}`
+                  `${runId} got ${CARRY} ${JSON.stringify(docs[CARRY])}, not ${JSON.stringify(expected)}`
                 );
               }
 
               runs.set(runId, {
+                aborted: false,
                 docs,
                 n,
                 script:
@@ -269,6 +296,10 @@ const inputFor = (world: World): ScheduleInput => ({
   plan: zeroStep,
   scheduleId: ID,
   timeout: `${String(world.timeoutSlots * world.everyMinutes)} minutes`,
+  wakeTimeout:
+    world.wakeTimeoutSlots === null
+      ? undefined
+      : `${String(world.wakeTimeoutSlots * world.everyMinutes)} minutes`,
 });
 
 const play = (world: World) =>
@@ -320,9 +351,10 @@ const play = (world: World) =>
     return sim;
   });
 
-const settledViolations = (world: World, sim: ReturnType<typeof makeWorld>) => {
-  const problems = [...sim.violations];
-  const state = Option.getOrThrow(sim.state());
+type Sim = ReturnType<typeof makeWorld>;
+
+const submittedViolations = (state: ScheduleState, sim: Sim) => {
+  const problems: string[] = [];
 
   for (let n = 1; n <= state.wakeCount; n += 1) {
     if (!sim.runs.has(wakeRunId(ID, n))) {
@@ -336,15 +368,50 @@ const settledViolations = (world: World, sim: ReturnType<typeof makeWorld>) => {
     );
   }
 
-  for (const [index, wake] of state.wakes.entries()) {
+  return problems;
+};
+
+const collapseViolations = (state: ScheduleState) =>
+  state.wakes.flatMap((wake, index) => {
     const before = state.wakes[index - 1];
 
-    if (before !== undefined && wake.due <= before.at) {
-      problems.push(
-        `wake ${String(wake.n)} was due ${String(wake.due)}, not after wake ${String(before.n)} at ${String(before.at)}`
-      );
-    }
-  }
+    return before !== undefined && wake.due <= before.at
+      ? [
+          `wake ${String(wake.n)} was due ${String(wake.due)}, not after wake ${String(before.n)} at ${String(before.at)}`,
+        ]
+      : [];
+  });
+
+const budgetViolations = (state: ScheduleState, sim: Sim) => {
+  const wakeAt = new Map(state.wakes.map(({ at, runId }) => [runId, at]));
+
+  const late = state.skips.flatMap((skip) => {
+    const blocking = /\((?<runId>[a-z0-9-]+)\)/u.exec(skip.reason)?.groups
+      ?.runId;
+
+    const started = blocking === undefined ? undefined : wakeAt.get(blocking);
+
+    return state.wakeTimeoutMs !== null &&
+      started !== undefined &&
+      skip.at - started >= state.wakeTimeoutMs
+      ? [
+          `a slot at ${String(skip.at)} was skipped for ${String(blocking)}, past its wakeTimeout`,
+        ]
+      : [];
+  });
+
+  const aborted = [...sim.runs.values()].filter(({ aborted: was }) => was);
+
+  return aborted.length === state.abortCount
+    ? late
+    : [
+        ...late,
+        `${String(aborted.length)} runs were aborted but ${String(state.abortCount)} aborts recorded`,
+      ];
+};
+
+const endViolations = (world: World, state: ScheduleState, sim: Sim) => {
+  const problems: string[] = [];
 
   if (state.ended === null && sim.alarm() === null) {
     problems.push("a live schedule has no alarm");
@@ -363,6 +430,18 @@ const settledViolations = (world: World, sim: ReturnType<typeof makeWorld>) => {
   }
 
   return problems;
+};
+
+const settledViolations = (world: World, sim: Sim) => {
+  const state = Option.getOrThrow(sim.state());
+
+  return [
+    ...sim.violations,
+    ...submittedViolations(state, sim),
+    ...collapseViolations(state),
+    ...budgetViolations(state, sim),
+    ...endViolations(world, state, sim),
+  ];
 };
 
 it.effect.prop(
@@ -385,9 +464,18 @@ const refusalOf = (input: Partial<ScheduleInput>) =>
       carry: false,
       everyMinutes: 1,
       maxWakes: 1,
-      runs: [{ done: false, life: 0, status: "done", writesCarry: false }],
+      runs: [
+        {
+          done: false,
+          life: 0,
+          status: "done",
+          stuck: false,
+          writesCarry: false,
+        },
+      ],
       steps: [],
       timeoutSlots: 1,
+      wakeTimeoutSlots: null,
     });
 
     const exit = yield* Effect.exit(
@@ -447,9 +535,18 @@ it.effect(
         carry: false,
         everyMinutes: 1,
         maxWakes: 2,
-        runs: [{ done: false, life: 0, status: "done", writesCarry: false }],
+        runs: [
+          {
+            done: false,
+            life: 0,
+            status: "done",
+            stuck: false,
+            writesCarry: false,
+          },
+        ],
         steps: [],
         timeoutSlots: 1,
+        wakeTimeoutSlots: null,
       });
 
       yield* TestClock.setTime(Date.UTC(2026, 9, 12, 8, 30));
@@ -474,9 +571,18 @@ it.effect(
         carry: false,
         everyMinutes: 5,
         maxWakes: 3,
-        runs: [{ done: false, life: 0, status: "done", writesCarry: false }],
+        runs: [
+          {
+            done: false,
+            life: 0,
+            status: "done",
+            stuck: false,
+            writesCarry: false,
+          },
+        ],
         steps: [],
         timeoutSlots: 10,
+        wakeTimeoutSlots: null,
       });
 
       yield* TestClock.setTime(START);

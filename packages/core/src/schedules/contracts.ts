@@ -13,7 +13,7 @@ const scheduleId = ScheduleId.annotate({
 export const createScheduleContract = defineContract("createSchedule", {
   annotations: { idempotent: true, openWorld: true },
   description:
-    'Wake a fresh run of one plan on a cadence, one wake at a time, until completeSchedule, a "done" doc, maxWakes or the timeout. Wake n is the run "<scheduleId>-wake-<n>"; a slot whose previous wake is still going is skipped, and missed slots collapse to one wake. Creating an existing schedule id returns it unchanged.',
+    'Wake a fresh run of one plan on a cadence, one wake at a time, until completeSchedule, a "done" doc, maxWakes or the timeout. Wake n is the run "<scheduleId>-wake-<n>"; a slot whose previous wake is still going is skipped, and missed slots collapse to one wake. With wakeTimeout, a wake still going past it is aborted at the next slot instead. Creating an existing schedule id returns it unchanged.',
   failure: ScheduleRefused,
   input: Schema.Struct({
     carry: Schema.optionalKey(
@@ -47,6 +47,12 @@ export const createScheduleContract = defineContract("createSchedule", {
     timeout: Schema.optionalKey(
       Schema.String.annotate({
         description: 'How long the schedule may live, such as "7 days"',
+      })
+    ),
+    wakeTimeout: Schema.optionalKey(
+      Schema.String.annotate({
+        description:
+          'How long one wake may run, at least 1 minute, such as "2 hours". At the next slot, a wake past it is aborted, and the next wake starts from the docs the aborted one started with',
       })
     ),
   }),

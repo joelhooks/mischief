@@ -39,8 +39,64 @@ export const QueuedEventSchema = Schema.StructWithRest(
 
 export type QueuedEvent = typeof QueuedEventSchema.Type;
 
+export const DirectiveSchema = Schema.TaggedUnion({
+  Ask: {
+    envelope: Schema.String,
+    messageId: Schema.String,
+    to: Schema.String,
+  },
+  Emit: { question: QuestionInputSchema },
+  Schedule: {
+    at: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+    reason: Schema.String,
+  },
+  Stop: { reason: Schema.String, status: RunStatusSchema },
+});
+
+export type Directive = typeof DirectiveSchema.Type;
+
+const DIRECTIVE_KEY =
+  /^(?<runId>[a-z0-9][a-z0-9-]{0,63}):(?<step>[a-z_][a-z0-9_]{0,63}):(?<visit>[1-9][0-9]*):(?<index>0|[1-9][0-9]*)$/u;
+
+export const DirectiveKey = Schema.String.check(
+  Schema.isPattern(DIRECTIVE_KEY)
+);
+
+export interface DirectiveAddress {
+  readonly index: number;
+  readonly runId: string;
+  readonly step: string;
+  readonly visit: number;
+}
+
+export const directiveKey = ({ index, runId, step, visit }: DirectiveAddress) =>
+  `${runId}:${step}:${visit}:${index}`;
+
+export const directiveAddress = (key: string): DirectiveAddress | undefined => {
+  const groups = DIRECTIVE_KEY.exec(key)?.groups;
+
+  return groups === undefined
+    ? undefined
+    : {
+        index: Number(groups.index),
+        runId: groups.runId ?? "",
+        step: groups.step ?? "",
+        visit: Number(groups.visit),
+      };
+};
+
+export const PendingDirectiveSchema = Schema.Struct({
+  directive: DirectiveSchema,
+  key: DirectiveKey,
+});
+
+export type PendingDirective = typeof PendingDirectiveSchema.Type;
+
 export const CheckpointSchema = Schema.Struct({
   mailbox: Schema.Array(QueuedEventSchema),
+  pending: Schema.Array(PendingDirectiveSchema).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([]))
+  ),
   snapshot: Schema.Unknown,
   starts: Schema.Record(Schema.String, Count),
   transitionIndex: Count,

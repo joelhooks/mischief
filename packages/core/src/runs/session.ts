@@ -777,6 +777,7 @@ export const driveSession = (
           awaiting: awaitingOf(docs),
           checkpoint: {
             mailbox: structuredClone(mailbox),
+            pending: [],
             snapshot: execution.persist(),
             starts: Object.fromEntries(starts),
             transitionIndex: execution.nextTransitionIndex(),

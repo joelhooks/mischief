@@ -89,3 +89,43 @@ export type {
 export type { StepCall } from "./steps/step-failed.js";
 
 export type { AgentConfig } from "./plans/schema.js";
+
+export {
+  completeSchedule,
+  createSchedule,
+  inspectSchedule,
+  MIN_EVERY_MS,
+  wakeSchedule,
+  type ScheduleInput,
+} from "./schedules/host.js";
+
+export {
+  alarmFor,
+  decide,
+  DONE_DOC,
+  firstSlot,
+  slotAfter,
+  previous,
+  type Decision as ScheduleDecision,
+  type Previous,
+} from "./schedules/decide.js";
+
+export { ScheduleAlarm } from "./schedules/schedule-alarm.js";
+
+export { ScheduleStore } from "./schedules/schedule-store.js";
+
+export { WakeRuns } from "./schedules/wake-runs.js";
+
+export { UnknownSchedule } from "./schedules/unknown-schedule.js";
+
+export { ScheduleRefused } from "./schedules/schedule-refused.js";
+
+export {
+  ScheduleId,
+  ScheduleReportSchema,
+  ScheduleStateSchema,
+  wakeRunId,
+  type Cadence,
+  type ScheduleReport,
+  type ScheduleState,
+} from "./schedules/schema.js";

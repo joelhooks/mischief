@@ -7,6 +7,7 @@ import { Effect, Layer, Option, Result, Schema } from "effect";
 import type { Env } from "./plan-run-object.js";
 import { OBJECT_HEADER } from "./postbox-mail.js";
 import { replayLedger } from "./replay-ledger.js";
+import { NO_RUN_ID, runIdOf } from "./run-address.js";
 import { authenticate, NSID_PREFIX } from "./service-auth.js";
 import type { AuthRefused } from "./service-auth.js";
 
@@ -15,28 +16,6 @@ export { PlanRun } from "./plan-run-object.js";
 export { Postbox } from "./postbox-object.js";
 
 export { ServiceTokenLedger } from "./service-tokens.js";
-
-const decodeAddress = Schema.decodeUnknownOption(
-  Schema.fromJsonString(
-    Schema.Struct({
-      replyTo: Schema.optionalKey(Schema.String),
-      runId: Schema.optionalKey(Schema.String),
-    })
-  )
-);
-
-const runIdOf = (body: string) =>
-  decodeAddress(body).pipe(
-    Option.flatMap(({ replyTo, runId }) =>
-      Option.orElse(Option.fromUndefinedOr(runId), () =>
-        Option.fromUndefinedOr(replyTo?.split("/")[0])
-      )
-    ),
-    Option.filter((runId) => runId !== "")
-  );
-
-const NO_RUN_ID =
-  "this request names no run. Every run capability takes a JSON body with runId, and deliverReply finds its run from replyTo (<runId>/<step>#<visit>). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 const NOT_CONFIGURED =
   "this Mischief host has no MISCHIEF_DID or no valid MISCHIEF_CALLERS (a JSON array of the allowed callers' DID documents), so it serves nobody. Ask the Mischief desk (pi-durable/desk) to deploy it with both";

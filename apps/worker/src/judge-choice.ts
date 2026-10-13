@@ -122,3 +122,23 @@ export const judgeChosenPerCall = ({
       });
     })
   );
+
+export const forgetUnlessStored = (
+  storage: SqlStorage,
+  ...forgets: readonly (() => void)[]
+) => {
+  const stored =
+    storage.sql
+      .exec(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'mischief_runs'"
+      )
+      .toArray().length > 0 &&
+    storage.sql.exec("SELECT run_id FROM mischief_runs LIMIT 1").toArray()
+      .length > 0;
+
+  if (!stored) {
+    for (const forget of forgets) {
+      forget();
+    }
+  }
+};

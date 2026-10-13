@@ -15,7 +15,11 @@ import {
   fixEscalationAtFirstSubmit,
   heldText,
 } from "./escalation.js";
-import { fixJudgeAtFirstSubmit, judgeChosenPerCall } from "./judge-choice.js";
+import {
+  fixJudgeAtFirstSubmit,
+  forgetUnlessStored,
+  judgeChosenPerCall,
+} from "./judge-choice.js";
 import {
   OBJECT_HEADER,
   objectOf,
@@ -154,14 +158,11 @@ export class PlanRun extends DurableObject<Env> {
     const forgetJudge = fixJudgeAtFirstSubmit(this.ctx.storage, body);
     const forgetEscalation = fixEscalationAtFirstSubmit(this.ctx.storage, body);
 
-    const response = await this.runtime.fetch(request);
-
-    if (response.status !== 200) {
-      forgetJudge();
-      forgetEscalation();
+    try {
+      return await this.runtime.fetch(request);
+    } finally {
+      forgetUnlessStored(this.ctx.storage, forgetJudge, forgetEscalation);
     }
-
-    return response;
   }
 
   override async alarm() {

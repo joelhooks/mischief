@@ -1,6 +1,6 @@
 import { NodeCrypto } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { RunHost } from "../../src/runs/host.js";
@@ -151,4 +151,50 @@ it.effect.prop(
       );
     }).pipe(Effect.provide(Layer.fresh(RunStore.memory))),
   { arbitrary: { runs: 60 } }
+);
+
+it.live(
+  "a hold halts the run waiting-for-provider before its notice is delivered, so a slow mailbox never holds up the caller",
+  () =>
+    Effect.gen(function* slowNotice() {
+      const runs = yield* RunHost.make.pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            NodeCrypto.layer,
+            Layer.succeed(
+              Judge,
+              Judge.of({
+                choose: ({ key }) =>
+                  Effect.fail(
+                    new ProviderUnavailable({
+                      cause: "billing",
+                      key,
+                      provider: "jev",
+                      status: 402,
+                    })
+                  ),
+              })
+            ),
+            Thinker.unwired,
+            Mail.unwired,
+            Layer.succeed(
+              Operator,
+              Operator.of({
+                held: () => Effect.never,
+                notify: () => Effect.void,
+              })
+            )
+          )
+        )
+      );
+
+      const report = yield* runs
+        .submit("slow", gatePlan)
+        .pipe(Effect.timeoutOption("5 seconds"));
+
+      expect(
+        report.pipe(Option.map(({ status }) => status)),
+        "the submit waited on the hold's notice instead of halting"
+      ).toStrictEqual(Option.some("waiting-for-provider"));
+    }).pipe(Effect.provide(Layer.fresh(RunStore.memory)))
 );

@@ -831,6 +831,7 @@ export const driveSession = (
               const notice = `held:${stepKey}#${visit}`;
 
               holds.set(stepKey, held);
+              yield* release;
 
               if (!journal.has(`done:${notice}`)) {
                 const sent = yield* Effect.result(
@@ -844,8 +845,6 @@ export const driveSession = (
                     : { error: `${notice} not announced` }
                 );
               }
-
-              yield* release;
 
               return yield* Effect.never;
             });

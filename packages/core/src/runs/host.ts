@@ -4,6 +4,7 @@ import type { PlanRefused } from "../plans/validate.js";
 import { validatePlan } from "../plans/validate.js";
 import { Operator } from "../steps/operator.js";
 import { AnswerRefused } from "./answer-refused.js";
+import { closeOpenAsks } from "./close-asks.js";
 import { ExtendRefused } from "./extend-refused.js";
 import { canonical } from "./fingerprint.js";
 import { ReplyRefused } from "./reply-refused.js";
@@ -54,7 +55,10 @@ export class RunHost extends Context.Service<
     readonly read: (runId: string) => Effect.Effect<RunRecord, UnknownRun>;
     readonly pause: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly resume: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
-    readonly abort: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
+    readonly abort: (
+      runId: string,
+      supersededBy?: string
+    ) => Effect.Effect<RunReport, UnknownRun>;
   }
 >()("@mischief/core/RunHost", {
   make: Effect.gen(function* makeRunHost() {
@@ -187,7 +191,10 @@ export class RunHost extends Context.Service<
       return yield* drive(runId);
     });
 
-    const abort = Effect.fn("RunHost.abort")(function* abort(runId: string) {
+    const abort = Effect.fn("RunHost.abort")(function* abort(
+      runId: string,
+      supersededBy?: string
+    ) {
       const { plan, state } = yield* loadRun(runId);
 
       if (terminalStatuses.has(state.status)) {
@@ -195,6 +202,10 @@ export class RunHost extends Context.Service<
           Effect.provideContext(context)
         );
       }
+
+      yield* closeOpenAsks(runId, state.awaiting, supersededBy).pipe(
+        Effect.provideContext(context)
+      );
 
       const aborted: RunState = { ...state, status: "aborted" };
       yield* store.writeRun(runId, aborted);

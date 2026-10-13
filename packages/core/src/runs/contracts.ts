@@ -79,7 +79,15 @@ export const abortRunContract = defineContract("abortRun", {
   annotations: { destructive: true, idempotent: true },
   description: "End a run for good; its checkpoint and documents stay readable",
   failure: UnknownRun,
-  input: Schema.Struct({ runId }),
+  input: Schema.Struct({
+    runId,
+    supersededBy: Schema.optionalKey(
+      RunId.annotate({
+        description:
+          "The run replacing this one. Each open ask gets one closing note naming it, so the asked desk stops treating the old ask as live",
+      })
+    ),
+  }),
   output: RunReportSchema,
 });
 

@@ -36,8 +36,8 @@ export const resumeRun = implement(resumeRunContract, ({ runId }) =>
   RunHost.use((host) => host.resume(runId))
 );
 
-export const abortRun = implement(abortRunContract, ({ runId }) =>
-  RunHost.use((host) => host.abort(runId))
+export const abortRun = implement(abortRunContract, ({ runId, supersededBy }) =>
+  RunHost.use((host) => host.abort(runId, supersededBy))
 );
 
 export const answerRun = implement(answerRunContract, ({ reply, runId }) =>

@@ -154,7 +154,7 @@ it.effect.prop(
 );
 
 it.live(
-  "a hold halts the run waiting-for-provider before its notice is delivered, so a slow mailbox never holds up the caller",
+  "a hold halts the run waiting-for-provider while the provider call was slow and before its notice is delivered, so neither holds up the caller",
   () =>
     Effect.gen(function* slowNotice() {
       const runs = yield* RunHost.make.pipe(
@@ -165,13 +165,17 @@ it.live(
               Judge,
               Judge.of({
                 choose: ({ key }) =>
-                  Effect.fail(
-                    new ProviderUnavailable({
-                      cause: "billing",
-                      key,
-                      provider: "jev",
-                      status: 402,
-                    })
+                  Effect.sleep("50 millis").pipe(
+                    Effect.andThen(
+                      Effect.fail(
+                        new ProviderUnavailable({
+                          cause: "billing",
+                          key,
+                          provider: "jev",
+                          status: 402,
+                        })
+                      )
+                    )
                   ),
               })
             ),

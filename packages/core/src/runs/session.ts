@@ -1,6 +1,7 @@
 import {
   Clock,
   Crypto,
+  Deferred,
   Effect,
   Option,
   Result,
@@ -228,6 +229,9 @@ export const driveSession = (
     const prints = new Map(yield* store.readFingerprints(runId));
     const mailbox: QueuedEvent[] = [];
     const pending = new Map<symbol, Promise<Schema.Json>>();
+
+    const wakers = new Set<Deferred.Deferred<boolean>>();
+
     const parked = new Map<string, Awaiting>();
     const holds = new Map<string, Held>();
     const visits = new Map<string, number>();
@@ -731,9 +735,13 @@ export const driveSession = (
       const token = Symbol(key);
       const settled = { done: false };
 
-      const release = Effect.sync(() => {
+      const release = Effect.suspend(() => {
         settled.done = true;
         pending.delete(token);
+
+        return Effect.forEach(wakers, (wake) => Deferred.succeed(wake, true), {
+          discard: true,
+        });
       });
 
       const promise = runPromise(
@@ -1109,14 +1117,27 @@ export const driveSession = (
           return Option.some(event);
         }
 
+        const wake = yield* Deferred.make<boolean>();
+
+        wakers.add(wake);
+
         if (pending.size === 0) {
+          wakers.delete(wake);
+
           return Option.none<QueuedEvent>();
         }
 
         const inFlight = [...pending.values()];
 
-        // oxlint-disable-next-line typescript/promise-function-async -- Effect.promise consumes a Promise factory directly.
-        yield* Effect.promise(() => Promise.allSettled(inFlight));
+        yield* Effect.raceFirst(
+          // oxlint-disable-next-line typescript/promise-function-async -- Effect.promise consumes a Promise factory directly.
+          Effect.promise(() => Promise.allSettled(inFlight)).pipe(
+            Effect.asVoid
+          ),
+          Deferred.await(wake).pipe(Effect.asVoid)
+        );
+
+        wakers.delete(wake);
       }
     });
 

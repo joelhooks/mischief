@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 
 import { Count } from "../plans/schema.js";
-import { DocsSchema } from "../runs/schema.js";
+import { DocsSchema, JudgeModeSchema } from "../runs/schema.js";
 
 export const ScheduleId = Schema.String.check(
   Schema.isPattern(/^[a-z0-9][a-z0-9-]{0,47}$/u)
@@ -78,6 +78,9 @@ export const ScheduleStateSchema = Schema.Struct({
   docs: DocsSchema,
   ended: Schema.NullOr(EndedSchema),
   endsAt: Schema.NullOr(Millis),
+  judge: Schema.NullOr(JudgeModeSchema).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
   maxWakes: Schema.NullOr(Count),
   nextAt: Millis,
   pendingDocs: DocsSchema,
@@ -101,6 +104,7 @@ export const ScheduleReportSchema = Schema.Struct({
   carry: Schema.Array(Schema.String),
   ended: Schema.NullOr(EndedSchema),
   endsAt: Schema.NullOr(Millis),
+  judge: Schema.NullOr(JudgeModeSchema),
   maxWakes: Schema.NullOr(Count),
   nextAt: Schema.NullOr(Millis),
   scheduleId: ScheduleId,
@@ -120,6 +124,7 @@ export const reportOf = (state: ScheduleState): ScheduleReport => ({
   carry: state.carry,
   ended: state.ended,
   endsAt: state.endsAt,
+  judge: state.judge,
   maxWakes: state.maxWakes,
   nextAt: state.ended === null ? state.nextAt : null,
   scheduleId: state.scheduleId,

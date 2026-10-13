@@ -143,3 +143,77 @@ it.live(
     }).pipe(Effect.scoped, Effect.provide(services)),
   60_000
 );
+
+const gate = {
+  ...zeroStep,
+  goal: "One judged gate",
+  id: "gate",
+  machine: {
+    id: "gate",
+    initial: "gate",
+    states: {
+      end: { type: "final" },
+      gate: {
+        meta: { step: { kind: "judge", question: "Go or stop?" } },
+        on: { go: { target: "end" }, stop: { target: "end" } },
+      },
+    },
+  },
+};
+
+const Wake = Schema.Struct({
+  failures: Schema.optionalKey(
+    Schema.Array(Schema.Struct({ reason: Schema.String }))
+  ),
+  status: Schema.String,
+});
+
+it.live(
+  "a schedule's judge reaches every wake: jev on a host without a key fails the wake's gate, the host default parks it on shadow/judge",
+  () =>
+    Effect.gen(function* judged() {
+      const world = yield* prepare(30_000);
+
+      yield* start(world);
+
+      const settle = (runId: string) =>
+        post(world, "inspectRun", { runId }).pipe(
+          Effect.flatMap(({ body }) => Schema.decodeUnknownEffect(Wake)(body)),
+          Effect.filterOrFail(
+            ({ status }) => status !== "running",
+            () => `${runId} is still running`
+          ),
+          Effect.retry({ schedule: Schedule.spaced("100 millis"), times: 100 })
+        );
+
+      for (const [scheduleId, judge] of [
+        ["asks-jev", "jev"],
+        ["asks-host", null],
+      ] as const) {
+        const input = {
+          every: "1 minute",
+          maxWakes: 1,
+          plan: gate,
+          scheduleId,
+        };
+
+        const created = yield* post(
+          world,
+          "createSchedule",
+          judge === null ? input : { ...input, judge }
+        );
+
+        expect(created.body).toMatchObject({ judge });
+      }
+
+      const jev = yield* settle("asks-jev-wake-1");
+
+      expect(jev.status).toBe("failed");
+      expect(JSON.stringify(jev.failures)).toContain('judge \\"jev\\"');
+
+      const host = yield* settle("asks-host-wake-1");
+
+      expect(host.status).toBe("waiting-for-reply");
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  60_000
+);

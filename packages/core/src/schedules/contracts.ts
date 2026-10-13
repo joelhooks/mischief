@@ -1,7 +1,7 @@
 import { defineContract } from "@mischief/capability/contract";
 import { Schema } from "effect";
 
-import { DocsSchema } from "../runs/schema.js";
+import { DocsSchema, JudgeModeSchema } from "../runs/schema.js";
 import { ScheduleRefused } from "./schedule-refused.js";
 import { ScheduleId, ScheduleReportSchema } from "./schema.js";
 import { UnknownSchedule } from "./unknown-schedule.js";
@@ -35,6 +35,7 @@ export const createScheduleContract = defineContract("createSchedule", {
         description: 'A duration of at least 1 minute, such as "30 minutes"',
       })
     ),
+    judge: Schema.optionalKey(JudgeModeSchema),
     maxWakes: Schema.optionalKey(
       Schema.Int.check(Schema.isGreaterThan(0)).annotate({
         description: "The most wakes before the schedule ends",

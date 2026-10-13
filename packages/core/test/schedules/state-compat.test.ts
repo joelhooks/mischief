@@ -38,6 +38,7 @@ it.effect(
 
       expect(state.wakeTimeoutMs).toBeNull();
       expect(state.aborting).toBeNull();
+      expect(state.judge).toBeNull();
       expect(state.abortCount).toBe(0);
       expect(state.aborts).toStrictEqual([]);
     })

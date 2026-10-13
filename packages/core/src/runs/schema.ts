@@ -105,6 +105,13 @@ export const DocsSchema = Schema.Record(Schema.String, Schema.Json);
 
 export type Docs = typeof DocsSchema.Type;
 
+export const JudgeModeSchema = Schema.Literals(["shadow", "jev"]).annotate({
+  description:
+    'Who answers this run\'s judge steps: "shadow" records each question for a relay to answer, "jev" asks Jev. Omitted, the host default answers. Fixed at the first submit',
+});
+
+export type JudgeMode = typeof JudgeModeSchema.Type;
+
 export const AwaitingSchema = Schema.Struct({
   key: Schema.String,
   messageId: Schema.String,

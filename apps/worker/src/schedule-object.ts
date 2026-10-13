@@ -107,14 +107,15 @@ const wakeRuns = (
             : Effect.die(`inspectRun ${runId} answered ${String(status)}`);
         })
       ),
-    submit: (runId, plan, docs) =>
+    submit: (runId, plan, docs, judge) =>
       ownerFor.pipe(
         Effect.flatMap((owner) => {
-          const pending = call(owner, runId, "submitPlan", {
-            docs,
-            plan,
-            runId,
-          });
+          const input =
+            judge === null
+              ? { docs, plan, runId }
+              : { docs, judge, plan, runId };
+
+          const pending = call(owner, runId, "submitPlan", input);
 
           keepAlive(pending);
 

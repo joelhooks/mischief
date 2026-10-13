@@ -1,6 +1,6 @@
 import { Clock, Duration, Effect, Option, Result, Schema } from "effect";
 
-import type { Docs } from "../runs/schema.js";
+import type { Docs, JudgeMode } from "../runs/schema.js";
 import { checkSubmission } from "../runs/submission.js";
 import { alarmFor, decide, firstSlot, parseCron, previous } from "./decide.js";
 import type { Previous } from "./decide.js";
@@ -24,6 +24,7 @@ export interface ScheduleInput {
   readonly wakeTimeout?: string | undefined;
   readonly carry?: readonly string[] | undefined;
   readonly docs?: Docs | undefined;
+  readonly judge?: JudgeMode | undefined;
 }
 
 const decodeDuration = Schema.decodeUnknownOption(Schema.DurationFromString);
@@ -187,6 +188,7 @@ export const createSchedule = Effect.fn("createSchedule")(
       docs,
       ended: null,
       endsAt: limit.success === null ? null : now + limit.success,
+      judge: input.judge ?? null,
       maxWakes: input.maxWakes ?? null,
       nextAt: firstSlot(cadence.success, now),
       pendingDocs: {},
@@ -279,7 +281,7 @@ export const wakeSchedule = Effect.fn("wakeSchedule")(function* wakeSchedule() {
     const { docs, runId } = decision.start;
 
     const submitted = yield* WakeRuns.use((runs) =>
-      runs.submit(runId, decision.state.plan, docs)
+      runs.submit(runId, decision.state.plan, docs, decision.state.judge)
     ).pipe(Effect.result);
 
     if (Result.isFailure(submitted)) {

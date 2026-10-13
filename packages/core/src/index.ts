@@ -52,11 +52,13 @@ export { RunStore } from "./runs/run-store.js";
 export {
   AwaitingSchema,
   DocsSchema,
+  JudgeModeSchema,
   ReplyLineSchema,
   RunRecordSchema,
   RunReportSchema,
   RunStateSchema,
   type Awaiting,
+  type JudgeMode,
   type ReplyLine,
   type RunReport,
 } from "./runs/schema.js";

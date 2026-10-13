@@ -3,6 +3,7 @@ import { Effect, Exit, Layer, Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import * as TestClock from "effect/testing/TestClock";
 
+import { JudgeModeSchema } from "../../src/runs/schema.js";
 import type { Docs, RunReport, RunStatus } from "../../src/runs/schema.js";
 import { alarmFor } from "../../src/schedules/decide.js";
 import {
@@ -63,6 +64,7 @@ const StepSchema = Schema.Struct({
 const WorldSchema = Schema.Struct({
   carry: Schema.Boolean,
   everyMinutes: Schema.Int.check(Schema.isBetween({ maximum: 30, minimum: 1 })),
+  judge: Schema.NullOr(JudgeModeSchema),
   maxWakes: Schema.NullOr(
     Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 1 }))
   ),
@@ -184,9 +186,15 @@ const makeWorld = (world: World) => {
               Option.map(Option.fromNullishOr(runs.get(runId)), reportOf)
             )
           ),
-        submit: (runId, _plan, docs) =>
+        submit: (runId, _plan, docs, judge) =>
           port(
             Effect.sync(() => {
+              if (judge !== world.judge) {
+                violations.push(
+                  `${runId} was submitted with judge ${String(judge)}, not the schedule's ${String(world.judge)}`
+                );
+              }
+
               const existing = runs.get(runId);
 
               if (existing !== undefined) {
@@ -292,6 +300,7 @@ const inputFor = (world: World): ScheduleInput => ({
   carry: world.carry ? [CARRY] : [],
   docs: world.carry ? { [CARRY]: "seed" } : {},
   every: `${String(world.everyMinutes)} minutes`,
+  judge: world.judge ?? undefined,
   maxWakes: world.maxWakes ?? undefined,
   plan: zeroStep,
   scheduleId: ID,
@@ -463,6 +472,7 @@ const refusalOf = (input: Partial<ScheduleInput>) =>
     const sim = makeWorld({
       carry: false,
       everyMinutes: 1,
+      judge: null,
       maxWakes: 1,
       runs: [
         {
@@ -534,6 +544,7 @@ it.effect(
       const sim = makeWorld({
         carry: false,
         everyMinutes: 1,
+        judge: null,
         maxWakes: 2,
         runs: [
           {
@@ -570,6 +581,7 @@ it.effect(
       const sim = makeWorld({
         carry: false,
         everyMinutes: 5,
+        judge: null,
         maxWakes: 3,
         runs: [
           {

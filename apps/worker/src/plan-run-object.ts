@@ -1,20 +1,15 @@
 // @effect-diagnostics asyncFunction:off -- a Durable Object's fetch and alarm handlers are Promise APIs.
 import type { Storage } from "@earendil-works/pi-durable";
 import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
-import {
-  Judge,
-  Operator,
-  shadowJudge,
-  StepFailed,
-  Thinker,
-} from "@mischief/core";
+import { JudgeModeSchema, Operator, StepFailed, Thinker } from "@mischief/core";
 import { makePlanRun, mailOutboxSql } from "@mischief/plan-run";
 import type { PlanRun as Runtime } from "@mischief/plan-run";
 import { fauxThinkerOptions, jevJudge, piThinker } from "@mischief/thinking";
 import { DurableObject } from "cloudflare:workers";
-import { Effect, Layer, Redacted } from "effect";
+import { Effect, Layer, Option, Redacted, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 
+import { fixJudgeAtFirstSubmit, judgeChosenPerCall } from "./judge-choice.js";
 import { OBJECT_HEADER, postboxMail, rememberObject } from "./postbox-mail.js";
 import { POSTBOX_NAME } from "./postbox-object.js";
 import type { Postbox } from "./postbox-object.js";
@@ -37,16 +32,23 @@ export interface Env {
   readonly SCHEDULE: DurableObjectNamespace<Schedule>;
 }
 
-const judgeFor = (env: Env) => {
+const decodeHostJudge = Schema.decodeUnknownOption(JudgeModeSchema);
+
+const judgeFor = (env: Env, storage: DurableObjectStorage) => {
   const key = env.MISCHIEF_JEV_KEY ?? "";
 
-  if (env.MISCHIEF_JUDGE === "jev" && key !== "") {
-    return jevJudge({ apiKey: Redacted.make(key) }).pipe(
-      Layer.provide(FetchHttpClient.layer)
-    );
-  }
-
-  return env.MISCHIEF_JUDGE === "shadow" ? shadowJudge : Judge.unwired;
+  return judgeChosenPerCall({
+    fallback: Option.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
+    jev:
+      key === ""
+        ? Option.none()
+        : Option.some(
+            jevJudge({ apiKey: Redacted.make(key) }).pipe(
+              Layer.provide(FetchHttpClient.layer)
+            )
+          ),
+    storage,
+  });
 };
 
 const operator = Layer.succeed(
@@ -97,7 +99,7 @@ export class PlanRun extends DurableObject<Env> {
       guardMs: Number(env.MISCHIEF_GUARD_MS),
       services: Layer.mergeAll(
         thinker,
-        judgeFor(env),
+        judgeFor(env, ctx.storage),
         env.MISCHIEF_IDENTITY === undefined || env.MISCHIEF_IDENTITY === ""
           ? mailOutboxSql(ctx.storage)
           : postboxMail(ctx.storage, () =>
@@ -112,7 +114,22 @@ export class PlanRun extends DurableObject<Env> {
   override async fetch(request: Request) {
     rememberObject(this.ctx.storage, request.headers.get(OBJECT_HEADER));
 
-    return await this.runtime.fetch(request);
+    if (new URL(request.url).pathname !== "/submitPlan") {
+      return await this.runtime.fetch(request);
+    }
+
+    const forget = fixJudgeAtFirstSubmit(
+      this.ctx.storage,
+      await request.clone().text()
+    );
+
+    const response = await this.runtime.fetch(request);
+
+    if (response.status !== 200) {
+      forget();
+    }
+
+    return response;
   }
 
   override async alarm() {

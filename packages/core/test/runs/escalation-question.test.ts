@@ -155,3 +155,76 @@ it.effect.prop(
     }).pipe(Effect.provide(Layer.fresh(RunStore.memory))),
   { arbitrary: { runs: 60 } }
 );
+
+const briefPlan = {
+  ...checkPlan,
+  machine: {
+    ...checkPlan.machine,
+    states: {
+      ...checkPlan.machine.states,
+      check: {
+        ...checkPlan.machine.states.check,
+        meta: {
+          step: {
+            kind: "judge",
+            question: "Does the brief hold? Brief: {{docs.brief}}",
+            reads: ["brief"],
+            threshold: 0.99,
+          },
+        },
+      },
+    },
+  },
+};
+
+it.effect.prop(
+  "a revision that reuses an escalated verdict rebuilds the asked question from the journal",
+  { brief: Arbitrary.schema(Line) },
+  ({ brief }) =>
+    Effect.gen(function* rebuilt() {
+      const calls = { count: 0 };
+
+      const runs = yield* RunHost.make.pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            NodeCrypto.layer,
+            Layer.succeed(
+              Judge,
+              Judge.of({
+                choose: () =>
+                  Effect.sync(() => {
+                    calls.count += 1;
+
+                    return {
+                      probabilities: { failed: 0.5, passed: 0.5 },
+                      usage: { tokens: 1 },
+                    };
+                  }),
+              })
+            ),
+            Thinker.unwired,
+            Mail.unwired,
+            Layer.succeed(Operator, Operator.of({ notify: () => Effect.void }))
+          )
+        )
+      );
+
+      yield* runs.submit("brief", briefPlan, { brief });
+
+      const revised = yield* runs.revise(
+        "brief",
+        { ...briefPlan, goal: "Revised" },
+        false
+      );
+
+      expect(calls.count, "the revision reuses the verdict").toBe(1);
+      expect(revised.run.status).toBe("waiting-for-joel");
+
+      const docs = yield* (yield* RunStore).readDocs("brief");
+
+      expect(docs["__asked:check"]).toBe(
+        `Does the brief hold? Brief: ${brief}`
+      );
+    }).pipe(Effect.provide(Layer.fresh(RunStore.memory))),
+  { arbitrary: { runs: 30 } }
+);

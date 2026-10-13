@@ -26,7 +26,7 @@ export const UNIT_LIMITS = {
     cpuQuota: "100%",
     memoryMax: "2G",
     oomPolicy: "continue",
-    volumeMax: 32,
+    volumeMax: 64,
   },
   slice: { cpuQuota: "100%", memoryHigh: "2.5G", memoryMax: "3G" },
 } as const;

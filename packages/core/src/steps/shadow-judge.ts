@@ -1,6 +1,6 @@
 import { Effect, Layer, Option, Schema } from "effect";
 
-import { Judge } from "./judge.js";
+import { Judge, WHY_LINE_CHARS, WHY_LINES, WhySchema } from "./judge.js";
 import { StepFailed } from "./step-failed.js";
 import { VerdictDeferred } from "./verdict-deferred.js";
 
@@ -11,8 +11,11 @@ const Probability = Schema.Number.check(
 );
 
 const VerdictSchema = Schema.Union([
-  Schema.Struct({ probabilities: Schema.Record(Schema.String, Probability) }),
-  Schema.Struct({ choice: Schema.String }),
+  Schema.Struct({
+    probabilities: Schema.Record(Schema.String, Probability),
+    why: Schema.optionalKey(WhySchema),
+  }),
+  Schema.Struct({ choice: Schema.String, why: Schema.optionalKey(WhySchema) }),
 ]);
 
 const decodeVerdict = Schema.decodeUnknownOption(
@@ -25,7 +28,7 @@ const refused = (key: string, why: string, options: readonly string[]) =>
   Effect.fail(
     new StepFailed({
       key,
-      reason: `${why}. ${SHADOW_JUDGE} replies with JSON {"choice": "<option>"} or {"probabilities": {"<option>": 0..1}}, where each option is one of: ${options.join(", ")}`,
+      reason: `${why}. ${SHADOW_JUDGE} replies with JSON {"choice": "<option>"} or {"probabilities": {"<option>": 0..1}}, where each option is one of: ${options.join(", ")}. Either may add "why": up to ${String(WHY_LINES)} lines of at most ${String(WHY_LINE_CHARS)} characters, ids and counts only`,
     })
   );
 
@@ -49,8 +52,13 @@ export const shadowJudge = Layer.succeed(
                 (option) => !options.includes(option)
               );
 
+              const judgement =
+                verdict.why === undefined
+                  ? { probabilities, usage: NO_USAGE }
+                  : { probabilities, usage: NO_USAGE, why: verdict.why };
+
               return unknown.length === 0
-                ? Effect.succeed({ probabilities, usage: NO_USAGE })
+                ? Effect.succeed(judgement)
                 : refused(
                     key,
                     `the shadow verdict names ${unknown.map((option) => `"${option}"`).join(", ")}, which this judge does not offer`,

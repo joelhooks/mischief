@@ -33,7 +33,7 @@ import type {
   QuestionInput,
   ThinkInput,
 } from "../steps/inputs.js";
-import { Judge } from "../steps/judge.js";
+import { Judge, whyDocName } from "../steps/judge.js";
 import { Mail, SealedSchema } from "../steps/mail.js";
 import { Operator } from "../steps/operator.js";
 import { StepFailed } from "../steps/step-failed.js";
@@ -574,7 +574,7 @@ export const driveSession = (
           )
         );
 
-        const { probabilities, usage } = yield* step(
+        const { probabilities, usage, why } = yield* step(
           input.key,
           judge.choose({
             ...call,
@@ -589,22 +589,37 @@ export const driveSession = (
 
         const jev = { probs: probabilities, rung: "jev", usage: { ...usage } };
 
+        if (why !== undefined) {
+          yield* writeDoc(whyDocName(input.key), [...why]);
+        }
+
+        const withWhy = <A extends object>(verdict: A) =>
+          why === undefined ? verdict : { ...verdict, why: [...why] };
+
         if (top !== undefined && top[1] >= (input.threshold ?? 1)) {
-          return { choice: top[0], ladder: [jev], tokens: usage.tokens };
+          return withWhy({
+            choice: top[0],
+            ladder: [jev],
+            tokens: usage.tokens,
+          });
         }
 
         const { fallback, thinkThreshold } = input;
 
         if (fallback !== undefined) {
-          return {
+          return withWhy({
             choice: fallback,
             ladder: [jev, { rung: "fallback" }],
             tokens: usage.tokens,
-          };
+          });
         }
 
         if (thinkThreshold === undefined) {
-          return { escalate: true, ladder: [jev], tokens: usage.tokens };
+          return withWhy({
+            escalate: true,
+            ladder: [jev],
+            tokens: usage.tokens,
+          });
         }
 
         const deliberation = yield* step(input.key, thinker.decide(call));
@@ -627,9 +642,11 @@ export const driveSession = (
           )
         );
 
-        return Option.isSome(confident)
-          ? { choice: confident.value.choice, ladder: [jev, rung], tokens }
-          : { escalate: true, ladder: [jev, rung], tokens };
+        return withWhy(
+          Option.isSome(confident)
+            ? { choice: confident.value.choice, ladder: [jev, rung], tokens }
+            : { escalate: true, ladder: [jev, rung], tokens }
+        );
       });
 
     const logic = <I>(

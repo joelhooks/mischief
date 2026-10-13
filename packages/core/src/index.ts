@@ -65,7 +65,14 @@ export {
 
 export { UnknownRun } from "./runs/unknown-run.js";
 
-export { Judge, type Judgement } from "./steps/judge.js";
+export {
+  Judge,
+  type Judgement,
+  WHY_LINE_CHARS,
+  WHY_LINES,
+  WhySchema,
+  whyDocName,
+} from "./steps/judge.js";
 
 export { SHADOW_JUDGE, shadowJudge } from "./steps/shadow-judge.js";
 

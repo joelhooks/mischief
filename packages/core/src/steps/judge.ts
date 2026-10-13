@@ -1,5 +1,5 @@
-import { Context, Effect, Layer } from "effect";
-import type { Option, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
+import type { Option } from "effect";
 
 import { StepFailed } from "./step-failed.js";
 import type { StepCall } from "./step-failed.js";
@@ -9,7 +9,18 @@ import type { VerdictDeferred } from "./verdict-deferred.js";
 export interface Judgement {
   readonly probabilities: Readonly<Record<string, number>>;
   readonly usage: Usage;
+  readonly why?: readonly string[];
 }
+
+export const WHY_LINES = 8;
+
+export const WHY_LINE_CHARS = 240;
+
+export const WhySchema = Schema.Array(
+  Schema.String.check(Schema.isMaxLength(WHY_LINE_CHARS))
+).check(Schema.isMaxLength(WHY_LINES));
+
+export const whyDocName = (key: string) => `${key.replaceAll(".", "-")}-why`;
 
 const unwired = (call: StepCall) =>
   Effect.fail(

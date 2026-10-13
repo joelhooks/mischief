@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "4.0.1",
-    "@rat-king/alchemy-nest": "github:joelhooks/rat-king#065dc63e4be539e719873e290d808419138d17b5&path:/packages/alchemy-nest",
+    "@rat-king/alchemy-nest": "github:joelhooks/rat-king#1f351702bfdb41d20e6d831261612d23e3779fa0&path:/packages/alchemy-nest",
     "@rat-king/mailbox-client": "github:joelhooks/rat-king#f20dd1bafceb2b6beb192027878f5303738525fe&path:/packages/mailbox-client/bundle",
     "alchemy": "2.0.0-beta.81",
     "effect": "4.0.1"

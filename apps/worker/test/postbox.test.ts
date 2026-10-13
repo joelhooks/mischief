@@ -7,7 +7,7 @@ import { TestClock } from "effect/testing";
 import { Mailroom, SendVerdict } from "../src/mailroom-port.js";
 import type { Inbound, SendVerdictValue } from "../src/mailroom-port.js";
 import { PostboxFailed } from "../src/postbox-failed.js";
-import { postbox } from "../src/postbox.js";
+import { postbox, UNCONFIRMED_WINDOW } from "../src/postbox.js";
 import { Delivered, Runs } from "../src/runs-port.js";
 import type { DeliveredValue } from "../src/runs-port.js";
 
@@ -284,37 +284,63 @@ it.effect(
     })
 );
 
-it.effect(
-  "an unconfirmed send retries the same stored bytes three times, then fails",
-  () =>
-    Effect.gen(function* uncertain() {
+it.effect.prop(
+  "a send the mailbox does not confirm while a lease changes hands retries the same stored bytes until it lands, within the window",
+  {
+    unconfirmed: Arbitrary.schema(
+      Schema.Int.check(Schema.isBetween({ maximum: 12, minimum: 0 }))
+    ),
+  },
+  ({ unconfirmed }) =>
+    Effect.gen(function* handover() {
       const box = postbox(nodeSqlStorage(":memory:"));
 
-      const flaky = sending([
-        SendVerdict.cases.Uncertain.make({ reason: "socket closed" }),
+      const fenced = sending([
+        ...Array.from({ length: unconfirmed }, () =>
+          SendVerdict.cases.Uncertain.make({ reason: "LeaseMismatch" })
+        ),
         SendVerdict.cases.Accepted.make({}),
       ]);
 
-      const recovered = yield* box
+      const landed = yield* box
         .send("stored bytes")
-        .pipe(Effect.provide(flaky.mailroom), Effect.forkChild);
+        .pipe(Effect.provide(fenced.mailroom), Effect.result, Effect.forkChild);
 
-      yield* TestClock.adjust("1 minute");
-      yield* Fiber.join(recovered);
+      yield* TestClock.adjust(UNCONFIRMED_WINDOW);
 
-      expect(flaky.tries).toStrictEqual(["stored bytes", "stored bytes"]);
+      const outcome = yield* Fiber.join(landed);
+      const resealed = fenced.tries.filter((bytes) => bytes !== "stored bytes");
+
+      expect(
+        {
+          landed: Result.isSuccess(outcome),
+          resealed,
+          tries: fenced.tries.length,
+        },
+        `${String(unconfirmed)} unconfirmed attempts before the mailbox stored it`
+      ).toStrictEqual({ landed: true, resealed: [], tries: unconfirmed + 1 });
+    }),
+  { arbitrary: { runs: 30 } }
+);
+
+it.effect(
+  "a send still unconfirmed when the window closes fails with the reason, having resent only the stored bytes",
+  () =>
+    Effect.gen(function* lost() {
+      const box = postbox(nodeSqlStorage(":memory:"));
 
       const down = sending([
         SendVerdict.cases.Uncertain.make({ reason: "socket closed" }),
       ]);
 
-      const lost = yield* box
+      const failed = yield* box
         .send("stored bytes")
         .pipe(Effect.provide(down.mailroom), Effect.flip, Effect.forkChild);
 
-      yield* TestClock.adjust("1 minute");
+      yield* TestClock.adjust("10 minutes");
 
-      expect((yield* Fiber.join(lost)).reason).toContain("did not confirm");
-      expect(down.tries).toHaveLength(4);
+      expect((yield* Fiber.join(failed)).reason).toContain("did not confirm");
+      expect(down.tries.length).toBeGreaterThan(12);
+      expect(new Set(down.tries)).toStrictEqual(new Set(["stored bytes"]));
     })
 );

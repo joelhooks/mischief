@@ -1,5 +1,5 @@
 import type { SqlStorage } from "@mischief/plan-run";
-import { Effect, Option, Schedule, Schema } from "effect";
+import { Duration, Effect, Option, Schedule, Schema } from "effect";
 
 import { Mailroom, SendVerdict } from "./mailroom-port.js";
 import type { Inbound, SendVerdictValue } from "./mailroom-port.js";
@@ -60,6 +60,15 @@ const settle = (
         })
       ),
   });
+
+export const UNCONFIRMED_WINDOW = "2 minutes";
+
+export const UNCONFIRMED_RETRY = Schedule.exponential("1 second").pipe(
+  Schedule.modifyDelay(({ duration }) =>
+    Effect.succeed(Duration.min(duration, Duration.seconds(10)))
+  ),
+  Schedule.upTo({ duration: UNCONFIRMED_WINDOW })
+);
 
 export const postbox = (storage: SqlStorage) => {
   storage.sql.exec(THREADS);
@@ -167,8 +176,7 @@ export const postbox = (storage: SqlStorage) => {
     Mailroom.use((mailroom) => mailroom.send(envelope)).pipe(
       Effect.flatMap(settle),
       Effect.retry({
-        schedule: Schedule.exponential("1 second"),
-        times: 3,
+        schedule: UNCONFIRMED_RETRY,
         while: ({ reason }) => reason.startsWith("the mailbox did not confirm"),
       })
     );

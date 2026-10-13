@@ -25,6 +25,7 @@ export interface ScheduleInput {
   readonly carry?: readonly string[] | undefined;
   readonly docs?: Docs | undefined;
   readonly judge?: JudgeMode | undefined;
+  readonly escalateTo?: string | undefined;
 }
 
 const decodeDuration = Schema.decodeUnknownOption(Schema.DurationFromString);
@@ -188,6 +189,7 @@ export const createSchedule = Effect.fn("createSchedule")(
       docs,
       ended: null,
       endsAt: limit.success === null ? null : now + limit.success,
+      escalateTo: input.escalateTo ?? null,
       judge: input.judge ?? null,
       maxWakes: input.maxWakes ?? null,
       nextAt: firstSlot(cadence.success, now),
@@ -281,7 +283,10 @@ export const wakeSchedule = Effect.fn("wakeSchedule")(function* wakeSchedule() {
     const { docs, runId } = decision.start;
 
     const submitted = yield* WakeRuns.use((runs) =>
-      runs.submit(runId, decision.state.plan, docs, decision.state.judge)
+      runs.submit(runId, decision.state.plan, docs, {
+        escalateTo: decision.state.escalateTo,
+        judge: decision.state.judge,
+      })
     ).pipe(Effect.result);
 
     if (Result.isFailure(submitted)) {

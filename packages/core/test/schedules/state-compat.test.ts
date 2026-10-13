@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect";
 import { Every, ScheduleStateSchema } from "../../src/schedules/schema.js";
 
 it.effect(
-  "a schedule stored before wakeTimeout decodes with no wake limit and no aborts",
+  "a schedule stored before wakeTimeout and escalateTo decodes with no wake limit, no aborts and no escalation desk",
   () =>
     Effect.gen(function* storedBefore() {
       const state = yield* Schema.decodeUnknownEffect(
@@ -37,6 +37,7 @@ it.effect(
       );
 
       expect(state.wakeTimeoutMs).toBeNull();
+      expect(state.escalateTo).toBeNull();
       expect(state.aborting).toBeNull();
       expect(state.judge).toBeNull();
       expect(state.abortCount).toBe(0);

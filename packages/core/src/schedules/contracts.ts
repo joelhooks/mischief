@@ -1,7 +1,11 @@
 import { defineContract } from "@mischief/capability/contract";
 import { Schema } from "effect";
 
-import { DocsSchema, JudgeModeSchema } from "../runs/schema.js";
+import {
+  DocsSchema,
+  EscalateToSchema,
+  JudgeModeSchema,
+} from "../runs/schema.js";
 import { ScheduleRefused } from "./schedule-refused.js";
 import { ScheduleId, ScheduleReportSchema } from "./schema.js";
 import { UnknownSchedule } from "./unknown-schedule.js";
@@ -30,6 +34,7 @@ export const createScheduleContract = defineContract("createSchedule", {
     docs: Schema.optionalKey(
       DocsSchema.annotate({ description: "Seed docs for every wake" })
     ),
+    escalateTo: Schema.optionalKey(EscalateToSchema),
     every: Schema.optionalKey(
       Schema.String.annotate({
         description: 'A duration of at least 1 minute, such as "30 minutes"',

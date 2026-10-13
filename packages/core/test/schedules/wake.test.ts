@@ -63,6 +63,7 @@ const StepSchema = Schema.Struct({
 
 const WorldSchema = Schema.Struct({
   carry: Schema.Boolean,
+  escalateTo: Schema.NullOr(Schema.Literal("agent-graph/desk")),
   everyMinutes: Schema.Int.check(Schema.isBetween({ maximum: 30, minimum: 1 })),
   judge: Schema.NullOr(JudgeModeSchema),
   maxWakes: Schema.NullOr(
@@ -186,12 +187,18 @@ const makeWorld = (world: World) => {
               Option.map(Option.fromNullishOr(runs.get(runId)), reportOf)
             )
           ),
-        submit: (runId, _plan, docs, judge) =>
+        submit: (runId, _plan, docs, { escalateTo, judge }) =>
           port(
             Effect.sync(() => {
               if (judge !== world.judge) {
                 violations.push(
                   `${runId} was submitted with judge ${String(judge)}, not the schedule's ${String(world.judge)}`
+                );
+              }
+
+              if (escalateTo !== world.escalateTo) {
+                violations.push(
+                  `${runId} was submitted with escalateTo ${String(escalateTo)}, not the schedule's ${String(world.escalateTo)}`
                 );
               }
 
@@ -299,6 +306,7 @@ const makeWorld = (world: World) => {
 const inputFor = (world: World): ScheduleInput => ({
   carry: world.carry ? [CARRY] : [],
   docs: world.carry ? { [CARRY]: "seed" } : {},
+  escalateTo: world.escalateTo ?? undefined,
   every: `${String(world.everyMinutes)} minutes`,
   judge: world.judge ?? undefined,
   maxWakes: world.maxWakes ?? undefined,
@@ -471,6 +479,7 @@ const refusalOf = (input: Partial<ScheduleInput>) =>
   Effect.gen(function* refusal() {
     const sim = makeWorld({
       carry: false,
+      escalateTo: null,
       everyMinutes: 1,
       judge: null,
       maxWakes: 1,
@@ -543,6 +552,7 @@ it.effect(
     Effect.gen(function* cronFirst() {
       const sim = makeWorld({
         carry: false,
+        escalateTo: null,
         everyMinutes: 1,
         judge: null,
         maxWakes: 2,
@@ -580,6 +590,7 @@ it.effect(
     Effect.gen(function* lifecycle() {
       const sim = makeWorld({
         carry: false,
+        escalateTo: null,
         everyMinutes: 5,
         judge: null,
         maxWakes: 3,

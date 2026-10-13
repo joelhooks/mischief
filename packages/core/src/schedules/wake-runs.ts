@@ -4,6 +4,11 @@ import type { Effect, Option, Schema } from "effect";
 import type { PlanRefused } from "../plans/validate.js";
 import type { Docs, JudgeMode, RunReport } from "../runs/schema.js";
 
+export interface WakeChoices {
+  readonly escalateTo: string | null;
+  readonly judge: JudgeMode | null;
+}
+
 export class WakeRuns extends Context.Service<
   WakeRuns,
   {
@@ -15,7 +20,7 @@ export class WakeRuns extends Context.Service<
       runId: string,
       plan: Schema.Json,
       docs: Docs,
-      judge: JudgeMode | null
+      choices: WakeChoices
     ) => Effect.Effect<void, PlanRefused>;
   }
 >()("@mischief/core/WakeRuns") {}

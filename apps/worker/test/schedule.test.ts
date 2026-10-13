@@ -169,7 +169,7 @@ const Wake = Schema.Struct({
 });
 
 it.live(
-  "a schedule's judge reaches every wake: jev on a host without a key fails the wake's gate, the host default parks it on shadow/judge",
+  "a schedule's judge and escalateTo are stored and reach every wake: jev on a host without a key fails the wake's gate, the host default parks it on shadow/judge",
   () =>
     Effect.gen(function* judged() {
       const world = yield* prepare(30_000);
@@ -186,9 +186,9 @@ it.live(
           Effect.retry({ schedule: Schedule.spaced("100 millis"), times: 100 })
         );
 
-      for (const [scheduleId, judge] of [
-        ["asks-jev", "jev"],
-        ["asks-host", null],
+      for (const [scheduleId, judge, escalateTo] of [
+        ["asks-jev", "jev", null],
+        ["asks-host", null, "agent-graph/desk"],
       ] as const) {
         const input = {
           every: "1 minute",
@@ -200,10 +200,10 @@ it.live(
         const created = yield* post(
           world,
           "createSchedule",
-          judge === null ? input : { ...input, judge }
+          judge === null ? { ...input, escalateTo } : { ...input, judge }
         );
 
-        expect(created.body).toMatchObject({ judge });
+        expect(created.body).toMatchObject({ escalateTo, judge });
       }
 
       const jev = yield* settle("asks-jev-wake-1");

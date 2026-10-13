@@ -1,7 +1,11 @@
 import { Effect, Schema } from "effect";
 
 import { Count } from "../plans/schema.js";
-import { DocsSchema, JudgeModeSchema } from "../runs/schema.js";
+import {
+  DocsSchema,
+  EscalateToSchema,
+  JudgeModeSchema,
+} from "../runs/schema.js";
 
 export const ScheduleId = Schema.String.check(
   Schema.isPattern(/^[a-z0-9][a-z0-9-]{0,47}$/u)
@@ -78,6 +82,9 @@ export const ScheduleStateSchema = Schema.Struct({
   docs: DocsSchema,
   ended: Schema.NullOr(EndedSchema),
   endsAt: Schema.NullOr(Millis),
+  escalateTo: Schema.NullOr(EscalateToSchema).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
   judge: Schema.NullOr(JudgeModeSchema).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(null))
   ),
@@ -104,6 +111,7 @@ export const ScheduleReportSchema = Schema.Struct({
   carry: Schema.Array(Schema.String),
   ended: Schema.NullOr(EndedSchema),
   endsAt: Schema.NullOr(Millis),
+  escalateTo: Schema.NullOr(EscalateToSchema),
   judge: Schema.NullOr(JudgeModeSchema),
   maxWakes: Schema.NullOr(Count),
   nextAt: Schema.NullOr(Millis),
@@ -124,6 +132,7 @@ export const reportOf = (state: ScheduleState): ScheduleReport => ({
   carry: state.carry,
   ended: state.ended,
   endsAt: state.endsAt,
+  escalateTo: state.escalateTo,
   judge: state.judge,
   maxWakes: state.maxWakes,
   nextAt: state.ended === null ? state.nextAt : null,

@@ -107,13 +107,14 @@ const wakeRuns = (
             : Effect.die(`inspectRun ${runId} answered ${String(status)}`);
         })
       ),
-    submit: (runId, plan, docs, judge) =>
+    submit: (runId, plan, docs, { escalateTo, judge }) =>
       ownerFor.pipe(
         Effect.flatMap((owner) => {
-          const input =
-            judge === null
-              ? { docs, plan, runId }
-              : { docs, judge, plan, runId };
+          const input = Object.fromEntries(
+            Object.entries({ docs, escalateTo, judge, plan, runId }).filter(
+              ([, value]) => value !== null
+            )
+          );
 
           const pending = call(owner, runId, "submitPlan", input);
 

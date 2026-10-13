@@ -1,4 +1,5 @@
-import { Judge, StepFailed } from "@mischief/core";
+import { Judge, ProviderUnavailable, StepFailed } from "@mischief/core";
+import type { ProviderCause } from "@mischief/core";
 import { Effect, Layer, Predicate, Redacted, Schedule, Schema } from "effect";
 import type { Duration } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
@@ -7,8 +8,11 @@ export const JEV_URL = "https://api.typesafe.ai/v1/systemone";
 
 export const JEV_MODEL = "jev-latest";
 
+export const JEV_PATIENCE = "2 minutes";
+
 export interface JevConfig {
   readonly apiKey: Redacted.Redacted;
+  readonly patience?: Duration.Input;
   readonly retryBase?: Duration.Input;
   readonly url?: string;
 }
@@ -46,6 +50,7 @@ const advice = (status: number) => {
 
 export const jevJudge = ({
   apiKey,
+  patience = JEV_PATIENCE,
   retryBase = "500 millis",
   url = JEV_URL,
 }: JevConfig) =>
@@ -57,6 +62,19 @@ export const jevJudge = ({
       return Judge.of({
         choose: ({ docs, key, options, question }) => {
           const failed = (reason: string) => new StepFailed({ key, reason });
+
+          const unavailable = (cause: ProviderCause, status: number | null) =>
+            new ProviderUnavailable({ cause, key, provider: "jev", status });
+
+          const refusal = (status: number) => {
+            if (status === 402) {
+              return unavailable("billing", status);
+            }
+
+            return status >= 500
+              ? unavailable("server", status)
+              : failed(advice(status));
+          };
 
           const request = HttpClientRequest.post(url).pipe(
             HttpClientRequest.bearerToken(Redacted.value(apiKey)),
@@ -76,11 +94,8 @@ export const jevJudge = ({
           );
 
           return client.execute(request).pipe(
-            Effect.mapError(() =>
-              failed(
-                "could not reach TypeSafe for this judge step. Resume the run once the network is back"
-              )
-            ),
+            Effect.timeout(patience),
+            Effect.mapError(() => unavailable("timeout", null)),
             Effect.flatMap((response) =>
               RETRYABLE.has(response.status)
                 ? Effect.fail(new Busy({ status: response.status }))
@@ -92,11 +107,7 @@ export const jevJudge = ({
               while: Predicate.isTagged("Busy"),
             }),
             Effect.catchTag("Busy", ({ status }) =>
-              Effect.fail(
-                failed(
-                  `TypeSafe stayed busy (${status}) through five tries. Resume the run shortly`
-                )
-              )
+              Effect.fail(unavailable("busy", status))
             ),
             Effect.flatMap((response) =>
               response.status === 200
@@ -105,7 +116,7 @@ export const jevJudge = ({
                       failed("TypeSafe's answer was not JSON. Resume the run")
                     )
                   )
-                : Effect.fail(failed(advice(response.status)))
+                : Effect.fail(refusal(response.status))
             ),
             Effect.flatMap((body) =>
               Schema.decodeUnknownEffect(Evaluation)(body).pipe(

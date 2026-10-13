@@ -35,7 +35,7 @@ const Request = Schema.Struct({
 const World = Schema.Struct({
   busy: Schema.Array(Schema.Literals(BUSY)).check(Schema.isMaxLength(7)),
   docs: Schema.Record(Schema.Literals(["inventory", "classes"]), Schema.String),
-  final: Schema.Literals([200, 401, 422, 500]),
+  final: Schema.Literals([200, 401, 402, 422, 500, 503]),
   options: Schema.Array(Schema.Literals(OPTIONS)).check(
     Schema.isMinLength(2),
     Schema.isUnique()
@@ -54,6 +54,18 @@ const World = Schema.Struct({
 });
 
 type WorldValue = typeof World.Type;
+
+const outageOf = (world: WorldValue) => {
+  if (world.busy.length >= 5) {
+    return "busy";
+  }
+
+  if (world.final === 402) {
+    return "billing";
+  }
+
+  return world.final >= 500 ? "server" : undefined;
+};
 
 const typesafe = (world: WorldValue, seen: unknown[]) => {
   let calls = 0;
@@ -212,9 +224,20 @@ it.live.prop(
 
         const failure = Exit.isFailure(exit) ? String(exit.cause) : "";
 
-        expect(failure).toContain("StepFailed");
+        expect(
+          failure,
+          "an outage holds the run; only our key, our question or a bad answer fails the step"
+        ).toContain(
+          outageOf(world) === undefined ? "StepFailed" : "ProviderUnavailable"
+        );
 
-        expect(failure).toMatch(/Resume|revise|Check/u);
+        const outage = outageOf(world);
+
+        if (outage === undefined) {
+          expect(failure).toMatch(/Resume|revise|Check/u);
+        } else {
+          expect(failure).toContain(outage);
+        }
 
         return;
       }
@@ -235,4 +258,47 @@ it.live.prop(
       });
     }),
   { arbitrary: { runs: 300 }, timeout: 60_000 }
+);
+
+it.live(
+  "TypeSafe that never answers holds the step as a timeout instead of failing it",
+  () =>
+    Effect.gen(function* unreachable() {
+      const clients: readonly HttpClient.HttpClient[] = [
+        HttpClient.make(() => Effect.never),
+      ];
+
+      for (const client of clients) {
+        const exit = yield* Effect.exit(
+          Judge.use((judge) =>
+            judge.choose({
+              docs: {},
+              epoch: 0,
+              key: "classify_check",
+              options: ["passed", "failed"],
+              question: "Does it hold?",
+              reply: Option.none(),
+              runId: "sweep-1",
+              visit: 1,
+            })
+          ).pipe(
+            Effect.provide(
+              jevJudge({
+                apiKey: Redacted.make(KEY),
+                patience: "20 millis",
+                retryBase: "1 millis",
+              }).pipe(
+                Layer.provide(Layer.succeed(HttpClient.HttpClient, client))
+              )
+            )
+          )
+        );
+
+        const failure = Exit.isFailure(exit) ? String(exit.cause) : "";
+
+        expect(failure).toContain("ProviderUnavailable");
+        expect(failure).toContain("timeout");
+      }
+    }),
+  { timeout: 10_000 }
 );

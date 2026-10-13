@@ -13,18 +13,20 @@ const OlderStateArbitrary = Arbitrary.map(
     awaiting: [],
     capped: null,
     checkpoint: null,
+    held: [],
     replies: [],
   })
 );
 
 it.effect.prop(
-  "a run file written before awaiting, capped and replies existed still reads",
+  "a run file written before awaiting, capped, held and replies existed still reads",
   { state: OlderStateArbitrary },
   ({ state }) =>
     Effect.gen(function* property() {
       const {
         awaiting: _awaiting,
         capped: _capped,
+        held: _held,
         replies: _replies,
         ...older
       } = yield* Schema.encodeEffect(RunStateSchema)(state);

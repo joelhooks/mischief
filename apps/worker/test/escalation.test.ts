@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { HeldSchema } from "@mischief/core";
 // @effect-diagnostics asyncFunction:off -- the fake Postbox stands in for a Durable Object RPC stub, a Promise API.
 import { nodeSqlStorage } from "@mischief/plan-run/node";
 import { Effect, Option, Schema } from "effect";
@@ -6,6 +7,8 @@ import { Effect, Option, Schema } from "effect";
 import {
   escalate,
   escalationTargetOf,
+  escalationText,
+  heldText,
   fixEscalationAtFirstSubmit,
 } from "../src/escalation.js";
 
@@ -101,8 +104,8 @@ const play = (attempts: readonly Attempt[], target: string) =>
 
       yield* notify(
         RUN,
-        question(attempt.notice.split(":")[0] ?? ""),
-        attempt.notice
+        attempt.notice,
+        escalationText(RUN, question(attempt.notice.split(":")[0] ?? ""))
       );
     }
 
@@ -178,4 +181,19 @@ it.effect.prop(
       );
     }),
   { arbitrary: { runs: 200 } }
+);
+
+it.effect.prop(
+  "a hold's mail says the run is waiting-for-provider and gives resumeRun as its Fix, and a billing hold says to tell Joel",
+  { held: HeldSchema },
+  ({ held }) =>
+    Effect.sync(() => {
+      const text = heldText(RUN, held);
+
+      expect(text).toContain("waiting-for-provider");
+      expect(text).toContain(`resumeRun {"runId": "${RUN}"}`);
+      expect(text).not.toContain("answerRun");
+      expect(text.includes("tell Joel")).toBe(held.cause === "billing");
+    }),
+  { arbitrary: { runs: 100 } }
 );

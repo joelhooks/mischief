@@ -53,12 +53,14 @@ export {
   AwaitingSchema,
   DocsSchema,
   EscalateToSchema,
+  HeldSchema,
   JudgeModeSchema,
   ReplyLineSchema,
   RunRecordSchema,
   RunReportSchema,
   RunStateSchema,
   type Awaiting,
+  type Held,
   type JudgeMode,
   type ReplyLine,
   type RunReport,
@@ -84,6 +86,12 @@ export type { Usage } from "./steps/usage.js";
 export { Mail, SealedSchema, type Sealed } from "./steps/mail.js";
 
 export { Operator } from "./steps/operator.js";
+
+export {
+  ProviderCauseSchema,
+  ProviderUnavailable,
+  type ProviderCause,
+} from "./steps/provider-unavailable.js";
 
 export type { QuestionInput } from "./steps/inputs.js";
 

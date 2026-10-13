@@ -1,6 +1,6 @@
 // @effect-diagnostics asyncFunction:off -- Durable Object RPC stubs are Promise APIs.
 import { EscalateToSchema } from "@mischief/core";
-import type { QuestionInput } from "@mischief/core";
+import type { Held, QuestionInput } from "@mischief/core";
 import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Option, Schema } from "effect";
 
@@ -89,6 +89,20 @@ export const escalationText = (
     `Fix: answer it with answerRun {"runId": "${runId}", "reply": "<one of ${options.join(", ")}>"} under the identity that submitted the run. Replying to this message does not answer it.`,
   ].join("\n");
 
+export const heldText = (
+  runId: string,
+  { cause, key, provider, since, status }: Held
+) =>
+  [
+    `Mischief run ${runId} is held at state ${key}: its ${provider} judge is unavailable (${cause}${status === null ? "" : `, HTTP ${status}`}). The run is waiting-for-provider, not failed.`,
+    "",
+    JSON.stringify({ cause, provider, runId, since, state: key, status }),
+    "",
+    cause === "billing"
+      ? `Fix: the ${provider} account has a billing hold; tell Joel. Once it is cleared, call resumeRun {"runId": "${runId}"} under the identity that submitted the run.`
+      : `Fix: once ${provider} answers again, call resumeRun {"runId": "${runId}"} under the identity that submitted the run.`,
+  ].join("\n");
+
 const sealedFor = (storage: SqlStorage, notice: string) =>
   Option.fromNullishOr(
     storage.sql
@@ -119,16 +133,12 @@ const sealOnce = (
   postbox: () => Pick<PostboxRpc, "seal">,
   objectName: string,
   to: string,
-  runId: string,
-  question: QuestionInput,
+  text: string,
   notice: string
 ) =>
   Option.match(sealedFor(storage, notice), {
     onNone: () =>
-      posted(
-        async () =>
-          await postbox().seal(objectName, to, escalationText(runId, question))
-      ).pipe(
+      posted(async () => await postbox().seal(objectName, to, text)).pipe(
         Effect.map(({ envelope, messageId }) => {
           storage.sql.exec(
             "INSERT INTO mischief_escalations (notice, envelope, message_id) VALUES (?, ?, ?) ON CONFLICT (notice) DO NOTHING",
@@ -156,7 +166,7 @@ export const escalate =
     readonly postbox: () => Pick<PostboxRpc, "seal" | "send">;
     readonly storage: SqlStorage;
   }) =>
-  (runId: string, question: QuestionInput, notice: string) => {
+  (runId: string, notice: string, text: string) => {
     storage.sql.exec(SEALED);
 
     const target = escalationTargetOf(storage);
@@ -171,8 +181,7 @@ export const escalate =
       postbox,
       name.value,
       target.value,
-      runId,
-      question,
+      text,
       notice
     ).pipe(
       Effect.flatMap(({ envelope }) =>
@@ -181,7 +190,7 @@ export const escalate =
       Effect.matchEffect({
         onFailure: (reason) =>
           Effect.logWarning(
-            `${runId} could not mail its escalation at ${question.key} to ${target.value}: ${reason}. It still waits for answerRun`
+            `${runId} could not mail ${notice} to ${target.value}: ${reason}. The run still waits; inspectRun shows why`
           ),
         onSuccess: () => Effect.void,
       })

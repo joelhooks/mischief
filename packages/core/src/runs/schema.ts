@@ -2,6 +2,7 @@ import { Effect, Schema } from "effect";
 
 import { Count, PlanSchema } from "../plans/schema.js";
 import { QuestionInputSchema } from "../steps/inputs.js";
+import { ProviderCauseSchema } from "../steps/provider-unavailable.js";
 
 export const RunId = Schema.String.check(
   Schema.isPattern(/^[a-z0-9][a-z0-9-]{0,63}$/u)
@@ -12,6 +13,7 @@ export const RunStatusSchema = Schema.Literals([
   "paused",
   "waiting-for-joel",
   "waiting-for-reply",
+  "waiting-for-provider",
   "done",
   "envelope-exceeded",
   "amendment-refused",
@@ -146,6 +148,16 @@ export const PendingReplySchema = Schema.Struct({
 
 export type PendingReply = typeof PendingReplySchema.Type;
 
+export const HeldSchema = Schema.Struct({
+  cause: ProviderCauseSchema,
+  key: Schema.String,
+  provider: Schema.String,
+  since: Schema.Finite,
+  status: Schema.NullOr(Schema.Int),
+});
+
+export type Held = typeof HeldSchema.Type;
+
 export const RunStateSchema = Schema.Struct({
   answers: Schema.Record(Schema.String, Count),
   asking: Schema.NullOr(QuestionInputSchema),
@@ -156,6 +168,9 @@ export const RunStateSchema = Schema.Struct({
     Schema.withDecodingDefaultKey(Effect.succeed(null))
   ),
   checkpoint: Schema.NullOr(CheckpointSchema),
+  held: Schema.Array(HeldSchema).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([]))
+  ),
   planVersion: Count,
   replies: Schema.Array(PendingReplySchema).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([]))
@@ -189,6 +204,7 @@ export const RunReportSchema = Schema.Struct({
   awaiting: Schema.optionalKey(Schema.Array(AwaitingSchema)),
   docs: DocsSchema,
   failures: Schema.optionalKey(Schema.Array(FailureSchema)),
+  held: Schema.optionalKey(Schema.Array(HeldSchema)),
   planId: Schema.String,
   planVersion: Count,
   question: Schema.optionalKey(QuestionSchema),

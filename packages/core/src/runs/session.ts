@@ -1,4 +1,12 @@
-import { Crypto, Effect, Option, Result, Schema, Semaphore } from "effect";
+import {
+  Clock,
+  Crypto,
+  Effect,
+  Option,
+  Result,
+  Schema,
+  Semaphore,
+} from "effect";
 import { constVoid } from "effect/Function";
 import { createAsyncLogic } from "xstate";
 import type { AnyEventObject, Snapshot } from "xstate";
@@ -36,6 +44,7 @@ import type {
 import { Judge, whyDocName } from "../steps/judge.js";
 import { Mail, SealedSchema } from "../steps/mail.js";
 import { Operator } from "../steps/operator.js";
+import { ProviderUnavailable } from "../steps/provider-unavailable.js";
 import { StepFailed } from "../steps/step-failed.js";
 import { Thinker } from "../steps/thinker.js";
 import { VerdictDeferred } from "../steps/verdict-deferred.js";
@@ -47,6 +56,7 @@ import { RunStore } from "./run-store.js";
 import { DirectiveKey, directiveKey, DirectiveSchema } from "./schema.js";
 import type {
   Awaiting,
+  Held,
   Directive,
   PendingDirective,
   QueuedEvent,
@@ -169,8 +179,13 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
       value: state.value,
     };
 
-    const report: RunReport =
+    const withFailures: RunReport =
       failures.length > 0 ? { ...base, failures } : base;
+
+    const report: RunReport =
+      state.status === "waiting-for-provider" && state.held.length > 0
+        ? { ...withFailures, held: state.held }
+        : withFailures;
 
     if (state.awaiting.length > 0 && state.status !== "waiting-for-joel") {
       return { ...report, awaiting: state.awaiting } satisfies RunReport;
@@ -214,6 +229,7 @@ export const driveSession = (
     const mailbox: QueuedEvent[] = [];
     const pending = new Map<symbol, Promise<Schema.Json>>();
     const parked = new Map<string, Awaiting>();
+    const holds = new Map<string, Held>();
     const visits = new Map<string, number>();
 
     const starts = new Map(
@@ -653,7 +669,10 @@ export const driveSession = (
       schema: Schema.Decoder<I>,
       body: (
         input: I
-      ) => Effect.Effect<Schema.Json, StepFailed | VerdictDeferred>
+      ) => Effect.Effect<
+        Schema.Json,
+        StepFailed | VerdictDeferred | ProviderUnavailable
+      >
     ) =>
       createAsyncLogic({
         // oxlint-disable-next-line typescript/promise-function-async -- xstate async logic consumes a Promise factory.
@@ -760,7 +779,8 @@ export const driveSession = (
 
         const work = Effect.tryPromise({
           catch: (cause) =>
-            cause instanceof VerdictDeferred
+            cause instanceof VerdictDeferred ||
+            cause instanceof ProviderUnavailable
               ? cause
               : failed(
                   key,
@@ -797,10 +817,46 @@ export const driveSession = (
               return yield* Effect.never;
             });
 
+        const hold =
+          (release: Effect.Effect<void>) => (outage: ProviderUnavailable) =>
+            Effect.gen(function* holdStep() {
+              const held: Held = {
+                cause: outage.cause,
+                key: stepKey,
+                provider: outage.provider,
+                since: yield* Clock.currentTimeMillis,
+                status: outage.status,
+              };
+
+              const notice = `held:${stepKey}#${visit}`;
+
+              holds.set(stepKey, held);
+
+              if (!journal.has(`done:${notice}`)) {
+                const sent = yield* Effect.result(
+                  operator.held?.(runId, held, notice) ?? Effect.void
+                );
+
+                yield* recordJournal(
+                  `done:${notice}`,
+                  Result.isSuccess(sent)
+                    ? true
+                    : { error: `${notice} not announced` }
+                );
+              }
+
+              yield* release;
+
+              return yield* Effect.never;
+            });
+
         return track(key, (release) =>
           journaled(
             key,
-            work.pipe(Effect.catchTag("VerdictDeferred", park(release))),
+            work.pipe(
+              Effect.catchTag("VerdictDeferred", park(release)),
+              Effect.catchTag("ProviderUnavailable", hold(release))
+            ),
             printOf(stepOf(actor)),
             (entry) =>
               Effect.forEach(
@@ -953,6 +1009,7 @@ export const driveSession = (
               starts: Object.fromEntries(starts),
               transitionIndex: execution.nextTransitionIndex(),
             },
+            held: [...holds.values()],
             status,
             value: describeValue(execution.view().value),
           };
@@ -1002,6 +1059,7 @@ export const driveSession = (
                 stored === null
                   ? null
                   : { ...stored, pending: yield* pendingNow },
+              held: [...holds.values()],
               status,
             };
 
@@ -1101,6 +1159,13 @@ export const driveSession = (
         return {
           event: { type: replyEvent(replied.key) },
           kind: "event",
+        } satisfies Choice;
+      }
+
+      if (holds.size > 0) {
+        return {
+          kind: "halt",
+          status: "waiting-for-provider",
         } satisfies Choice;
       }
 

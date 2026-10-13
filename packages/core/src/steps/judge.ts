@@ -1,6 +1,7 @@
 import { Context, Effect, Layer, Schema } from "effect";
 import type { Option } from "effect";
 
+import type { ProviderUnavailable } from "./provider-unavailable.js";
 import { StepFailed } from "./step-failed.js";
 import type { StepCall } from "./step-failed.js";
 import type { Usage } from "./usage.js";
@@ -41,7 +42,10 @@ export class Judge extends Context.Service<
         readonly question: string;
         readonly reply: Option.Option<string>;
       }
-    ) => Effect.Effect<Judgement, StepFailed | VerdictDeferred>;
+    ) => Effect.Effect<
+      Judgement,
+      StepFailed | VerdictDeferred | ProviderUnavailable
+    >;
   }
 >()("@mischief/core/Judge") {
   static readonly unwired = Layer.succeed(this, {

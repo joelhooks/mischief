@@ -79,6 +79,7 @@ const stateWith = (transitions: number): typeof RunStateSchema.Type => ({
   awaiting: [],
   capped: null,
   checkpoint: null,
+  held: [],
   planVersion: 1,
   replies: [],
   revision: null,

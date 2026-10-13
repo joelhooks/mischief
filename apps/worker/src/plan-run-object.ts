@@ -9,7 +9,12 @@ import { DurableObject } from "cloudflare:workers";
 import { Effect, Layer, Option, Redacted, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 
-import { escalate, fixEscalationAtFirstSubmit } from "./escalation.js";
+import {
+  escalate,
+  escalationText,
+  fixEscalationAtFirstSubmit,
+  heldText,
+} from "./escalation.js";
 import { fixJudgeAtFirstSubmit, judgeChosenPerCall } from "./judge-choice.js";
 import {
   OBJECT_HEADER,
@@ -98,10 +103,20 @@ export class PlanRun extends DurableObject<Env> {
     const operator = Layer.succeed(
       Operator,
       Operator.of({
+        held: (runId, held, notice) =>
+          Effect.logWarning(
+            `${runId} is held at ${held.key}: ${held.provider} ${held.cause}`
+          ).pipe(
+            Effect.andThen(mailEscalation(runId, notice, heldText(runId, held)))
+          ),
         notify: (runId, question, notice) =>
           Effect.logInfo(
             `${runId} waits on ${question.key}: ${question.question}`
-          ).pipe(Effect.andThen(mailEscalation(runId, question, notice))),
+          ).pipe(
+            Effect.andThen(
+              mailEscalation(runId, notice, escalationText(runId, question))
+            )
+          ),
       })
     );
 

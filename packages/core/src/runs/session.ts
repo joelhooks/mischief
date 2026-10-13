@@ -42,7 +42,7 @@ import type {
   QuestionInput,
   ThinkInput,
 } from "../steps/inputs.js";
-import { Judge, whyDocName } from "../steps/judge.js";
+import { Judge, askedDocName, whyDocName } from "../steps/judge.js";
 import { Mail, SealedSchema } from "../steps/mail.js";
 import { Operator } from "../steps/operator.js";
 import { ProviderUnavailable } from "../steps/provider-unavailable.js";
@@ -59,6 +59,7 @@ import type {
   Awaiting,
   Held,
   Directive,
+  Docs,
   PendingDirective,
   QueuedEvent,
   RunReport,
@@ -136,6 +137,19 @@ const decodeIdentity = Schema.decodeUnknownOption(
 );
 
 const failed = (key: string, reason: string) => new StepFailed({ key, reason });
+
+const shown = (ask: Ask | undefined, docs: Docs) => {
+  if (ask === undefined) {
+    return null;
+  }
+
+  const asked = docs[askedDocName(ask.key)];
+
+  return {
+    ...ask,
+    question: isText(asked) ? asked : interpolate(ask.question, docs).text,
+  };
+};
 
 const verdictOf = (event: AnyEventObject): JudgeVerdict =>
   Option.match(decodeVerdict(event), {
@@ -572,17 +586,19 @@ export const driveSession = (
 
     const decide = (input: JudgeInput) =>
       Effect.gen(function* decideStep() {
+        const stored = yield* store.readDocs(runId);
+
+        const asked = interpolate(input.question, stored).text;
+
         const call = {
           agent: input.thinkAgent ?? {},
           epoch: epochOf(),
           key: input.key,
           options: input.options,
-          question: input.question,
+          question: asked,
           runId,
           visit: visitOf(input.key),
         };
-
-        const stored = yield* store.readDocs(runId);
 
         const reply = Option.fromNullishOr(
           run.state.replies.find(({ key }) => key === input.key)
@@ -616,6 +632,11 @@ export const driveSession = (
         const withWhy = <A extends object>(verdict: A) =>
           why === undefined ? verdict : { ...verdict, why: [...why] };
 
+        const escalated = (ladder: readonly Schema.Json[], tokens: number) =>
+          writeDoc(askedDocName(input.key), asked).pipe(
+            Effect.as(withWhy({ asked, escalate: true, ladder, tokens }))
+          );
+
         if (top !== undefined && top[1] >= (input.threshold ?? 1)) {
           return withWhy({
             choice: top[0],
@@ -635,11 +656,7 @@ export const driveSession = (
         }
 
         if (thinkThreshold === undefined) {
-          return withWhy({
-            escalate: true,
-            ladder: [jev],
-            tokens: usage.tokens,
-          });
+          return yield* escalated([jev], usage.tokens);
         }
 
         const deliberation = yield* step(input.key, thinker.decide(call));
@@ -662,11 +679,15 @@ export const driveSession = (
           )
         );
 
-        return withWhy(
-          Option.isSome(confident)
-            ? { choice: confident.value.choice, ladder: [jev, rung], tokens }
-            : { escalate: true, ladder: [jev, rung], tokens }
-        );
+        if (Option.isNone(confident)) {
+          return yield* escalated([jev, rung], tokens);
+        }
+
+        return withWhy({
+          choice: confident.value.choice,
+          ladder: [jev, rung],
+          tokens,
+        });
       });
 
     const logic = <I>(
@@ -1007,7 +1028,7 @@ export const driveSession = (
           run.state = {
             ...run.state,
             answers: Object.fromEntries(answers),
-            asking: askHere() ?? null,
+            asking: shown(askHere(), docs),
             awaiting: awaitingOf(docs),
             checkpoint: {
               mailbox: structuredClone(mailbox),
@@ -1209,9 +1230,13 @@ export const driveSession = (
         const notice = `announce:${question.key}#${asked}${run.state.revision === null ? "" : `@v${run.plan.version}`}`;
 
         if (!journal.has(notice)) {
+          const docs = yield* store.readDocs(runId);
+
           yield* produce(
             yield* deliveryKey(question.key, notice),
-            DirectiveSchema.cases.Emit.make({ question })
+            DirectiveSchema.cases.Emit.make({
+              question: shown(question, docs) ?? question,
+            })
           );
         }
 

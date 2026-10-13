@@ -32,6 +32,7 @@ interface ModelStep {
   readonly kind: string;
   readonly next?: string;
   readonly prompt?: string;
+  readonly question?: string;
   readonly reads?: readonly string[];
   readonly to?: string;
   readonly writes?: string;
@@ -347,6 +348,24 @@ const thinkRung = (
       );
 };
 
+const DOC_REF = /\{\{docs\.(?<name>[a-z][a-z0-9_-]*)\}\}/gu;
+
+const isText = Schema.is(Schema.String);
+
+const rendered = (node: ModelNode, world: World) =>
+  (node.meta?.step.question ?? "").replaceAll(
+    DOC_REF,
+    (whole: string, name: string) => {
+      const doc = world.docs.get(name);
+
+      if (doc === undefined) {
+        return whole;
+      }
+
+      return isText(doc) ? doc : JSON.stringify(doc);
+    }
+  );
+
 const judgeMove = (
   world: World,
   node: ModelNode,
@@ -387,6 +406,8 @@ const judgeMove = (
   if (fallback !== undefined) {
     return advanceTo(world, path, node.on?.[fallback]?.target);
   }
+
+  world.docs.set(`__asked:${key}`, rendered(node, world));
 
   world.clock.transitions += 1;
 

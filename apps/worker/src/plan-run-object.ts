@@ -9,8 +9,14 @@ import { DurableObject } from "cloudflare:workers";
 import { Effect, Layer, Option, Redacted, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 
+import { escalate, fixEscalationAtFirstSubmit } from "./escalation.js";
 import { fixJudgeAtFirstSubmit, judgeChosenPerCall } from "./judge-choice.js";
-import { OBJECT_HEADER, postboxMail, rememberObject } from "./postbox-mail.js";
+import {
+  OBJECT_HEADER,
+  objectOf,
+  postboxMail,
+  rememberObject,
+} from "./postbox-mail.js";
 import { POSTBOX_NAME } from "./postbox-object.js";
 import type { Postbox } from "./postbox-object.js";
 import type { Schedule } from "./schedule-object.js";
@@ -51,14 +57,6 @@ const judgeFor = (env: Env, storage: DurableObjectStorage) => {
   });
 };
 
-const operator = Layer.succeed(
-  Operator,
-  Operator.of({
-    notify: (runId, { key, question }) =>
-      Effect.logInfo(`${runId} waits on ${key}: ${question}`),
-  })
-);
-
 export class PlanRun extends DurableObject<Env> {
   private readonly runtime: Runtime;
 
@@ -86,6 +84,27 @@ export class PlanRun extends DurableObject<Env> {
         ? piThinker(fauxThinkerOptions(storageFor))
         : Thinker.unwired;
 
+    const postbox = () => env.POSTBOX.get(env.POSTBOX.idFromName(POSTBOX_NAME));
+
+    const mailEscalation =
+      env.MISCHIEF_IDENTITY === undefined || env.MISCHIEF_IDENTITY === ""
+        ? () => Effect.void
+        : escalate({
+            objectName: () => objectOf(ctx.storage),
+            postbox,
+            storage: ctx.storage,
+          });
+
+    const operator = Layer.succeed(
+      Operator,
+      Operator.of({
+        notify: (runId, question, notice) =>
+          Effect.logInfo(
+            `${runId} waits on ${question.key}: ${question.question}`
+          ).pipe(Effect.andThen(mailEscalation(runId, question, notice))),
+      })
+    );
+
     this.runtime = makePlanRun({
       alarms: {
         clear: async () => {
@@ -102,9 +121,7 @@ export class PlanRun extends DurableObject<Env> {
         judgeFor(env, ctx.storage),
         env.MISCHIEF_IDENTITY === undefined || env.MISCHIEF_IDENTITY === ""
           ? mailOutboxSql(ctx.storage)
-          : postboxMail(ctx.storage, () =>
-              env.POSTBOX.get(env.POSTBOX.idFromName(POSTBOX_NAME))
-            ),
+          : postboxMail(ctx.storage, postbox),
         operator
       ),
       storage: ctx.storage,
@@ -118,15 +135,15 @@ export class PlanRun extends DurableObject<Env> {
       return await this.runtime.fetch(request);
     }
 
-    const forget = fixJudgeAtFirstSubmit(
-      this.ctx.storage,
-      await request.clone().text()
-    );
+    const body = await request.clone().text();
+    const forgetJudge = fixJudgeAtFirstSubmit(this.ctx.storage, body);
+    const forgetEscalation = fixEscalationAtFirstSubmit(this.ctx.storage, body);
 
     const response = await this.runtime.fetch(request);
 
     if (response.status !== 200) {
-      forget();
+      forgetJudge();
+      forgetEscalation();
     }
 
     return response;

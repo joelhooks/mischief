@@ -52,6 +52,7 @@ export { RunStore } from "./runs/run-store.js";
 export {
   AwaitingSchema,
   DocsSchema,
+  EscalateToSchema,
   JudgeModeSchema,
   ReplyLineSchema,
   RunRecordSchema,
@@ -83,6 +84,8 @@ export type { Usage } from "./steps/usage.js";
 export { Mail, SealedSchema, type Sealed } from "./steps/mail.js";
 
 export { Operator } from "./steps/operator.js";
+
+export type { QuestionInput } from "./steps/inputs.js";
 
 export { StepFailed } from "./steps/step-failed.js";
 

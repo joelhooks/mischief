@@ -8,6 +8,7 @@ import { ReplyRefused } from "./reply-refused.js";
 import { RevisionRefused } from "./revision-refused.js";
 import {
   DocsSchema,
+  EscalateToSchema,
   JudgeModeSchema,
   ReplyLineSchema,
   RevisionReportSchema,
@@ -31,6 +32,7 @@ export const submitPlanContract = defineContract("submitPlan", {
           "Seed docs, by name, that judge steps can list in reads; the plan stays the same across runs",
       })
     ),
+    escalateTo: Schema.optionalKey(EscalateToSchema),
     judge: Schema.optionalKey(JudgeModeSchema),
     plan: Schema.Json.annotate({ description: "The plan, as JSON" }),
     runId,

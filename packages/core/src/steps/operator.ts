@@ -8,7 +8,8 @@ export class Operator extends Context.Service<
   {
     readonly notify: (
       runId: string,
-      question: QuestionInput
+      question: QuestionInput,
+      notice: string
     ) => Effect.Effect<void>;
   }
 >()("@mischief/core/Operator") {}

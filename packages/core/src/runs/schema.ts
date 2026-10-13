@@ -112,6 +112,13 @@ export const JudgeModeSchema = Schema.Literals(["shadow", "jev"]).annotate({
 
 export type JudgeMode = typeof JudgeModeSchema.Type;
 
+export const EscalateToSchema = Schema.String.check(
+  Schema.isPattern(/^[a-z][a-z0-9_-]{0,63}(?:\/[a-z][a-z0-9_-]{0,63})?$/u)
+).annotate({
+  description:
+    'The Rat King name that gets mail when a judge escalates, such as "agent-graph/desk". Omitted, an escalation only waits for answerRun. Fixed at the first submit',
+});
+
 export const AwaitingSchema = Schema.Struct({
   key: Schema.String,
   messageId: Schema.String,

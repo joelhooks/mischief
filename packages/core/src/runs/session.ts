@@ -963,7 +963,9 @@ export const driveSession = (
 
     const announce = (key: string, question: QuestionInput) =>
       Effect.gen(function* announceNotice() {
-        const sent = yield* Effect.result(operator.notify(runId, question));
+        const sent = yield* Effect.result(
+          operator.notify(runId, question, key)
+        );
 
         yield* recordJournal(
           `done:${key}`,

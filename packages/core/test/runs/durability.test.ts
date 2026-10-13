@@ -299,6 +299,8 @@ const deliveredFrom = (
 
 type Choose = (typeof Judge)["Service"]["choose"];
 
+const NOTICE = "notice:";
+
 const fakes = (
   fixtures: Fixtures,
   calls: ModelCall[],
@@ -374,7 +376,7 @@ const fakes = (
         ),
     }),
     operator: Operator.of({
-      notify: (_runId, { key }) =>
+      notify: (_runId, { key }, notice) =>
         deliveredFrom(
           base,
           deliveries,
@@ -385,7 +387,7 @@ const fakes = (
         ).pipe(
           Effect.andThen(
             Effect.sync(() => {
-              announced.push(key);
+              announced.push(key, `${NOTICE}${notice}`);
             })
           )
         ),
@@ -799,6 +801,19 @@ it.effect.prop(
       ).toStrictEqual([]);
 
       const journal = yield* base.readJournal(RUN);
+
+      const unsettled = announced.flatMap((entry) => {
+        const notice = entry.slice(NOTICE.length);
+
+        return entry.startsWith(NOTICE) && !journal.has(`done:${notice}`)
+          ? [notice]
+          : [];
+      });
+
+      expect(
+        unsettled,
+        `notices announced under a key the run never marked done, so a re-announce after a crash carried a new notice: ${unsettled.join(", ")}`
+      ).toStrictEqual([]);
 
       const judged = [...journal.values()].flatMap((entry) =>
         Option.toArray(decodeJudged(entry))

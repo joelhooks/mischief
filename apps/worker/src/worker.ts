@@ -6,7 +6,7 @@ import { Effect, Layer, Option, Result, Schema } from "effect";
 
 import type { Env } from "./plan-run-object.js";
 import { OBJECT_HEADER } from "./postbox-mail.js";
-import { replayLedger } from "./replay-ledger.js";
+import { READ_ONLY, replayLedger } from "./replay-ledger.js";
 import { NO_RUN_ID, runIdOf } from "./run-address.js";
 import {
   NO_SCHEDULE_ID,
@@ -32,7 +32,7 @@ const CallersFromJson = Schema.fromJsonString(Documents);
 const servicesFor = (env: Env, callers: DocumentsValue) =>
   Layer.merge(
     staticResolver(callers),
-    replayLedger((issuer) => env.SERVICE_TOKENS.getByName(issuer))
+    replayLedger((issuer) => env.SERVICE_TOKENS.getByName(issuer), READ_ONLY)
   );
 
 const refused = (error: AuthRefused) =>

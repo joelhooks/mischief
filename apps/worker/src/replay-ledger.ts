@@ -1,3 +1,4 @@
+import { runCapabilities, scheduleCapabilities } from "@mischief/core";
 // @effect-diagnostics asyncFunction:off -- a Durable Object stub's RPC methods are Promise APIs.
 import {
   ReplayAuthority,
@@ -5,15 +6,30 @@ import {
 } from "@rat-king/mailbox-client/auth";
 import { Effect, Layer } from "effect";
 
+import { NSID_PREFIX } from "./service-auth.js";
+
 export interface Ledger {
   readonly consume: (
     jti: string,
     exp: number,
-    nowSeconds: number
+    nowSeconds: number,
+    durable: boolean
   ) => Promise<boolean>;
 }
 
-export const replayLedger = (ledgerFor: (issuer: string) => Ledger) =>
+export const READ_ONLY: ReadonlySet<string> = new Set(
+  [
+    ...[...runCapabilities, ...scheduleCapabilities].flatMap(({ contract }) =>
+      contract.annotations.readOnly ? [contract.name] : []
+    ),
+    "openApi",
+  ].map((name) => `${NSID_PREFIX}${name}`)
+);
+
+export const replayLedger = (
+  ledgerFor: (issuer: string) => Ledger,
+  readOnly: ReadonlySet<string>
+) =>
   Layer.succeed(
     ReplayAuthority,
     ReplayAuthority.of({
@@ -31,7 +47,8 @@ export const replayLedger = (ledgerFor: (issuer: string) => Ledger) =>
             await ledgerFor(claims.iss).consume(
               claims.jti,
               claims.exp,
-              Math.floor(now / 1000)
+              Math.floor(now / 1000),
+              !readOnly.has(claims.lxm)
             ),
         }).pipe(
           Effect.flatMap((fresh) =>

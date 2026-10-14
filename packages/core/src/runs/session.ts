@@ -614,6 +614,7 @@ export const driveSession = (
           input.key,
           judge.choose({
             ...call,
+            criteria: input.criteria,
             docs,
             reply: reply.pipe(Option.map(({ body }) => body)),
           })

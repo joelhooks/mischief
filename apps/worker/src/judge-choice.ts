@@ -114,11 +114,12 @@ export const judgeChosenPerCall = ({
         return mode === "jev" ? asked : unwired;
       };
 
+      const chosen = () =>
+        pick(Option.getOrElse(judgeModeOf(storage), () => fallback));
+
       return Judge.of({
-        choose: (call) =>
-          pick(Option.getOrElse(judgeModeOf(storage), () => fallback)).choose(
-            call
-          ),
+        admits: (plan) => chosen().admits?.(plan) ?? [],
+        choose: (call) => chosen().choose(call),
       });
     })
   );

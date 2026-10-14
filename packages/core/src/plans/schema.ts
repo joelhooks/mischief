@@ -89,7 +89,26 @@ export const ThinkStepSchema = Schema.Struct({
 
 export type ThinkStep = typeof ThinkStepSchema.Type;
 
+export const CriterionSchema = Schema.Union([
+  Schema.String.check(Schema.isNonEmpty()),
+  Schema.Array(Schema.Json).check(Schema.isMinLength(1)),
+  Schema.Record(Schema.String, Schema.Json).check(Schema.isMinProperties(1)),
+]).annotate({
+  description:
+    "What choosing this transition means, sent to the judge as its criterion: a non-empty string, array or object",
+});
+
+export const CriteriaSchema = Schema.Record(EventName, CriterionSchema);
+
+export type Criteria = typeof CriteriaSchema.Type;
+
 export const JudgeStepSchema = Schema.Struct({
+  criteria: Schema.optionalKey(
+    CriteriaSchema.annotate({
+      description:
+        "One criterion per transition in on, keyed by the same names. Required when the run's judge is jev. A judge whose transitions are exactly yes and no is asked as a yes/no question",
+    })
+  ),
   fallback: Schema.optionalKey(Schema.String),
   kind: Schema.Literal("judge"),
   question: Schema.String,

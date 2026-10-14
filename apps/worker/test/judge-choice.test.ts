@@ -167,3 +167,38 @@ it.live.prop(
     }).pipe(Effect.scoped, Effect.provide(services)),
   { arbitrary: { runs: 16 }, timeout: 180_000 }
 );
+
+it.live(
+  "on a host with a Jev key, a run that chose jev is refused at submit until every judge step has criteria, naming the step; the same plan under shadow is accepted",
+  () =>
+    Effect.gen(function* criteriaAtSubmit() {
+      const world = yield* prepare(30_000, [], "not-a-real-key-for-tests");
+
+      yield* start(world);
+
+      const refused = yield* post(world, "submitPlan", {
+        judge: "jev",
+        plan: gatePlan,
+        runId: "bare-jev",
+      });
+
+      expect(refused.status).toBe(422);
+      expect(JSON.stringify(refused.body)).toContain(
+        'gate: judge \\"jev\\" needs criteria'
+      );
+
+      const missing = yield* post(world, "inspectRun", { runId: "bare-jev" });
+
+      expect([404, 422]).toContain(missing.status);
+
+      const shadow = yield* post(world, "submitPlan", {
+        judge: "shadow",
+        plan: gatePlan,
+        runId: "bare-jev",
+      });
+
+      expect(shadow.status).toBe(200);
+      expect(decodeReport(shadow.body).status).toBe("waiting-for-reply");
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  60_000
+);

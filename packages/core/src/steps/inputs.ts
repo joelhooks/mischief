@@ -35,6 +35,7 @@ export type QuestionInput = typeof QuestionInputSchema.Type;
 
 export const JudgeInputSchema = Schema.Struct({
   ...QuestionInputSchema.fields,
+  criteria: Schema.optional(Schema.Record(Schema.String, Schema.Json)),
   fallback: Schema.optional(Schema.String),
   reads: Schema.optional(Schema.Array(DocKey)),
   thinkAgent: Schema.optional(AgentConfigSchema),

@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
-import type { PlanRefused } from "../plans/validate.js";
-import { validatePlan } from "../plans/validate.js";
+import { PlanRefused, validatePlan } from "../plans/validate.js";
+import { Judge } from "../steps/judge.js";
 import { Operator } from "../steps/operator.js";
 import { AnswerRefused } from "./answer-refused.js";
 import { closeOpenAsks } from "./close-asks.js";
@@ -65,6 +65,7 @@ export class RunHost extends Context.Service<
     const context = yield* Effect.context<StepServices>();
     const store = yield* RunStore;
     const operator = yield* Operator;
+    const judge = yield* Judge;
 
     const loadRun = Effect.fn("RunHost.loadRun")(function* loadRun(
       runId: string
@@ -127,6 +128,11 @@ export class RunHost extends Context.Service<
       }
 
       const plan = yield* checkSubmission(input, docs);
+      const refusals = judge.admits?.(plan) ?? [];
+
+      if (refusals.length > 0) {
+        return yield* new PlanRefused({ errors: refusals });
+      }
 
       yield* store.writePlan(runId, plan);
       yield* Effect.forEach(
@@ -365,6 +371,14 @@ export class RunHost extends Context.Service<
           )
         )
       );
+
+      const refusals = judge.admits?.(plan) ?? [];
+
+      if (refusals.length > 0) {
+        return yield* refuse(
+          `the revised plan is invalid. Fix each problem and call reviseRun again:\n${refusals.map((error) => `- ${error}`).join("\n")}`
+        );
+      }
 
       if (canonical(plan.envelope) !== canonical(opened.plan.envelope)) {
         return yield* refuse(

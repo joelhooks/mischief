@@ -10,6 +10,7 @@ import type {
   Branch,
   BranchState,
   BranchStep,
+  Criteria,
   JudgeStep,
   SwitchStep,
   Plan,
@@ -167,6 +168,30 @@ const fallbackErrors = (
         `${where}: fallback "${fallback}" is not one of its transitions. Use one of: ${Object.keys(on ?? {}).join(", ")}`,
       ];
 
+const criteriaErrors = (
+  criteria: Criteria | undefined,
+  on: Transitions | undefined,
+  where: string
+) => {
+  if (criteria === undefined) {
+    return [];
+  }
+
+  const events = Object.keys(on ?? {});
+  const named = Object.keys(criteria);
+  const missing = events.filter((event) => !named.includes(event));
+  const extra = named.filter((name) => !events.includes(name));
+
+  return missing.length === 0 && extra.length === 0
+    ? []
+    : [
+        `${where}: criteria must name exactly its transitions (${events.join(", ")}), one description each. ${[
+          ...(missing.length === 0 ? [] : [`Add: ${missing.join(", ")}`]),
+          ...(extra.length === 0 ? [] : [`Remove: ${extra.join(", ")}`]),
+        ].join(". ")}`,
+      ];
+};
+
 const NEXT = { ask: "replied", think: "done" } as const;
 
 const nextErrors = (
@@ -226,6 +251,7 @@ const resolveJudge = (
         ]
       : []),
     ...fallbackErrors(step.fallback, on, where),
+    ...criteriaErrors(step.criteria, on, where),
   ],
   value: {
     ...step,

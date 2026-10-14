@@ -1,6 +1,7 @@
 import { Context, Effect, Layer, Schema } from "effect";
 import type { Option } from "effect";
 
+import type { Plan } from "../plans/schema.js";
 import type { ProviderUnavailable } from "./provider-unavailable.js";
 import { StepFailed } from "./step-failed.js";
 import type { StepCall } from "./step-failed.js";
@@ -39,6 +40,7 @@ export class Judge extends Context.Service<
   {
     readonly choose: (
       call: StepCall & {
+        readonly criteria?: Readonly<Record<string, Schema.Json>> | undefined;
         readonly docs: Readonly<Record<string, Schema.Json>>;
         readonly options: readonly string[];
         readonly question: string;
@@ -48,6 +50,7 @@ export class Judge extends Context.Service<
       Judgement,
       StepFailed | VerdictDeferred | ProviderUnavailable
     >;
+    readonly admits?: (plan: Plan) => readonly string[];
   }
 >()("@mischief/core/Judge") {
   static readonly unwired = Layer.succeed(this, {

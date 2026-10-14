@@ -24,36 +24,127 @@ const Request = Schema.Struct({
   model: Schema.String,
   questions: Schema.Struct({
     decision: Schema.Struct({
-      criteria: Schema.Record(Schema.String, Schema.Null),
+      criteria: Schema.Record(Schema.String, Schema.String),
       instructions: Schema.String,
-      type: Schema.Literal("choice"),
+      type: Schema.Literals(["choice", "noul"]),
     }),
   }),
   state: Schema.Struct({ docs: Schema.Record(Schema.String, Schema.String) }),
 });
 
+const criterionOf = (option: string) => `choose ${option} when it fits`;
+
+const REPLIES = [
+  "faithful",
+  "extra",
+  "missing",
+  "not json",
+  "renamed",
+  "wrong type",
+  "not arg-max",
+  "bad sum",
+  "out of range",
+  "other primitive",
+] as const;
+
 const World = Schema.Struct({
+  bare: Schema.Boolean,
   busy: Schema.Array(Schema.Literals(BUSY)).check(Schema.isMaxLength(7)),
   docs: Schema.Record(Schema.Literals(["inventory", "classes"]), Schema.String),
   final: Schema.Literals([200, 401, 402, 422, 500, 503]),
-  options: Schema.Array(Schema.Literals(OPTIONS)).check(
-    Schema.isMinLength(2),
-    Schema.isUnique()
-  ),
-  reply: Schema.Literals([
-    "faithful",
-    "extra",
-    "missing",
-    "not json",
-    "renamed",
-    "wrong type",
+  options: Schema.Union([
+    Schema.Array(Schema.Literals(OPTIONS)).check(
+      Schema.isMinLength(2),
+      Schema.isUnique()
+    ),
+    Schema.Literal("yes/no"),
   ]),
+  reply: Schema.Literals(REPLIES),
   weights: Schema.Array(
     Schema.Int.check(Schema.isBetween({ maximum: 9, minimum: 1 }))
   ).check(Schema.isMinLength(5), Schema.isMaxLength(5)),
 });
 
 type WorldValue = typeof World.Type;
+
+const optionsOf = (world: WorldValue): readonly string[] =>
+  world.options === "yes/no" ? ["yes", "no"] : world.options;
+
+const criteriaOf = (world: WorldValue) =>
+  Object.fromEntries(
+    optionsOf(world)
+      .slice(world.bare ? 1 : 0)
+      .map((option) => [option, criterionOf(option)])
+  );
+
+const noulOf = (world: WorldValue) => (world.weights[0] ?? 1) / 10;
+
+const choiceAnswer = (
+  reply: (typeof REPLIES)[number],
+  probabilities: Readonly<Record<string, number>>
+) => {
+  const ranked = Object.entries(probabilities).toSorted(
+    (left, right) => right[1] - left[1]
+  );
+
+  const [first, ...rest] = ranked;
+
+  const last = ranked.at(-1);
+
+  const variants = new Map<string, Readonly<Record<string, number>>>([
+    [
+      "bad sum",
+      Object.fromEntries(ranked.map(([option, value]) => [option, value / 2])),
+    ],
+    ["extra", { ...probabilities, stranger: 0 }],
+    ["missing", Object.fromEntries(rest)],
+    ["out of range", { ...probabilities, [first?.[0] ?? ""]: 1.5 }],
+    ["renamed", { ...Object.fromEntries(rest), stranger: first?.[1] ?? 0 }],
+  ]);
+
+  const answered = variants.get(reply) ?? probabilities;
+
+  return {
+    choice:
+      reply === "not arg-max" && ranked.length > 1 && first?.[1] !== last?.[1]
+        ? last?.[0]
+        : first?.[0],
+    confidence: 0.5,
+    probabilities: answered,
+    type: reply === "wrong type" ? "score" : "choice",
+  };
+};
+
+const noulAnswer = (reply: (typeof REPLIES)[number], p: number) => {
+  if (reply === "other primitive") {
+    return choiceAnswer("faithful", { no: 1 - p, yes: p });
+  }
+
+  return {
+    noul: reply === "out of range" ? 1.5 : p,
+    type: reply === "wrong type" ? "score" : "noul",
+  };
+};
+
+const faithfulFor = (world: WorldValue) => {
+  if (world.reply === "faithful" || world.reply === "not json") {
+    return world.reply === "faithful";
+  }
+
+  if (world.options === "yes/no") {
+    return !["out of range", "wrong type", "other primitive"].includes(
+      world.reply
+    );
+  }
+
+  if (world.reply === "not arg-max") {
+    const values = world.options.map((_, index) => world.weights[index] ?? 1);
+
+    return Math.max(...values) === Math.min(...values);
+  }
+
+  return world.reply === "other primitive";
+};
 
 const outageOf = (world: WorldValue) => {
   if (world.busy.length >= 5) {
@@ -118,32 +209,16 @@ const typesafe = (world: WorldValue, seen: unknown[]) => {
         ])
       );
 
-      const answered = {
-        extra: { ...probabilities, stranger: 0 },
-        faithful: probabilities,
-        missing: Object.fromEntries(Object.entries(probabilities).slice(1)),
-        "not json": probabilities,
-        renamed: Object.fromEntries(
-          Object.entries(probabilities).map(([option, value], index) => [
-            index === 0 ? "stranger" : option,
-            value,
-          ])
-        ),
-        "wrong type": probabilities,
-      }[world.reply];
+      const decision =
+        asked.questions.decision.type === "noul"
+          ? noulAnswer(world.reply, noulOf(world))
+          : choiceAnswer(world.reply, probabilities);
 
       const text =
         world.reply === "not json"
           ? "<html>"
           : JSON.stringify({
-              answers: {
-                decision: {
-                  choice: criteria[0],
-                  confidence: 0.5,
-                  probabilities: answered,
-                  type: world.reply === "wrong type" ? "score" : "choice",
-                },
-              },
+              answers: { decision },
               model: "jev-1.13.0",
               usage: { input_tokens: 300, output_tokens: 20 },
             });
@@ -157,7 +232,7 @@ const typesafe = (world: WorldValue, seen: unknown[]) => {
 };
 
 it.live.prop(
-  "the Jev judge asks one Choice over exactly the step's transitions, retries only TypeSafe's busy answers, and returns TypeSafe's probabilities or a failure that says what to do",
+  "the Jev judge asks a yes/no step as one Noul and any other as one Choice, each with the step's criteria, never asks without a criterion for every transition, retries only TypeSafe's busy answers, and returns the probabilities only from a strictly well-formed answer",
   { world: Arbitrary.schema(World) },
   ({ world }) =>
     Effect.gen(function* property() {
@@ -166,10 +241,11 @@ it.live.prop(
       const exit = yield* Effect.exit(
         Judge.use((judge) =>
           judge.choose({
+            criteria: criteriaOf(world),
             docs: world.docs,
             epoch: 0,
             key: "classify_check",
-            options: world.options,
+            options: optionsOf(world),
             question: "Does every candidate pass the hard rules?",
             reply: Option.none(),
             runId: "sweep-1",
@@ -189,6 +265,15 @@ it.live.prop(
         )
       );
 
+      if (world.bare) {
+        expect(seen, "a bare transition is never sent").toHaveLength(0);
+        expect(Exit.isFailure(exit) ? String(exit.cause) : "").toContain(
+          "reviseRun with criteria"
+        );
+
+        return;
+      }
+
       const tries = Math.min(world.busy.length + 1, 5);
 
       expect(seen.length).toBe(tries);
@@ -202,22 +287,33 @@ it.live.prop(
         expect(body).toEqual({
           model: JEV_MODEL,
           questions: {
-            decision: {
-              criteria: Object.fromEntries(
-                world.options.map((option) => [option, null])
-              ),
-              instructions: "Does every candidate pass the hard rules?",
-              type: "choice",
-            },
+            decision:
+              world.options === "yes/no"
+                ? {
+                    criteria: {
+                      false: criterionOf("no"),
+                      true: criterionOf("yes"),
+                    },
+                    instructions: "Does every candidate pass the hard rules?",
+                    type: "noul",
+                  }
+                : {
+                    criteria: Object.fromEntries(
+                      world.options.map((option) => [
+                        option,
+                        criterionOf(option),
+                      ])
+                    ),
+                    instructions: "Does every candidate pass the hard rules?",
+                    type: "choice",
+                  },
           },
           state: { docs: world.docs },
         });
       }
 
       const succeeds =
-        world.busy.length < 5 &&
-        world.final === 200 &&
-        world.reply === "faithful";
+        world.busy.length < 5 && world.final === 200 && faithfulFor(world);
 
       if (!succeeds) {
         expect(Exit.isFailure(exit)).toBe(true);
@@ -238,6 +334,15 @@ it.live.prop(
         } else {
           expect(failure).toContain(outage);
         }
+
+        return;
+      }
+
+      if (world.options === "yes/no") {
+        expect(Exit.isSuccess(exit) ? exit.value : undefined).toStrictEqual({
+          probabilities: { no: 1 - noulOf(world), yes: noulOf(world) },
+          usage: { tokens: 320 },
+        });
 
         return;
       }
@@ -272,6 +377,7 @@ it.live(
         const exit = yield* Effect.exit(
           Judge.use((judge) =>
             judge.choose({
+              criteria: { failed: "it does not hold", passed: "it holds" },
               docs: {},
               epoch: 0,
               key: "classify_check",

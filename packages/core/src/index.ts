@@ -25,6 +25,8 @@ export {
 
 export { PlanSchema, type Plan } from "./plans/schema.js";
 
+export { missingCriteria } from "./plans/criteria.js";
+
 export { PlanRefused, validatePlan } from "./plans/validate.js";
 
 export { AnswerRefused } from "./runs/answer-refused.js";

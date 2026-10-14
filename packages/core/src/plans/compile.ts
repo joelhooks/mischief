@@ -201,6 +201,7 @@ const compileStep = (
             invoke: {
               input: {
                 ...ask,
+                criteria: step.criteria,
                 fallback: step.fallback,
                 reads: step.reads,
                 thinkAgent: scope.thinkAgent,

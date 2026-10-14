@@ -1,4 +1,9 @@
-import { Judge, ProviderUnavailable, StepFailed } from "@mischief/core";
+import {
+  Judge,
+  missingCriteria,
+  ProviderUnavailable,
+  StepFailed,
+} from "@mischief/core";
 import type { ProviderCause } from "@mischief/core";
 import { Effect, Layer, Predicate, Redacted, Schedule, Schema } from "effect";
 import type { Duration } from "effect";
@@ -17,18 +22,89 @@ export interface JevConfig {
   readonly url?: string;
 }
 
+const Unit = Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }));
+
 const ChoiceAnswer = Schema.Struct({
-  probabilities: Schema.Record(Schema.String, Schema.Number),
+  choice: Schema.String,
+  probabilities: Schema.Record(Schema.String, Unit),
   type: Schema.Literal("choice"),
 });
 
+const NoulAnswer = Schema.Struct({
+  noul: Unit,
+  type: Schema.Literal("noul"),
+});
+
 const Evaluation = Schema.Struct({
-  answers: Schema.Struct({ decision: ChoiceAnswer }),
+  answers: Schema.Struct({
+    decision: Schema.Union([ChoiceAnswer, NoulAnswer]),
+  }),
   usage: Schema.Struct({
     input_tokens: Schema.Int,
     output_tokens: Schema.Int,
   }),
 });
+
+type Answer = typeof Evaluation.Type.answers.decision;
+
+const SUM_SLACK = 0.02;
+
+export const isYesNo = (options: readonly string[]) =>
+  options.length === 2 && options.includes("yes") && options.includes("no");
+
+const questionOf = (
+  options: readonly string[],
+  criteria: Readonly<Record<string, Schema.Json>>,
+  question: string
+) =>
+  isYesNo(options)
+    ? {
+        criteria: { false: criteria.no, true: criteria.yes },
+        instructions: question,
+        type: "noul",
+      }
+    : {
+        criteria: Object.fromEntries(
+          options.map((option) => [option, criteria[option]])
+        ),
+        instructions: question,
+        type: "choice",
+      };
+
+export const answerProblem = (
+  answer: Answer,
+  options: readonly string[]
+): string | undefined => {
+  if (answer.type === "noul" || isYesNo(options)) {
+    return (answer.type === "noul") === isYesNo(options)
+      ? undefined
+      : `a ${answer.type} answer to a question over ${options.join(", ")}`;
+  }
+
+  const returned = Object.keys(answer.probabilities);
+  const values = Object.values(answer.probabilities);
+  const total = values.reduce((sum, value) => sum + value, 0);
+
+  if (
+    returned.length !== options.length ||
+    options.some((option) => !returned.includes(option))
+  ) {
+    return `an answer over ${returned.join(", ")}, not this step's transitions ${options.join(", ")}`;
+  }
+
+  if (Math.abs(total - 1) > SUM_SLACK) {
+    return `probabilities summing to ${String(total)}, not 1`;
+  }
+
+  return answer.probabilities[answer.choice] === Math.max(...values)
+    ? undefined
+    : `choice ${answer.choice}, which is not its most probable option`;
+};
+
+const probabilitiesOf = (answer: Answer) =>
+  answer.type === "noul"
+    ? { no: 1 - answer.noul, yes: answer.noul }
+    : answer.probabilities;
 
 const RETRYABLE = new Set([429, 529]);
 
@@ -60,8 +136,19 @@ export const jevJudge = ({
       const client = yield* HttpClient.HttpClient;
 
       return Judge.of({
-        choose: ({ docs, key, options, question }) => {
+        admits: (plan) => missingCriteria(plan, "jev"),
+        choose: ({ criteria = {}, docs, key, options, question }) => {
           const failed = (reason: string) => new StepFailed({ key, reason });
+
+          const bare = options.filter((option) => !(option in criteria));
+
+          if (bare.length > 0) {
+            return Effect.fail(
+              failed(
+                `judge "jev" needs a criterion for every transition, and ${bare.join(", ")} has none. Fix: reviseRun with criteria on this judge step (one description per transition in on), then resume`
+              )
+            );
+          }
 
           const unavailable = (cause: ProviderCause, status: number | null) =>
             new ProviderUnavailable({ cause, key, provider: "jev", status });
@@ -81,13 +168,7 @@ export const jevJudge = ({
             HttpClientRequest.bodyJsonUnsafe({
               model: JEV_MODEL,
               questions: {
-                decision: {
-                  criteria: Object.fromEntries(
-                    options.map((option) => [option, null])
-                  ),
-                  instructions: question,
-                  type: "choice",
-                },
+                decision: questionOf(options, criteria, question),
               },
               state: { docs },
             })
@@ -122,26 +203,22 @@ export const jevJudge = ({
               Schema.decodeUnknownEffect(Evaluation)(body).pipe(
                 Effect.mapError(() =>
                   failed(
-                    "TypeSafe's answer did not hold one Choice with probabilities. Resume the run; if it repeats, the API has changed"
+                    "TypeSafe's answer did not hold one Choice or Noul. Resume the run; if it repeats, the API has changed"
                   )
                 )
               )
             ),
             Effect.flatMap(({ answers, usage }) => {
-              const returned = Object.keys(answers.decision.probabilities);
+              const problem = answerProblem(answers.decision, options);
 
-              const same =
-                returned.length === options.length &&
-                options.every((option) => returned.includes(option));
-
-              return same
+              return problem === undefined
                 ? Effect.succeed({
-                    probabilities: answers.decision.probabilities,
+                    probabilities: probabilitiesOf(answers.decision),
                     usage: { tokens: usage.input_tokens + usage.output_tokens },
                   })
                 : Effect.fail(
                     failed(
-                      `TypeSafe answered over ${returned.join(", ")}, not this step's transitions ${options.join(", ")}. Resume the run`
+                      `TypeSafe answered with ${problem}. Nothing was chosen. Resume the run; if it repeats, report the answer to TypeSafe`
                     )
                   );
             })

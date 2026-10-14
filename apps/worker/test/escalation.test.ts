@@ -197,3 +197,34 @@ it.effect.prop(
     }),
   { arbitrary: { runs: 100 } }
 );
+
+it.effect.prop(
+  "an escalation mail names what each option means when the judge step gave criteria, and carries them in its JSON",
+  {
+    criteria: Schema.Struct({
+      no: Schema.String.check(Schema.isPattern(/^[a-z][a-z ]{0,30}$/u)),
+      yes: Schema.String.check(Schema.isPattern(/^[a-z][a-z ]{0,30}$/u)),
+    }),
+  },
+  ({ criteria }) =>
+    Effect.sync(() => {
+      const text = escalationText(RUN, {
+        criteria,
+        key: "audit",
+        options: ["yes", "no"],
+        question: "Does `docs.receipt` meet the bar?",
+      });
+
+      expect(text).toContain(`- yes: ${criteria.yes}`);
+      expect(text).toContain(`- no: ${criteria.no}`);
+      expect(text).toContain(JSON.stringify(criteria));
+
+      const bare = escalationText(RUN, {
+        key: "audit",
+        options: ["yes", "no"],
+        question: "Does `docs.receipt` meet the bar?",
+      });
+
+      expect(bare).not.toContain("- yes:");
+    })
+);

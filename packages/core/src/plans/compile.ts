@@ -6,6 +6,7 @@ import type {
   Branch,
   BranchState,
   CompoundState,
+  Criteria,
   Plan,
   StateNode,
   StepState,
@@ -192,7 +193,12 @@ const compileStep = (
     }
 
     case "judge": {
-      const ask = { key, options: options(node.on), question: step.question };
+      const asked = { key, options: options(node.on), question: step.question };
+
+      const ask =
+        step.criteria === undefined
+          ? asked
+          : { ...asked, criteria: step.criteria };
 
       return [
         [
@@ -201,7 +207,6 @@ const compileStep = (
             invoke: {
               input: {
                 ...ask,
-                criteria: step.criteria,
                 fallback: step.fallback,
                 reads: step.reads,
                 thinkAgent: scope.thinkAgent,
@@ -406,6 +411,7 @@ export const compilePlan = (plan: Plan): CompiledMachine => ({
 });
 
 export interface Ask {
+  readonly criteria?: Criteria;
   readonly key: string;
   readonly options: readonly string[];
   readonly question: string;
@@ -452,11 +458,16 @@ const stepFacts = (
     }
 
     case "judge": {
+      const asked = { key, options: options(node.on), question: step.question };
+
       return [
         [
           sibling(path, `${name}__joel`),
           {
-            ask: { key, options: options(node.on), question: step.question },
+            ask:
+              step.criteria === undefined
+                ? asked
+                : { ...asked, criteria: step.criteria },
             kind: "ask",
           },
         ],

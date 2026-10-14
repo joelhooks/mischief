@@ -26,6 +26,7 @@ export const AskInputSchema = Schema.Struct({
 export type AskInput = typeof AskInputSchema.Type;
 
 export const QuestionInputSchema = Schema.Struct({
+  criteria: Schema.optionalKey(Schema.Record(Schema.String, Schema.Json)),
   key: Schema.String,
   options: Schema.Array(Schema.String),
   question: Schema.String,
@@ -35,7 +36,6 @@ export type QuestionInput = typeof QuestionInputSchema.Type;
 
 export const JudgeInputSchema = Schema.Struct({
   ...QuestionInputSchema.fields,
-  criteria: Schema.optional(Schema.Record(Schema.String, Schema.Json)),
   fallback: Schema.optional(Schema.String),
   reads: Schema.optional(Schema.Array(DocKey)),
   thinkAgent: Schema.optional(AgentConfigSchema),

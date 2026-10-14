@@ -74,6 +74,7 @@ it.effect.prop(
   ({ world }) =>
     Effect.gen(function* criteria() {
       const seen: unknown[] = [];
+      const escalated: unknown[] = [];
 
       const choose: Judge["Service"]["choose"] = (call) =>
         Effect.sync(() => {
@@ -101,7 +102,15 @@ it.effect.prop(
             judge,
             Thinker.unwired,
             Mail.unwired,
-            Layer.succeed(Operator, Operator.of({ notify: () => Effect.void }))
+            Layer.succeed(
+              Operator,
+              Operator.of({
+                notify: (_runId, question) =>
+                  Effect.sync(() => {
+                    escalated.push(question.criteria);
+                  }),
+              })
+            )
           )
         )
       );
@@ -130,6 +139,12 @@ it.effect.prop(
       }
 
       expect(seen).toStrictEqual([criteriaOf(world.submit) ?? undefined]);
+      expect(
+        escalated,
+        "an escalation carries the criteria the judge was given"
+      ).toStrictEqual(
+        world.p === 0.5 ? [criteriaOf(world.submit) ?? undefined] : []
+      );
 
       const revised = yield* Effect.exit(
         runs.revise(

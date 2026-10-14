@@ -77,14 +77,27 @@ export const escalationTargetOf = (storage: SqlStorage) => {
   );
 };
 
+const isText = Schema.is(Schema.String);
+
+const meaningOf = (criterion: Schema.Json | undefined) =>
+  isText(criterion) ? criterion : JSON.stringify(criterion);
+
 export const escalationText = (
   runId: string,
-  { key, options, question }: QuestionInput
+  { criteria, key, options, question }: QuestionInput
 ) =>
   [
     `Mischief run ${runId} is waiting on a judge that could not decide at state ${key}: ${question}`,
+    ...(criteria === undefined
+      ? []
+      : [
+          "",
+          ...options.map(
+            (option) => `- ${option}: ${meaningOf(criteria[option])}`
+          ),
+        ]),
     "",
-    JSON.stringify({ options, question, runId, state: key }),
+    JSON.stringify({ criteria, options, question, runId, state: key }),
     "",
     `Fix: answer it with answerRun {"runId": "${runId}", "reply": "<one of ${options.join(", ")}>"} under the identity that submitted the run. Replying to this message does not answer it.`,
   ].join("\n");

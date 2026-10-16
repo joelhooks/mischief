@@ -66,6 +66,7 @@ const thinkHere = (dir: string, step: Step) =>
 
     return yield* thinker.think({
       agent: { model: "sol", thinking: "low" },
+      ceiling: "high",
       epoch: step.epoch,
       key: step.key,
       prompt: promptOf(step),
@@ -132,6 +133,7 @@ it.effect.prop(
 
         return yield* thinker.decide({
           agent: { model: "sol" },
+          ceiling: "high",
           epoch: 0,
           key: "gate",
           options: ["ship", "hold"],

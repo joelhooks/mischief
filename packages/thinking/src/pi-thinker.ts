@@ -13,7 +13,7 @@ import type {
   ModelRef,
   Storage,
 } from "@earendil-works/pi-durable";
-import type { AgentConfig, StepCall, ThinkReceipt } from "@mischief/core";
+import type { StepCall, ThinkReceipt } from "@mischief/core";
 import { StepFailed, ThinkModelUnmapped, Thinker } from "@mischief/core";
 import {
   Deferred,
@@ -134,8 +134,11 @@ export const piThinker = (options: PiThinkerOptions) =>
           }).pipe(Effect.withSpan("spawn.activate"))
         );
 
-      const modelOf = (call: StepCall, agent: AgentConfig) => {
-        const name = requestedOf(agent, options.defaults).model;
+      const modelOf = (
+        call: StepCall,
+        requested: ReturnType<typeof requestedOf>
+      ) => {
+        const name = requested.model;
         const ref = options.modelRefs[name];
 
         return ref === undefined
@@ -152,10 +155,10 @@ export const piThinker = (options: PiThinkerOptions) =>
       const conversationFor = (
         call: StepCall,
         harness: Harness,
-        agent: AgentConfig
+        requested: ReturnType<typeof requestedOf>
       ) =>
         Effect.gen(function* restore() {
-          const model = yield* modelOf(call, agent);
+          const model = yield* modelOf(call, requested);
 
           const root = yield* pi(
             call,
@@ -218,7 +221,7 @@ export const piThinker = (options: PiThinkerOptions) =>
               {
                 extensions: [],
                 model,
-                thinkingLevel: requestedOf(agent, options.defaults).thinking,
+                thinkingLevel: requested.thinking,
                 tools: [],
               },
               BACKGROUND_CONTEXT
@@ -259,14 +262,18 @@ export const piThinker = (options: PiThinkerOptions) =>
           return { seen, stop: async () => await stream.stop() };
         });
 
-      const answer = (call: StepCall, agent: AgentConfig, content: string) =>
+      const answer = (
+        call: StepCall,
+        requested: ReturnType<typeof requestedOf>,
+        content: string
+      ) =>
         Effect.gen(function* firstTurn() {
           const { fresh, harness } = yield* harnessFor(call);
 
           const { conversation, created } = yield* conversationFor(
             call,
             harness,
-            agent
+            requested
           );
 
           const watching = yield* firstToken(call, harness, conversation);
@@ -345,10 +352,10 @@ export const piThinker = (options: PiThinkerOptions) =>
             respawn: fresh && !created,
           });
 
-          const model = yield* modelOf(call, agent);
+          const model = yield* modelOf(call, requested);
 
           const receipt = receiptOf(
-            requestedOf(agent, options.defaults),
+            requested,
             model.modelId,
             page.items[0]?.model
           );
@@ -374,7 +381,7 @@ export const piThinker = (options: PiThinkerOptions) =>
         decide: (call) =>
           answer(
             call,
-            call.agent,
+            requestedOf(call.agent, options.defaults, call.ceiling),
             `${call.question}\n\nAnswer with one JSON object and nothing else: {"choice": <one of ${JSON.stringify(call.options)}>, "confidence": <0 to 1>}.`
           ).pipe(
             Effect.map(({ receipt, text, tokens, usd }) => ({
@@ -395,7 +402,11 @@ export const piThinker = (options: PiThinkerOptions) =>
             })
           ),
         think: (call) =>
-          answer(call, call.agent, call.prompt).pipe(
+          answer(
+            call,
+            requestedOf(call.agent, options.defaults, call.ceiling),
+            call.prompt
+          ).pipe(
             Effect.catchTag("ThinkModelUnmapped", ({ key, mapped, model }) =>
               Effect.fail(
                 new StepFailed({

@@ -8,6 +8,7 @@ import { receiptOf, requestedOf } from "../src/receipt.js";
 const Level = Schema.Literals(["low", "medium", "high", "xhigh"]);
 
 const World = Schema.Struct({
+  ceiling: Level,
   defaultLevel: Level,
   planLevel: Schema.optionalKey(Level),
   planModel: Schema.optionalKey(Schema.Literals(["gpt-6.1-sol", "sol"])),
@@ -63,18 +64,31 @@ it.prop(
   "a receipt names who chose the model, and is unmatched exactly when the server answered with another model or effort",
   { world: World },
   ({ world }) => {
-    const requested = requestedOf(agentOf(world), {
-      model: MODEL_ID,
-      thinking: world.defaultLevel,
-    });
+    const requested = requestedOf(
+      agentOf(world),
+      { model: MODEL_ID, thinking: world.defaultLevel },
+      world.ceiling
+    );
 
     const receipt = receiptOf(requested, MODEL_ID, [answer(world)]);
 
     expect(receipt.requested.from).toBe(
       world.planModel === undefined ? "default" : "plan"
     );
-    expect(receipt.requested.thinking).toBe(
-      world.planLevel ?? world.defaultLevel
+    const order = ["low", "medium", "high", "xhigh"];
+
+    const capped =
+      order.indexOf(world.defaultLevel) > order.indexOf(world.ceiling);
+
+    const expectedFrom = capped ? "envelope" : "default";
+
+    expect(receipt.requested).toMatchObject(
+      world.planLevel === undefined
+        ? {
+            thinking: capped ? world.ceiling : world.defaultLevel,
+            thinkingFrom: expectedFrom,
+          }
+        : { thinking: world.planLevel, thinkingFrom: "plan" }
     );
 
     const otherModel = world.servedModel === "gpt-6-luna";
@@ -91,7 +105,7 @@ it.prop(
 
 it("a turn with no assistant answer is recorded as unmatched, never as the requested model", () => {
   const receipt = receiptOf(
-    requestedOf({}, { model: MODEL_ID, thinking: "medium" }),
+    requestedOf({}, { model: MODEL_ID, thinking: "medium" }, "high"),
     MODEL_ID,
     []
   );

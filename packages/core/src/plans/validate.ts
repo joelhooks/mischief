@@ -103,7 +103,7 @@ const resolveThink = (
     step.agent?.placement ?? defaults.placement ?? ("child" as const);
 
   const model = merged.model ?? envelope.models[0];
-  const thinking = merged.thinking ?? "low";
+  const { thinking } = merged;
 
   const skills = [...new Set(merged.skills)];
   const extensions = [...new Set(merged.extensions)];
@@ -114,8 +114,9 @@ const resolveThink = (
       : [
           `${where}: model "${model}" is outside the envelope. Use one of: ${envelope.models.join(", ")}, or widen envelope.models`,
         ]),
-    ...(thinkingLevels.indexOf(thinking) >
-    thinkingLevels.indexOf(envelope.maxThinking)
+    ...(thinking !== undefined &&
+    thinkingLevels.indexOf(thinking) >
+      thinkingLevels.indexOf(envelope.maxThinking)
       ? [
           `${where}: thinking "${thinking}" exceeds envelope.maxThinking "${envelope.maxThinking}". Use ${thinkingLevels.slice(0, thinkingLevels.indexOf(envelope.maxThinking) + 1).join(", ")}`,
         ]
@@ -138,7 +139,10 @@ const resolveThink = (
     errors,
     value: {
       ...step,
-      agent: { extensions, model, placement, skills, thinking, tools },
+      agent:
+        thinking === undefined
+          ? { extensions, model, placement, skills, tools }
+          : { extensions, model, placement, skills, thinking, tools },
     },
   };
 };

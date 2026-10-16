@@ -479,6 +479,7 @@ export const driveSession = (
             Effect.flatMap((prompt) =>
               thinker.think({
                 agent: input.agent ?? {},
+                ceiling: run.plan.envelope.maxThinking,
                 epoch: epochOf(),
                 key: input.key,
                 prompt,
@@ -623,6 +624,7 @@ export const driveSession = (
 
         const call = {
           agent: input.thinkAgent ?? {},
+          ceiling: run.plan.envelope.maxThinking,
           epoch: epochOf(),
           key: input.key,
           options: input.options,

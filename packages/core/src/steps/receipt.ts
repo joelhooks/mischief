@@ -13,6 +13,9 @@ export const ThinkReceiptSchema = Schema.Struct({
     from: Schema.Literals(["plan", "default"]),
     model: Schema.String,
     thinking: Schema.String,
+    thinkingFrom: Schema.optionalKey(
+      Schema.Literals(["plan", "default", "envelope"])
+    ),
   }),
   tokens: Schema.Struct({
     cacheRead: Count,

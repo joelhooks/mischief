@@ -392,6 +392,14 @@ const compileStates = (
     )
   );
 
+const thinkAgentOf = ({ defaults, envelope }: Plan): AgentConfig => {
+  const model = defaults.agent.model ?? envelope.models[0];
+
+  return defaults.agent.thinking === undefined
+    ? { model }
+    : { model, thinking: defaults.agent.thinking };
+};
+
 export const compilePlan = (plan: Plan): CompiledMachine => ({
   id: plan.machine.id,
   initial: plan.machine.initial,
@@ -401,10 +409,7 @@ export const compilePlan = (plan: Plan): CompiledMachine => ({
     thinkAgent:
       plan.envelope.thresholds.think === undefined
         ? undefined
-        : {
-            model: plan.defaults.agent.model ?? plan.envelope.models[0],
-            thinking: plan.defaults.agent.thinking ?? "low",
-          },
+        : thinkAgentOf(plan),
     thinkThreshold: plan.envelope.thresholds.think,
   }),
   version: String(plan.version),

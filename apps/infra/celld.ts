@@ -15,6 +15,7 @@ import { FetchHttpClient } from "effect/http";
 
 import { callersFromConfig } from "./callers.ts";
 import { buildWorker, INSTANCE } from "./celld-build.ts";
+import type { Thinker } from "./celld-build.ts";
 
 export const PORT_BASE = 28_000;
 
@@ -74,12 +75,26 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         "MISCHIEF_JUDGE"
       ).pipe(Config.withDefault("shadow" as const));
 
+      const thinkerModel = yield* Config.Literals(
+        ["faux", "cliproxy"],
+        "MISCHIEF_THINKER"
+      ).pipe(Config.withDefault("faux" as const));
+
+      const thinker: Thinker =
+        thinkerModel === "cliproxy"
+          ? {
+              model: "cliproxy",
+              url: yield* Config.String("MISCHIEF_CLIPROXY_URL"),
+            }
+          : { model: "faux" };
+
       const prepared = yield* buildWorker({
         callers,
         commit,
         did,
         judge,
         mailbox,
+        thinker,
         version,
       });
 
@@ -139,7 +154,13 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
                   onNone: () => ({}),
                   onSome: (file) => ({
                     bindingsFile: file,
-                    secretNames: ["MISCHIEF_IDENTITY", "MISCHIEF_JEV_KEY"],
+                    secretNames: [
+                      "MISCHIEF_IDENTITY",
+                      "MISCHIEF_JEV_KEY",
+                      ...(thinker.model === "cliproxy"
+                        ? ["MISCHIEF_CLIPROXY_KEY"]
+                        : []),
+                    ],
                   }),
                 }),
                 internalUrl,

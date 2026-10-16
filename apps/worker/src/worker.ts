@@ -1,11 +1,13 @@
 // @effect-diagnostics asyncFunction:off -- the Worker's fetch handler is a Promise API.
 import { mischiefApiSpec } from "@mischief/plan-run";
+import { THINK_DEFAULT, THINK_DEFAULT_REVIEW } from "@mischief/thinking";
 import { Documents, staticResolver } from "@rat-king/mailbox-client/auth";
 import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
-import { Effect, Layer, Option, Result, Schema } from "effect";
+import { Clock, Effect, Layer, Option, Result, Schema } from "effect";
 
 import type { Env } from "./plan-run-object.js";
 import { OBJECT_HEADER } from "./postbox-mail.js";
+import { POSTBOX_NAME } from "./postbox-object.js";
 import { READ_ONLY, replayLedger } from "./replay-ledger.js";
 import { NO_RUN_ID, runIdOf } from "./run-address.js";
 import {
@@ -15,6 +17,7 @@ import {
 } from "./schedule-address.js";
 import { authenticate, NSID_PREFIX } from "./service-auth.js";
 import type { AuthRefused } from "./service-auth.js";
+import { DAY_WARN_TOKENS, RUN_WARN_TOKENS, utcDay } from "./think-tally.js";
 
 export { PlanRun } from "./plan-run-object.js";
 
@@ -43,6 +46,35 @@ declare const __BUNDLE_COMMIT__: string;
 declare const __BUNDLE_VERSION__: string;
 
 const VERSION_PATH = "/.well-known/rat-king/version";
+
+const thinkStatus = async (env: Env) => {
+  const day = utcDay(Effect.runSync(Clock.currentTimeMillis));
+
+  const today = await env.POSTBOX.get(
+    env.POSTBOX.idFromName(POSTBOX_NAME)
+  ).thinkDay(day);
+
+  return {
+    default: {
+      ...THINK_DEFAULT,
+      review: THINK_DEFAULT_REVIEW,
+      source: "THINK_DEFAULT in @mischief/thinking; design ledger 2026-10-16",
+    },
+    host: {
+      model: env.MISCHIEF_MODEL,
+      wired:
+        env.MISCHIEF_MODEL === "faux" ||
+        (env.MISCHIEF_MODEL === "cliproxy" &&
+          (env.MISCHIEF_CLIPROXY_KEY ?? "") !== "" &&
+          (env.MISCHIEF_CLIPROXY_URL ?? "") !== ""),
+    },
+    today: {
+      ...today,
+      day,
+      warnAt: { day: DAY_WARN_TOKENS, run: RUN_WARN_TOKENS },
+    },
+  };
+};
 
 export default {
   async fetch(request: Request, env: Env) {
@@ -87,6 +119,10 @@ export default {
 
     if (request.method === "GET" && pathname === "/openapi.json") {
       return Response.json(mischiefApiSpec());
+    }
+
+    if (capability === "thinkStatus") {
+      return Response.json(await thinkStatus(env));
     }
 
     const body = await request.text();

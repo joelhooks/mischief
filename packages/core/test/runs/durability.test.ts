@@ -20,6 +20,7 @@ import type { PendingDirective, RunReport } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
+import type { ThinkReceipt } from "../../src/steps/receipt.js";
 import { shadowJudge } from "../../src/steps/shadow-judge.js";
 import { StepFailed } from "../../src/steps/step-failed.js";
 import { Thinker } from "../../src/steps/thinker.js";
@@ -36,6 +37,18 @@ const RUN = "prop-run";
 const JEV_TOKENS = 7;
 
 const THINK_TOKENS = 11;
+
+const THOUGHT = "thought:";
+
+const RAN = "ran:";
+
+const receiptFor = (tokens: number): ThinkReceipt => ({
+  effective: { model: "faux", thinking: "low" },
+  latencyMs: 1,
+  matched: true,
+  requested: { from: "plan", model: "faux", thinking: "low" },
+  tokens: { cacheRead: 0, input: tokens, output: 0, total: tokens },
+});
 
 const rungTokens = (rung: string, shadow: boolean) => {
   if (rung === "jev") {
@@ -342,6 +355,11 @@ const fakes = (
       )
     );
 
+  const ran = (key: string, visit: number) =>
+    Effect.sync(() => {
+      announced.push(`${RAN}${key}#${visit}`);
+    });
+
   const record = (key: string, kind: string, visit: number) =>
     Effect.sync(() => {
       calls.push({ key, kind, visit });
@@ -391,6 +409,10 @@ const fakes = (
             })
           )
         ),
+      thought: (_runId, key) =>
+        Effect.sync(() => {
+          announced.push(`${THOUGHT}${key}`);
+        }),
     }),
     thinker: Thinker.of({
       decide: ({ key, visit }) =>
@@ -403,8 +425,9 @@ const fakes = (
                   ? Option.none()
                   : Option.some({ choice, confidence: confidence ?? 0 })
             ),
-            usage: { tokens: THINK_TOKENS },
-          })
+            usage: { receipt: receiptFor(THINK_TOKENS), tokens: THINK_TOKENS },
+          }),
+          Effect.tap(() => ran(key, visit))
         ),
       elaborate: ({ key, visit }) =>
         record(key, "elaborate", visit).pipe(
@@ -420,9 +443,11 @@ const fakes = (
 
             return outcome(key, found, {
               output: found.output ?? `(${prompt})`,
+              receipt: receiptFor(THINK_TOKENS),
               tokens: 0,
             });
-          })
+          }),
+          Effect.tap(() => ran(key, visit))
         ),
     }),
   };
@@ -814,6 +839,25 @@ it.effect.prop(
         unsettled,
         `notices announced under a key the run never marked done, so a re-announce after a crash carried a new notice: ${unsettled.join(", ")}`
       ).toStrictEqual([]);
+
+      const thoughts = announced.filter((entry) => entry.startsWith(THOUGHT));
+      const returned = announced.filter((entry) => entry.startsWith(RAN));
+
+      expect(
+        thoughts.length,
+        "think telemetry must fire once per model call that returned: never again on replay, never skipped"
+      ).toBe(returned.length);
+
+      const answered = expected.calls.filter(
+        ({ key, kind, visit }) =>
+          kind === "think-fallback" ||
+          (kind === "think" && fixtures[`${key}#${visit}`]?.fail !== true)
+      );
+
+      expect(actual.thinking?.calls ?? 0).toBe(answered.length);
+      expect(actual.thinking?.tokens.total ?? 0).toBe(
+        answered.length * THINK_TOKENS
+      );
 
       const judged = [...journal.values()].flatMap((entry) =>
         Option.toArray(decodeJudged(entry))

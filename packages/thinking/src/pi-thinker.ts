@@ -13,7 +13,7 @@ import type {
   ModelRef,
   Storage,
 } from "@earendil-works/pi-durable";
-import type { AgentConfig, StepCall } from "@mischief/core";
+import type { AgentConfig, StepCall, ThinkReceipt } from "@mischief/core";
 import { StepFailed, Thinker } from "@mischief/core";
 import {
   Deferred,
@@ -25,6 +25,9 @@ import {
   Semaphore,
 } from "effect";
 
+import { receiptOf, requestedOf } from "./receipt.js";
+import type { ThinkDefaults } from "./receipt.js";
+
 const StepsDoc = defineDoc<{ byAddress: Record<string, ConversationId> }>({
   fork: "initial",
   history: "latest",
@@ -35,6 +38,7 @@ const StepsDoc = defineDoc<{ byAddress: Record<string, ConversationId> }>({
 });
 
 export interface PiThinkerOptions {
+  readonly defaults?: ThinkDefaults;
   readonly models: HarnessOptions["models"];
   readonly registry: HarnessOptions["registry"];
   readonly modelRefs: Readonly<Record<string, ModelRef>>;
@@ -48,6 +52,7 @@ interface OpenRun {
 
 interface Answer {
   readonly cacheRead: number;
+  readonly receipt: ThinkReceipt;
   readonly text: string;
   readonly tokens: number;
   readonly usd: number;
@@ -130,7 +135,7 @@ export const piThinker = (options: PiThinkerOptions) =>
         );
 
       const modelOf = (call: StepCall, agent: AgentConfig) => {
-        const name = agent.model ?? "";
+        const name = requestedOf(agent, options.defaults).model;
         const ref = options.modelRefs[name];
 
         return ref === undefined
@@ -212,7 +217,7 @@ export const piThinker = (options: PiThinkerOptions) =>
               {
                 extensions: [],
                 model,
-                thinkingLevel: agent.thinking ?? "low",
+                thinkingLevel: requestedOf(agent, options.defaults).thinking,
                 tools: [],
               },
               BACKGROUND_CONTEXT
@@ -339,8 +344,25 @@ export const piThinker = (options: PiThinkerOptions) =>
             respawn: fresh && !created,
           });
 
+          const model = yield* modelOf(call, agent);
+
+          const receipt = receiptOf(
+            requestedOf(agent, options.defaults),
+            model.modelId,
+            page.items[0]?.model
+          );
+
+          yield* Effect.logInfo("mischief.think").pipe(
+            Effect.annotateLogs({
+              key: call.key,
+              receipt: JSON.stringify(receipt),
+              runId: call.runId,
+            })
+          );
+
           return {
             cacheRead: totals.reduce((sum, u) => sum + u.cacheRead, 0),
+            receipt,
             text,
             tokens: totals.reduce((sum, u) => sum + u.totalTokens, 0),
             usd: totals.reduce((sum, u) => sum + u.cost.total, 0),
@@ -354,13 +376,13 @@ export const piThinker = (options: PiThinkerOptions) =>
             call.agent,
             `${call.question}\n\nAnswer with one JSON object and nothing else: {"choice": <one of ${JSON.stringify(call.options)}>, "confidence": <0 to 1>}.`
           ).pipe(
-            Effect.map(({ text, tokens, usd }) => ({
+            Effect.map(({ receipt, text, tokens, usd }) => ({
               decision: Schema.decodeUnknownOption(DecisionSchema)(
                 text.trim()
               ).pipe(
                 Option.filter(({ choice }) => call.options.includes(choice))
               ),
-              usage: { tokens, usd },
+              usage: { receipt, tokens, usd },
             }))
           ),
         elaborate: (call) =>
@@ -373,9 +395,10 @@ export const piThinker = (options: PiThinkerOptions) =>
           ),
         think: (call) =>
           answer(call, call.agent, call.prompt).pipe(
-            Effect.map(({ cacheRead, text, tokens }) => ({
+            Effect.map(({ cacheRead, receipt, text, tokens }) => ({
               cacheRead,
               output: text,
+              receipt,
               tokens,
             }))
           ),

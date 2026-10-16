@@ -46,6 +46,8 @@ import { Judge, askedDocName, whyDocName } from "../steps/judge.js";
 import { Mail, SealedSchema } from "../steps/mail.js";
 import { Operator } from "../steps/operator.js";
 import { ProviderUnavailable } from "../steps/provider-unavailable.js";
+import { thinkLine, thinkTotals } from "../steps/receipt.js";
+import type { ThinkReceipt } from "../steps/receipt.js";
 import { StepFailed } from "../steps/step-failed.js";
 import { Thinker } from "../steps/thinker.js";
 import { VerdictDeferred } from "../steps/verdict-deferred.js";
@@ -176,15 +178,18 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
   Effect.gen(function* buildReport() {
     const store = yield* RunStore;
 
-    const failures = [...(yield* store.readJournal(runId))].flatMap(
-      ([key, entry]) =>
-        Option.match(decodeFailure(entry), {
-          onNone: () => [],
-          onSome: (failure) => [{ key, reason: reasonOf(failure) }],
-        })
+    const journal = [...(yield* store.readJournal(runId))];
+
+    const thought = thinkTotals(journal.map(([, entry]) => entry));
+
+    const failures = journal.flatMap(([key, entry]) =>
+      Option.match(decodeFailure(entry), {
+        onNone: () => [],
+        onSome: (failure) => [{ key, reason: reasonOf(failure) }],
+      })
     );
 
-    const base: RunReport = {
+    const bare: RunReport = {
       docs: yield* store.readDocs(runId),
       planId: plan.id,
       planVersion: state.planVersion,
@@ -193,6 +198,11 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
       transitions: state.transitions,
       value: state.value,
     };
+
+    const base: RunReport =
+      thought === undefined
+        ? bare
+        : { ...bare, thinking: { ...thought, line: thinkLine(thought) } };
 
     const withFailures: RunReport =
       failures.length > 0 ? { ...base, failures } : base;
@@ -445,6 +455,13 @@ export const driveSession = (
             })
           );
 
+    const observed = (key: string, receipt: ThinkReceipt | undefined) =>
+      receipt === undefined
+        ? Effect.void
+        : (operator.thought?.(runId, key, receipt) ?? Effect.void).pipe(
+            Effect.ignoreCause
+          );
+
     const think = (input: ThinkInput) =>
       Effect.gen(function* thinkStep() {
         const thought = yield* step(
@@ -459,17 +476,22 @@ export const driveSession = (
                 runId,
                 visit: visitOf(input.key),
               })
-            )
+            ),
+            Effect.tap(({ receipt }) => observed(input.key, receipt))
           )
         );
 
         yield* writeDoc(input.writes, thought.output);
 
-        return {
+        const base = {
           cacheRead: thought.cacheRead ?? 0,
           output: thought.output,
           tokens: thought.tokens,
         };
+
+        return thought.receipt === undefined
+          ? base
+          : { ...base, receipt: thought.receipt };
       });
 
     const ask = (input: AskInput) =>
@@ -660,7 +682,17 @@ export const driveSession = (
           return yield* escalated([jev], usage.tokens);
         }
 
-        const deliberation = yield* step(input.key, thinker.decide(call));
+        const deliberation = yield* step(
+          input.key,
+          thinker
+            .decide(call)
+            .pipe(
+              Effect.tap((deliberated) =>
+                observed(input.key, deliberated.usage.receipt)
+              )
+            )
+        );
+
         const tokens = usage.tokens + deliberation.usage.tokens;
 
         const rung = Option.match(deliberation.decision, {

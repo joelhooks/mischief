@@ -12,6 +12,7 @@ import { leaseBook } from "./postbox-lease.js";
 import { postbox } from "./postbox.js";
 import { Delivered, Runs } from "./runs-port.js";
 import type { DeliveredValue, ReplyLine } from "./runs-port.js";
+import { dayTotals, tally } from "./think-tally.js";
 
 export const POSTBOX_NAME = "mischief/worker";
 
@@ -163,6 +164,16 @@ export class Postbox extends DurableObject<Env> {
         )
       )
     );
+  }
+
+  // oxlint-disable-next-line require-await -- a Durable Object RPC method returns a Promise; the tally is synchronous SQLite.
+  async tallyThink(day: string, runId: string, tokens: number) {
+    return tally(this.ctx.storage, day, runId, tokens);
+  }
+
+  // oxlint-disable-next-line require-await -- a Durable Object RPC method returns a Promise; the read is synchronous SQLite.
+  async thinkDay(day: string) {
+    return dayTotals(this.ctx.storage, day);
   }
 
   async start() {

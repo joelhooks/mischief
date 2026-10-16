@@ -5,14 +5,21 @@ import { createRegistry } from "@earendil-works/pi-durable";
 import { Redacted } from "effect";
 
 import type { PiThinkerOptions } from "./pi-thinker.js";
+import type { ThinkDefaults } from "./receipt.js";
 
 export const GATEWAY_MODELS = {
-  luna: "gpt-6-luna",
-  sol: "gpt-6-sol",
-  terra: "gpt-5.6-terra",
+  "gpt-6.1-sol": "gpt-6.1-sol",
+  sol: "gpt-6.1-sol",
 } as const;
 
-const PROVIDER = "mischief-gateway";
+export const THINK_DEFAULT: ThinkDefaults = {
+  model: "gpt-6.1-sol",
+  thinking: "medium",
+};
+
+export const THINK_DEFAULT_REVIEW = "2026-11-15";
+
+const PROVIDER = "cliproxy-codex";
 
 export interface GatewayConfig {
   readonly apiKey: Redacted.Redacted;
@@ -30,7 +37,7 @@ export const gatewayThinkerOptions = (
       api: openAIResponsesApi(),
       auth: {
         apiKey: {
-          name: "Mischief model gateway key",
+          name: "Mischief cliproxy key (mischief-celld)",
           resolve: async () =>
             await Promise.resolve({
               auth: {
@@ -44,7 +51,7 @@ export const gatewayThinkerOptions = (
       },
       baseUrl,
       id: PROVIDER,
-      models: Object.values(GATEWAY_MODELS).map((id) => ({
+      models: [...new Set(Object.values(GATEWAY_MODELS))].map((id) => ({
         api: "openai-responses" as const,
         baseUrl,
         contextWindow: 272_000,
@@ -60,6 +67,7 @@ export const gatewayThinkerOptions = (
   );
 
   return {
+    defaults: THINK_DEFAULT,
     modelRefs: Object.fromEntries(
       Object.entries(GATEWAY_MODELS).map(([name, modelId]) => [
         name,

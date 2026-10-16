@@ -29,8 +29,18 @@ export interface BuildInput {
   readonly did: string;
   readonly judge: "jev" | "shadow";
   readonly mailbox: { readonly did: string; readonly url: string };
+  readonly thinker: Thinker;
   readonly version: string;
 }
+
+export type Thinker =
+  | { readonly model: "faux" }
+  | { readonly model: "cliproxy"; readonly url: string };
+
+const thinkerVars = (thinker: Thinker): Record<string, string> =>
+  thinker.model === "cliproxy"
+    ? { MISCHIEF_CLIPROXY_URL: thinker.url, MISCHIEF_MODEL: "cliproxy" }
+    : { MISCHIEF_MODEL: "faux" };
 
 export const buildWorker = ({
   callers,
@@ -38,6 +48,7 @@ export const buildWorker = ({
   did,
   judge,
   mailbox,
+  thinker,
   version,
 }: BuildInput) =>
   Effect.gen(function* buildMischiefWorker() {
@@ -55,7 +66,7 @@ export const buildWorker = ({
           MISCHIEF_JUDGE: judge,
           MISCHIEF_MAILBOX_DID: mailbox.did,
           MISCHIEF_MAILBOX_URL: mailbox.url,
-          MISCHIEF_MODEL: "faux",
+          ...thinkerVars(thinker),
         },
         version,
       }

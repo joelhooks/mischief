@@ -169,7 +169,7 @@ const sealOnce = (
     onSome: Effect.succeed,
   });
 
-export const escalate =
+export const mailOnce =
   ({
     objectName,
     postbox,
@@ -179,33 +179,40 @@ export const escalate =
     readonly postbox: () => Pick<PostboxRpc, "seal" | "send">;
     readonly storage: SqlStorage;
   }) =>
-  (runId: string, notice: string, text: string) => {
+  (runId: string, to: string, notice: string, text: string) => {
     storage.sql.exec(SEALED);
 
-    const target = escalationTargetOf(storage);
     const name = objectName();
 
-    if (Option.isNone(target) || Option.isNone(name)) {
+    if (Option.isNone(name)) {
       return Effect.void;
     }
 
-    return sealOnce(
-      storage,
-      postbox,
-      name.value,
-      target.value,
-      text,
-      notice
-    ).pipe(
+    return sealOnce(storage, postbox, name.value, to, text, notice).pipe(
       Effect.flatMap(({ envelope }) =>
         posted(async () => await postbox().send(envelope))
       ),
       Effect.matchEffect({
         onFailure: (reason) =>
           Effect.logWarning(
-            `${runId} could not mail ${notice} to ${target.value}: ${reason}. The run still waits; inspectRun shows why`
+            `${runId} could not mail ${notice} to ${to}: ${reason}. The run still waits; inspectRun shows why`
           ),
         onSuccess: () => Effect.void,
       })
     );
+  };
+
+export const escalate =
+  (ports: {
+    readonly objectName: () => Option.Option<string>;
+    readonly postbox: () => Pick<PostboxRpc, "seal" | "send">;
+    readonly storage: SqlStorage;
+  }) =>
+  (runId: string, notice: string, text: string) => {
+    ports.storage.sql.exec(SEALED);
+
+    return Option.match(escalationTargetOf(ports.storage), {
+      onNone: () => Effect.void,
+      onSome: (target) => mailOnce(ports)(runId, target, notice, text),
+    });
   };

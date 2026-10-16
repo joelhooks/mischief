@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect";
 import { Count, PlanSchema } from "../plans/schema.js";
 import { QuestionInputSchema } from "../steps/inputs.js";
 import { ProviderCauseSchema } from "../steps/provider-unavailable.js";
+import { ThinkTotalsSchema } from "../steps/receipt.js";
 
 export const RunId = Schema.String.check(
   Schema.isPattern(/^[a-z0-9][a-z0-9-]{0,63}$/u)
@@ -200,6 +201,11 @@ export const FailureSchema = Schema.Struct({
   reason: Schema.String,
 });
 
+export const RunThinkingSchema = Schema.Struct({
+  ...ThinkTotalsSchema.fields,
+  line: Schema.String,
+});
+
 export const RunReportSchema = Schema.Struct({
   awaiting: Schema.optionalKey(Schema.Array(AwaitingSchema)),
   docs: DocsSchema,
@@ -210,6 +216,7 @@ export const RunReportSchema = Schema.Struct({
   question: Schema.optionalKey(QuestionSchema),
   runId: RunId,
   status: RunStatusSchema,
+  thinking: Schema.optionalKey(RunThinkingSchema),
   transitions: Count,
   value: Schema.NullOr(Schema.String),
 });

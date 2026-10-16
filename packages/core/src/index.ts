@@ -61,6 +61,7 @@ export {
   RunRecordSchema,
   RunReportSchema,
   RunStateSchema,
+  RunThinkingSchema,
   type Awaiting,
   type Held,
   type JudgeMode,
@@ -100,6 +101,15 @@ export type { QuestionInput } from "./steps/inputs.js";
 export { StepFailed } from "./steps/step-failed.js";
 
 export { Thinker } from "./steps/thinker.js";
+
+export {
+  ThinkReceiptSchema,
+  ThinkTotalsSchema,
+  thinkLine,
+  thinkTotals,
+} from "./steps/receipt.js";
+
+export type { ThinkReceipt, ThinkTotals } from "./steps/receipt.js";
 
 export type {
   Decision,

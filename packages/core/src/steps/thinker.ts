@@ -2,6 +2,7 @@ import { Context, Effect, Layer } from "effect";
 import type { Option, Schema } from "effect";
 
 import type { AgentConfig } from "../plans/schema.js";
+import type { ThinkReceipt } from "./receipt.js";
 import { StepFailed } from "./step-failed.js";
 import type { StepCall } from "./step-failed.js";
 import type { Usage } from "./usage.js";
@@ -10,6 +11,7 @@ export interface Thought {
   readonly output: string;
   readonly tokens: number;
   readonly cacheRead?: number;
+  readonly receipt?: ThinkReceipt;
 }
 
 export interface Decision {

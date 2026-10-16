@@ -2,11 +2,17 @@
 import type { Storage } from "@earendil-works/pi-durable";
 import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
 import { JudgeModeSchema, Operator, StepFailed, Thinker } from "@mischief/core";
+import type { ThinkReceipt } from "@mischief/core";
 import { makePlanRun, mailOutboxSql } from "@mischief/plan-run";
 import type { PlanRun as Runtime } from "@mischief/plan-run";
-import { fauxThinkerOptions, jevJudge, piThinker } from "@mischief/thinking";
+import {
+  fauxThinkerOptions,
+  gatewayThinkerOptions,
+  jevJudge,
+  piThinker,
+} from "@mischief/thinking";
 import { DurableObject } from "cloudflare:workers";
-import { Effect, Layer, Option, Redacted, Schema } from "effect";
+import { Clock, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 import {
@@ -14,6 +20,7 @@ import {
   escalationText,
   fixEscalationAtFirstSubmit,
   heldText,
+  mailOnce,
 } from "./escalation.js";
 import {
   fixJudgeAtFirstSubmit,
@@ -30,6 +37,9 @@ import { POSTBOX_NAME } from "./postbox-object.js";
 import type { Postbox } from "./postbox-object.js";
 import type { Schedule } from "./schedule-object.js";
 import type { ServiceTokenLedger } from "./service-tokens.js";
+import { utcDay, warnText } from "./think-tally.js";
+
+const TELEMETRY_DESK = "pi-durable/desk";
 
 export interface Env {
   readonly PLAN_RUN: DurableObjectNamespace<PlanRun>;
@@ -37,6 +47,8 @@ export interface Env {
   readonly MISCHIEF_DID?: string;
   readonly MISCHIEF_CALLERS?: string;
   readonly MISCHIEF_MODEL: string;
+  readonly MISCHIEF_CLIPROXY_URL?: string;
+  readonly MISCHIEF_CLIPROXY_KEY?: string;
   readonly MISCHIEF_GUARD_MS: string;
   readonly MISCHIEF_JUDGE?: string;
   readonly MISCHIEF_JEV_KEY?: string;
@@ -48,6 +60,27 @@ export interface Env {
 }
 
 const decodeHostJudge = Schema.decodeUnknownOption(JudgeModeSchema);
+
+const thinkerFor = (
+  env: Env,
+  storageFor: Parameters<typeof fauxThinkerOptions>[0]
+) => {
+  if (env.MISCHIEF_MODEL === "faux") {
+    return piThinker(fauxThinkerOptions(storageFor));
+  }
+
+  const key = env.MISCHIEF_CLIPROXY_KEY ?? "";
+  const baseUrl = env.MISCHIEF_CLIPROXY_URL ?? "";
+
+  return env.MISCHIEF_MODEL === "cliproxy" && key !== "" && baseUrl !== ""
+    ? piThinker(
+        gatewayThinkerOptions(storageFor, {
+          apiKey: Redacted.make(key),
+          baseUrl,
+        })
+      )
+    : Thinker.unwired;
+};
 
 const judgeFor = (env: Env, storage: DurableObjectStorage) => {
   const key = env.MISCHIEF_JEV_KEY ?? "";
@@ -88,21 +121,50 @@ export class PlanRun extends DurableObject<Env> {
         },
       });
 
-    const thinker =
-      env.MISCHIEF_MODEL === "faux"
-        ? piThinker(fauxThinkerOptions(storageFor))
-        : Thinker.unwired;
+    const thinker = thinkerFor(env, storageFor);
 
     const postbox = () => env.POSTBOX.get(env.POSTBOX.idFromName(POSTBOX_NAME));
 
-    const mailEscalation =
-      env.MISCHIEF_IDENTITY === undefined || env.MISCHIEF_IDENTITY === ""
-        ? () => Effect.void
-        : escalate({
-            objectName: () => objectOf(ctx.storage),
-            postbox,
-            storage: ctx.storage,
-          });
+    const mailPorts = {
+      objectName: () => objectOf(ctx.storage),
+      postbox,
+      storage: ctx.storage,
+    };
+
+    const mailWired =
+      env.MISCHIEF_IDENTITY !== undefined && env.MISCHIEF_IDENTITY !== "";
+
+    const mailEscalation = mailWired ? escalate(mailPorts) : () => Effect.void;
+
+    const mailDesk = mailWired ? mailOnce(mailPorts) : () => Effect.void;
+
+    const thought = (runId: string, key: string, receipt: ThinkReceipt) =>
+      Effect.gen(function* tallied() {
+        const today = utcDay(yield* Clock.currentTimeMillis);
+
+        const totals = yield* Effect.tryPromise(
+          async () =>
+            await postbox().tallyThink(today, runId, receipt.tokens.total)
+        );
+
+        yield* Effect.forEach(
+          totals.crossed,
+          (crossing) =>
+            mailDesk(
+              runId,
+              TELEMETRY_DESK,
+              `think-${crossing}:${crossing === "day" ? today : runId}`,
+              warnText(crossing, runId, key, totals, today)
+            ),
+          { discard: true }
+        );
+      }).pipe(
+        Effect.catchCause((cause) =>
+          Effect.logWarning(
+            `${runId} think telemetry for ${key} was not tallied: ${String(cause)}`
+          )
+        )
+      );
 
     const operator = Layer.succeed(
       Operator,
@@ -121,6 +183,7 @@ export class PlanRun extends DurableObject<Env> {
               mailEscalation(runId, notice, escalationText(runId, question))
             )
           ),
+        thought,
       })
     );
 

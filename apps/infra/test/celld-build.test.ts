@@ -31,6 +31,7 @@ it.effect(
           did: "did:web:mailbox.example.invalid",
           url: "http://mailbox.example.invalid",
         },
+        thinker: { model: "faux" },
         version: "0.1.0",
       });
 

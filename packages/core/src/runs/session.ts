@@ -42,13 +42,19 @@ import type {
   QuestionInput,
   ThinkInput,
 } from "../steps/inputs.js";
-import { Judge, askedDocName, whyDocName } from "../steps/judge.js";
+import {
+  Judge,
+  askedDocName,
+  reasonDocName,
+  whyDocName,
+} from "../steps/judge.js";
 import { Mail, SealedSchema } from "../steps/mail.js";
 import { Operator } from "../steps/operator.js";
 import { ProviderUnavailable } from "../steps/provider-unavailable.js";
 import { thinkLine, thinkTotals } from "../steps/receipt.js";
 import type { ThinkReceipt } from "../steps/receipt.js";
 import { StepFailed } from "../steps/step-failed.js";
+import { unmappedReason } from "../steps/think-model-unmapped.js";
 import { Thinker } from "../steps/thinker.js";
 import { VerdictDeferred } from "../steps/verdict-deferred.js";
 import { describeValue, leaves, openExecution } from "./execution.js";
@@ -146,11 +152,14 @@ const shown = (ask: Ask | undefined, docs: Docs) => {
   }
 
   const asked = docs[askedDocName(ask.key)];
+  const reason = docs[reasonDocName(ask.key)];
 
-  return {
+  const question = {
     ...ask,
     question: isText(asked) ? asked : interpolate(ask.question, docs).text,
   };
+
+  return isText(reason) ? { ...question, reason } : question;
 };
 
 const verdictOf = (event: AnyEventObject): JudgeVerdict =>
@@ -655,9 +664,24 @@ export const driveSession = (
         const withWhy = <A extends object>(verdict: A) =>
           why === undefined ? verdict : { ...verdict, why: [...why] };
 
-        const escalated = (ladder: readonly Schema.Json[], tokens: number) =>
+        const escalated = (
+          ladder: readonly Schema.Json[],
+          tokens: number,
+          reason?: string
+        ) =>
           writeDoc(askedDocName(input.key), asked).pipe(
-            Effect.as(withWhy({ asked, escalate: true, ladder, tokens }))
+            Effect.andThen(
+              reason === undefined
+                ? Effect.void
+                : writeDoc(reasonDocName(input.key), reason)
+            ),
+            Effect.as(
+              withWhy(
+                reason === undefined
+                  ? { asked, escalate: true, ladder, tokens }
+                  : { asked, escalate: true, ladder, reason, tokens }
+              )
+            )
           );
 
         if (top !== undefined && top[1] >= (input.threshold ?? 1)) {
@@ -682,16 +706,26 @@ export const driveSession = (
           return yield* escalated([jev], usage.tokens);
         }
 
-        const deliberation = yield* step(
+        const deliberated = yield* step(
           input.key,
-          thinker
-            .decide(call)
-            .pipe(
-              Effect.tap((deliberated) =>
-                observed(input.key, deliberated.usage.receipt)
-              )
+          thinker.decide(call).pipe(
+            Effect.tap((done) => observed(input.key, done.usage.receipt)),
+            Effect.map((done) => Result.succeed(done)),
+            Effect.catchTag("ThinkModelUnmapped", (unmapped) =>
+              Effect.succeed(Result.fail(unmapped))
             )
+          )
         );
+
+        if (Result.isFailure(deliberated)) {
+          return yield* escalated(
+            [jev, { rung: "think", unmapped: deliberated.failure.model }],
+            usage.tokens,
+            unmappedReason(deliberated.failure)
+          );
+        }
+
+        const deliberation = deliberated.success;
 
         const tokens = usage.tokens + deliberation.usage.tokens;
 

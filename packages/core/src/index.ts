@@ -100,6 +100,11 @@ export type { QuestionInput } from "./steps/inputs.js";
 
 export { StepFailed } from "./steps/step-failed.js";
 
+export {
+  ThinkModelUnmapped,
+  unmappedReason,
+} from "./steps/think-model-unmapped.js";
+
 export { Thinker } from "./steps/thinker.js";
 
 export {

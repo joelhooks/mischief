@@ -26,6 +26,8 @@ export const whyDocName = (key: string) => `${key.replaceAll(".", "-")}-why`;
 
 export const askedDocName = (key: string) => `__asked:${key}`;
 
+export const reasonDocName = (key: string) => `__reason:${key}`;
+
 const unwired = (call: StepCall) =>
   Effect.fail(
     new StepFailed({

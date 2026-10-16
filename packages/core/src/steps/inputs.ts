@@ -30,6 +30,7 @@ export const QuestionInputSchema = Schema.Struct({
   key: Schema.String,
   options: Schema.Array(Schema.String),
   question: Schema.String,
+  reason: Schema.optionalKey(Schema.String),
 });
 
 export type QuestionInput = typeof QuestionInputSchema.Type;

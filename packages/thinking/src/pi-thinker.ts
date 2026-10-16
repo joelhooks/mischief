@@ -14,7 +14,7 @@ import type {
   Storage,
 } from "@earendil-works/pi-durable";
 import type { AgentConfig, StepCall, ThinkReceipt } from "@mischief/core";
-import { StepFailed, Thinker } from "@mischief/core";
+import { StepFailed, ThinkModelUnmapped, Thinker } from "@mischief/core";
 import {
   Deferred,
   Effect,
@@ -140,9 +140,10 @@ export const piThinker = (options: PiThinkerOptions) =>
 
         return ref === undefined
           ? Effect.fail(
-              new StepFailed({
+              new ThinkModelUnmapped({
                 key: call.key,
-                reason: `model "${name}" has no pi-durable mapping on this host. Mapped: ${Object.keys(options.modelRefs).join(", ") || "none"}. Add it to the Thinker's modelRefs or pick a mapped model in the plan`,
+                mapped: Object.keys(options.modelRefs),
+                model: name,
               })
             )
           : Effect.succeed(ref);
@@ -395,6 +396,14 @@ export const piThinker = (options: PiThinkerOptions) =>
           ),
         think: (call) =>
           answer(call, call.agent, call.prompt).pipe(
+            Effect.catchTag("ThinkModelUnmapped", ({ key, mapped, model }) =>
+              Effect.fail(
+                new StepFailed({
+                  key,
+                  reason: `model "${model}" has no pi-durable mapping on this host. Mapped: ${mapped.join(", ") || "none"}. Add it to the Thinker's modelRefs or pick a mapped model in the plan`,
+                })
+              )
+            ),
             Effect.map(({ cacheRead, receipt, text, tokens }) => ({
               cacheRead,
               output: text,

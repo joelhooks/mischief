@@ -1,7 +1,12 @@
 import { Option, Schema } from "effect";
 
 import { docRefs } from "../plans/doc-refs.js";
-import { WhySchema, askedDocName, whyDocName } from "../steps/judge.js";
+import {
+  WhySchema,
+  askedDocName,
+  reasonDocName,
+  whyDocName,
+} from "../steps/judge.js";
 
 const isText = Schema.is(Schema.String);
 
@@ -85,7 +90,14 @@ const AskedSchema = Schema.Struct({
   }),
 });
 
+const ReasonSchema = Schema.Struct({
+  output: Schema.Struct({ reason: Schema.String }),
+  step: AskedSchema.fields.step,
+});
+
 const decodeJudged = Schema.decodeUnknownOption(JudgedSchema);
+
+const decodeReason = Schema.decodeUnknownOption(ReasonSchema);
 
 const decodeAsked = Schema.decodeUnknownOption(AskedSchema);
 
@@ -117,6 +129,10 @@ export const docWrites = (
     ...Option.toArray(decodeAsked(done)).map(
       (verdict) =>
         [askedDocName(verdict.step.input.key), verdict.output.asked] as const
+    ),
+    ...Option.toArray(decodeReason(done)).map(
+      (verdict) =>
+        [reasonDocName(verdict.step.input.key), verdict.output.reason] as const
     ),
     ...Option.toArray(decodeElaborate(done)).map(
       (result) =>

@@ -5,6 +5,7 @@ import type { AgentConfig } from "../plans/schema.js";
 import type { ThinkReceipt } from "./receipt.js";
 import { StepFailed } from "./step-failed.js";
 import type { StepCall } from "./step-failed.js";
+import type { ThinkModelUnmapped } from "./think-model-unmapped.js";
 import type { Usage } from "./usage.js";
 
 export interface Thought {
@@ -52,7 +53,7 @@ export class Thinker extends Context.Service<
         readonly options: readonly string[];
         readonly question: string;
       }
-    ) => Effect.Effect<Deliberation, StepFailed>;
+    ) => Effect.Effect<Deliberation, StepFailed | ThinkModelUnmapped>;
     readonly elaborate: (
       call: StepCall & { readonly goal: string }
     ) => Effect.Effect<Elaboration, StepFailed>;

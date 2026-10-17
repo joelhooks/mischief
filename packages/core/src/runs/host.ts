@@ -1,4 +1,4 @@
-import { Cause, Context, Effect, Exit, Layer, Option, Schema } from "effect";
+import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import { PlanRefused, validatePlan } from "../plans/validate.js";
 import { Judge } from "../steps/judge.js";
@@ -9,7 +9,7 @@ import { ExtendRefused } from "./extend-refused.js";
 import { canonical } from "./fingerprint.js";
 import { ReplyRefused } from "./reply-refused.js";
 import { RevisionRefused } from "./revision-refused.js";
-import { RunStore } from "./run-store.js";
+import { RunStore, withinRun } from "./run-store.js";
 import { terminalStatuses } from "./schema.js";
 import type {
   Docs,
@@ -320,6 +320,7 @@ export class RunHost extends Context.Service<
           Effect.provide(Layer.fresh(RunStore.memory))
         );
 
+        yield* scratch.open(runId);
         yield* scratch.replaceDocs(runId, docs);
         yield* Effect.forEach(
           yield* store.readJournal(runId),
@@ -433,19 +434,7 @@ export class RunHost extends Context.Service<
       } satisfies RevisionReport;
     });
 
-    const unit =
-      (runId: string) =>
-      <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-        effect.pipe(
-          Effect.onExit((exit) =>
-            Exit.isSuccess(exit) ||
-            (Cause.hasFails(exit.cause) &&
-              !Cause.hasDies(exit.cause) &&
-              !Cause.hasInterrupts(exit.cause))
-              ? store.commit(runId)
-              : store.discard(runId)
-          )
-        );
+    const unit = (runId: string) => withinRun(store, runId);
 
     return {
       abort: (runId, supersededBy) => unit(runId)(abort(runId, supersededBy)),

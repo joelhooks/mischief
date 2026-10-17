@@ -13,7 +13,7 @@ import {
 import * as Arbitrary from "effect/Arbitrary";
 
 import { RunHost } from "../../src/runs/host.js";
-import { RunStore } from "../../src/runs/run-store.js";
+import { RunStore, withinRun } from "../../src/runs/run-store.js";
 import type { RunReport } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
@@ -495,7 +495,10 @@ it.effect.prop(
         if (kind === "no-log") {
           const state = Option.getOrThrow(yield* store.readRun("run"));
 
-          yield* store.writeRun("run", { ...state, seeded: null });
+          yield* withinRun(
+            store,
+            "run"
+          )(store.writeRun("run", { ...state, seeded: null }));
         }
 
         if (kind === "aborted") {

@@ -1,7 +1,9 @@
-import { Context, Effect, Layer, Option } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Option } from "effect";
 import type { Schema } from "effect";
 
 import type { Plan } from "../plans/schema.js";
+import { RunLeftUncommitted } from "./run-left-uncommitted.js";
+import { RunWriteOutsideUnit } from "./run-write-outside-unit.js";
 import type { Docs, RunState } from "./schema.js";
 
 export type Journal = ReadonlyMap<string, Schema.Json>;
@@ -62,8 +64,10 @@ export type RunUnitOfWork = RunReads & {
     runId: string
   ) => Effect.Effect<void>;
   readonly writePaused: (runId: string, paused: boolean) => Effect.Effect<void>;
+  readonly open: (runId: string) => Effect.Effect<void>;
   readonly commit: (runId: string) => Effect.Effect<void>;
   readonly discard: (runId: string) => Effect.Effect<void>;
+  readonly close: (runId: string) => Effect.Effect<void>;
 };
 
 interface Pending {
@@ -88,6 +92,17 @@ const emptyPending = (): Pending => ({
   run: undefined,
 });
 
+const writesOf = (pending: Pending) => [
+  ...(pending.run === undefined ? [] : ["writeRun"]),
+  ...[...pending.plans.keys()].map((version) => `writePlan v${version}`),
+  ...[...pending.journal.keys()].map((key) => `writeJournal ${key}`),
+  ...[...pending.fingerprints.keys()].map((key) => `writeFingerprint ${key}`),
+  ...(pending.replaceDocs ? ["replaceDocs"] : []),
+  ...[...pending.docs.keys()].map((name) => `writeDoc ${name}`),
+  ...[...pending.messages.keys()].map((id) => `writeMessage ${id}`),
+  ...(pending.paused === undefined ? [] : ["writePaused"]),
+];
+
 const isEmpty = (pending: Pending) =>
   pending.docs.size === 0 &&
   pending.fingerprints.size === 0 &&
@@ -100,6 +115,7 @@ const isEmpty = (pending: Pending) =>
 
 export const bufferedRunStore = (backend: RunBackend): RunUnitOfWork => {
   const buffers = new Map<string, Pending>();
+  const units = new Map<string, number>();
 
   const pendingOf = (runId: string) => {
     const existing = buffers.get(runId);
@@ -114,9 +130,19 @@ export const bufferedRunStore = (backend: RunBackend): RunUnitOfWork => {
     return created;
   };
 
-  const buffer = (runId: string, change: (pending: Pending) => void) =>
-    Effect.sync(() => {
+  const buffer = (
+    runId: string,
+    write: string,
+    change: (pending: Pending) => void
+  ) =>
+    Effect.suspend(() => {
+      if (!units.has(runId)) {
+        return Effect.die(new RunWriteOutsideUnit({ runId, write }));
+      }
+
       change(pendingOf(runId));
+
+      return Effect.void;
     });
 
   const commit = (runId: string) =>
@@ -130,10 +156,35 @@ export const bufferedRunStore = (backend: RunBackend): RunUnitOfWork => {
     });
 
   return {
+    close: (runId) =>
+      Effect.suspend(() => {
+        const depth = (units.get(runId) ?? 1) - 1;
+
+        if (depth > 0) {
+          units.set(runId, depth);
+
+          return Effect.void;
+        }
+
+        units.delete(runId);
+
+        const pending = buffers.get(runId);
+        buffers.delete(runId);
+
+        return pending === undefined || isEmpty(pending)
+          ? Effect.void
+          : Effect.die(
+              new RunLeftUncommitted({ runId, writes: writesOf(pending) })
+            );
+      }),
     commit,
     discard: (runId) =>
       Effect.sync(() => {
         buffers.delete(runId);
+      }),
+    open: (runId) =>
+      Effect.sync(() => {
+        units.set(runId, (units.get(runId) ?? 0) + 1);
       }),
     readDocs: (runId) =>
       backend.readDocs(runId).pipe(
@@ -209,7 +260,7 @@ export const bufferedRunStore = (backend: RunBackend): RunUnitOfWork => {
           : Effect.succeed(Option.some(structuredClone(run)));
       }),
     replaceDocs: (runId, docs) =>
-      buffer(runId, (pending) => {
+      buffer(runId, "replaceDocs", (pending) => {
         pending.replaceDocs = true;
         pending.docs.clear();
 
@@ -218,32 +269,32 @@ export const bufferedRunStore = (backend: RunBackend): RunUnitOfWork => {
         }
       }),
     writeDoc: (runId, name, doc) =>
-      buffer(runId, (pending) => {
+      buffer(runId, "writeDoc", (pending) => {
         pending.docs.set(name, structuredClone(doc));
       }),
     writeFingerprint: (runId, key, fingerprint) =>
-      buffer(runId, (pending) => {
+      buffer(runId, "writeFingerprint", (pending) => {
         pending.fingerprints.set(key, fingerprint);
       }),
     writeJournal: (runId, key, entry) =>
-      buffer(runId, (pending) => {
+      buffer(runId, "writeJournal", (pending) => {
         pending.journal.delete(key);
         pending.journal.set(key, structuredClone(entry));
       }),
     writeMessage: (messageId, runId) =>
-      buffer(runId, (pending) => {
+      buffer(runId, "writeMessage", (pending) => {
         pending.messages.set(messageId, runId);
       }),
     writePaused: (runId, paused) =>
-      buffer(runId, (pending) => {
+      buffer(runId, "writePaused", (pending) => {
         pending.paused = paused;
       }),
     writePlan: (runId, plan) =>
-      buffer(runId, (pending) => {
+      buffer(runId, "writePlan", (pending) => {
         pending.plans.set(plan.version, structuredClone(plan));
       }),
     writeRun: (runId, state) =>
-      buffer(runId, (pending) => {
+      buffer(runId, "writeRun", (pending) => {
         pending.run = structuredClone(state);
       }),
   };
@@ -346,3 +397,19 @@ export class RunStore extends Context.Service<RunStore, RunUnitOfWork>()(
     bufferedRunStore(memoryRunBackend())
   );
 }
+
+export const withinRun =
+  (store: RunUnitOfWork, runId: string) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    Effect.acquireUseRelease(
+      store.open(runId),
+      () => effect,
+      (_, exit) =>
+        (Exit.isSuccess(exit) ||
+        (Cause.hasFails(exit.cause) &&
+          !Cause.hasDies(exit.cause) &&
+          !Cause.hasInterrupts(exit.cause))
+          ? store.commit(runId)
+          : store.discard(runId)
+        ).pipe(Effect.andThen(store.close(runId)))
+    );

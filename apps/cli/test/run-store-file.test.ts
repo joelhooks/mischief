@@ -24,6 +24,8 @@ it.effect.prop(
       yield* Effect.gen(function* writeConcurrently() {
         const store = yield* RunStore;
 
+        yield* store.open("run");
+
         yield* Effect.forEach(
           names,
           (name) =>

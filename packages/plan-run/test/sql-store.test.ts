@@ -108,6 +108,9 @@ const planWith = (version: number): Plan => ({
   version,
 });
 
+const openAll = (store: RunStore["Service"]) =>
+  Effect.forEach(RUNS, (run) => store.open(run), { discard: true });
+
 const apply = (store: RunStore["Service"], op: Op) => {
   switch (op.op) {
     case "doc": {
@@ -195,7 +198,11 @@ it.effect.prop(
         Effect.provide(Layer.fresh(RunStore.memory))
       );
 
+      yield* openAll(model);
+
       const store = yield* runStoreSql(nodeSqlStorage(file));
+
+      yield* openAll(store);
 
       for (const op of ops) {
         yield* apply(model, op);
@@ -265,6 +272,8 @@ it.effect.prop(
 
       const first = yield* runStoreSql(nodeSqlStorage(file));
 
+      yield* openAll(first);
+
       for (const op of before) {
         yield* apply(first, op);
       }
@@ -280,6 +289,8 @@ it.effect.prop(
       let committed = yield* reread;
 
       const dying = yield* runStoreSql(crashingAt(nodeSqlStorage(file), nth));
+
+      yield* openAll(dying);
 
       for (const op of [...torn, { op: "commit", run: "one" } as const]) {
         const exit = yield* Effect.exit(apply(dying, op));

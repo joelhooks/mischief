@@ -56,7 +56,13 @@ export {
   type RunBackend,
   type RunChanges,
   type RunReads,
+  type RunUnitOfWork,
+  withinRun,
 } from "./runs/run-store.js";
+
+export { RunLeftUncommitted } from "./runs/run-left-uncommitted.js";
+
+export { RunWriteOutsideUnit } from "./runs/run-write-outside-unit.js";
 
 export {
   AwaitingSchema,

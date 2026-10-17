@@ -57,6 +57,7 @@ import { ProviderUnavailable } from "../steps/provider-unavailable.js";
 import { thinkLine, thinkTotals } from "../steps/receipt.js";
 import type { ThinkReceipt } from "../steps/receipt.js";
 import { StepFailed } from "../steps/step-failed.js";
+import { ThinkConcurrency } from "../steps/think-concurrency.js";
 import { unmappedReason } from "../steps/think-model-unmapped.js";
 import { Thinker } from "../steps/thinker.js";
 import { VerdictDeferred } from "../steps/verdict-deferred.js";
@@ -257,6 +258,10 @@ export const driveSession = (
     const registry = yield* CallRegistry;
 
     const saving = yield* Semaphore.make(1);
+
+    const thinkPermits = yield* Semaphore.make(yield* ThinkConcurrency);
+
+    const permitted = thinkPermits.withPermits(1);
 
     const runPromise = Effect.runPromiseWith(
       yield* Effect.context<StepServices>()
@@ -481,15 +486,17 @@ export const driveSession = (
           input.key,
           withDocs(input.key, input.prompt).pipe(
             Effect.flatMap((prompt) =>
-              thinker.think({
-                agent: input.agent ?? {},
-                ceiling: run.plan.envelope.maxThinking,
-                epoch: epochOf(),
-                key: input.key,
-                prompt,
-                runId,
-                visit: visitOf(input.key),
-              })
+              permitted(
+                thinker.think({
+                  agent: input.agent ?? {},
+                  ceiling: run.plan.envelope.maxThinking,
+                  epoch: epochOf(),
+                  key: input.key,
+                  prompt,
+                  runId,
+                  visit: visitOf(input.key),
+                })
+              )
             ),
             Effect.tap(({ receipt }) => observed(input.key, receipt))
           )
@@ -663,13 +670,15 @@ export const driveSession = (
       Effect.gen(function* elaborateStep() {
         const result = yield* step(
           input.key,
-          thinker.elaborate({
-            epoch: epochOf(),
-            goal: input.goal,
-            key: input.key,
-            runId,
-            visit: visitOf(input.key),
-          })
+          permitted(
+            thinker.elaborate({
+              epoch: epochOf(),
+              goal: input.goal,
+              key: input.key,
+              runId,
+              visit: visitOf(input.key),
+            })
+          )
         );
 
         yield* writeDoc(`__amendment:${input.key}`, result.amendment);
@@ -771,7 +780,7 @@ export const driveSession = (
 
         const deliberated = yield* step(
           input.key,
-          thinker.decide(call).pipe(
+          permitted(thinker.decide(call)).pipe(
             Effect.tap((done) => observed(input.key, done.usage.receipt)),
             Effect.map((done) => Result.succeed(done)),
             Effect.catchTag("ThinkModelUnmapped", (unmapped) =>

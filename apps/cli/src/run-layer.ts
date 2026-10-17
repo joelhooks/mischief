@@ -4,8 +4,10 @@ import {
   Operator,
   RunHost,
   STEP_KINDS_FLAG,
+  THINK_CONCURRENCY_FLAG,
   Thinker,
   stepKindsFrom,
+  thinkConcurrencyLayer,
 } from "@mischief/core";
 import type { Mail } from "@mischief/core";
 import {
@@ -124,9 +126,24 @@ const stepKinds = Layer.effect(
   }).pipe(Effect.orDie)
 );
 
+const thinkConcurrency = Layer.unwrap(
+  Config.String(THINK_CONCURRENCY_FLAG).pipe(
+    Config.withDefault(""),
+    Effect.map(thinkConcurrencyLayer),
+    Effect.orDie
+  )
+);
+
 export const localRunLayer = RunHost.layer.pipe(
   Layer.provideMerge(Layer.unwrap(runsRoot.pipe(Effect.map(runStoreFile)))),
   Layer.provide(
-    Layer.mergeAll(thinker, judge, mail, operatorConsole, stepKinds)
+    Layer.mergeAll(
+      thinker,
+      judge,
+      mail,
+      operatorConsole,
+      stepKinds,
+      thinkConcurrency
+    )
   )
 );

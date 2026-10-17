@@ -8,6 +8,7 @@ import {
   StepFailed,
   Thinker,
   stepKindsFrom,
+  thinkConcurrencyLayer,
 } from "@mischief/core";
 import type { ThinkReceipt } from "@mischief/core";
 import { makePlanRun, mailOutboxSql } from "@mischief/plan-run";
@@ -59,6 +60,7 @@ export interface Env {
   readonly MISCHIEF_GUARD_MS: string;
   readonly MISCHIEF_JUDGE?: string;
   readonly MISCHIEF_STEP_KINDS?: string;
+  readonly MISCHIEF_THINK_CONCURRENCY?: string;
   readonly MISCHIEF_JEV_KEY?: string;
   readonly MISCHIEF_IDENTITY?: string;
   readonly MISCHIEF_MAILBOX_URL?: string;
@@ -213,7 +215,8 @@ export class PlanRun extends DurableObject<Env> {
           ? mailOutboxSql(ctx.storage)
           : postboxMail(ctx.storage, postbox),
         operator,
-        Layer.succeed(EnabledStepKinds, stepKindsFrom(env.MISCHIEF_STEP_KINDS))
+        Layer.succeed(EnabledStepKinds, stepKindsFrom(env.MISCHIEF_STEP_KINDS)),
+        thinkConcurrencyLayer(env.MISCHIEF_THINK_CONCURRENCY)
       ),
       storage: ctx.storage,
     });

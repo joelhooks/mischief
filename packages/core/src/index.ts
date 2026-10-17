@@ -133,6 +133,15 @@ export {
   unmappedReason,
 } from "./steps/think-model-unmapped.js";
 
+export {
+  DEFAULT_THINK_CONCURRENCY,
+  THINK_CONCURRENCY_FLAG,
+  ThinkConcurrency,
+  ThinkConcurrencyRefused,
+  thinkConcurrencyFrom,
+  thinkConcurrencyLayer,
+} from "./steps/think-concurrency.js";
+
 export { Thinker } from "./steps/thinker.js";
 
 export {

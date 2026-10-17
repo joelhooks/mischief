@@ -69,6 +69,8 @@ Run `pnpm fix` only when you intend to rewrite files. Finish with `pnpm turbo ru
 
 Nothing deploys yet. The deploy driver arrives with the `plan-run` cartridge and follows rat-king's rules: Alchemy state lives outside the repo, `plan` runs offline by default and refuses a delete or replace, a deploy needs an explicit approval switch, and teardown is `destroy-plan`, then `destroy`, then a probe. Resource declarations sit behind `__ALCHEMY_RUNTIME__` because Worker init runs twice. Per-run keys and names never touch Alchemy.
 
+**Stop:** don't change slice limits (MemoryMax and friends) through the stack until vendored alchemy-celld carries the slice-reload fix. Older versions restart a changed slice, which restarts every service in it.
+
 ## Fence (cheating is uncomfortable)
 
 Why lives in `AGENTS.md` / `VISION.md`. The stack and hooks are the enforceable fence. Fence wins over prose.

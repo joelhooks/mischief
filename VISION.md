@@ -6,6 +6,14 @@ A plan is a graph of agent steps stored as data. It runs in one Durable Object p
 
 Mischief grew out of [rat-stack](https://github.com/joelhooks/rat-stack) and keeps its law: Effect for the hard parts, Alchemy for the infrastructure, XState for every lifecycle, and a fence that makes the easy path the right one.
 
+## Rat King Claws
+
+Mischief is the **Claws** layer of Rat King: the hands, execution (Joel, 2026-10-17). The Rat King kernel is **Speaks** (comms), **Remembers** (memory) and **Awakes** (durable wakes). Claws composes them into durable dynamic workflows that act in the world: calls, deploys, sends and steps.
+
+- **Claws owns:** step execution, retries, compensation, and the fence that keeps a plan inside its envelope. Compensation is named here but not built yet.
+- **Claws borrows:** wakes from Awakes, messages from Speaks, memory from Remembers. It uses their public contracts only, never their internals.
+- **Names only.** The repo, packages and code keep the name Mischief until Joel says otherwise.
+
 ## Who it serves
 
 - **Joel**, who approves one envelope per run and then answers only the questions the plan cannot answer itself.

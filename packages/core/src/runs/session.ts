@@ -550,6 +550,7 @@ export const driveSession = (
         if (!journal.has(`done:${key}`)) {
           // oxlint-disable-next-line eslint/no-use-before-define -- an ask checkpoints its own directive before delivering it; save is defined with the drive loop.
           yield* save("running");
+          yield* store.commit(runId);
 
           const sent = yield* Effect.result(mail.send(call, sealed));
 
@@ -1112,11 +1113,14 @@ export const driveSession = (
           };
 
           yield* store.writeRun(runId, run.state);
+          yield* store.commit(runId);
         })
       );
 
     const announce = (key: string, question: QuestionInput) =>
       Effect.gen(function* announceNotice() {
+        yield* store.commit(runId);
+
         const sent = yield* Effect.result(
           operator.notify(runId, question, key)
         );
@@ -1161,6 +1165,7 @@ export const driveSession = (
             };
 
             yield* store.writeRun(runId, run.state);
+            yield* store.commit(runId);
           })
         );
 

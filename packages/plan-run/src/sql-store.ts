@@ -1,4 +1,5 @@
-import { PlanSchema, RunStateSchema, RunStore } from "@mischief/core";
+import { bufferedRunStore, PlanSchema, RunStateSchema } from "@mischief/core";
+import type { RunBackend, RunChanges, RunStore } from "@mischief/core";
 import { Effect, Option, Schema } from "effect";
 
 import type { SqlRow, SqlStorage, SqlValue } from "./sql.js";
@@ -44,17 +45,114 @@ const entriesOf = <A>(
 const write = <A, I>(codec: Schema.Codec<A, I>, value: A) =>
   Schema.encodeEffect(codec)(value).pipe(Effect.orDie);
 
-export const runStoreSql = (
-  storage: SqlStorage
-): Effect.Effect<RunStore["Service"]> =>
+type Statement = readonly [string, ...SqlValue[]];
+
+const docStatements = (runId: string, changes: RunChanges) =>
+  Effect.forEach([...changes.docs], ([name, doc]) =>
+    write(JsonText, doc).pipe(
+      Effect.map((text): Statement => [
+        "INSERT INTO mischief_docs (run_id, name, doc) VALUES (?, ?, ?) ON CONFLICT (run_id, name) DO UPDATE SET doc = excluded.doc",
+        runId,
+        name,
+        text,
+      ])
+    )
+  ).pipe(
+    Effect.map((upserts): readonly Statement[] =>
+      changes.replaceDocs
+        ? [["DELETE FROM mischief_docs WHERE run_id = ?", runId], ...upserts]
+        : upserts
+    )
+  );
+
+const journalStatements = (runId: string, changes: RunChanges) =>
+  Effect.forEach([...changes.journal], ([key, entry]) =>
+    write(JsonText, entry).pipe(
+      Effect.map((text): Statement => [
+        "INSERT INTO mischief_journal (run_id, key, seq, entry) VALUES (?, ?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM mischief_journal WHERE run_id = ?), ?) ON CONFLICT (run_id, key) DO UPDATE SET entry = excluded.entry, seq = excluded.seq",
+        runId,
+        key,
+        runId,
+        text,
+      ])
+    )
+  );
+
+const fingerprintStatements = (runId: string, changes: RunChanges) =>
+  Effect.forEach([...changes.fingerprints], ([key, fingerprint]) =>
+    write(PrintText, fingerprint).pipe(
+      Effect.map((text): Statement => [
+        "INSERT INTO mischief_fingerprints (run_id, key, print) VALUES (?, ?, ?) ON CONFLICT (run_id, key) DO UPDATE SET print = excluded.print",
+        runId,
+        key,
+        text,
+      ])
+    )
+  );
+
+const planStatements = (runId: string, changes: RunChanges) =>
+  Effect.forEach([...changes.plans.values()], (plan) =>
+    write(PlanText, plan).pipe(
+      Effect.map((text): Statement => [
+        "INSERT INTO mischief_plans (run_id, version, plan) VALUES (?, ?, ?) ON CONFLICT (run_id, version) DO UPDATE SET plan = excluded.plan",
+        runId,
+        plan.version,
+        text,
+      ])
+    )
+  );
+
+const runStatements = (runId: string, changes: RunChanges) =>
+  changes.run === undefined
+    ? Effect.succeed<readonly Statement[]>([])
+    : write(StateText, changes.run).pipe(
+        Effect.map((text): readonly Statement[] => [
+          [
+            "INSERT INTO mischief_runs (run_id, state) VALUES (?, ?) ON CONFLICT (run_id) DO UPDATE SET state = excluded.state",
+            runId,
+            text,
+          ],
+        ])
+      );
+
+const plainStatements = (
+  runId: string,
+  changes: RunChanges
+): readonly Statement[] => [
+  ...[...changes.messages].map(([messageId, owner]): Statement => [
+    "INSERT INTO mischief_messages (message_id, run_id) VALUES (?, ?) ON CONFLICT (message_id) DO UPDATE SET run_id = excluded.run_id",
+    messageId,
+    owner,
+  ]),
+  ...(changes.paused === undefined
+    ? []
+    : [
+        [
+          "INSERT INTO mischief_paused (run_id, paused) VALUES (?, ?) ON CONFLICT (run_id) DO UPDATE SET paused = excluded.paused",
+          runId,
+          changes.paused ? 1 : 0,
+        ] as const,
+      ]),
+];
+
+const encodedFor = (runId: string, changes: RunChanges) =>
+  Effect.all([
+    planStatements(runId, changes),
+    docStatements(runId, changes),
+    fingerprintStatements(runId, changes),
+    journalStatements(runId, changes),
+    runStatements(runId, changes),
+  ]).pipe(
+    Effect.map((groups) => [
+      ...groups.flat(),
+      ...plainStatements(runId, changes),
+    ])
+  );
+
+export const runBackendSql = (storage: SqlStorage): Effect.Effect<RunBackend> =>
   Effect.gen(function* openSqlStore() {
     const rows = (query: string, ...bindings: SqlValue[]) =>
       storage.sql.exec(query, ...bindings).toArray();
-
-    const run = (query: string, ...bindings: SqlValue[]) =>
-      Effect.sync(() => {
-        rows(query, ...bindings);
-      });
 
     const column = (query: string, name: string, ...bindings: SqlValue[]) =>
       Effect.sync(() =>
@@ -73,7 +171,19 @@ export const runStoreSql = (
         Effect.map((entries) => Object.fromEntries(entries))
       );
 
-    return RunStore.of({
+    return {
+      apply: (runId, changes) =>
+        encodedFor(runId, changes).pipe(
+          Effect.flatMap((statements) =>
+            Effect.sync(() => {
+              storage.transactionSync(() => {
+                for (const [query, ...bindings] of statements) {
+                  rows(query, ...bindings);
+                }
+              });
+            })
+          )
+        ),
       readDocs: docsOf,
       readFingerprints: (runId) =>
         Effect.sync(() =>
@@ -136,97 +246,10 @@ export const runStoreSql = (
               : Effect.succeedNone
           )
         ),
-      replaceDocs: (runId, docs) =>
-        Effect.all(
-          Object.entries(docs).map(([name, doc]) =>
-            write(JsonText, doc).pipe(
-              Effect.map((text) => [name, text] as const)
-            )
-          )
-        ).pipe(
-          Effect.flatMap((encoded) =>
-            Effect.sync(() => {
-              storage.transactionSync(() => {
-                rows("DELETE FROM mischief_docs WHERE run_id = ?", runId);
-
-                for (const [name, text] of encoded) {
-                  rows(
-                    "INSERT INTO mischief_docs (run_id, name, doc) VALUES (?, ?, ?)",
-                    runId,
-                    name,
-                    text
-                  );
-                }
-              });
-            })
-          )
-        ),
-      writeDoc: (runId, name, doc) =>
-        write(JsonText, doc).pipe(
-          Effect.flatMap((text) =>
-            run(
-              "INSERT INTO mischief_docs (run_id, name, doc) VALUES (?, ?, ?) ON CONFLICT (run_id, name) DO UPDATE SET doc = excluded.doc",
-              runId,
-              name,
-              text
-            )
-          )
-        ),
-      writeFingerprint: (runId, key, fingerprint) =>
-        write(PrintText, fingerprint).pipe(
-          Effect.flatMap((text) =>
-            run(
-              "INSERT INTO mischief_fingerprints (run_id, key, print) VALUES (?, ?, ?) ON CONFLICT (run_id, key) DO UPDATE SET print = excluded.print",
-              runId,
-              key,
-              text
-            )
-          )
-        ),
-      writeJournal: (runId, key, entry) =>
-        write(JsonText, entry).pipe(
-          Effect.flatMap((text) =>
-            run(
-              "INSERT INTO mischief_journal (run_id, key, seq, entry) VALUES (?, ?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM mischief_journal WHERE run_id = ?), ?) ON CONFLICT (run_id, key) DO UPDATE SET entry = excluded.entry, seq = excluded.seq",
-              runId,
-              key,
-              runId,
-              text
-            )
-          )
-        ),
-      writeMessage: (messageId, runId) =>
-        run(
-          "INSERT INTO mischief_messages (message_id, run_id) VALUES (?, ?) ON CONFLICT (message_id) DO UPDATE SET run_id = excluded.run_id",
-          messageId,
-          runId
-        ),
-      writePaused: (runId, paused) =>
-        run(
-          "INSERT INTO mischief_paused (run_id, paused) VALUES (?, ?) ON CONFLICT (run_id) DO UPDATE SET paused = excluded.paused",
-          runId,
-          paused ? 1 : 0
-        ),
-      writePlan: (runId, plan) =>
-        write(PlanText, plan).pipe(
-          Effect.flatMap((text) =>
-            run(
-              "INSERT INTO mischief_plans (run_id, version, plan) VALUES (?, ?, ?) ON CONFLICT (run_id, version) DO UPDATE SET plan = excluded.plan",
-              runId,
-              plan.version,
-              text
-            )
-          )
-        ),
-      writeRun: (runId, state) =>
-        write(StateText, state).pipe(
-          Effect.flatMap((text) =>
-            run(
-              "INSERT INTO mischief_runs (run_id, state) VALUES (?, ?) ON CONFLICT (run_id) DO UPDATE SET state = excluded.state",
-              runId,
-              text
-            )
-          )
-        ),
-    });
+    };
   });
+
+export const runStoreSql = (
+  storage: SqlStorage
+): Effect.Effect<RunStore["Service"]> =>
+  runBackendSql(storage).pipe(Effect.map(bufferedRunStore));

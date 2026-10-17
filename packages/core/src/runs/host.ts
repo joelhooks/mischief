@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Schema } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Option, Schema } from "effect";
 
 import { PlanRefused, validatePlan } from "../plans/validate.js";
 import { Judge } from "../steps/judge.js";
@@ -433,18 +433,42 @@ export class RunHost extends Context.Service<
       } satisfies RevisionReport;
     });
 
+    const unit =
+      (runId: string) =>
+      <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        effect.pipe(
+          Effect.onExit((exit) =>
+            Exit.isSuccess(exit) ||
+            (Cause.hasFails(exit.cause) &&
+              !Cause.hasDies(exit.cause) &&
+              !Cause.hasInterrupts(exit.cause))
+              ? store.commit(runId)
+              : store.discard(runId)
+          )
+        );
+
     return {
-      abort,
-      advance: (runId) => drive(runId),
-      answer,
-      deliver,
-      extend,
+      abort: (runId, supersededBy) => unit(runId)(abort(runId, supersededBy)),
+      advance: (runId) => unit(runId)(drive(runId)),
+      answer: (runId, reply) => unit(runId)(answer(runId, reply)),
+      deliver: (line) =>
+        store
+          .readMessage(line.replyTo)
+          .pipe(
+            Effect.flatMap((owner) =>
+              Option.isSome(owner)
+                ? unit(owner.value)(deliver(line))
+                : deliver(line)
+            )
+          ),
+      extend: (runId, maxSteps) => unit(runId)(extend(runId, maxSteps)),
       inspect,
-      pause,
+      pause: (runId) => unit(runId)(pause(runId)),
       read,
-      resume,
-      revise,
-      submit,
+      resume: (runId) => unit(runId)(resume(runId)),
+      revise: (runId, input, dryRun) =>
+        unit(runId)(revise(runId, input, dryRun)),
+      submit: (runId, input, docs) => unit(runId)(submit(runId, input, docs)),
     };
   }),
 }) {

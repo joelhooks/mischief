@@ -70,6 +70,8 @@ export const closeOpenAsks = (
         yield* store.writeJournal(runId, `seal:${key}`, { ...sealed.success });
       }
 
+      yield* store.commit(runId);
+
       const sent = yield* Effect.result(mail.send(call, sealed.success));
 
       yield* store.writeJournal(

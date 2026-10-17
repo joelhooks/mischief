@@ -14,7 +14,12 @@ import * as Arbitrary from "effect/Arbitrary";
 
 import { RunHost } from "../../src/runs/host.js";
 import { ReplyRefused } from "../../src/runs/reply-refused.js";
-import { RunStore } from "../../src/runs/run-store.js";
+import {
+  bufferedRunStore,
+  memoryRunBackend,
+  RunStore,
+} from "../../src/runs/run-store.js";
+import type { RunBackend, RunReads } from "../../src/runs/run-store.js";
 import { DirectiveSchema, RunStateSchema } from "../../src/runs/schema.js";
 import type { ReplyLine, RunReport } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
@@ -151,8 +156,8 @@ const settle = (yields: number) =>
     discard: true,
   });
 
-const storedAsks = (base: (typeof RunStore)["Service"]) =>
-  base.readRun(RUN).pipe(
+const storedAsks = (committed: RunReads) =>
+  committed.readRun(RUN).pipe(
     Effect.map(Option.flatMap(Schema.decodeUnknownOption(RunStateSchema))),
     Effect.map((decoded) =>
       Option.match(decoded, {
@@ -196,7 +201,7 @@ const lineFor = (
 const unused = Layer.mergeAll(Judge.unwired, Thinker.unwired);
 
 const oneProcess = <A, E>(
-  base: (typeof RunStore)["Service"],
+  backend: RunBackend,
   server: Server,
   armed: Armed,
   op: (host: (typeof RunHost)["Service"]) => Effect.Effect<A, E>
@@ -206,7 +211,7 @@ const oneProcess = <A, E>(
     const state = { dead: false };
 
     const die = Effect.gen(function* dieNow() {
-      for (const messageId of yield* storedAsks(base)) {
+      for (const messageId of yield* storedAsks(backend)) {
         armed.pendingAtCrash.set(
           messageId,
           (armed.pendingAtCrash.get(messageId) ?? 0) + 1
@@ -222,6 +227,8 @@ const oneProcess = <A, E>(
 
     const alive = <B, F>(effect: Effect.Effect<B, F>) =>
       Effect.suspend(() => (state.dead ? Effect.never : effect));
+
+    const base = bufferedRunStore(backend);
 
     const store = RunStore.of({
       ...base,
@@ -278,7 +285,7 @@ const oneProcess = <A, E>(
         ).pipe(
           Effect.andThen(
             alive(
-              storedAsks(base).pipe(
+              storedAsks(backend).pipe(
                 Effect.tap((pending) =>
                   Effect.sync(() => {
                     if (!pending.includes(sealed.messageId)) {
@@ -320,7 +327,7 @@ const awaitedKeys = (report: RunReport) =>
 
 const playBoard = (world: World) =>
   Effect.gen(function* property() {
-    const base = yield* RunStore;
+    const backend = memoryRunBackend();
     const server: Server = { admitted: new Map(), conflicts: 0 };
 
     const armed: Armed = {
@@ -343,11 +350,13 @@ const playBoard = (world: World) =>
           const recovered =
             !crashed ||
             Option.isSome(
-              yield* oneProcess(base, server, armed, (host) => host.resume(RUN))
+              yield* oneProcess(backend, server, armed, (host) =>
+                host.resume(RUN)
+              )
             );
 
           const outcome = recovered
-            ? yield* oneProcess(base, server, armed, op)
+            ? yield* oneProcess(backend, server, armed, op)
             : Option.none();
 
           if (Option.isSome(outcome)) {
@@ -461,7 +470,7 @@ const playBoard = (world: World) =>
     );
 
     return armed;
-  }).pipe(Effect.provide(RunStore.memory));
+  });
 
 it.effect.prop(
   "replies in any order, with crashes, duplicates and impostors, finish the board with one message per ask",

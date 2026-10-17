@@ -14,7 +14,7 @@ const NamesArbitrary = Arbitrary.array(
 );
 
 it.effect.prop(
-  "concurrent doc, journal and fingerprint writes to one run all survive, and read back in a fresh store",
+  "concurrent doc, journal and fingerprint writes to one run, committed while others write, all survive and read back in a fresh store",
   { names: NamesArbitrary },
   ({ names }) =>
     Effect.gen(function* property() {
@@ -32,11 +32,13 @@ it.effect.prop(
                 store.writeDoc("run", name, name),
                 store.writeJournal("run", `logic:${name}`, name),
                 store.writeFingerprint("run", `logic:${name}`, `print ${name}`),
+                store.commit("run"),
               ],
               { concurrency: "unbounded" }
             ),
           { concurrency: "unbounded", discard: true }
         );
+        yield* store.commit("run");
       }).pipe(Effect.provide(runStoreFile(root)));
 
       const read = yield* Effect.gen(function* readFresh() {

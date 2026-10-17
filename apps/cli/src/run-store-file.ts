@@ -1,9 +1,11 @@
 import {
+  bufferedRunStore,
   DocsSchema,
   PlanSchema,
   RunStateSchema,
   RunStore,
 } from "@mischief/core";
+import type { RunBackend } from "@mischief/core";
 import {
   Effect,
   FileSystem,
@@ -83,7 +85,63 @@ export const runStoreFile = (root: string) =>
           Effect.map(Option.getOrElse(() => ({})))
         );
 
-      return RunStore.of({
+      const backend: RunBackend = {
+        apply: (runId, changes) =>
+          locked(
+            Effect.gen(function* applyChanges() {
+              const docs = changes.replaceDocs ? {} : yield* docsOf(runId);
+              const prints = yield* fingerprintsOf(runId);
+              const journal = yield* journalOf(runId);
+
+              yield* writeAs(DocsSchema, fileOf(runId, "docs.json"), {
+                ...docs,
+                ...Object.fromEntries(changes.docs),
+              });
+              yield* writeAs(
+                FingerprintsSchema,
+                fileOf(runId, "fingerprints.json"),
+                { ...prints, ...Object.fromEntries(changes.fingerprints) }
+              );
+              yield* writeAs(JournalSchema, fileOf(runId, "journal.json"), {
+                ...journal,
+                ...Object.fromEntries(changes.journal),
+              });
+              yield* Effect.forEach(
+                changes.messages,
+                ([messageId, owner]) =>
+                  writeAs(MessageSchema, messageFile(messageId), {
+                    runId: owner,
+                  }),
+                { discard: true }
+              );
+              yield* Effect.forEach(
+                changes.plans.values(),
+                (plan) =>
+                  writeAs(
+                    PlanSchema,
+                    fileOf(runId, `plan.v${plan.version}.json`),
+                    plan
+                  ),
+                { discard: true }
+              );
+
+              if (changes.paused !== undefined) {
+                yield* writeAs(
+                  PausedSchema,
+                  fileOf(runId, "paused.json"),
+                  changes.paused
+                );
+              }
+
+              if (changes.run !== undefined) {
+                yield* writeAs(
+                  RunStateSchema,
+                  fileOf(runId, "run.json"),
+                  changes.run
+                );
+              }
+            })
+          ),
         readDocs: docsOf,
         readFingerprints: (runId) =>
           fingerprintsOf(runId).pipe(
@@ -104,56 +162,8 @@ export const runStoreFile = (root: string) =>
         readPlan: (runId, version) =>
           readAs(PlanSchema, fileOf(runId, `plan.v${version}.json`)),
         readRun: (runId) => readAs(RunStateSchema, fileOf(runId, "run.json")),
-        replaceDocs: (runId, docs) =>
-          locked(writeAs(DocsSchema, fileOf(runId, "docs.json"), docs)),
-        writeDoc: (runId, name, doc) =>
-          locked(
-            docsOf(runId).pipe(
-              Effect.flatMap((docs) =>
-                writeAs(DocsSchema, fileOf(runId, "docs.json"), {
-                  ...docs,
-                  [name]: doc,
-                })
-              )
-            )
-          ),
-        writeFingerprint: (runId, key, fingerprint) =>
-          locked(
-            fingerprintsOf(runId).pipe(
-              Effect.flatMap((entries) =>
-                writeAs(
-                  FingerprintsSchema,
-                  fileOf(runId, "fingerprints.json"),
-                  { ...entries, [key]: fingerprint }
-                )
-              )
-            )
-          ),
-        writeJournal: (runId, key, entry) =>
-          locked(
-            journalOf(runId).pipe(
-              Effect.flatMap((entries) =>
-                writeAs(JournalSchema, fileOf(runId, "journal.json"), {
-                  ...entries,
-                  [key]: entry,
-                })
-              )
-            )
-          ),
-        writeMessage: (messageId, runId) =>
-          locked(writeAs(MessageSchema, messageFile(messageId), { runId })),
-        writePaused: (runId, paused) =>
-          locked(writeAs(PausedSchema, fileOf(runId, "paused.json"), paused)),
-        writePlan: (runId, plan) =>
-          locked(
-            writeAs(
-              PlanSchema,
-              fileOf(runId, `plan.v${plan.version}.json`),
-              plan
-            )
-          ),
-        writeRun: (runId, state) =>
-          locked(writeAs(RunStateSchema, fileOf(runId, "run.json"), state)),
-      });
+      };
+
+      return bufferedRunStore(backend);
     })
   );

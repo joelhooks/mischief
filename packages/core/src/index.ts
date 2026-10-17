@@ -49,7 +49,14 @@ export { RevisionRefused } from "./runs/revision-refused.js";
 
 export { ReplyRefused } from "./runs/reply-refused.js";
 
-export { RunStore } from "./runs/run-store.js";
+export {
+  bufferedRunStore,
+  memoryRunBackend,
+  RunStore,
+  type RunBackend,
+  type RunChanges,
+  type RunReads,
+} from "./runs/run-store.js";
 
 export {
   AwaitingSchema,

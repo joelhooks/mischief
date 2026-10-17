@@ -14,7 +14,12 @@ import * as Arbitrary from "effect/Arbitrary";
 
 import { decodePlan } from "../../src/plans/schema.js";
 import { RunHost } from "../../src/runs/host.js";
-import { RunStore } from "../../src/runs/run-store.js";
+import {
+  bufferedRunStore,
+  memoryRunBackend,
+  RunStore,
+} from "../../src/runs/run-store.js";
+import type { RunBackend, RunReads } from "../../src/runs/run-store.js";
 import { DirectiveSchema, RunStateSchema } from "../../src/runs/schema.js";
 import type { PendingDirective, RunReport } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
@@ -94,6 +99,7 @@ const InterruptionSchema = Schema.Struct({
     "cancel",
     "crash",
     "crashAfterStep",
+    "crashBeforeCommit",
     "crashInStep",
     "pause",
   ]),
@@ -271,13 +277,15 @@ const outcome = <A>(key: string, found: Fixture, value: A) =>
     : Effect.succeed(value);
 
 interface Deliveries {
+  readonly admitted: Map<string, string>;
   readonly atCrash: Set<string>;
+  conflicts: number;
   readonly delivered: string[];
   readonly outside: string[];
 }
 
-const storedPending = (base: (typeof RunStore)["Service"]) =>
-  base.readRun(RUN).pipe(
+const storedPending = (committed: RunReads) =>
+  committed.readRun(RUN).pipe(
     Effect.map((state) =>
       Option.match(state, {
         onNone: () => [],
@@ -291,7 +299,7 @@ const storedPending = (base: (typeof RunStore)["Service"]) =>
   );
 
 const deliveredFrom = (
-  base: (typeof RunStore)["Service"],
+  base: RunReads,
   deliveries: Deliveries,
   matches: (pending: PendingDirective) => boolean,
   label: string
@@ -318,7 +326,7 @@ const fakes = (
   fixtures: Fixtures,
   calls: ModelCall[],
   announced: string[],
-  base: (typeof RunStore)["Service"],
+  base: RunReads,
   deliveries: Deliveries,
   parks: string[] | null
 ) => {
@@ -378,18 +386,30 @@ const fakes = (
             messageId: `${key}#${visit}`,
           }))
         ),
-      send: ({ key, visit }, { messageId }) =>
-        deliveredFrom(
-          base,
-          deliveries,
-          ({ directive }) =>
-            DirectiveSchema.guards.Ask(directive) &&
-            directive.messageId === messageId,
-          `ask ${messageId}`
-        ).pipe(
-          Effect.andThen(record(key, "ask", visit)),
-          Effect.andThen(() =>
-            outcome(key, fixture(key, visit), null).pipe(Effect.asVoid)
+      send: ({ key, visit }, { envelope, messageId }) =>
+        Effect.sync(() => {
+          const known = deliveries.admitted.get(messageId);
+
+          if (known !== undefined && known !== envelope) {
+            deliveries.conflicts += 1;
+          }
+
+          deliveries.admitted.set(messageId, envelope);
+        }).pipe(
+          Effect.andThen(
+            deliveredFrom(
+              base,
+              deliveries,
+              ({ directive }) =>
+                DirectiveSchema.guards.Ask(directive) &&
+                directive.messageId === messageId,
+              `ask ${messageId}`
+            ).pipe(
+              Effect.andThen(record(key, "ask", visit)),
+              Effect.andThen(() =>
+                outcome(key, fixture(key, visit), null).pipe(Effect.asVoid)
+              )
+            )
           )
         ),
     }),
@@ -465,7 +485,7 @@ const expectAnnounced = (
 };
 
 const incarnation = (
-  base: (typeof RunStore)["Service"],
+  backend: RunBackend,
   fixtures: Fixtures,
   calls: ModelCall[],
   announced: string[],
@@ -498,7 +518,9 @@ const incarnation = (
         return yield* Effect.never;
       });
 
-    const die = storedPending(base).pipe(
+    const base = bufferedRunStore(backend);
+
+    const die = storedPending(backend).pipe(
       Effect.tap((pending) =>
         Effect.sync(() => {
           for (const { key } of pending) {
@@ -511,6 +533,7 @@ const incarnation = (
 
     const store = RunStore.of({
       ...base,
+      commit: (runId) => (counters.dead ? Effect.never : base.commit(runId)),
       writeDoc: (runId, name, value) =>
         counters.dead ? Effect.never : base.writeDoc(runId, name, value),
       writeJournal: (runId, key, entry) =>
@@ -551,19 +574,28 @@ const incarnation = (
             return written;
           }
 
-          if (interruption.kind === "crash") {
+          if (interruption.kind === "crashBeforeCommit") {
             return written.pipe(Effect.andThen(die));
           }
 
+          const durable = written.pipe(Effect.andThen(base.commit(runId)));
+
+          if (interruption.kind === "crash") {
+            return durable.pipe(Effect.andThen(die));
+          }
+
           if (interruption.kind === "cancel") {
-            return written.pipe(Effect.andThen(stop(false)));
+            return durable.pipe(Effect.andThen(stop(false)));
           }
 
           if (interruption.kind === "pause") {
             counters.pausedWhileRunning =
               state.status === "running" && state.checkpoint !== null;
 
-            return written.pipe(Effect.andThen(base.writePaused(runId, true)));
+            return durable.pipe(
+              Effect.andThen(base.writePaused(runId, true)),
+              Effect.andThen(base.commit(runId))
+            );
           }
 
           return written;
@@ -574,7 +606,7 @@ const incarnation = (
       fixtures,
       calls,
       announced,
-      base,
+      backend,
       deliveries,
       script.parks
     );
@@ -629,9 +661,12 @@ const incarnation = (
       });
 
     const work = Effect.gen(function* work() {
-      let report = first
-        ? yield* host.submit(RUN, plan, launchNoteSeed)
-        : yield* host.resume(RUN);
+      const submitted = Option.isSome(yield* backend.readRun(RUN));
+
+      let report =
+        first || !submitted
+          ? yield* host.submit(RUN, plan, launchNoteSeed)
+          : yield* host.resume(RUN);
 
       for (;;) {
         if (report.status === "envelope-exceeded") {
@@ -720,17 +755,16 @@ it.effect.prop(
         expected = simulate(withLimit(plan, limit), fixtures, launchNoteSeed);
       }
 
-      const base = yield* Effect.provide(
-        Effect.service(RunStore),
-        RunStore.memory
-      );
+      const base = memoryRunBackend();
 
       const calls: ModelCall[] = [];
       const announced: string[] = [];
       const parks: string[] | null = world.shadow ? [] : null;
 
       const deliveries: Deliveries = {
+        admitted: new Map(),
         atCrash: new Set(),
+        conflicts: 0,
         delivered: [],
         outside: [],
       };
@@ -827,6 +861,27 @@ it.effect.prop(
 
       const journal = yield* base.readJournal(RUN);
 
+      expect(
+        deliveries.conflicts,
+        "a retried ask must resend its journaled envelope byte for byte; a re-seal under the same id is a 409 at the mailbox"
+      ).toBe(0);
+
+      const undelivered = [...journal].flatMap(([entry, directive]) => {
+        const key = entry.slice("directive:".length);
+
+        return entry.startsWith("directive:") &&
+          Schema.is(DirectiveSchema.cases.Ask)(directive) &&
+          journal.get(`done:${key}`) === true &&
+          !deliveries.delivered.includes(key)
+          ? [key]
+          : [];
+      });
+
+      expect(
+        undelivered,
+        `asks settled as sent that never reached the mailbox: ${undelivered.join(", ")}`
+      ).toStrictEqual([]);
+
       const unsettled = announced.flatMap((entry) => {
         const notice = entry.slice(NOTICE.length);
 
@@ -878,6 +933,7 @@ it.effect.prop(
         ({ kind }) =>
           kind === "crashInStep" ||
           kind === "crashAfterStep" ||
+          kind === "crashBeforeCommit" ||
           kind === "cancel"
       ).length;
 

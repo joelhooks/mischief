@@ -2,11 +2,12 @@ import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { RunStore } from "@mischief/core";
 import type { Plan, RunStateSchema } from "@mischief/core";
-import { Effect, FileSystem, Layer, Option, Path, Schema } from "effect";
+import { Effect, Exit, FileSystem, Layer, Option, Path, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { nodeSqlStorage } from "../src/node-sql.js";
 import { runStoreSql } from "../src/sql-store.js";
+import type { SqlStorage } from "../src/sql.js";
 
 const RUNS = ["one", "two"] as const;
 
@@ -69,6 +70,7 @@ const OpSchema = Schema.Union([
     run: Run,
     version: Schema.Int.check(Schema.isBetween({ maximum: 3, minimum: 1 })),
   }),
+  Schema.Struct({ op: Schema.Literal("commit"), run: Run }),
 ]);
 
 type Op = typeof OpSchema.Type;
@@ -140,6 +142,10 @@ const apply = (store: RunStore["Service"], op: Op) => {
       return store.writePlan(op.run, planWith(op.version));
     }
 
+    case "commit": {
+      return store.commit(op.run);
+    }
+
     default: {
       return Effect.void;
     }
@@ -196,12 +202,100 @@ it.effect.prop(
         yield* apply(store, op);
       }
 
+      expect(yield* readAll(store)).toEqual(yield* readAll(model));
+
+      for (const run of RUNS) {
+        yield* model.commit(run);
+        yield* store.commit(run);
+      }
+
       const expected = yield* readAll(model);
 
       expect(yield* readAll(store)).toEqual(expected);
       expect(yield* readAll(yield* runStoreSql(nodeSqlStorage(file)))).toEqual(
         expected
       );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  { arbitrary: { runs: 300 }, timeout: 120_000 }
+);
+
+const crashingAt = (inner: SqlStorage, nth: number): SqlStorage => {
+  let writes = 0;
+
+  return {
+    sql: {
+      exec: (query, ...bindings) => {
+        if (/^\s*(?:INSERT|DELETE)/u.test(query)) {
+          writes += 1;
+
+          if (writes === nth) {
+            throw new Error("the process died inside the commit");
+          }
+        }
+
+        return inner.sql.exec(query, ...bindings);
+      },
+    },
+    transactionSync: inner.transactionSync,
+  };
+};
+
+const Batch = Schema.Array(OpSchema).check(
+  Schema.isMinLength(1),
+  Schema.isMaxLength(16)
+);
+
+it.effect.prop(
+  "a commit that dies at any statement leaves the file exactly as the last commit did",
+  {
+    before: Arbitrary.schema(Batch),
+    nth: Arbitrary.schema(
+      Schema.Int.check(Schema.isBetween({ maximum: 12, minimum: 1 }))
+    ),
+    torn: Arbitrary.schema(Batch),
+  },
+  ({ before, nth, torn }) =>
+    Effect.gen(function* property() {
+      const fs = yield* FileSystem.FileSystem;
+
+      const file = (yield* Path.Path).join(
+        yield* fs.makeTempDirectoryScoped(),
+        "run.sqlite"
+      );
+
+      const first = yield* runStoreSql(nodeSqlStorage(file));
+
+      for (const op of before) {
+        yield* apply(first, op);
+      }
+
+      for (const run of RUNS) {
+        yield* first.commit(run);
+      }
+
+      const reread = Effect.suspend(() =>
+        runStoreSql(nodeSqlStorage(file)).pipe(Effect.flatMap(readAll))
+      );
+
+      let committed = yield* reread;
+
+      const dying = yield* runStoreSql(crashingAt(nodeSqlStorage(file), nth));
+
+      for (const op of [...torn, { op: "commit", run: "one" } as const]) {
+        const exit = yield* Effect.exit(apply(dying, op));
+
+        if (Exit.isFailure(exit)) {
+          expect(yield* reread, "a commit that died wrote nothing").toEqual(
+            committed
+          );
+
+          return;
+        }
+
+        if (op.op === "commit") {
+          committed = yield* reread;
+        }
+      }
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   { arbitrary: { runs: 300 }, timeout: 120_000 }
 );

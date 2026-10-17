@@ -31,3 +31,6 @@ env.d.ts
 
 # Muster packet reports and notes in worker clones
 .pi/muster/
+
+# the project Brain is private: a symlink to the desk's private repo
+.brain

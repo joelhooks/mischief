@@ -4,7 +4,7 @@ Durable agent plans. A plan is a graph of agent work stored as data. It runs in 
 
 - Why it exists: [`VISION.md`](./VISION.md)
 - The rules agents follow: [`AGENTS.md`](./AGENTS.md)
-- The approved design: [`.brain/projects/mischief-design.svx`](./.brain/projects/mischief-design.svx)
+- The design notes: kept in the maintainers' private Brain; `.brain/` is gitignored here.
 
 Mischief started from the [rat-stack](https://github.com/joelhooks/rat-stack) template on 2026-10-10 and keeps its fence: Effect for the hard parts, Alchemy for infrastructure, XState for every lifecycle, and lint, types and hooks that make the easy path the right one.
 

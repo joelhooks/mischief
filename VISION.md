@@ -35,4 +35,4 @@ Mischief is the **Claws** layer of Rat King: the hands, execution (Joel, 2026-10
 - Mischief does not run shell commands from plan steps. Steps use registry tools only.
 - Secrets, customer data, and private transcripts stay out of plans, logs, and Rat King plaintext.
 
-The approved design is `.brain/projects/mischief-design.svx`.
+The approved design lives in the maintainers' private Brain (`.brain/`, gitignored here).

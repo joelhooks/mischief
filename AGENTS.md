@@ -1,6 +1,6 @@
 # Agent instructions
 
-For a non-trivial task, start with `skills/rat-stack-mode`, then read `VISION.md` and the approved design in `.brain/projects/mischief-design.svx`.
+For a non-trivial task, start with `skills/rat-stack-mode`, then read `VISION.md` and, when you have it, the approved design in `.brain/projects/mischief-design.svx` (private Brain, gitignored).
 
 This file is the repo law for agents and contributors. It holds commands, validation rules, architecture constraints, and project stop rules. Read `VISION.md` for intent before planning substantial work. `VISION.md` does not override this file. Pi sessions also load `.pi/APPEND_SYSTEM.md` and the repo-local extension `.pi/extensions/project.ts`.
 
@@ -112,7 +112,7 @@ Preserve existing work. Inspect status before editing, stage only files changed 
 
 ## Project law
 
-These are Mischief's product rules. Durable intent lives in `VISION.md`; the approved design lives in `.brain/projects/mischief-design.svx`.
+These are Mischief's product rules. Durable intent lives in `VISION.md`; the approved design lives in `.brain/projects/mischief-design.svx`, in the private Brain (gitignored).
 
 - Plans are data. A plan names registry steps by kind and never carries code. Strict decoding refuses any key the schema does not know, including `@code` and `@expr`. The step registry is fixed, versioned, and owned by core.
 - Plans compile to plain XState JSON and are hydrated with `createMachineFromConfig` against the registry. The compiler generates escalation (`<state>__joel`), migration (`<state>__amend`), and branch-failure (`__failed`) states; plan authors never write them.

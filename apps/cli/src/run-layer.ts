@@ -1,4 +1,12 @@
-import { Judge, Operator, RunHost, Thinker } from "@mischief/core";
+import {
+  EnabledStepKinds,
+  Judge,
+  Operator,
+  RunHost,
+  STEP_KINDS_FLAG,
+  Thinker,
+  stepKindsFrom,
+} from "@mischief/core";
 import type { Mail } from "@mischief/core";
 import {
   fauxThinkerOptions,
@@ -107,7 +115,18 @@ const judge = Layer.unwrap(
   }).pipe(Effect.orDie)
 );
 
+const stepKinds = Layer.effect(
+  EnabledStepKinds,
+  Effect.gen(function* readStepKinds() {
+    return stepKindsFrom(
+      yield* Config.String(STEP_KINDS_FLAG).pipe(Config.withDefault(""))
+    );
+  }).pipe(Effect.orDie)
+);
+
 export const localRunLayer = RunHost.layer.pipe(
   Layer.provideMerge(Layer.unwrap(runsRoot.pipe(Effect.map(runStoreFile)))),
-  Layer.provide(Layer.mergeAll(thinker, judge, mail, operatorConsole))
+  Layer.provide(
+    Layer.mergeAll(thinker, judge, mail, operatorConsole, stepKinds)
+  )
 );

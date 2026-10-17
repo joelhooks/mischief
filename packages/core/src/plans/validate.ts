@@ -2,8 +2,10 @@ import { Effect, Option, Schema } from "effect";
 import { absurd, constFalse, constVoid } from "effect/Function";
 import { createAsyncLogic, createMachineFromConfig } from "xstate";
 
+import { CallRegistry } from "../steps/call-registry.js";
+import type { Callable } from "../steps/call-registry.js";
 import { branchLength, compilePlan, isCompound, isFinal } from "./compile.js";
-import { docRefErrors } from "./doc-refs.js";
+import { docRefErrors, stepsOf } from "./doc-refs.js";
 import type {
   AgentConfig,
   AskStep,
@@ -19,6 +21,8 @@ import type {
   Transitions,
 } from "./schema.js";
 import { decodePlan, thinkingLevels } from "./schema.js";
+import { EnabledStepKinds, stepKindOff } from "./step-kinds.js";
+import type { GatedStepKind } from "./step-kinds.js";
 
 export class PlanRefused extends Schema.TaggedError<PlanRefused>()(
   "PlanRefused",
@@ -196,7 +200,7 @@ const criteriaErrors = (
       ];
 };
 
-const NEXT = { ask: "replied", think: "done" } as const;
+const NEXT = { ask: "replied", call: "done", think: "done" } as const;
 
 const nextErrors = (
   kind: keyof typeof NEXT,
@@ -474,6 +478,14 @@ const resolveNode = (
       };
     }
 
+    case "call": {
+      return {
+        agents: 0,
+        errors: [...depthErrors, ...nextErrors("call", node.on, where)],
+        value: node,
+      };
+    }
+
     case "switch": {
       const resolved = resolveSwitch(step, node.on, where);
 
@@ -508,6 +520,37 @@ const resolveStates = (
   return { agents, errors, value: Object.fromEntries(values) };
 };
 
+const callErrors = (
+  plan: Plan,
+  enabled: ReadonlySet<GatedStepKind>,
+  registry: ReadonlyMap<string, Callable>
+) => {
+  const registered = [...registry.keys()].toSorted().join(", ") || "none";
+
+  return stepsOf(plan.machine.states).flatMap(({ step, where }) => {
+    if (step.kind !== "call") {
+      return [];
+    }
+
+    if (!enabled.has("call")) {
+      return [stepKindOff(where, "call")];
+    }
+
+    return [
+      ...(registry.has(step.capability)
+        ? []
+        : [
+            `${where}: call names capability "${step.capability}", which this host has not registered. Registered: ${registered}. Use one of those names`,
+          ]),
+      ...(step.input !== undefined && step.reads !== undefined
+        ? [
+            `${where}: call takes its input from input or from reads, not both. Keep input for a fixed value, or reads to pass docs by name`,
+          ]
+        : []),
+    ];
+  });
+};
+
 const probeLogic = createAsyncLogic({
   // oxlint-disable-next-line typescript/promise-function-async -- xstate async logic consumes a Promise factory.
   run: () => Promise.resolve(),
@@ -517,6 +560,7 @@ const probeSources = {
   actions: { askJoel: constVoid },
   actors: {
     ask: probeLogic,
+    call: probeLogic,
     elaborate: probeLogic,
     judge: probeLogic,
     switch: probeLogic,
@@ -547,6 +591,8 @@ export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
   plan: Plan,
   seeded: readonly string[] = []
 ) {
+  const enabled = yield* EnabledStepKinds;
+  const registry = yield* CallRegistry;
   const resolved = resolveStates(plan, plan.machine.states, []);
 
   const resolvedPlan: Plan = {
@@ -562,6 +608,7 @@ export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
         ]
       : []),
     ...docRefErrors(resolvedPlan, seeded),
+    ...callErrors(plan, enabled, registry),
   ];
 
   if (errors.length > 0) {

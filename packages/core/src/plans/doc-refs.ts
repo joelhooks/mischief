@@ -94,6 +94,10 @@ const refsOf = (step: Step): readonly string[] => {
       return [step.reads];
     }
 
+    case "call": {
+      return step.reads ?? [];
+    }
+
     case "ask-joel":
     case "judge":
     case "parallel":

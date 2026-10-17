@@ -1,7 +1,14 @@
 // @effect-diagnostics asyncFunction:off -- a Durable Object's fetch and alarm handlers are Promise APIs.
 import type { Storage } from "@earendil-works/pi-durable";
 import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
-import { JudgeModeSchema, Operator, StepFailed, Thinker } from "@mischief/core";
+import {
+  EnabledStepKinds,
+  JudgeModeSchema,
+  Operator,
+  StepFailed,
+  Thinker,
+  stepKindsFrom,
+} from "@mischief/core";
 import type { ThinkReceipt } from "@mischief/core";
 import { makePlanRun, mailOutboxSql } from "@mischief/plan-run";
 import type { PlanRun as Runtime } from "@mischief/plan-run";
@@ -51,6 +58,7 @@ export interface Env {
   readonly MISCHIEF_CLIPROXY_KEY?: string;
   readonly MISCHIEF_GUARD_MS: string;
   readonly MISCHIEF_JUDGE?: string;
+  readonly MISCHIEF_STEP_KINDS?: string;
   readonly MISCHIEF_JEV_KEY?: string;
   readonly MISCHIEF_IDENTITY?: string;
   readonly MISCHIEF_MAILBOX_URL?: string;
@@ -204,7 +212,8 @@ export class PlanRun extends DurableObject<Env> {
         env.MISCHIEF_IDENTITY === undefined || env.MISCHIEF_IDENTITY === ""
           ? mailOutboxSql(ctx.storage)
           : postboxMail(ctx.storage, postbox),
-        operator
+        operator,
+        Layer.succeed(EnabledStepKinds, stepKindsFrom(env.MISCHIEF_STEP_KINDS))
       ),
       storage: ctx.storage,
     });

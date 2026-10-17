@@ -29,6 +29,21 @@ export { missingCriteria } from "./plans/criteria.js";
 
 export { PlanRefused, validatePlan } from "./plans/validate.js";
 
+export {
+  EnabledStepKinds,
+  STEP_KINDS_FLAG,
+  gatedStepKinds,
+  stepKindsFrom,
+  type GatedStepKind,
+} from "./plans/step-kinds.js";
+
+export {
+  CallRegistry,
+  callable,
+  type Callable,
+  type CallSpec,
+} from "./steps/call-registry.js";
+
 export { AnswerRefused } from "./runs/answer-refused.js";
 
 export { runCapabilities } from "./runs/capabilities.js";

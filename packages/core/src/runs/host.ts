@@ -1,6 +1,8 @@
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
+import { EnabledStepKinds } from "../plans/step-kinds.js";
 import { PlanRefused, validatePlan } from "../plans/validate.js";
+import { CallRegistry } from "../steps/call-registry.js";
 import { Judge } from "../steps/judge.js";
 import { Operator } from "../steps/operator.js";
 import { AnswerRefused } from "./answer-refused.js";
@@ -66,6 +68,14 @@ export class RunHost extends Context.Service<
     const store = yield* RunStore;
     const operator = yield* Operator;
     const judge = yield* Judge;
+    const enabledKinds = yield* EnabledStepKinds;
+    const registry = yield* CallRegistry;
+
+    const hostGates = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      effect.pipe(
+        Effect.provideService(EnabledStepKinds, enabledKinds),
+        Effect.provideService(CallRegistry, registry)
+      );
 
     const loadRun = Effect.fn("RunHost.loadRun")(function* loadRun(
       runId: string
@@ -127,7 +137,7 @@ export class RunHost extends Context.Service<
         return yield* drive(runId).pipe(Effect.orDie);
       }
 
-      const plan = yield* checkSubmission(input, docs);
+      const plan = yield* hostGates(checkSubmission(input, docs));
       const refusals = judge.admits?.(plan) ?? [];
 
       if (refusals.length > 0) {
@@ -356,15 +366,17 @@ export class RunHost extends Context.Service<
         );
       }
 
-      const plan = yield* validatePlan(
-        Option.match(decodeJsonObject(input), {
-          onNone: () => input,
-          onSome: (fields) => ({
-            ...fields,
-            version: opened.plan.version + 1,
+      const plan = yield* hostGates(
+        validatePlan(
+          Option.match(decodeJsonObject(input), {
+            onNone: () => input,
+            onSome: (fields) => ({
+              ...fields,
+              version: opened.plan.version + 1,
+            }),
           }),
-        }),
-        opened.state.seeded
+          opened.state.seeded
+        )
       ).pipe(
         Effect.mapError((refused) =>
           refuse(

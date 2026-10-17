@@ -151,6 +151,23 @@ const compileStep = (
       ];
     }
 
+    case "call": {
+      return [
+        [
+          name,
+          {
+            invoke: {
+              input: { key, ...step },
+              onDone: { target: targetOf(node.on, "done") },
+              src: "call",
+              ...errorTransition(scope),
+            },
+            meta,
+          },
+        ],
+      ];
+    }
+
     case "ask": {
       return [
         [
@@ -515,6 +532,7 @@ const stepFacts = (
       ];
     }
 
+    case "call":
     case "switch":
     case "think": {
       return [];

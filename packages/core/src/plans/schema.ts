@@ -149,6 +149,23 @@ export const SketchStepSchema = Schema.Struct({
 
 export type SketchStep = typeof SketchStepSchema.Type;
 
+export const CapabilityName = Schema.String.check(
+  Schema.isPattern(/^[a-z][a-z0-9-]{0,63}$/u)
+);
+
+export const CallStepSchema = Schema.Struct({
+  capability: CapabilityName,
+  input: Schema.optionalKey(Schema.Json),
+  kind: Schema.Literal("call"),
+  reads: Schema.optionalKey(Schema.Array(DocKey)),
+  writes: Schema.optionalKey(DocKey),
+}).annotate({
+  description:
+    "Invoke a capability the host registered, by name, then enter on.done. Its input is input as written, or with reads an object of those docs by name; writes puts the output in a doc. The output is recorded in the run's journal, so a replay reuses it and never calls again. A crash between the call and the commit that records it repeats the call, so the call is at least once: the capability must be idempotent for its run, step and visit, which it receives with the input. Off unless the host enables it",
+});
+
+export type CallStep = typeof CallStepSchema.Type;
+
 export const Transition = Schema.Struct({ target: StateKey });
 
 export const TransitionsSchema = Schema.Record(EventName, Transition);
@@ -200,6 +217,7 @@ export const StepSchema = Schema.Union([
   AskJoelStep,
   SketchStepSchema,
   ParallelStepSchema,
+  CallStepSchema,
 ]);
 
 export type Step = typeof StepSchema.Type;

@@ -25,8 +25,10 @@ import { docRefs, docText, interpolate } from "../plans/doc-refs.js";
 import { decodeAmendment } from "../plans/schema.js";
 import type { Plan } from "../plans/schema.js";
 import { checkPlan, refuseCode } from "../plans/validate.js";
+import { CallRegistry } from "../steps/call-registry.js";
 import {
   AskInputSchema,
+  CallInputSchema,
   ElaborateInputSchema,
   JudgeInputSchema,
   OutputEventSchema,
@@ -35,6 +37,7 @@ import {
 } from "../steps/inputs.js";
 import type {
   AskInput,
+  CallInput,
   ElaborateInput,
   JudgeInput,
   SwitchInput,
@@ -251,6 +254,7 @@ export const driveSession = (
     const mail = yield* Mail;
     const operator = yield* Operator;
     const crypto = yield* Crypto.Crypto;
+    const registry = yield* CallRegistry;
 
     const saving = yield* Semaphore.make(1);
 
@@ -599,6 +603,62 @@ export const driveSession = (
         };
       });
 
+    const callInputOf = (input: CallInput) =>
+      Effect.gen(function* gatherCallInput() {
+        if (input.reads === undefined) {
+          return input.input ?? null;
+        }
+
+        const docs = yield* store.readDocs(runId);
+        const missing = input.reads.filter((name) => !(name in docs));
+
+        if (missing.length > 0) {
+          return yield* failed(
+            input.key,
+            `it reads ${missing.map((name) => `doc "${name}"`).join(", ")}, which no step has written on this run's path yet. Make the writing step run before this call, or seed the doc at submit`
+          );
+        }
+
+        return Object.fromEntries(
+          input.reads.map((name) => [name, docs[name] ?? null])
+        );
+      });
+
+    const callOut = (input: CallInput) =>
+      Effect.gen(function* callStep() {
+        const found = registry.get(input.capability);
+
+        if (found === undefined) {
+          return yield* step(
+            input.key,
+            Effect.fail(
+              failed(
+                input.key,
+                `capability "${input.capability}" is not registered on this host. Registered: ${[...registry.keys()].toSorted().join(", ") || "none"}`
+              )
+            )
+          );
+        }
+
+        const given = yield* step(input.key, callInputOf(input));
+
+        yield* store.commit(runId);
+
+        const output = yield* step(
+          input.key,
+          found.invoke(given, {
+            epoch: epochOf(),
+            key: input.key,
+            runId,
+            visit: visitOf(input.key),
+          })
+        );
+
+        yield* writeDoc(input.writes, output);
+
+        return { output, tokens: 0 };
+      });
+
     const elaborate = (input: ElaborateInput) =>
       Effect.gen(function* elaborateStep() {
         const result = yield* step(
@@ -786,6 +846,7 @@ export const driveSession = (
       },
       actors: {
         ask: logic(AskInputSchema, ask),
+        call: logic(CallInputSchema, callOut),
         elaborate: logic(ElaborateInputSchema, elaborate),
         judge: logic(JudgeInputSchema, decide),
         switch: logic(SwitchInputSchema, branchOn),

@@ -56,6 +56,16 @@ const ThinkSchema = Schema.Struct({
   }),
 });
 
+const CalledSchema = Schema.Struct({
+  output: Schema.Struct({ output: Schema.Json }),
+  step: Schema.Struct({
+    input: Schema.Struct({ writes: Schema.String }),
+    src: Schema.Literal("call"),
+  }),
+});
+
+const decodeCalled = Schema.decodeUnknownOption(CalledSchema);
+
 const AskSchema = Schema.Struct({
   output: Schema.Struct({ messageId: Schema.String }),
   step: Schema.Struct({
@@ -114,6 +124,9 @@ export const docWrites = (
   return [
     ...Option.toArray(decodeThink(done)).map(
       (thought) => [thought.step.input.writes, thought.output.output] as const
+    ),
+    ...Option.toArray(decodeCalled(done)).map(
+      (called) => [called.step.input.writes, called.output.output] as const
     ),
     ...Option.toArray(decodeAsk(done)).map(
       (sent) =>

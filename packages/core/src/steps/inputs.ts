@@ -55,6 +55,16 @@ export const SwitchInputSchema = Schema.Struct({
 
 export type SwitchInput = typeof SwitchInputSchema.Type;
 
+export const CallInputSchema = Schema.Struct({
+  capability: Schema.String,
+  input: Schema.optionalKey(Schema.Json),
+  key: Schema.String,
+  reads: Schema.optionalKey(Schema.Array(DocKey)),
+  writes: Schema.optionalKey(DocKey),
+});
+
+export type CallInput = typeof CallInputSchema.Type;
+
 export const ElaborateInputSchema = Schema.Struct({
   goal: Schema.String,
   key: Schema.String,

@@ -28,6 +28,11 @@ type World = typeof WorldSchema.Type;
 
 const ParkedRow = Schema.Struct({ message_id: Schema.String });
 
+const EARLY_ENDS_PER_MESSAGE = ["run busy", "crash before ack"].length;
+
+const redeliveryPasses = (world: World) =>
+  world.inbound.length * EARLY_ENDS_PER_MESSAGE + 1;
+
 interface Trace {
   readonly acked: Map<string, number>;
   readonly ackedUnsettled: string[];
@@ -143,7 +148,7 @@ const play = (world: World) =>
 
     const crashed = new Set<string>();
 
-    for (let pass = 0; pass < 12; pass += 1) {
+    for (let pass = 0; pass < redeliveryPasses(world); pass += 1) {
       const pending = messages.filter(
         ({ messageId }) => !trace.acked.has(messageId)
       );
@@ -187,30 +192,49 @@ const play = (world: World) =>
     return { messages, parked: parkedIds(), sealed, trace };
   });
 
+const everyReplyAckedOnce = (world: World) =>
+  Effect.gen(function* property() {
+    const { messages, parked, trace } = yield* play(world);
+
+    expect([...trace.acked.values()]).toStrictEqual(messages.map(() => 1));
+    expect(trace.ackedUnsettled).toStrictEqual([]);
+    expect([...trace.journaled.values()].every((count) => count === 1)).toBe(
+      true
+    );
+    expect(trace.surfaced.length).toBe(parked.size);
+
+    for (const [index, { kind }] of world.inbound.entries()) {
+      const id = `in-${index}`;
+
+      expect([id, parked.has(id)]).toStrictEqual([
+        id,
+        kind === "stray" || kind === "refused",
+      ]);
+    }
+  });
+
 it.effect.prop(
   "every reply is acked once, only after its run journaled it or the Postbox parked it, and each parked reply reaches the desk once",
   { world: Arbitrary.schema(WorldSchema) },
-  ({ world }) =>
-    Effect.gen(function* property() {
-      const { messages, parked, trace } = yield* play(world);
-
-      expect([...trace.acked.values()]).toStrictEqual(messages.map(() => 1));
-      expect(trace.ackedUnsettled).toStrictEqual([]);
-      expect([...trace.journaled.values()].every((count) => count === 1)).toBe(
-        true
-      );
-      expect(trace.surfaced.length).toBe(parked.size);
-
-      for (const [index, { kind }] of world.inbound.entries()) {
-        const id = `in-${index}`;
-
-        expect([id, parked.has(id)]).toStrictEqual([
-          id,
-          kind === "stray" || kind === "refused",
-        ]);
-      }
-    }),
+  ({ world }) => everyReplyAckedOnce(world),
   { arbitrary: { runs: 200 }, timeout: 60_000 }
+);
+
+it.effect(
+  "replies that each meet a busy run and then a crash before their ack are all acked once, the last on its third delivery",
+  () =>
+    everyReplyAckedOnce({
+      asks: 1,
+      inbound: [
+        { ask: 0, crashBeforeAck: true, kind: "flaky" },
+        { ask: 0, crashBeforeAck: true, kind: "flaky" },
+        { ask: 0, crashBeforeAck: true, kind: "reply" },
+        { ask: 0, crashBeforeAck: true, kind: "flaky" },
+        { ask: 0, crashBeforeAck: true, kind: "reply" },
+        { ask: 0, crashBeforeAck: true, kind: "flaky" },
+        { ask: 1, crashBeforeAck: true, kind: "flaky" },
+      ],
+    })
 );
 
 it.effect(

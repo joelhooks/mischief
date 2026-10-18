@@ -9,10 +9,10 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check": "pnpm run typecheck",
-    "plan": "jiti plan.ts plan",
+    "plan": "turbo run build --filter=@mischief/worker... --output-logs=errors-only && jiti plan.ts plan",
     "test": "vitest run",
     "destroy-plan": "jiti plan.ts destroy-plan",
-    "deploy": "jiti plan.ts deploy",
+    "deploy": "turbo run build --filter=@mischief/worker... --output-logs=errors-only && jiti plan.ts deploy",
     "destroy": "jiti plan.ts destroy",
     "probe": "jiti plan.ts probe",
     "render-units": "jiti plan.ts render-units"

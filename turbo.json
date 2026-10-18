@@ -5,6 +5,10 @@
       "dependsOn": ["^typecheck"],
       "outputs": []
     },
+    "@mischief/thinking#typecheck": {
+      "dependsOn": ["^typecheck", "build"],
+      "outputs": []
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
@@ -13,8 +17,12 @@
       "dependsOn": ["build"],
       "outputs": []
     },
+    "@mischief/infra#test": {
+      "dependsOn": ["build", "@mischief/worker#build"],
+      "outputs": []
+    },
     "//#lint": {
-      "dependsOn": [],
+      "dependsOn": ["@mischief/capability#build", "@mischief/thinking#build"],
       "outputs": []
     },
     "//#typecheck-scripts": {

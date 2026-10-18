@@ -1966,11 +1966,11 @@ packages:
         optional: true
 
   '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/1f351702bfdb41d20e6d831261612d23e3779fa0#path:/packages/alchemy-nest':
-    resolution: {gitHosted: true, integrity: sha512-u0PRneMQirrYcqkZcpDHZe6J8b9Bn4LMhIDXIHnr0yRqdOBvr4KOXf4D/A4jUt47R0HzMY3mCuOTkpb0TX7O8A==, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/1f351702bfdb41d20e6d831261612d23e3779fa0}
+    resolution: {gitHosted: true, integrity: sha512-u0PRneMQirrYcqkZcpDHZe6J8b9Bn4LMhIDXIHnr0yRqdOBvr4KOXf4D/A4jUt47R0HzMY3mCuOTkpb0TX7O8A==, path: /packages/alchemy-nest, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/1f351702bfdb41d20e6d831261612d23e3779fa0}
     version: 0.1.0
 
   '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/f20dd1bafceb2b6beb192027878f5303738525fe#path:/packages/mailbox-client/bundle':
-    resolution: {gitHosted: true, integrity: sha512-rPNNE2kgHd2TRqP/tm0VVpXlswRN4iBNxJx32vOo/BJgl/ct13BfaGon0jODnsmBRsgm18lqOQiXXguQxAk3Ig==, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/f20dd1bafceb2b6beb192027878f5303738525fe}
+    resolution: {gitHosted: true, integrity: sha512-rPNNE2kgHd2TRqP/tm0VVpXlswRN4iBNxJx32vOo/BJgl/ct13BfaGon0jODnsmBRsgm18lqOQiXXguQxAk3Ig==, path: /packages/mailbox-client/bundle, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/f20dd1bafceb2b6beb192027878f5303738525fe}
     version: 0.1.0
 
   '@redis/bloom@6.2.1':

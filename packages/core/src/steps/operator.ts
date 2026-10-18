@@ -18,6 +18,12 @@ export class Operator extends Context.Service<
       key: string,
       receipt: ThinkReceipt
     ) => Effect.Effect<void>;
+    readonly holdAlarm?: (
+      runId: string,
+      held: readonly Held[],
+      attempts: number,
+      notice: string
+    ) => Effect.Effect<void, string>;
     readonly held?: (
       runId: string,
       held: Held,

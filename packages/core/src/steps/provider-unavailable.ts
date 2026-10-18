@@ -1,4 +1,4 @@
-import { Data, Schema } from "effect";
+import { Schema } from "effect";
 
 export const ProviderCauseSchema = Schema.Literals([
   "billing",
@@ -9,11 +9,14 @@ export const ProviderCauseSchema = Schema.Literals([
 
 export type ProviderCause = typeof ProviderCauseSchema.Type;
 
-export class ProviderUnavailable extends Data.TaggedError(
-  "ProviderUnavailable"
-)<{
-  readonly cause: ProviderCause;
-  readonly key: string;
-  readonly provider: string;
-  readonly status: number | null;
-}> {}
+export class ProviderUnavailable extends Schema.TaggedError<ProviderUnavailable>()(
+  "ProviderUnavailable",
+  {
+    cause: ProviderCauseSchema,
+    error: Schema.optionalKey(Schema.String),
+    key: Schema.String,
+    provider: Schema.String,
+    retryAfter: Schema.optional(Schema.Finite),
+    status: Schema.NullOr(Schema.Int),
+  }
+) {}

@@ -84,6 +84,7 @@ const stateWith = (transitions: number): typeof RunStateSchema.Type => ({
   held: [],
   planVersion: 1,
   replies: [],
+  resumeAttempts: 0,
   revision: null,
   seeded: ["brief"],
   status: "running",

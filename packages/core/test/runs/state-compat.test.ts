@@ -16,6 +16,7 @@ import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { Thinker } from "../../src/steps/thinker.js";
 import { inlineOutputsRun } from "./inline-outputs.js";
+import { oldHeldRun } from "./old-held.js";
 
 const RunStateJson = Schema.fromJsonString(RunStateSchema);
 
@@ -28,11 +29,12 @@ const OlderStateArbitrary = Arbitrary.map(
     checkpoint: null,
     held: [],
     replies: [],
+    resumeAttempts: 0,
   })
 );
 
 it.effect.prop(
-  "a run file written before awaiting, capped, held and replies existed still reads",
+  "a run file written before awaiting, capped, held, replies and resumeAttempts existed still reads",
   { state: OlderStateArbitrary },
   ({ state }) =>
     Effect.gen(function* property() {
@@ -45,6 +47,7 @@ it.effect.prop(
         capped: _capped,
         held: _held,
         replies: _replies,
+        resumeAttempts: _resumeAttempts,
         ...older
       } = yield* Schema.encodeEffect(RunStateSchema)(written);
 
@@ -55,6 +58,28 @@ it.effect.prop(
       expect(read).toEqual(written);
     }),
   { arbitrary: { runs: 100 } }
+);
+
+it.effect(
+  "a pre-resume held run keeps its hold and starts with no spent attempts or invented provider hint",
+  () =>
+    Effect.gen(function* olderHold() {
+      const state = yield* Schema.decodeEffect(RunStateJson)(oldHeldRun);
+
+      expect(state.resumeAttempts).toBe(0);
+      expect(state.held).toStrictEqual([
+        {
+          cause: "busy",
+          error: "",
+          key: "draft",
+          provider: "proxy/sol",
+          resumeAfter: null,
+          retryAfter: null,
+          since: 1_700_000_000_000,
+          status: 429,
+        },
+      ]);
+    })
 );
 
 const InlineOutputsSchema = Schema.fromJsonString(

@@ -60,6 +60,13 @@ export type { DrainOutcome } from "./runs/drain.js";
 
 export { RunHost } from "./runs/host.js";
 
+export {
+  ProviderResume,
+  overloadHeld,
+  providerResumeLayer,
+  providerWakeAt,
+} from "./runs/provider-resume.js";
+
 export { ExtendRefused } from "./runs/extend-refused.js";
 
 export { RevisionRefused } from "./runs/revision-refused.js";

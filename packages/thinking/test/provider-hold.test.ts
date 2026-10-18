@@ -4,10 +4,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { expect, it } from "@effect/vitest";
-import { Thinker } from "@mischief/core";
+import { ProviderUnavailable, Thinker } from "@mischief/core";
 import { Effect, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import { constVoid } from "effect/Function";
+import { TestClock } from "effect/testing";
 
 import { piThinker } from "../dist/index.js";
 import { callsOf, fauxWorld } from "./faux-world.js";
@@ -114,8 +115,13 @@ it.effect.prop(
       const observe = thinkOnce.pipe(
         Effect.as<Observed>({ kind: "done" }),
         Effect.catchTags({
-          ProviderUnavailable: ({ provider, status }) => {
+          ProviderUnavailable: ({ error, provider, retryAfter, status }) => {
             expect(provider).toMatch(/^faux\//u);
+            expect(error).toContain("model_cooldown");
+
+            if (status === 429) {
+              expect(retryAfter).toBe(7000);
+            }
 
             return Effect.succeed<Observed>({ kind: "held", status });
           },
@@ -161,4 +167,53 @@ it.effect.prop(
       ).toHaveLength(failures.length + 1);
     }),
   { arbitrary: { runs: 40 }, timeout: 120_000 }
+);
+
+it.effect.prop(
+  "a retryable server error with recoverable Retry-After parks before the thinker can make its immediate internal retry",
+  {
+    seconds: Schema.Int.check(Schema.isBetween({ maximum: 600, minimum: 1 })),
+    status: Schema.Literals(RETRIES),
+  },
+  ({ seconds, status }) =>
+    Effect.gen(function* hintedServerError() {
+      const dir = mkdtempSync(path.join(tmpdir(), "mischief-hint-"));
+
+      yield* TestClock.setTime(0);
+
+      const think = Thinker.use((thinker) =>
+        thinker.think({
+          agent: { model: "sol", thinking: "low" },
+          ceiling: "high",
+          epoch: 0,
+          key: "draft",
+          prompt: PROMPT,
+          runId: "hinted",
+          visit: 1,
+        })
+      ).pipe(
+        Effect.provide(
+          piThinker(
+            fauxWorld(
+              dir,
+              false,
+              constVoid,
+              () => `${status} overloaded\nRetry-After: ${seconds}`
+            )
+          )
+        ),
+        Effect.flip
+      );
+
+      const held = yield* think;
+
+      expect(held._tag).toBe("ProviderUnavailable");
+
+      if (Schema.is(ProviderUnavailable)(held)) {
+        expect(held.retryAfter).toBe(seconds * 1000);
+      }
+
+      expect(callsOf(dir)).toHaveLength(1);
+    }),
+  { arbitrary: { runs: 20 }, timeout: 120_000 }
 );

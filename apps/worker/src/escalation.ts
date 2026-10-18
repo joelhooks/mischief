@@ -103,14 +103,51 @@ export const escalationText = (
     `Fix: answer it with answerRun {"runId": "${runId}", "reply": "<one of ${options.join(", ")}>"} under the identity that submitted the run. Replying to this message does not answer it.`,
   ].join("\n");
 
+export const holdAlarmText = (
+  runId: string,
+  held: readonly Held[],
+  attempts: number
+) =>
+  [
+    `Mischief run ${runId} exhausted its ${attempts} automatic provider resume attempts and stays waiting-for-provider.`,
+    ...held.map(
+      ({ error, key, provider, status }) =>
+        `State ${key}: ${provider}, HTTP ${status ?? "unknown"}. Last error: ${error === "" ? "not available in this older run" : error}`
+    ),
+    `Fix the model proxy, then call resumeRun {"runId":"${runId}"} under the identity that submitted the run. The automatic attempt budget will not reset.`,
+  ].join("\n");
+
+export const holdAlarmTargets = (text: string | undefined) =>
+  [
+    ...new Set(
+      (text ?? "")
+        .split(",")
+        .map((name) => name.trim())
+        .filter((name) => name !== "")
+    ),
+  ].map((name) => Schema.decodeUnknownSync(EscalateToSchema)(name));
+
 export const heldText = (
   runId: string,
-  { cause, key, provider, since, status }: Held
+  { cause, key, provider, resumeAfter, since, status }: Held
 ) =>
   [
     `Mischief run ${runId} is held at state ${key}: its model provider ${provider} is unavailable (${cause}${status === null ? "" : `, HTTP ${status}`}). The run is waiting-for-provider, not failed.`,
     "",
-    JSON.stringify({ cause, provider, runId, since, state: key, status }),
+    JSON.stringify({
+      cause,
+      provider,
+      resumeAfter,
+      runId,
+      since,
+      state: key,
+      status,
+    }),
+    ...(resumeAfter === null || cause === "billing"
+      ? []
+      : [
+          `The host will automatically retry no earlier than Unix time ${resumeAfter} ms, through the run's think permit.`,
+        ]),
     "",
     cause === "billing"
       ? `Fix: the ${provider} account has a billing hold; tell Joel. Once it is cleared, call resumeRun {"runId": "${runId}"} under the identity that submitted the run.`
@@ -202,6 +239,62 @@ export const mailOnce =
       })
     );
   };
+
+const mailConfirmed = (
+  ports: {
+    readonly objectName: () => Option.Option<string>;
+    readonly postbox: () => Pick<PostboxRpc, "seal" | "send">;
+    readonly storage: SqlStorage;
+  },
+  runId: string,
+  to: string,
+  notice: string,
+  text: string
+) => {
+  ports.storage.sql.exec(SEALED);
+
+  return Option.match(ports.objectName(), {
+    onNone: () =>
+      Effect.fail(
+        `${runId} cannot mail ${notice} to ${to}: the run object name is not stored. Check the run object routing, then redeliver its alarm`
+      ),
+    onSome: (name) =>
+      sealOnce(ports.storage, ports.postbox, name, to, text, notice).pipe(
+        Effect.flatMap(({ envelope }) =>
+          posted(async () => await ports.postbox().send(envelope))
+        ),
+        Effect.asVoid
+      ),
+  });
+};
+
+export const alarmOnHolds =
+  (
+    ports: {
+      readonly objectName: () => Option.Option<string>;
+      readonly postbox: () => Pick<PostboxRpc, "seal" | "send">;
+      readonly storage: SqlStorage;
+    },
+    targets: readonly string[]
+  ) =>
+  (runId: string, held: readonly Held[], attempts: number, notice: string) =>
+    Effect.forEach(
+      [
+        ...new Set([
+          ...targets,
+          ...Option.toArray(escalationTargetOf(ports.storage)),
+        ]),
+      ],
+      (to) =>
+        mailConfirmed(
+          ports,
+          runId,
+          to,
+          `${notice}:${to}`,
+          holdAlarmText(runId, held, attempts)
+        ),
+      { discard: true }
+    );
 
 export const escalate =
   (ports: {

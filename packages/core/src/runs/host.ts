@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Schema } from "effect";
+import { Clock, Context, Effect, Layer, Option, Result, Schema } from "effect";
 
 import { EnabledStepKinds } from "../plans/step-kinds.js";
 import { PlanRefused, validatePlan } from "../plans/validate.js";
@@ -9,6 +9,7 @@ import { AnswerRefused } from "./answer-refused.js";
 import { closeOpenAsks } from "./close-asks.js";
 import { ExtendRefused } from "./extend-refused.js";
 import { canonical } from "./fingerprint.js";
+import { overloadHeld, ProviderResume } from "./provider-resume.js";
 import { ReplyRefused } from "./reply-refused.js";
 import { RevisionRefused } from "./revision-refused.js";
 import { RunStore, withinRun } from "./run-store.js";
@@ -70,6 +71,7 @@ export class RunHost extends Context.Service<
     const judge = yield* Judge;
     const enabledKinds = yield* EnabledStepKinds;
     const registry = yield* CallRegistry;
+    const resumePolicy = yield* ProviderResume;
 
     const hostGates = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       effect.pipe(
@@ -95,17 +97,67 @@ export class RunHost extends Context.Service<
       return { plan: plan.value, state: state.value };
     });
 
+    const announceHoldAlarm = (
+      runId: string,
+      report: RunReport,
+      attempts: number
+    ) =>
+      Effect.gen(function* alarmHeldRun() {
+        if (
+          report.status !== "waiting-for-provider" ||
+          attempts < resumePolicy.attempts ||
+          report.held?.some(overloadHeld) !== true
+        ) {
+          return;
+        }
+
+        const notice = "hold-alarm";
+        const journal = yield* store.readJournal(runId);
+
+        if (!journal.has(`done:${notice}`)) {
+          const sent = yield* Effect.result(
+            operator.holdAlarm?.(runId, report.held, attempts, notice) ??
+              Effect.void
+          );
+
+          if (Result.isFailure(sent)) {
+            yield* Effect.logWarning(
+              `${runId} cap alarm remains pending: ${sent.failure}`
+            );
+
+            return;
+          }
+
+          yield* store.writeJournal(runId, `done:${notice}`, true);
+          yield* store.commit(runId);
+        }
+      });
+
     const drive = Effect.fn("RunHost.drive")(function* drive(
       runId: string,
-      delivery?: Delivery
+      delivery?: Delivery,
+      manual?: boolean
     ) {
       const opened = yield* loadRun(runId);
 
-      if (terminalStatuses.has(opened.state.status)) {
+      if (
+        terminalStatuses.has(opened.state.status) ||
+        (manual !== true && opened.state.status === "waiting-for-provider")
+      ) {
         return yield* reportOf(runId, opened.plan, opened.state);
       }
 
-      return yield* driveSession(runId, opened, delivery);
+      const report = yield* driveSession(
+        runId,
+        opened,
+        delivery,
+        undefined,
+        manual !== true
+      );
+
+      yield* announceHoldAlarm(runId, report, opened.state.resumeAttempts);
+
+      return report;
     }, Effect.provideContext(context));
 
     const inspect = Effect.fn("RunHost.inspect")(function* inspect(
@@ -160,6 +212,7 @@ export class RunHost extends Context.Service<
         held: [],
         planVersion: plan.version,
         replies: [],
+        resumeAttempts: 0,
         revision: null,
         seeded: Object.keys(docs).toSorted(),
         status: "running",
@@ -203,6 +256,53 @@ export class RunHost extends Context.Service<
 
     const resume = Effect.fn("RunHost.resume")(function* resume(runId: string) {
       yield* store.writePaused(runId, false);
+
+      return yield* drive(runId, undefined, true);
+    });
+
+    const advance = Effect.fn("RunHost.advance")(function* advance(
+      runId: string
+    ) {
+      const opened = yield* loadRun(runId);
+
+      if (opened.state.status !== "waiting-for-provider") {
+        return yield* drive(runId);
+      }
+
+      const now = yield* Clock.currentTimeMillis;
+
+      const due = opened.state.held.filter(
+        (held) =>
+          overloadHeld(held) &&
+          held.resumeAfter !== null &&
+          held.resumeAfter <= now
+      );
+
+      if (
+        due.length === 0 ||
+        opened.state.resumeAttempts >= resumePolicy.attempts ||
+        (yield* store.readPaused(runId))
+      ) {
+        const report = yield* reportOf(runId, opened.plan, opened.state).pipe(
+          Effect.provideContext(context)
+        );
+
+        if (!(yield* store.readPaused(runId))) {
+          yield* announceHoldAlarm(runId, report, opened.state.resumeAttempts);
+        }
+
+        return report;
+      }
+
+      const admitted = new Set(due.map(({ key }) => key));
+
+      yield* store.writeRun(runId, {
+        ...opened.state,
+        held: opened.state.held.filter(({ key }) => !admitted.has(key)),
+        resumeAttempts: opened.state.resumeAttempts + 1,
+        status: "running",
+      });
+      yield* store.commit(runId);
 
       return yield* drive(runId);
     });
@@ -450,7 +550,7 @@ export class RunHost extends Context.Service<
 
     return {
       abort: (runId, supersededBy) => unit(runId)(abort(runId, supersededBy)),
-      advance: (runId) => unit(runId)(drive(runId)),
+      advance: (runId) => unit(runId)(advance(runId)),
       answer: (runId, reply) => unit(runId)(answer(runId, reply)),
       deliver: (line) =>
         store

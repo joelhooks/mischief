@@ -27,6 +27,7 @@ import {
   Thinker,
 } from "@mischief/core";
 import {
+  Clock,
   Deferred,
   Effect,
   Layer,
@@ -36,7 +37,12 @@ import {
   Semaphore,
 } from "effect";
 
-import { causeOf, statusOf, verdictOf } from "./provider-status.js";
+import {
+  causeOf,
+  retryAfterOf,
+  statusOf,
+  verdictOf,
+} from "./provider-status.js";
 import type { ProviderVerdict } from "./provider-status.js";
 import { receiptOf, requestedOf } from "./receipt.js";
 import type { ThinkDefaults } from "./receipt.js";
@@ -425,8 +431,14 @@ export const piThinker = (options: PiThinkerOptions) =>
 
           const held = new ProviderUnavailable({
             cause: causeOf(failure.status),
+            error: failure.message,
             key: call.key,
             provider: `${model.provider}/${model.modelId}`,
+            retryAfter: retryAfterOf(
+              failure.message,
+              failure.status,
+              yield* Clock.currentTimeMillis
+            ),
             status: failure.status,
           });
 
@@ -445,7 +457,7 @@ export const piThinker = (options: PiThinkerOptions) =>
               ),
             hold: () => Effect.fail(held),
             retryThenHold: () =>
-              retried
+              retried || held.retryAfter !== undefined
                 ? Effect.fail(held)
                 : settle(
                     call,

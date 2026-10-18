@@ -72,6 +72,7 @@ import type { JournalKeys } from "./completions.js";
 import { describeValue, leaves, openExecution } from "./execution.js";
 import type { Adapter, Execution, Sources } from "./execution.js";
 import { fingerprintOf, stepOf } from "./fingerprint.js";
+import { resumeAfter } from "./provider-resume.js";
 import { docWrites, docsRead } from "./replay.js";
 import { RunStore } from "./run-store.js";
 import { DirectiveKey, directiveKey, DirectiveSchema } from "./schema.js";
@@ -254,7 +255,8 @@ export const driveSession = (
   runId: string,
   opened: { readonly plan: Plan; readonly state: RunState },
   delivery: Delivery | undefined,
-  watch?: RevisionWatch
+  watch?: RevisionWatch,
+  automatic = false
 ) =>
   Effect.gen(function* runSession() {
     const store = yield* RunStore;
@@ -286,7 +288,11 @@ export const driveSession = (
     const wakers = new Set<Deferred.Deferred<boolean>>();
 
     const parked = new Map<string, Awaiting>();
-    const holds = new Map<string, Held>();
+
+    const holds = new Map<string, Held>(
+      automatic ? opened.state.held.map((held) => [held.key, held]) : []
+    );
+
     const visits = new Map<string, number>();
 
     const starts = new Map(
@@ -962,7 +968,7 @@ export const driveSession = (
         const work = Effect.tryPromise({
           catch: (cause) =>
             cause instanceof VerdictDeferred ||
-            cause instanceof ProviderUnavailable
+            Schema.is(ProviderUnavailable)(cause)
               ? cause
               : failed(
                   key,
@@ -1004,20 +1010,28 @@ export const driveSession = (
             Effect.gen(function* holdStep() {
               const held: Held = {
                 cause: outage.cause,
+                error: outage.error ?? outage.message,
                 key: stepKey,
                 provider: outage.provider,
+                resumeAfter: null,
+                retryAfter: outage.retryAfter ?? null,
                 since: yield* Clock.currentTimeMillis,
                 status: outage.status,
               };
 
+              const scheduled = {
+                ...held,
+                resumeAfter: yield* resumeAfter(held, run.state.resumeAttempts),
+              };
+
               const notice = `held:${stepKey}#${visit}`;
 
-              holds.set(stepKey, held);
+              holds.set(stepKey, scheduled);
               yield* release;
 
               if (!journal.has(`done:${notice}`)) {
                 const sent = yield* Effect.result(
-                  operator.held?.(runId, held, notice) ?? Effect.void
+                  operator.held?.(runId, scheduled, notice) ?? Effect.void
                 );
 
                 yield* recordJournal(
@@ -1030,6 +1044,12 @@ export const driveSession = (
 
               return yield* Effect.never;
             });
+
+        if (holds.has(stepKey)) {
+          return track(key, (release) =>
+            release.pipe(Effect.andThen(Effect.never))
+          );
+        }
 
         return track(key, (release) =>
           journaled(

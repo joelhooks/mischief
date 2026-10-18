@@ -162,8 +162,15 @@ export type PendingReply = typeof PendingReplySchema.Type;
 
 export const HeldSchema = Schema.Struct({
   cause: ProviderCauseSchema,
+  error: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(""))),
   key: Schema.String,
   provider: Schema.String,
+  resumeAfter: Schema.NullOr(Schema.Finite).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
+  retryAfter: Schema.NullOr(Schema.Finite).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
   since: Schema.Finite,
   status: Schema.NullOr(Schema.Int),
 });
@@ -187,6 +194,7 @@ export const RunStateSchema = Schema.Struct({
   replies: Schema.Array(PendingReplySchema).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([]))
   ),
+  resumeAttempts: Count.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))),
   revision: Schema.NullOr(
     Schema.Struct({ diverged: Schema.Boolean, from: Count })
   ).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),

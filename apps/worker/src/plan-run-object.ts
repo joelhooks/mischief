@@ -8,6 +8,7 @@ import {
   StepFailed,
   Thinker,
   callConcurrencyLayer,
+  providerResumeLayer,
   stepKindsFrom,
   thinkConcurrencyLayer,
 } from "@mischief/core";
@@ -29,6 +30,8 @@ import {
   escalationText,
   fixEscalationAtFirstSubmit,
   heldText,
+  holdAlarmTargets,
+  alarmOnHolds,
   mailOnce,
 } from "./escalation.js";
 import {
@@ -59,6 +62,10 @@ export interface Env {
   readonly MISCHIEF_CLIPROXY_URL?: string;
   readonly MISCHIEF_CLIPROXY_KEY?: string;
   readonly MISCHIEF_GUARD_MS: string;
+  readonly MISCHIEF_RESUME_ATTEMPTS?: string;
+  readonly MISCHIEF_RESUME_BASE_MS?: string;
+  readonly MISCHIEF_RESUME_CAP_MS?: string;
+  readonly MISCHIEF_HOLD_ALARM_TO?: string;
   readonly MISCHIEF_JUDGE?: string;
   readonly MISCHIEF_STEP_KINDS?: string;
   readonly MISCHIEF_THINK_CONCURRENCY?: string;
@@ -178,6 +185,8 @@ export class PlanRun extends DurableObject<Env> {
         )
       );
 
+    const alarmTargets = holdAlarmTargets(env.MISCHIEF_HOLD_ALARM_TO);
+
     const operator = Layer.succeed(
       Operator,
       Operator.of({
@@ -187,6 +196,9 @@ export class PlanRun extends DurableObject<Env> {
           ).pipe(
             Effect.andThen(mailEscalation(runId, notice, heldText(runId, held)))
           ),
+        holdAlarm: mailWired
+          ? alarmOnHolds(mailPorts, alarmTargets)
+          : () => Effect.void,
         notify: (runId, question, notice) =>
           Effect.logInfo(
             `${runId} waits on ${question.key}: ${question.question}`
@@ -218,6 +230,11 @@ export class PlanRun extends DurableObject<Env> {
           : postboxMail(ctx.storage, postbox),
         operator,
         Layer.succeed(EnabledStepKinds, stepKindsFrom(env.MISCHIEF_STEP_KINDS)),
+        providerResumeLayer({
+          attempts: env.MISCHIEF_RESUME_ATTEMPTS,
+          baseMs: env.MISCHIEF_RESUME_BASE_MS,
+          capMs: env.MISCHIEF_RESUME_CAP_MS,
+        }),
         thinkConcurrencyLayer(env.MISCHIEF_THINK_CONCURRENCY),
         callConcurrencyLayer(env.MISCHIEF_CALL_CONCURRENCY)
       ),

@@ -1,6 +1,14 @@
 // @effect-diagnostics asyncFunction:off -- fetch, alarm and the alarm port are the Durable Object's Promise surface.
 import { toHttpApi } from "@mischief/capability/http-api";
-import { RunHost, RunStore, runCapabilities } from "@mischief/core";
+import {
+  ProviderResume,
+  overloadHeld,
+  RunHost,
+  RunStateSchema,
+  RunStore,
+  providerWakeAt,
+  runCapabilities,
+} from "@mischief/core";
 import type { Judge, Mail, Operator, Thinker } from "@mischief/core";
 import {
   Clock,
@@ -40,26 +48,64 @@ const http = toHttpApi("Mischief", runCapabilities);
 
 const isText = Schema.is(Schema.String);
 
-const decodeStatus = Schema.decodeUnknownOption(
-  Schema.fromJsonString(Schema.Struct({ status: Schema.String }))
+const decodeState = Schema.decodeUnknownOption(
+  Schema.fromJsonString(RunStateSchema)
 );
 
-const anyRunning = (storage: SqlStorage) =>
+const runsOf = (storage: SqlStorage) =>
   storage.sql
-    .exec("SELECT state FROM mischief_runs")
+    .exec(
+      "SELECT run_id, state FROM mischief_runs WHERE run_id NOT IN (SELECT run_id FROM mischief_paused WHERE paused = 1) ORDER BY run_id"
+    )
     .toArray()
-    .some((row) =>
-      Option.exists(
-        decodeStatus(row.state),
-        ({ status }) => status === "running"
-      )
-    );
+    .flatMap((row) => {
+      const state = decodeState(row.state);
 
-const runIdsOf = (storage: SqlStorage) =>
+      return isText(row.run_id) && Option.isSome(state)
+        ? [{ runId: row.run_id, state: state.value }]
+        : [];
+    });
+
+const alarmPending = (storage: SqlStorage, runId: string) =>
   storage.sql
-    .exec("SELECT run_id FROM mischief_runs ORDER BY run_id")
-    .toArray()
-    .flatMap((row) => (isText(row.run_id) ? [row.run_id] : []));
+    .exec(
+      "SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = ?",
+      runId,
+      "done:hold-alarm"
+    )
+    .toArray().length === 0;
+
+const wakeAt = (
+  storage: SqlStorage,
+  now: number,
+  guardMs: number,
+  attempts: number,
+  pending: number | null
+) => {
+  const times = runsOf(storage).flatMap(({ runId, state }) => {
+    if (state.status === "running") {
+      return [Math.min(pending ?? now + guardMs, now + guardMs)];
+    }
+
+    if (
+      state.status === "waiting-for-provider" &&
+      state.resumeAttempts >= attempts
+    ) {
+      return state.held.some(overloadHeld) && alarmPending(storage, runId)
+        ? [now + guardMs]
+        : [];
+    }
+
+    const resume =
+      state.status === "waiting-for-provider"
+        ? providerWakeAt(state.held)
+        : null;
+
+    return resume === null ? [] : [resume];
+  });
+
+  return times.length === 0 ? null : Math.min(...times);
+};
 
 export const makePlanRun = ({
   alarms,
@@ -69,7 +115,7 @@ export const makePlanRun = ({
 }: PlanRunOptions): PlanRun => {
   const host = RunHost.layer.pipe(
     Layer.provideMerge(Layer.effect(RunStore, runStoreSql(storage))),
-    Layer.provide(Layer.merge(services, webCrypto))
+    Layer.provideMerge(Layer.merge(services, webCrypto))
   );
 
   const memoMap = Layer.makeMemoMapUnsafe();
@@ -89,10 +135,27 @@ export const makePlanRun = ({
       ),
       Effect.andThen(effect),
       Effect.ensuring(
-        Effect.promise(async () => {
-          if (!anyRunning(storage)) {
-            await alarms.clear();
-          }
+        Effect.gen(function* nextAlarm() {
+          const now = yield* Clock.currentTimeMillis;
+          const policy = yield* ProviderResume;
+
+          yield* Effect.promise(async () => {
+            const pending = await alarms.get();
+
+            const next = wakeAt(
+              storage,
+              now,
+              guardMs,
+              policy.attempts,
+              pending
+            );
+
+            if (next === null) {
+              await alarms.clear();
+            } else if (next !== pending) {
+              await alarms.set(next);
+            }
+          });
         })
       ),
       lock.withPermits(1)
@@ -111,11 +174,28 @@ export const makePlanRun = ({
       await runtime.runPromise(
         guarded(
           RunHost.use((runs) =>
-            Effect.forEach(
-              runIdsOf(storage),
-              (runId) => runs.advance(runId).pipe(Effect.ignore),
-              { discard: true }
-            )
+            Effect.gen(function* wakeRuns() {
+              const now = yield* Clock.currentTimeMillis;
+              const policy = yield* ProviderResume;
+
+              yield* Effect.forEach(
+                runsOf(storage).filter(
+                  ({ runId, state }) =>
+                    state.status === "running" ||
+                    (state.status === "waiting-for-provider" &&
+                      ((state.resumeAttempts < policy.attempts &&
+                        state.held.some(
+                          ({ resumeAfter }) =>
+                            resumeAfter !== null && resumeAfter <= now
+                        )) ||
+                        (state.resumeAttempts >= policy.attempts &&
+                          state.held.some(overloadHeld) &&
+                          alarmPending(storage, runId))))
+                ),
+                ({ runId }) => runs.advance(runId).pipe(Effect.ignore),
+                { discard: true }
+              );
+            })
           )
         )
       );

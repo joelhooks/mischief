@@ -63,6 +63,7 @@ export const buildWorker = ({
           MISCHIEF_CALLERS: callers,
           MISCHIEF_DID: did,
           MISCHIEF_GUARD_MS: "30000",
+          MISCHIEF_HOLD_ALARM_TO: "agent-graph/desk,switchboard",
           MISCHIEF_JUDGE: judge,
           MISCHIEF_MAILBOX_DID: mailbox.did,
           MISCHIEF_MAILBOX_URL: mailbox.url,

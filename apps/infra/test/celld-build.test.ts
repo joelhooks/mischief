@@ -55,6 +55,7 @@ it.effect(
         "MISCHIEF_CALLERS",
         "MISCHIEF_DID",
         "MISCHIEF_GUARD_MS",
+        "MISCHIEF_HOLD_ALARM_TO",
         "MISCHIEF_JUDGE",
         "MISCHIEF_MAILBOX_DID",
         "MISCHIEF_MAILBOX_URL",

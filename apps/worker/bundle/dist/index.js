@@ -59825,14 +59825,19 @@ var keyed = (options2) => {
     sessionId: key
   };
 };
-var gatewayStreams = (api, fetch2) => {
-  const optionsOf = (options2) => {
-    const next = { ...options2 };
-    if (fetch2 !== void 0) {
-      next.fetch = fetch2;
-    }
-    return keyed(next);
+var THINK_STREAM_TIMEOUT_MS = 144e4;
+var gatewayStreamOptions = (options2, fetch2) => {
+  const next = {
+    ...options2,
+    timeoutMs: options2?.timeoutMs ?? THINK_STREAM_TIMEOUT_MS
   };
+  if (fetch2 !== void 0) {
+    next.fetch = fetch2;
+  }
+  return keyed(next);
+};
+var gatewayStreams = (api, fetch2) => {
+  const optionsOf = (options2) => gatewayStreamOptions(options2, fetch2);
   return {
     ...api,
     stream: (model, context, options2) => api.stream(model, context, optionsOf(options2)),

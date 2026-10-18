@@ -82,19 +82,30 @@ const keyed = (options: StreamOptions): StreamOptions => {
   };
 };
 
+export const THINK_STREAM_TIMEOUT_MS = 1_440_000;
+
+export const gatewayStreamOptions = (
+  options?: StreamOptions,
+  fetch?: StreamOptions["fetch"]
+): StreamOptions => {
+  const next: StreamOptions = {
+    ...options,
+    timeoutMs: options?.timeoutMs ?? THINK_STREAM_TIMEOUT_MS,
+  };
+
+  if (fetch !== undefined) {
+    next.fetch = fetch;
+  }
+
+  return keyed(next);
+};
+
 const gatewayStreams = (
   api: ProviderStreams,
   fetch: StreamOptions["fetch"]
 ): ProviderStreams => {
-  const optionsOf = (options: StreamOptions | undefined) => {
-    const next: StreamOptions = { ...options };
-
-    if (fetch !== undefined) {
-      next.fetch = fetch;
-    }
-
-    return keyed(next);
-  };
+  const optionsOf = (options: StreamOptions | undefined) =>
+    gatewayStreamOptions(options, fetch);
 
   return {
     ...api,

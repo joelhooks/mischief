@@ -6,6 +6,8 @@ export {
   GATEWAY_MODELS,
   THINK_DEFAULT,
   THINK_DEFAULT_REVIEW,
+  THINK_STREAM_TIMEOUT_MS,
+  gatewayStreamOptions,
   gatewayThinkerOptions,
   promptCacheKeyOf,
 } from "./gateway.js";

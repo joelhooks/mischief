@@ -77,6 +77,7 @@ const keyed = (options: StreamOptions): StreamOptions => {
 
       return isPayload(prior) ? { ...prior, prompt_cache_key: key } : prior;
     },
+    sessionId: key,
   };
 };
 

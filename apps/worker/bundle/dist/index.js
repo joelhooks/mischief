@@ -59512,7 +59512,8 @@ var keyed = (options2) => {
     onPayload: async (payload, model) => {
       const prior = await onPayload?.(payload, model) ?? payload;
       return isPayload(prior) ? { ...prior, prompt_cache_key: key } : prior;
-    }
+    },
+    sessionId: key
   };
 };
 var gatewayStreams = (api, fetch2) => {

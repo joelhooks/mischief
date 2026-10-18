@@ -50,11 +50,18 @@ const BodySchema = Schema.Struct({
 
 const decodeBody = Schema.decodeUnknownSync(Schema.fromJsonString(BodySchema));
 
+interface Sent extends Readonly<typeof BodySchema.Type> {
+  readonly session: string | null;
+}
+
 const proxy = () => {
-  const bodies: (typeof BodySchema.Type)[] = [];
+  const bodies: Sent[] = [];
 
   const fetch: NonNullable<GatewayConfig["fetch"]> = async (_input, init) => {
-    bodies.push(decodeBody(init?.body));
+    bodies.push({
+      ...decodeBody(init?.body),
+      session: new Headers(init?.headers).get("session_id"),
+    });
 
     return await Promise.resolve(
       new Response(SSE, {
@@ -182,6 +189,10 @@ it.effect.prop(
 
       expect(keys.size).toBe(runs.size);
 
+      for (const body of bodies) {
+        expect(body.session).toBe(body.prompt_cache_key);
+      }
+
       for (const key of keys) {
         expect(key?.length).toBeLessThanOrEqual(64);
         expect(key).toMatch(/^mischief-/u);
@@ -205,6 +216,7 @@ it.effect("a luna think at max sends effort max and records luna/max", () =>
         model: "gpt-6-luna",
         prompt_cache_key: "mischief-run-a",
         reasoning: { effort: "max" },
+        session: "mischief-run-a",
       },
     ]);
     expect(thought?.receipt).toMatchObject({

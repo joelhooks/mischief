@@ -61,6 +61,13 @@ import { ThinkConcurrency } from "../steps/think-concurrency.js";
 import { unmappedReason } from "../steps/think-model-unmapped.js";
 import { Thinker } from "../steps/thinker.js";
 import { VerdictDeferred } from "../steps/verdict-deferred.js";
+import {
+  liveEvent,
+  remember,
+  storedEvent,
+  withoutDoneOutputs,
+} from "./completions.js";
+import type { JournalKeys } from "./completions.js";
 import { describeValue, leaves, openExecution } from "./execution.js";
 import type { Adapter, Execution, Sources } from "./execution.js";
 import { fingerprintOf, stepOf } from "./fingerprint.js";
@@ -270,6 +277,7 @@ export const driveSession = (
     const journal = new Map(yield* store.readJournal(runId));
     const prints = new Map(yield* store.readFingerprints(runId));
     const mailbox: QueuedEvent[] = [];
+    const journalKeys: JournalKeys = new WeakMap();
     const pending = new Map<symbol, Promise<Schema.Json>>();
 
     const wakers = new Set<Deferred.Deferred<boolean>>();
@@ -1032,7 +1040,14 @@ export const driveSession = (
                 ([name, doc]) => store.writeDoc(runId, name, doc),
                 { discard: true }
               )
-          ).pipe(Effect.ensuring(consumeReply(stepKey)))
+          ).pipe(
+            Effect.tap((entry) =>
+              Effect.sync(() => {
+                remember(journalKeys, key, entry);
+              })
+            ),
+            Effect.ensuring(consumeReply(stepKey))
+          )
         );
       },
       waitForEvent: () => DRAINED,
@@ -1171,9 +1186,9 @@ export const driveSession = (
             asking: shown(askHere(), docs),
             awaiting: awaitingOf(docs),
             checkpoint: {
-              mailbox: structuredClone(mailbox),
+              mailbox: mailbox.map(storedEvent(journalKeys)),
               pending: yield* pendingNow,
-              snapshot: execution.persist(),
+              snapshot: withoutDoneOutputs(execution.persist()),
               starts: Object.fromEntries(starts),
               transitionIndex: execution.nextTransitionIndex(),
             },
@@ -1516,7 +1531,13 @@ export const driveSession = (
 
       const { children } = execution.view();
 
-      for (const event of checkpoint.mailbox) {
+      const live = liveEvent(runId, journal, journalKeys);
+
+      const restored = yield* Effect.all(
+        checkpoint.mailbox.map((event) => live(event))
+      );
+
+      for (const event of restored) {
         const child =
           event.actorId === undefined ? undefined : children[event.actorId];
 

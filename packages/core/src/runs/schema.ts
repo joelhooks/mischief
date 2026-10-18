@@ -42,6 +42,17 @@ export const QueuedEventSchema = Schema.StructWithRest(
 
 export type QueuedEvent = typeof QueuedEventSchema.Type;
 
+export const StoredEventSchema = Schema.StructWithRest(
+  Schema.Struct({
+    actorId: Schema.optionalKey(Schema.String),
+    outputAt: Schema.optionalKey(Schema.String),
+    type: Schema.String,
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)]
+);
+
+export type StoredEvent = typeof StoredEventSchema.Type;
+
 export const DirectiveSchema = Schema.TaggedUnion({
   Ask: {
     envelope: Schema.String,
@@ -93,7 +104,7 @@ export const PendingDirectiveSchema = Schema.Struct({
 export type PendingDirective = typeof PendingDirectiveSchema.Type;
 
 export const CheckpointSchema = Schema.Struct({
-  mailbox: Schema.Array(QueuedEventSchema),
+  mailbox: Schema.Array(StoredEventSchema),
   pending: Schema.Array(PendingDirectiveSchema).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([]))
   ),

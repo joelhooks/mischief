@@ -48,6 +48,8 @@ export { AnswerRefused } from "./runs/answer-refused.js";
 
 export { runCapabilities } from "./runs/capabilities.js";
 
+export { CompletionLost } from "./runs/completion-lost.js";
+
 export {
   consumeDrained,
   DrainOutcomeSchema,

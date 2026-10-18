@@ -108,7 +108,7 @@ export const heldText = (
   { cause, key, provider, since, status }: Held
 ) =>
   [
-    `Mischief run ${runId} is held at state ${key}: its ${provider} judge is unavailable (${cause}${status === null ? "" : `, HTTP ${status}`}). The run is waiting-for-provider, not failed.`,
+    `Mischief run ${runId} is held at state ${key}: its model provider ${provider} is unavailable (${cause}${status === null ? "" : `, HTTP ${status}`}). The run is waiting-for-provider, not failed.`,
     "",
     JSON.stringify({ cause, provider, runId, since, state: key, status }),
     "",

@@ -191,6 +191,8 @@ it.effect.prop(
       const text = heldText(RUN, held);
 
       expect(text).toContain("waiting-for-provider");
+      expect(text).toContain(`model provider ${held.provider}`);
+      expect(text).not.toContain("judge");
       expect(text).toContain(`resumeRun {"runId": "${RUN}"}`);
       expect(text).not.toContain("answerRun");
       expect(text.includes("tell Joel")).toBe(held.cause === "billing");

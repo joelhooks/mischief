@@ -40,6 +40,7 @@ export const thinkingLevels = [
   "medium",
   "high",
   "xhigh",
+  "max",
 ] as const;
 
 export const Thinking = Schema.Literals(thinkingLevels);

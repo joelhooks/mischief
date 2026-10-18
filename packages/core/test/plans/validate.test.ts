@@ -3,6 +3,7 @@ import { Effect, Exit, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { isStep } from "../../src/plans/compile.js";
+import { thinkingLevels } from "../../src/plans/schema.js";
 import { validatePlan } from "../../src/plans/validate.js";
 import { launchNotePlan } from "../runs/launch-note.js";
 
@@ -158,6 +159,62 @@ it.effect.prop(
           ? work.meta.step.agent?.[field]
           : undefined
       ).toEqual(merged);
+    }),
+  { arbitrary: { runs: 80 } }
+);
+
+const Level = Arbitrary.schema(Schema.Literals(thinkingLevels));
+
+const thinkingPlan = (
+  maxThinking: (typeof thinkingLevels)[number],
+  thinking: (typeof thinkingLevels)[number]
+) => ({
+  defaults: { agent: {} },
+  envelope: {
+    maxAgents: 1,
+    maxDepth: 2,
+    maxSteps: 5,
+    maxThinking,
+    models: ["luna"],
+    names: [],
+    thresholds: { judge: 0.8 },
+  },
+  goal: "One deep read",
+  id: "deep-read",
+  machine: {
+    id: "deep-read",
+    initial: "work",
+    states: {
+      done: { type: "final" },
+      work: {
+        meta: { step: { agent: { thinking }, kind: "think", prompt: "go" } },
+        on: { done: { target: "done" } },
+      },
+    },
+  },
+  version: 1,
+});
+
+it.effect.prop(
+  "a think step's thinking passes exactly when it is at or below envelope.maxThinking, and a refusal lists the levels that fit",
+  { maxThinking: Level, thinking: Level },
+  ({ maxThinking, thinking }) =>
+    Effect.gen(function* property() {
+      const exit = yield* Effect.exit(
+        validatePlan(thinkingPlan(maxThinking, thinking))
+      );
+
+      const cap = thinkingLevels.indexOf(maxThinking);
+
+      if (thinkingLevels.indexOf(thinking) <= cap) {
+        expect(Exit.isSuccess(exit)).toBe(true);
+
+        return;
+      }
+
+      expect(Exit.isFailure(exit) && String(exit.cause)).toContain(
+        `work: thinking "${thinking}" exceeds envelope.maxThinking "${maxThinking}". Use ${thinkingLevels.slice(0, cap + 1).join(", ")}`
+      );
     }),
   { arbitrary: { runs: 80 } }
 );

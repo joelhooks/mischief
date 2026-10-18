@@ -1,11 +1,12 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { expect, it } from "@effect/vitest";
+import { thinkingLevels } from "@mischief/core";
 import type { AgentConfig } from "@mischief/core";
 import { Schema } from "effect";
 
 import { receiptOf, requestedOf } from "../src/receipt.js";
 
-const Level = Schema.Literals(["low", "medium", "high", "xhigh"]);
+const Level = Schema.Literals(thinkingLevels);
 
 const World = Schema.Struct({
   ceiling: Level,
@@ -75,10 +76,10 @@ it.prop(
     expect(receipt.requested.from).toBe(
       world.planModel === undefined ? "default" : "plan"
     );
-    const order = ["low", "medium", "high", "xhigh"];
 
     const capped =
-      order.indexOf(world.defaultLevel) > order.indexOf(world.ceiling);
+      thinkingLevels.indexOf(world.defaultLevel) >
+      thinkingLevels.indexOf(world.ceiling);
 
     const expectedFrom = capped ? "envelope" : "default";
 

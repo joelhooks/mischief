@@ -7,6 +7,7 @@ export {
   THINK_DEFAULT,
   THINK_DEFAULT_REVIEW,
   gatewayThinkerOptions,
+  promptCacheKeyOf,
 } from "./gateway.js";
 
 export { JEV_MODEL, JEV_URL, jevJudge } from "./jev.js";

@@ -11,6 +11,7 @@ import {
 import type {
   Conversation,
   ConversationId,
+  ConversationStreamOptions,
   EntryId,
   HarnessOptions,
   HarnessSettings,
@@ -63,6 +64,7 @@ export interface PiThinkerOptions {
   readonly registry: HarnessOptions["registry"];
   readonly modelRefs: Readonly<Record<string, ModelRef>>;
   readonly storageFor: (runId: string) => Effect.Effect<Storage, StepFailed>;
+  readonly streamFor?: (runId: string) => ConversationStreamOptions;
 }
 
 interface OpenRun {
@@ -181,11 +183,17 @@ export const piThinker = (options: PiThinkerOptions) =>
         )
       );
 
-      const settings = {
+      const settingsFor = (runId: string): HarnessOptions => ({
         models: options.models,
         registry: options.registry,
-        settings: THINKER_OWNS_PROVIDER_RETRIES,
-      };
+        settings:
+          options.streamFor === undefined
+            ? THINKER_OWNS_PROVIDER_RETRIES
+            : {
+                ...THINKER_OWNS_PROVIDER_RETRIES,
+                stream: options.streamFor(runId),
+              },
+      });
 
       const unrecordedHarness = (call: StepCall) =>
         Effect.acquireRelease(
@@ -195,7 +203,7 @@ export const piThinker = (options: PiThinkerOptions) =>
             async () =>
               await Harness.open(
                 new MemoryStorage(),
-                settings,
+                settingsFor(call.runId),
                 BACKGROUND_CONTEXT
               )
           ).pipe(Effect.map((harness): OpenRun => ({ fresh: true, harness }))),
@@ -220,7 +228,11 @@ export const piThinker = (options: PiThinkerOptions) =>
               call,
               "open",
               async () =>
-                await Harness.open(storage, settings, BACKGROUND_CONTEXT)
+                await Harness.open(
+                  storage,
+                  settingsFor(call.runId),
+                  BACKGROUND_CONTEXT
+                )
             );
 
             yield* Ref.update(open, (harnesses) =>

@@ -154,7 +154,7 @@ const thinkAll = (
 const modelIdOf = (name: GatewayName) => GATEWAY_MODELS[name];
 
 it.effect.prop(
-  "every gateway think sends its model, the effort its level maps to, and one prompt cache key per run",
+  "every gateway think sends its model, the effort its level maps to, and one prompt cache key per run, and its receipt claims only the effort sent",
   {
     thinks: Arbitrary.schema(
       Schema.Array(ThinkSchema).check(
@@ -167,9 +167,20 @@ it.effect.prop(
     Effect.gen(function* property() {
       const { bodies, fetch } = proxy();
 
-      yield* thinkAll(thinks, fetch);
+      const thoughts = yield* thinkAll(thinks, fetch);
 
       expect(bodies).toHaveLength(thinks.length);
+
+      for (const [index, think] of thinks.entries()) {
+        const receipt = thoughts[index]?.receipt;
+
+        const claimed =
+          receipt?.effective.thinking ?? receipt?.requested.thinking;
+
+        expect(
+          Object.entries(LUNA_EFFORTS).find(([level]) => level === claimed)?.[1]
+        ).toBe(EFFORTS[modelIdOf(think.model)][think.level]);
+      }
 
       const sent = (think: (typeof thinks)[number]) =>
         bodies.find(

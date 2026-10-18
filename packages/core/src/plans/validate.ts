@@ -5,6 +5,7 @@ import { createAsyncLogic, createMachineFromConfig } from "xstate";
 import { CallRegistry } from "../steps/call-registry.js";
 import type { Callable } from "../steps/call-registry.js";
 import { branchLength, compilePlan, isCompound, isFinal } from "./compile.js";
+import { DeclaredThinking, undeclaredThinking } from "./declared-thinking.js";
 import { docRefErrors, stepsOf } from "./doc-refs.js";
 import type {
   AgentConfig,
@@ -641,7 +642,8 @@ export const refuseCode = (input: Schema.Json) => {
 
 export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
   plan: Plan,
-  seeded: readonly string[] = []
+  seeded: readonly string[] = [],
+  hostRefusals: readonly string[] = []
 ) {
   const enabled = yield* EnabledStepKinds;
   const registry = yield* CallRegistry;
@@ -661,6 +663,7 @@ export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
       : []),
     ...docRefErrors(resolvedPlan, seeded),
     ...callErrors(plan, enabled, registry),
+    ...hostRefusals,
   ];
 
   if (errors.length > 0) {
@@ -704,5 +707,7 @@ export const validatePlan = Effect.fn("validatePlan")(function* validatePlan(
     Effect.mapError((issue) => new PlanRefused({ errors: [issue.message] }))
   );
 
-  return yield* checkPlan(plan, seeded);
+  const declared = yield* DeclaredThinking;
+
+  return yield* checkPlan(plan, seeded, undeclaredThinking(plan, declared));
 });

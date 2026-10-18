@@ -1,6 +1,7 @@
 // @effect-diagnostics asyncFunction:off -- pi-durable commits and listeners take async callbacks at this adapter boundary.
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
+import { clampThinkingLevel } from "@earendil-works/pi-ai/models";
 import { isRetryableAssistantError } from "@earendil-works/pi-ai/utils/retry";
 import {
   defineDoc,
@@ -21,8 +22,13 @@ import type {
   SubmissionRecord,
 } from "@earendil-works/pi-durable";
 import { MemoryStorage } from "@earendil-works/pi-durable/storage/memory";
-import type { StepCall, ThinkReceipt } from "@mischief/core";
+import type {
+  StepCall,
+  ThinkingDeclaration,
+  ThinkReceipt,
+} from "@mischief/core";
 import {
+  DeclaredThinking,
   ProviderUnavailable,
   StepFailed,
   ThinkModelUnmapped,
@@ -59,6 +65,7 @@ const StepsDoc = defineDoc<{ byAddress: Record<string, ConversationId> }>({
 });
 
 export interface PiThinkerOptions {
+  readonly declared?: ThinkingDeclaration;
   readonly defaults?: ThinkDefaults;
   readonly models: HarnessOptions["models"];
   readonly registry: HarnessOptions["registry"];
@@ -161,7 +168,7 @@ const thought = <R>(
     }))
   );
 
-export const piThinker = (options: PiThinkerOptions) =>
+const thinkerOf = (options: PiThinkerOptions) =>
   Layer.effect(
     Thinker,
     Effect.gen(function* make() {
@@ -604,9 +611,14 @@ export const piThinker = (options: PiThinkerOptions) =>
             respawn: fresh && !created,
           });
 
+          const served = options.models.getModel(model.provider, model.modelId);
+
           const receipt = receiptOf(
             requested,
             model.modelId,
+            served === undefined
+              ? requested.thinking
+              : clampThinkingLevel(served, requested.thinking),
             page.items[0]?.model
           );
 
@@ -668,4 +680,16 @@ export const piThinker = (options: PiThinkerOptions) =>
           ).pipe(thought, Effect.scoped),
       });
     })
+  );
+
+export const piThinker = (options: PiThinkerOptions) =>
+  Layer.merge(
+    thinkerOf(options),
+    Layer.succeed(
+      DeclaredThinking,
+      options.declared ?? {
+        fallback: options.defaults?.thinking ?? "low",
+        models: {},
+      }
+    )
   );

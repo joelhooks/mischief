@@ -9,6 +9,7 @@ import { createModels, createProvider } from "@earendil-works/pi-ai/models";
 import { createRegistry } from "@earendil-works/pi-durable";
 import { Hash, Redacted, Schema } from "effect";
 
+import { declaredThinkingOf } from "./declared.js";
 import type { PiThinkerOptions } from "./pi-thinker.js";
 import type { ThinkDefaults } from "./receipt.js";
 
@@ -149,14 +150,17 @@ export const gatewayThinkerOptions = (
     })
   );
 
+  const modelRefs = Object.fromEntries(
+    Object.entries(GATEWAY_MODELS).map(([name, modelId]) => [
+      name,
+      { modelId, provider: PROVIDER },
+    ])
+  );
+
   return {
+    declared: declaredThinkingOf(models, modelRefs, THINK_DEFAULT.thinking),
     defaults: THINK_DEFAULT,
-    modelRefs: Object.fromEntries(
-      Object.entries(GATEWAY_MODELS).map(([name, modelId]) => [
-        name,
-        { modelId, provider: PROVIDER },
-      ])
-    ),
+    modelRefs,
     models,
     registry: createRegistry(),
     storageFor,

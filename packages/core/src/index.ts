@@ -35,6 +35,14 @@ export { missingCriteria } from "./plans/criteria.js";
 export { PlanRefused, validatePlan } from "./plans/validate.js";
 
 export {
+  DeclaredThinking,
+  capThinking,
+  undeclaredThinking,
+  type ThinkingDeclaration,
+  type ThinkingLevel,
+} from "./plans/declared-thinking.js";
+
+export {
   EnabledStepKinds,
   STEP_KINDS_FLAG,
   gatedStepKinds,

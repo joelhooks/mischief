@@ -1,8 +1,8 @@
 import type { AssistantMessage, Message } from "@earendil-works/pi-ai";
-import { thinkingLevels } from "@mischief/core";
-import type { AgentConfig, ThinkReceipt } from "@mischief/core";
+import { capThinking } from "@mischief/core";
+import type { AgentConfig, ThinkReceipt, ThinkingLevel } from "@mischief/core";
 
-type Thinking = NonNullable<AgentConfig["thinking"]>;
+type Thinking = ThinkingLevel;
 
 export interface ThinkDefaults {
   readonly model: string;
@@ -16,9 +16,6 @@ export interface Requested {
   readonly thinkingFrom: NonNullable<ThinkReceipt["requested"]["thinkingFrom"]>;
 }
 
-const above = (level: Thinking, ceiling: Thinking) =>
-  thinkingLevels.indexOf(level) > thinkingLevels.indexOf(ceiling);
-
 const thinkingOf = (
   agent: AgentConfig,
   defaults: ThinkDefaults | undefined,
@@ -29,10 +26,13 @@ const thinkingOf = (
   }
 
   const fallback = defaults?.thinking ?? "low";
+  const thinking = capThinking(fallback, ceiling);
 
-  return above(fallback, ceiling)
-    ? { thinking: ceiling, thinkingFrom: "envelope" as const }
-    : { thinking: fallback, thinkingFrom: "default" as const };
+  return {
+    thinking,
+    thinkingFrom:
+      thinking === fallback ? ("default" as const) : ("envelope" as const),
+  };
 };
 
 export const requestedOf = (
@@ -69,19 +69,19 @@ const tokensOf = ({
   total: totalTokens,
 });
 
-const effectiveOf = (answer: AssistantMessage) => ({
+const effectiveOf = (answer: AssistantMessage, sent: Thinking) => ({
   model: answer.responseModel ?? answer.model,
-  thinking: answer.providerThinkingLevel ?? answer.thinkingLevel ?? null,
+  thinking: answer.providerThinkingLevel ?? sent,
 });
 
 const matchedOf = (
   answer: AssistantMessage,
   modelId: string,
-  thinking: string
+  thinking: string,
+  sent: Thinking
 ) =>
   servedAs(answer.responseModel, modelId) &&
-  (answer.providerThinkingLevel === undefined ||
-    answer.providerThinkingLevel === thinking);
+  (answer.providerThinkingLevel ?? sent) === thinking;
 
 const requestedFields = ({
   from,
@@ -93,6 +93,7 @@ const requestedFields = ({
 export const receiptOf = (
   requested: Requested,
   modelId: string,
+  sent: Thinking,
   messages: readonly Message[] | undefined
 ): ThinkReceipt => {
   const answer = answerOf(messages);
@@ -108,10 +109,10 @@ export const receiptOf = (
   }
 
   return {
-    effective: effectiveOf(answer),
+    effective: effectiveOf(answer, sent),
     latencyMs:
       answer.durationMs === undefined ? null : Math.round(answer.durationMs),
-    matched: matchedOf(answer, modelId, requested.thinking),
+    matched: matchedOf(answer, modelId, requested.thinking, sent),
     requested: requestedFields(requested),
     tokens: tokensOf(answer.usage),
   };

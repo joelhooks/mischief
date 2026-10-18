@@ -19247,8 +19247,8 @@ var init_ChatCompletionStream = __esm({
           const structuredResponse = isParseableResponseFormat(__classPrivateFieldGet2(this, _ChatCompletionStream_params, "f")?.response_format);
           const boundedSnapshot = structuredResponse || __classPrivateFieldGet2(this, _ChatCompletionStream_hasAutoParseableTool, "f");
           const messageSnapshot = boundedSnapshot ? captureStructuredMessageSnapshot(choiceSnapshot) : choiceSnapshot.message;
-          const refusal = boundedSnapshot ? captureStructuredJSONSnapshot(messageSnapshot, "refusal") : messageSnapshot.refusal;
-          const parseableContent = !refusal && structuredResponse;
+          const refusal2 = boundedSnapshot ? captureStructuredJSONSnapshot(messageSnapshot, "refusal") : messageSnapshot.refusal;
+          const parseableContent = !refusal2 && structuredResponse;
           const messageContent = parseableContent ? captureStructuredJSONSnapshot(messageSnapshot, "content") : messageSnapshot.content;
           if (delta?.content != null && messageSnapshot.role === "assistant" && messageContent) {
             this._emit("content", delta.content, messageContent);
@@ -19258,10 +19258,10 @@ var init_ChatCompletionStream = __esm({
               parsed: messageSnapshot.parsed
             });
           }
-          if (delta?.refusal != null && messageSnapshot.role === "assistant" && refusal) {
+          if (delta?.refusal != null && messageSnapshot.role === "assistant" && refusal2) {
             this._emit("refusal.delta", {
               delta: delta.refusal,
-              snapshot: refusal
+              snapshot: refusal2
             });
           }
           if (choice.logprobs?.content != null && messageSnapshot.role === "assistant") {
@@ -19377,22 +19377,22 @@ var init_ChatCompletionStream = __esm({
         const structuredResponse = isParseableResponseFormat(__classPrivateFieldGet2(this, _ChatCompletionStream_params, "f")?.response_format);
         const boundedSnapshot = structuredResponse || __classPrivateFieldGet2(this, _ChatCompletionStream_hasAutoParseableTool, "f");
         const messageSnapshot = boundedSnapshot ? captureStructuredMessageSnapshot(choiceSnapshot) : choiceSnapshot.message;
-        const refusal = boundedSnapshot ? captureStructuredJSONSnapshot(messageSnapshot, "refusal") : messageSnapshot.refusal;
-        const parseableContent = !refusal && structuredResponse;
+        const refusal2 = boundedSnapshot ? captureStructuredJSONSnapshot(messageSnapshot, "refusal") : messageSnapshot.refusal;
+        const parseableContent = !refusal2 && structuredResponse;
         const content = parseableContent ? captureStructuredJSONSnapshot(messageSnapshot, "content") : messageSnapshot.content;
-        if (content != null && (content !== "" || !refusal && !messageSnapshot.tool_calls?.length && !messageSnapshot.function_call) && !state3.content_done) {
+        if (content != null && (content !== "" || !refusal2 && !messageSnapshot.tool_calls?.length && !messageSnapshot.function_call) && !state3.content_done) {
           if (parseableContent && __classPrivateFieldGet2(this, _ChatCompletionStream_currentChatCompletionSnapshot, "f")) {
             __classPrivateFieldGet2(this, _ChatCompletionStream_instances, "m", _ChatCompletionStream_validateStructuredSnapshots).call(this, __classPrivateFieldGet2(this, _ChatCompletionStream_currentChatCompletionSnapshot, "f"));
           }
           state3.content_done = true;
           this._emit("content.done", {
             content,
-            parsed: refusal ? null : parseResponseFormatContent(__classPrivateFieldGet2(this, _ChatCompletionStream_params, "f")?.response_format, parseableContent ? validateStructuredJSONSnapshot(content) : content)
+            parsed: refusal2 ? null : parseResponseFormatContent(__classPrivateFieldGet2(this, _ChatCompletionStream_params, "f")?.response_format, parseableContent ? validateStructuredJSONSnapshot(content) : content)
           });
         }
-        if (refusal && !state3.refusal_done) {
+        if (refusal2 && !state3.refusal_done) {
           state3.refusal_done = true;
-          this._emit("refusal.done", { refusal });
+          this._emit("refusal.done", { refusal: refusal2 });
         }
         if (choiceSnapshot.logprobs?.content && !state3.logprobs_content_done) {
           state3.logprobs_content_done = true;
@@ -19416,19 +19416,19 @@ var init_ChatCompletionStream = __esm({
             continue;
           }
           const message = captureStructuredMessageSnapshot(choice);
-          const refusal = captureStructuredJSONSnapshot(message, "refusal");
+          const refusal2 = captureStructuredJSONSnapshot(message, "refusal");
           const content = captureStructuredJSONSnapshot(message, "content");
           const validatedTools = /* @__PURE__ */ new Map();
           const toolCalls = captureSnapshotArray(message, "tool_calls", MAX_STREAM_TOOL_CALLS, "tool-call");
           validatedMessages.set(choice, Object.freeze({
             message,
             content,
-            refusal,
+            refusal: refusal2,
             toolCallCollection: toolCalls,
             toolCalls: validatedTools
           }));
           const state3 = __classPrivateFieldGet2(this, _ChatCompletionStream_choiceEventStates, "f")[choice.index];
-          if (parseableContent && !refusal && typeof content === "string") {
+          if (parseableContent && !refusal2 && typeof content === "string") {
             validateStructuredJSONSnapshot(content, finalJSONBudget, __classPrivateFieldGet2(this, _ChatCompletionStream_partialJSONParseBudget, "f"));
           }
           for (const [index3, identity] of state3?.tool_call_identities ?? []) {
@@ -19541,16 +19541,16 @@ var init_ChatCompletionStream = __esm({
           }
           if (logprobs) {
             if (choice.logprobs) {
-              const { content: content2, refusal: refusal2, ...rest3 } = logprobs;
+              const { content: content2, refusal: refusal3, ...rest3 } = logprobs;
               assertIsEmpty(rest3);
               assignOwnProperties(choice.logprobs, rest3);
               if (content2) {
                 (_a5 = choice.logprobs).content ?? (_a5.content = []);
                 choice.logprobs.content.push(...content2);
               }
-              if (refusal2) {
+              if (refusal3) {
                 (_b = choice.logprobs).refusal ?? (_b.refusal = []);
-                choice.logprobs.refusal.push(...refusal2);
+                choice.logprobs.refusal.push(...refusal3);
               }
             } else {
               choice.logprobs = { ...logprobs };
@@ -19579,16 +19579,16 @@ var init_ChatCompletionStream = __esm({
             continue;
           }
           __classPrivateFieldGet2(this, _ChatCompletionStream_audioDoneChoiceIndexes, "f").delete(index3);
-          const { audio, content, refusal, function_call, role, ...capturedDeltaFields } = delta;
+          const { audio, content, refusal: refusal2, function_call, role, ...capturedDeltaFields } = delta;
           const { tool_calls: capturedToolCallDelta, ...rest2 } = capturedDeltaFields;
           const tool_calls = hasOwn(capturedDeltaFields, "tool_calls") ? capturedToolCallDelta : delta.tool_calls;
           assertIsEmpty(rest2);
           assignOwnProperties(choice.message, rest2);
-          if (audio?.expires_at != null && audio.id == null && audio.data == null && audio.transcript == null && content == null && refusal == null && function_call == null && role == null && tool_calls == null && Object.keys(rest2).length === 0) {
+          if (audio?.expires_at != null && audio.id == null && audio.data == null && audio.transcript == null && content == null && refusal2 == null && function_call == null && role == null && tool_calls == null && Object.keys(rest2).length === 0) {
             __classPrivateFieldGet2(this, _ChatCompletionStream_audioDoneChoiceIndexes, "f").add(index3);
           }
-          if (refusal) {
-            choice.message.refusal = (choice.message.refusal || "") + refusal;
+          if (refusal2) {
+            choice.message.refusal = (choice.message.refusal || "") + refusal2;
           }
           if (role) {
             choice.message.role = role;
@@ -39063,13 +39063,69 @@ var stateFacts = (states, prefix) => Object.entries(states).flatMap(([name, node
 });
 var planFacts = (plan) => new Map(stateFacts(plan.machine.states, []));
 
-// ../../packages/core/dist/plans/step-kinds.js
+// ../../packages/core/dist/plans/declared-thinking.js
 import { Context as Context8 } from "effect";
+var DeclaredThinking = Context8.Reference("@mischief/core/DeclaredThinking", { defaultValue: () => ({ fallback: "low", models: {} }) });
+var capThinking = (level, ceiling) => thinkingLevels.indexOf(level) > thinkingLevels.indexOf(ceiling) ? ceiling : level;
+var askedBy = (plan, declaration, { agent, field, subject, where }) => ({
+  field,
+  from: agent.thinking === void 0 ? "default" : "plan",
+  level: agent.thinking ?? capThinking(declaration.fallback, plan.envelope.maxThinking),
+  model: agent.model ?? plan.envelope.models[0],
+  subject,
+  where
+});
+var askersOf = (plan) => {
+  const { agent } = plan.defaults;
+  const judged = plan.envelope.thresholds.think !== void 0;
+  return [
+    {
+      agent,
+      field: "defaults.agent",
+      subject: "the plan's default agent",
+      where: "defaults.agent"
+    },
+    ...stepsOf(plan.machine.states).flatMap(({ step, where }) => {
+      if (step.kind === "think") {
+        return [
+          {
+            agent: { ...agent, ...step.agent },
+            field: "its agent",
+            subject: "this think",
+            where
+          }
+        ];
+      }
+      return step.kind === "judge" && judged ? [
+        {
+          agent,
+          field: "defaults.agent",
+          subject: "this judge's think rung, which runs defaults.agent,",
+          where
+        }
+      ] : [];
+    })
+  ];
+};
+var declaring = (declaration, level) => Object.entries(declaration.models).filter(([, levels]) => levels.includes(level)).map(([name]) => name);
+var refusal = (declaration, { field, from: from4, level, model, subject, where }, declared) => {
+  const source = from4 === "plan" ? `thinking "${level}"` : `thinking "${level}" (the host default "${declaration.fallback}", capped by envelope.maxThinking)`;
+  const others = declaring(declaration, level);
+  return `${where}: ${subject} asks model "${model}" for ${source}, which "${model}" does not declare, so the provider would silently get a lower level. "${model}" declares: ${declared.join(", ")}. Fix: set ${field}.thinking to one of those, or set ${field}.model to a model that declares "${level}" (${others.join(", ") || "none on this host"})`;
+};
+var undeclaredThinking = (plan, declaration) => askersOf(plan).flatMap((asker) => {
+  const asked = askedBy(plan, declaration, asker);
+  const declared = declaration.models[asked.model];
+  return declared === void 0 || declared.includes(asked.level) ? [] : [refusal(declaration, asked, declared)];
+});
+
+// ../../packages/core/dist/plans/step-kinds.js
+import { Context as Context9 } from "effect";
 var STEP_KINDS_FLAG = "MISCHIEF_STEP_KINDS";
 var gatedStepKinds = ["call"];
 var isGated = (name) => gatedStepKinds.some((kind) => kind === name);
 var stepKindsFrom = (text) => new Set((text ?? "").split(",").map((name) => name.trim()).filter(isGated));
-var EnabledStepKinds = Context8.Reference("@mischief/core/EnabledStepKinds", { defaultValue: () => /* @__PURE__ */ new Set() });
+var EnabledStepKinds = Context9.Reference("@mischief/core/EnabledStepKinds", { defaultValue: () => /* @__PURE__ */ new Set() });
 var turnOn = (kind) => `A host turns it on with ${STEP_KINDS_FLAG}=${kind}, and turning it on for real runs needs Joel's approval, so ask Joel before setting it`;
 var stepKindOff = (where, kind) => `${where}: step kind "${kind}" is off on this host. ${turnOn(kind)}. Until then, express this step with think or switch, then call submitPlan again`;
 var ephemeralThinkOff = (where) => `${where}: a think with ephemeral or post calls host capabilities, so it needs step kind "call", which is off on this host. ${turnOn("call")}. Until then, drop ephemeral and post from this think, then call submitPlan again`;
@@ -39430,7 +39486,7 @@ var refuseCode = (input) => {
   const code = findCode(input, "$");
   return code.length > 0 ? new PlanRefused({ errors: code }) : Effect10.void;
 };
-var checkPlan = Effect10.fn("checkPlan")(function* checkPlan2(plan, seeded = []) {
+var checkPlan = Effect10.fn("checkPlan")(function* checkPlan2(plan, seeded = [], hostRefusals = []) {
   const enabled = yield* EnabledStepKinds;
   const registry = yield* CallRegistry;
   const resolved = resolveStates(plan, plan.machine.states, []);
@@ -39444,7 +39500,8 @@ var checkPlan = Effect10.fn("checkPlan")(function* checkPlan2(plan, seeded = [])
       `plan has ${resolved.agents} think steps, envelope.maxAgents allows ${plan.envelope.maxAgents}. Asks to existing Rat King names do not count. Cut think steps or raise maxAgents`
     ] : [],
     ...docRefErrors(resolvedPlan, seeded),
-    ...callErrors(plan, enabled, registry)
+    ...callErrors(plan, enabled, registry),
+    ...hostRefusals
   ];
   if (errors.length > 0) {
     return yield* new PlanRefused({ errors });
@@ -39468,7 +39525,8 @@ var validatePlan = Effect10.fn("validatePlan")(function* validatePlan2(input, se
   yield* refuseCode(input);
   yield* refuseRetired(input);
   const plan = yield* decodePlan(input).pipe(Effect10.mapError((issue) => new PlanRefused({ errors: [issue.message] })));
-  return yield* checkPlan(plan, seeded);
+  const declared = yield* DeclaredThinking;
+  return yield* checkPlan(plan, seeded, undeclaredThinking(plan, declared));
 });
 
 // ../../packages/core/dist/runs/answer-refused.js
@@ -39907,10 +39965,10 @@ var extendRunContract = defineContract("extendRun", {
 });
 
 // ../../packages/core/dist/runs/host.js
-import { Clock as Clock3, Context as Context17, Effect as Effect25, Layer as Layer11, Option as Option11, Result as Result5, Schema as Schema38 } from "effect";
+import { Clock as Clock3, Context as Context18, Effect as Effect25, Layer as Layer11, Option as Option11, Result as Result5, Schema as Schema38 } from "effect";
 
 // ../../packages/core/dist/steps/judge.js
-import { Context as Context9, Effect as Effect12, Layer as Layer4, Schema as Schema22 } from "effect";
+import { Context as Context10, Effect as Effect12, Layer as Layer4, Schema as Schema22 } from "effect";
 var WHY_LINES = 8;
 var WHY_LINE_CHARS = 240;
 var WhySchema = Schema22.Array(Schema22.String.check(Schema22.isMaxLength(WHY_LINE_CHARS))).check(Schema22.isMaxLength(WHY_LINES));
@@ -39921,22 +39979,22 @@ var unwired = (call) => Effect12.fail(new StepFailed({
   key: call.key,
   reason: "this host has no Jev judge wired. Wire one (the CLI host takes MISCHIEF_JEV_KEY, a TypeSafe key) or give the judge step a fallback transition, then resume the run"
 }));
-var Judge = class extends Context9.Service()("@mischief/core/Judge") {
+var Judge = class extends Context10.Service()("@mischief/core/Judge") {
   static unwired = Layer4.succeed(this, {
     choose: unwired
   });
 };
 
 // ../../packages/core/dist/steps/operator.js
-import { Context as Context10 } from "effect";
-var Operator = class extends Context10.Service()("@mischief/core/Operator") {
+import { Context as Context11 } from "effect";
+var Operator = class extends Context11.Service()("@mischief/core/Operator") {
 };
 
 // ../../packages/core/dist/runs/close-asks.js
 import { Effect as Effect15, Option as Option4, Result, Schema as Schema26 } from "effect";
 
 // ../../packages/core/dist/steps/mail.js
-import { Context as Context11, Effect as Effect13, Layer as Layer5, Schema as Schema23 } from "effect";
+import { Context as Context12, Effect as Effect13, Layer as Layer5, Schema as Schema23 } from "effect";
 var SealedSchema = Schema23.Struct({
   envelope: Schema23.String,
   messageId: Schema23.String
@@ -39945,7 +40003,7 @@ var unwired2 = (call) => Effect13.fail(new StepFailed({
   key: call.key,
   reason: "Mail is not wired on this host"
 }));
-var Mail = class extends Context11.Service()("@mischief/core/Mail") {
+var Mail = class extends Context12.Service()("@mischief/core/Mail") {
   static unwired = Layer5.succeed(this, {
     seal: unwired2,
     send: unwired2
@@ -39953,7 +40011,7 @@ var Mail = class extends Context11.Service()("@mischief/core/Mail") {
 };
 
 // ../../packages/core/dist/runs/run-store.js
-import { Cause as Cause3, Context as Context12, Effect as Effect14, Exit as Exit3, Layer as Layer6, Option as Option3 } from "effect";
+import { Cause as Cause3, Context as Context13, Effect as Effect14, Exit as Exit3, Layer as Layer6, Option as Option3 } from "effect";
 
 // ../../packages/core/dist/runs/run-left-uncommitted.js
 import { Schema as Schema24 } from "effect";
@@ -40155,7 +40213,7 @@ var memoryRunBackend = () => {
     readRun: (runId2) => Effect14.sync(() => Option3.fromUndefinedOr(runs.get(runId2)).pipe(Option3.map((state3) => structuredClone(state3))))
   };
 };
-var RunStore = class extends Context12.Service()("@mischief/core/RunStore") {
+var RunStore = class extends Context13.Service()("@mischief/core/RunStore") {
   static memory = Layer6.sync(this, () => bufferedRunStore(memoryRunBackend()));
 };
 var withinRun = (store, runId2) => (effect) => Effect14.acquireUseRelease(store.open(runId2), () => effect, (_, exit) => (Exit3.isSuccess(exit) || Cause3.hasFails(exit.cause) && !Cause3.hasDies(exit.cause) && !Cause3.hasInterrupts(exit.cause) ? store.commit(runId2) : store.discard(runId2)).pipe(Effect14.andThen(store.close(runId2))));
@@ -40222,13 +40280,13 @@ var decodeJson = Schema27.decodeUnknownOption(Schema27.fromJsonString(Schema27.J
 var stepOf = (actor) => Schema27.decodeUnknownOption(ActorStepSchema)(actor).pipe(Option5.flatMap(({ options: options2 }) => decodeJson(JSON.stringify({ input: options2.input, src: options2.src }))), Option5.getOrElse(() => null));
 
 // ../../packages/core/dist/runs/provider-resume.js
-import { Context as Context13, Effect as Effect17, Layer as Layer7, Random, Schema as Schema28 } from "effect";
+import { Context as Context14, Effect as Effect17, Layer as Layer7, Random, Schema as Schema28 } from "effect";
 var ProviderResumeSchema = Schema28.Struct({
   attempts: Schema28.Int.check(Schema28.isGreaterThanOrEqualTo(0)),
   baseMs: Schema28.Int.check(Schema28.isGreaterThanOrEqualTo(1)),
   capMs: Schema28.Int.check(Schema28.isGreaterThanOrEqualTo(1))
 });
-var ProviderResume = Context13.Reference("@mischief/core/ProviderResume", {
+var ProviderResume = Context14.Reference("@mischief/core/ProviderResume", {
   defaultValue: () => ({ attempts: 6, baseMs: 3e4, capMs: 9e5 })
 });
 var setting = (text, fallback) => text === void 0 || text.trim() === "" ? fallback : Number(text);
@@ -40297,10 +40355,10 @@ var amendPlan = (plan, point, amendment) => ({
 });
 
 // ../../packages/core/dist/steps/call-concurrency.js
-import { Context as Context14, Effect as Effect18, Layer as Layer8, Result as Result2, Schema as Schema29 } from "effect";
+import { Context as Context15, Effect as Effect18, Layer as Layer8, Result as Result2, Schema as Schema29 } from "effect";
 var CALL_CONCURRENCY_FLAG = "MISCHIEF_CALL_CONCURRENCY";
 var DEFAULT_CALL_CONCURRENCY = 16;
-var CallConcurrency = Context14.Reference("@mischief/core/CallConcurrency", { defaultValue: () => DEFAULT_CALL_CONCURRENCY });
+var CallConcurrency = Context15.Reference("@mischief/core/CallConcurrency", { defaultValue: () => DEFAULT_CALL_CONCURRENCY });
 var CallConcurrencyRefused = class extends Schema29.TaggedError()("CallConcurrencyRefused", { given: Schema29.String }) {
   get message() {
     return `${CALL_CONCURRENCY_FLAG}="${this.given}" is refused: it caps the capability calls one run invokes at once, so it must be a positive whole number such as ${DEFAULT_CALL_CONCURRENCY}. Set ${CALL_CONCURRENCY_FLAG}=${DEFAULT_CALL_CONCURRENCY}, or leave it unset for the default of ${DEFAULT_CALL_CONCURRENCY}, then start the host again`;
@@ -40316,10 +40374,10 @@ var callConcurrencyFrom = (text) => {
 var callConcurrencyLayer = (text) => Layer8.effect(CallConcurrency, Effect18.fromResult(callConcurrencyFrom(text)).pipe(Effect18.orDie));
 
 // ../../packages/core/dist/steps/think-concurrency.js
-import { Context as Context15, Effect as Effect19, Layer as Layer9, Result as Result3, Schema as Schema30 } from "effect";
+import { Context as Context16, Effect as Effect19, Layer as Layer9, Result as Result3, Schema as Schema30 } from "effect";
 var THINK_CONCURRENCY_FLAG = "MISCHIEF_THINK_CONCURRENCY";
 var DEFAULT_THINK_CONCURRENCY = 20;
-var ThinkConcurrency = Context15.Reference("@mischief/core/ThinkConcurrency", { defaultValue: () => DEFAULT_THINK_CONCURRENCY });
+var ThinkConcurrency = Context16.Reference("@mischief/core/ThinkConcurrency", { defaultValue: () => DEFAULT_THINK_CONCURRENCY });
 var ThinkConcurrencyRefused = class extends Schema30.TaggedError()("ThinkConcurrencyRefused", { given: Schema30.String }) {
   get message() {
     return `${THINK_CONCURRENCY_FLAG}="${this.given}" is refused: it caps the think calls one run sends to the model at once, so it must be a positive whole number such as ${DEFAULT_THINK_CONCURRENCY}. Set ${THINK_CONCURRENCY_FLAG}=${DEFAULT_THINK_CONCURRENCY}, or leave it unset for the default of ${DEFAULT_THINK_CONCURRENCY}, then start the host again`;
@@ -40341,12 +40399,12 @@ var ThinkModelUnmapped = class extends Data5.TaggedError("ThinkModelUnmapped") {
 var unmappedReason = ({ mapped, model }) => `ThinkModelUnmapped: the think rung asks for model "${model}", which this host does not map (mapped: ${mapped.join(", ") || "none"}), so no model weighed in and the judge came to you. Fix: answer the question. To let the think rung decide next time, set the plan's defaults.agent.model to a mapped model, or drop envelope.thresholds.think to send every sub-threshold verdict straight to you.`;
 
 // ../../packages/core/dist/steps/thinker.js
-import { Context as Context16, Effect as Effect20, Layer as Layer10 } from "effect";
+import { Context as Context17, Effect as Effect20, Layer as Layer10 } from "effect";
 var unwired3 = (call) => Effect20.fail(new StepFailed({
   key: call.key,
   reason: "Thinker is not wired on this host"
 }));
-var Thinker = class extends Context16.Service()("@mischief/core/Thinker") {
+var Thinker = class extends Context17.Service()("@mischief/core/Thinker") {
   static unwired = Layer10.succeed(this, {
     decide: unwired3,
     elaborate: unwired3,
@@ -41508,7 +41566,7 @@ var checkSubmission = Effect24.fn("checkSubmission")(function* checkSubmission2(
 
 // ../../packages/core/dist/runs/host.js
 var decodeJsonObject2 = Schema38.decodeUnknownOption(Schema38.JsonObject);
-var RunHost = class extends Context17.Service()("@mischief/core/RunHost", {
+var RunHost = class extends Context18.Service()("@mischief/core/RunHost", {
   make: Effect25.gen(function* makeRunHost() {
     const context = yield* Effect25.context();
     const store = yield* RunStore;
@@ -41516,8 +41574,9 @@ var RunHost = class extends Context17.Service()("@mischief/core/RunHost", {
     const judge = yield* Judge;
     const enabledKinds = yield* EnabledStepKinds;
     const registry = yield* CallRegistry;
+    const declared = yield* DeclaredThinking;
     const resumePolicy = yield* ProviderResume;
-    const hostGates = (effect) => effect.pipe(Effect25.provideService(EnabledStepKinds, enabledKinds), Effect25.provideService(CallRegistry, registry));
+    const hostGates = (effect) => effect.pipe(Effect25.provideService(EnabledStepKinds, enabledKinds), Effect25.provideService(CallRegistry, registry), Effect25.provideService(DeclaredThinking, declared));
     const loadRun = Effect25.fn("RunHost.loadRun")(function* loadRun2(runId2) {
       const state3 = yield* store.readRun(runId2);
       if (Option11.isNone(state3)) {
@@ -42120,8 +42179,8 @@ var decide = (state3, now2, seen) => {
 };
 
 // ../../packages/core/dist/schedules/schedule-alarm.js
-import { Context as Context18 } from "effect";
-var ScheduleAlarm = class extends Context18.Service()("@mischief/core/ScheduleAlarm") {
+import { Context as Context19 } from "effect";
+var ScheduleAlarm = class extends Context19.Service()("@mischief/core/ScheduleAlarm") {
 };
 
 // ../../packages/core/dist/schedules/schedule-refused.js
@@ -42134,8 +42193,8 @@ ${this.errors.map((error) => `- ${error}`).join("\n")}`;
 };
 
 // ../../packages/core/dist/schedules/schedule-store.js
-import { Context as Context19 } from "effect";
-var ScheduleStore = class extends Context19.Service()("@mischief/core/ScheduleStore") {
+import { Context as Context20 } from "effect";
+var ScheduleStore = class extends Context20.Service()("@mischief/core/ScheduleStore") {
 };
 
 // ../../packages/core/dist/schedules/unknown-schedule.js
@@ -42147,8 +42206,8 @@ var UnknownSchedule = class extends Schema43.TaggedError()("UnknownSchedule", { 
 };
 
 // ../../packages/core/dist/schedules/wake-runs.js
-import { Context as Context20 } from "effect";
-var WakeRuns = class extends Context20.Service()("@mischief/core/WakeRuns") {
+import { Context as Context21 } from "effect";
+var WakeRuns = class extends Context21.Service()("@mischief/core/WakeRuns") {
 };
 
 // ../../packages/core/dist/schedules/host.js
@@ -42611,7 +42670,7 @@ var provideMiddleware = (id, hook, index3) => {
 };
 var refusalMiddleware = (id, render) => {
   const key = HttpApiMiddleware.Service()(`@mischief/capability/${id}/decode-refusal`);
-  const layer2 = HttpApiMiddleware.layerSchemaErrorTransform(key, (refusal) => REQUEST_REFUSALS.has(refusal.kind) ? render(refusal) : Effect33.fail(refusal));
+  const layer2 = HttpApiMiddleware.layerSchemaErrorTransform(key, (refusal2) => REQUEST_REFUSALS.has(refusal2.kind) ? render(refusal2) : Effect33.fail(refusal2));
   return { key, layer: layer2 };
 };
 var withMiddleware = (group, middleware) => {
@@ -59473,6 +59532,18 @@ var openAIResponsesApi = () => lazyApi(() => Promise.resolve().then(() => (init_
 // ../../packages/thinking/dist/gateway.js
 init_models();
 import { Hash as Hash3, Redacted, Schema as Schema51 } from "effect";
+
+// ../../packages/thinking/dist/declared.js
+init_models();
+var declaredThinkingOf = (models, modelRefs, fallback) => ({
+  fallback,
+  models: Object.fromEntries(Object.entries(modelRefs).flatMap(([name, { modelId, provider }]) => {
+    const model = models.getModel(provider, modelId);
+    return model === void 0 ? [] : [[name, getSupportedThinkingLevels(model)]];
+  }))
+});
+
+// ../../packages/thinking/dist/gateway.js
 var GATEWAY_MODELS = {
   "gpt-6-luna": "gpt-6-luna",
   "gpt-6.1-sol": "gpt-6.1-sol",
@@ -59561,12 +59632,14 @@ var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2 }) => 
       ...LIMITS[id]
     }))
   }));
+  const modelRefs = Object.fromEntries(Object.entries(GATEWAY_MODELS).map(([name, modelId]) => [
+    name,
+    { modelId, provider: PROVIDER }
+  ]));
   return {
+    declared: declaredThinkingOf(models, modelRefs, THINK_DEFAULT.thinking),
     defaults: THINK_DEFAULT,
-    modelRefs: Object.fromEntries(Object.entries(GATEWAY_MODELS).map(([name, modelId]) => [
-      name,
-      { modelId, provider: PROVIDER }
-    ])),
+    modelRefs,
     models,
     registry: createRegistry(),
     storageFor,
@@ -59653,7 +59726,7 @@ var jevJudge = ({ apiKey, patience = JEV_PATIENCE, retryBase = "500 millis", url
         return Effect38.fail(failed3(`judge "jev" needs a criterion for every transition, and ${bare.join(", ")} has none. Fix: reviseRun with criteria on this judge step (one description per transition in on), then resume`));
       }
       const unavailable = (cause, status) => new ProviderUnavailable({ cause, key, provider: "jev", status });
-      const refusal = (status) => {
+      const refusal2 = (status) => {
         if (status === 402) {
           return unavailable("billing", status);
         }
@@ -59670,7 +59743,7 @@ var jevJudge = ({ apiKey, patience = JEV_PATIENCE, retryBase = "500 millis", url
         schedule: Schedule.exponential(retryBase),
         times: 4,
         while: Predicate6.isTagged("Busy")
-      }), Effect38.catchTag("Busy", ({ status }) => Effect38.fail(unavailable("busy", status))), Effect38.flatMap((response) => response.status === 200 ? response.json.pipe(Effect38.mapError(() => failed3("TypeSafe's answer was not JSON. Resume the run"))) : Effect38.fail(refusal(response.status))), Effect38.flatMap((body) => Schema52.decodeUnknownEffect(Evaluation)(body).pipe(Effect38.mapError(() => failed3("TypeSafe's answer did not hold one Choice or Noul. Resume the run; if it repeats, the API has changed")))), Effect38.flatMap(({ answers, usage }) => {
+      }), Effect38.catchTag("Busy", ({ status }) => Effect38.fail(unavailable("busy", status))), Effect38.flatMap((response) => response.status === 200 ? response.json.pipe(Effect38.mapError(() => failed3("TypeSafe's answer was not JSON. Resume the run"))) : Effect38.fail(refusal2(response.status))), Effect38.flatMap((body) => Schema52.decodeUnknownEffect(Evaluation)(body).pipe(Effect38.mapError(() => failed3("TypeSafe's answer did not hold one Choice or Noul. Resume the run; if it repeats, the API has changed")))), Effect38.flatMap(({ answers, usage }) => {
         const problem = answerProblem(answers.decision, options2);
         return problem === void 0 ? Effect38.succeed({
           probabilities: probabilitiesOf(answers.decision),
@@ -59682,6 +59755,7 @@ var jevJudge = ({ apiKey, patience = JEV_PATIENCE, retryBase = "500 millis", url
 }));
 
 // ../../packages/thinking/dist/pi-thinker.js
+init_models();
 import { Clock as Clock6, Deferred as Deferred3, Effect as Effect39, Layer as Layer19, Option as Option19, Ref as Ref3, Schema as Schema54, Semaphore as Semaphore4 } from "effect";
 
 // ../../packages/thinking/dist/provider-status.js
@@ -59733,13 +59807,16 @@ var causeOf = (status) => {
 };
 
 // ../../packages/thinking/dist/receipt.js
-var above = (level, ceiling) => thinkingLevels.indexOf(level) > thinkingLevels.indexOf(ceiling);
 var thinkingOf = (agent, defaults2, ceiling) => {
   if (agent.thinking !== void 0) {
     return { thinking: agent.thinking, thinkingFrom: "plan" };
   }
   const fallback = defaults2?.thinking ?? "low";
-  return above(fallback, ceiling) ? { thinking: ceiling, thinkingFrom: "envelope" } : { thinking: fallback, thinkingFrom: "default" };
+  const thinking = capThinking(fallback, ceiling);
+  return {
+    thinking,
+    thinkingFrom: thinking === fallback ? "default" : "envelope"
+  };
 };
 var requestedOf = (agent, defaults2, ceiling) => ({
   from: agent.model === void 0 ? "default" : "plan",
@@ -59755,13 +59832,13 @@ var tokensOf = ({ cacheRead, input, output, totalTokens }) => ({
   output,
   total: totalTokens
 });
-var effectiveOf = (answer2) => ({
+var effectiveOf = (answer2, sent) => ({
   model: answer2.responseModel ?? answer2.model,
-  thinking: answer2.providerThinkingLevel ?? answer2.thinkingLevel ?? null
+  thinking: answer2.providerThinkingLevel ?? sent
 });
-var matchedOf = (answer2, modelId, thinking) => servedAs(answer2.responseModel, modelId) && (answer2.providerThinkingLevel === void 0 || answer2.providerThinkingLevel === thinking);
+var matchedOf = (answer2, modelId, thinking, sent) => servedAs(answer2.responseModel, modelId) && (answer2.providerThinkingLevel ?? sent) === thinking;
 var requestedFields = ({ from: from4, model, thinking, thinkingFrom }) => ({ from: from4, model, thinking, thinkingFrom });
-var receiptOf = (requested, modelId, messages) => {
+var receiptOf = (requested, modelId, sent, messages) => {
   const answer2 = answerOf(messages);
   if (answer2 === void 0) {
     return {
@@ -59773,9 +59850,9 @@ var receiptOf = (requested, modelId, messages) => {
     };
   }
   return {
-    effective: effectiveOf(answer2),
+    effective: effectiveOf(answer2, sent),
     latencyMs: answer2.durationMs === void 0 ? null : Math.round(answer2.durationMs),
-    matched: matchedOf(answer2, modelId, requested.thinking),
+    matched: matchedOf(answer2, modelId, requested.thinking, sent),
     requested: requestedFields(requested),
     tokens: tokensOf(answer2.usage)
   };
@@ -59824,7 +59901,7 @@ var thought = (answered) => answered.pipe(Effect39.catchTag("ThinkModelUnmapped"
   receipt,
   tokens
 })));
-var piThinker = (options2) => Layer19.effect(Thinker, Effect39.gen(function* make() {
+var thinkerOf = (options2) => Layer19.effect(Thinker, Effect39.gen(function* make() {
   const open3 = yield* Ref3.make(/* @__PURE__ */ new Map());
   const opening = yield* Semaphore4.make(1);
   yield* Effect39.addFinalizer(() => Ref3.get(open3).pipe(Effect39.flatMap((harnesses) => Effect39.forEach(harnesses.values(), (harness) => Effect39.promise(async () => {
@@ -59980,7 +60057,8 @@ var piThinker = (options2) => Layer19.effect(Thinker, Effect39.gen(function* mak
       "cache.write": totals.reduce((sum, u) => sum + u.cacheWrite, 0),
       respawn: fresh && !created
     });
-    const receipt = receiptOf(requested, model.modelId, page3.items[0]?.model);
+    const served = options2.models.getModel(model.provider, model.modelId);
+    const receipt = receiptOf(requested, model.modelId, served === void 0 ? requested.thinking : clampThinkingLevel(served, requested.thinking), page3.items[0]?.model);
     yield* Effect39.logInfo("mischief.think").pipe(Effect39.annotateLogs({
       key: call.key,
       receipt: JSON.stringify(receipt),
@@ -60008,6 +60086,10 @@ Answer with one JSON object and nothing else: {"choice": <one of ${JSON.stringif
     think: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), call.prompt, harnessFor(call)).pipe(thought),
     thinkUnrecorded: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), call.prompt, unrecordedHarness(call)).pipe(thought, Effect39.scoped)
   });
+}));
+var piThinker = (options2) => Layer19.merge(thinkerOf(options2), Layer19.succeed(DeclaredThinking, options2.declared ?? {
+  fallback: options2.defaults?.thinking ?? "low",
+  models: {}
 }));
 
 // src/plan-run-object.ts
@@ -72475,7 +72557,7 @@ import { Schema as Schema132 } from "effect";
 import { Schema as Schema152 } from "effect";
 import { Schema as Schema162 } from "effect";
 import { Effect as Effect72, Schema as Schema172 } from "effect";
-import { Context as Context21 } from "effect";
+import { Context as Context23 } from "effect";
 import { Schema as Schema182 } from "effect";
 import { Clock as Clock32, Context as Context62, Effect as Effect152, Layer as Layer42, Option as Option32, Schema as Schema302 } from "effect";
 import { Context as Context42, Effect as Effect92, Layer as Layer23, Schema as Schema212 } from "effect";
@@ -74108,7 +74190,7 @@ var Method9 = {
   params: Params10,
   path: "/xrpc/sh.mschf.ratking.runtime.resolveLease"
 };
-var Transport = class extends Context21.Service()("@rat-king/lexicon/Transport") {
+var Transport = class extends Context23.Service()("@rat-king/lexicon/Transport") {
 };
 var XrpcFailure = class extends Schema182.TaggedError()(
   "XrpcFailure",
@@ -75746,14 +75828,14 @@ var nameFor = (did2) => {
 };
 
 // src/mailroom-port.ts
-import { Context as Context23, Schema as Schema61 } from "effect";
+import { Context as Context24, Schema as Schema61 } from "effect";
 var SendVerdict = Schema61.TaggedUnion({
   Accepted: {},
   Conflict: {},
   Refused: { reason: Schema61.String },
   Uncertain: { reason: Schema61.String }
 });
-var Mailroom = class extends Context23.Service()("@mischief/worker/Mailroom") {
+var Mailroom = class extends Context24.Service()("@mischief/worker/Mailroom") {
 };
 
 // src/postbox-failed.ts
@@ -75768,12 +75850,12 @@ var PostboxFailed = class extends Schema63.TaggedError()(
 import { Duration as Duration5, Effect as Effect45, Option as Option26, Schedule as Schedule3, Schema as Schema65 } from "effect";
 
 // src/runs-port.ts
-import { Context as Context24, Schema as Schema64 } from "effect";
+import { Context as Context25, Schema as Schema64 } from "effect";
 var Delivered = Schema64.TaggedUnion({
   Journaled: {},
   Refused: { reason: Schema64.String }
 });
-var Runs3 = class extends Context24.Service()("@mischief/worker/Runs") {
+var Runs3 = class extends Context25.Service()("@mischief/worker/Runs") {
 };
 
 // src/postbox.ts
@@ -76777,9 +76859,9 @@ var ServiceTokenLedger = class extends DurableObject4 {
 import { Effect as Effect211 } from "effect";
 import { Schema as Schema74 } from "effect";
 import { Effect as Effect50 } from "effect";
-import { Context as Context25, Effect as Effect311, Layer as Layer27, Schema as Schema311 } from "effect";
+import { Context as Context26, Effect as Effect311, Layer as Layer27, Schema as Schema311 } from "effect";
 import { Schema as Schema211 } from "effect";
-import { Context as Context26 } from "effect";
+import { Context as Context27 } from "effect";
 var concatenate2 = (...parts2) => {
   const result = new Uint8Array(
     parts2.reduce((length3, part) => length3 + part.length, 0)
@@ -76852,7 +76934,7 @@ var ServiceAuthFailure2 = class extends Schema211.TaggedError()(
   }
 ) {
 };
-var ReplayAuthority2 = class extends Context26.Service()("mailbox/ReplayAuthority") {
+var ReplayAuthority2 = class extends Context27.Service()("mailbox/ReplayAuthority") {
 };
 var failure4 = (error, status, message) => {
   if (message === void 0) {
@@ -76899,7 +76981,7 @@ var Document2 = Schema311.Struct({
   )
 });
 var Documents2 = Schema311.Array(Document2);
-var DidResolver2 = class extends Context25.Service()("mailbox/DidResolver") {
+var DidResolver2 = class extends Context26.Service()("mailbox/DidResolver") {
 };
 var documentResolver2 = (lookup) => Layer27.succeed(
   DidResolver2,

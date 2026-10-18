@@ -13,6 +13,7 @@ const World = Schema.Struct({
   defaultLevel: Level,
   planLevel: Schema.optionalKey(Level),
   planModel: Schema.optionalKey(Schema.Literals(["gpt-6.1-sol", "sol"])),
+  sentLevel: Schema.optionalKey(Level),
   servedLevel: Schema.optionalKey(Level),
   servedModel: Schema.optionalKey(
     Schema.Literals(["gpt-6.1-sol", "gpt-6.1-sol-2026-10-01", "gpt-6-luna"])
@@ -62,7 +63,7 @@ const agentOf = (world: typeof World.Type): AgentConfig => {
 };
 
 it.prop(
-  "a receipt names who chose the model, and is unmatched exactly when the server answered with another model or effort",
+  "a receipt names who chose the model, claims only the effort sent or served, and is unmatched exactly when the server answered with another model or effort",
   { world: World },
   ({ world }) => {
     const requested = requestedOf(
@@ -71,7 +72,9 @@ it.prop(
       world.ceiling
     );
 
-    const receipt = receiptOf(requested, MODEL_ID, [answer(world)]);
+    const sent = world.sentLevel ?? requested.thinking;
+
+    const receipt = receiptOf(requested, MODEL_ID, sent, [answer(world)]);
 
     expect(receipt.requested.from).toBe(
       world.planModel === undefined ? "default" : "plan"
@@ -94,10 +97,11 @@ it.prop(
 
     const otherModel = world.servedModel === "gpt-6-luna";
 
-    const otherLevel =
-      world.servedLevel !== undefined &&
-      world.servedLevel !== receipt.requested.thinking;
+    const claimed = world.servedLevel ?? sent;
 
+    const otherLevel = claimed !== receipt.requested.thinking;
+
+    expect(receipt.effective.thinking).toBe(claimed);
     expect(receipt.matched).toBe(!otherModel && !otherLevel);
     expect(receipt.effective.model).toBe(world.servedModel ?? MODEL_ID);
     expect(receipt.tokens.total).toBe(world.tokens);
@@ -108,6 +112,7 @@ it("a turn with no assistant answer is recorded as unmatched, never as the reque
   const receipt = receiptOf(
     requestedOf({}, { model: MODEL_ID, thinking: "medium" }, "high"),
     MODEL_ID,
+    "medium",
     []
   );
 

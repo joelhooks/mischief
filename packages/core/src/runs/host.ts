@@ -1,5 +1,6 @@
 import { Clock, Context, Effect, Layer, Option, Result, Schema } from "effect";
 
+import { DeclaredThinking } from "../plans/declared-thinking.js";
 import { EnabledStepKinds } from "../plans/step-kinds.js";
 import { PlanRefused, validatePlan } from "../plans/validate.js";
 import { CallRegistry } from "../steps/call-registry.js";
@@ -71,12 +72,14 @@ export class RunHost extends Context.Service<
     const judge = yield* Judge;
     const enabledKinds = yield* EnabledStepKinds;
     const registry = yield* CallRegistry;
+    const declared = yield* DeclaredThinking;
     const resumePolicy = yield* ProviderResume;
 
     const hostGates = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       effect.pipe(
         Effect.provideService(EnabledStepKinds, enabledKinds),
-        Effect.provideService(CallRegistry, registry)
+        Effect.provideService(CallRegistry, registry),
+        Effect.provideService(DeclaredThinking, declared)
       );
 
     const loadRun = Effect.fn("RunHost.loadRun")(function* loadRun(

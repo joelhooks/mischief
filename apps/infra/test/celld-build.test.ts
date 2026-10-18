@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, Schema } from "effect";
+import { Effect, Path, Schema } from "effect";
 
 import { buildWorker, declaration } from "../celld-build.ts";
 
@@ -12,7 +12,10 @@ const ConfigurationSchema = Schema.Struct({
   }),
   main: Schema.String,
   migrations: Schema.Array(
-    Schema.Struct({ new_sqlite_classes: Schema.Array(Schema.String) })
+    Schema.Struct({
+      new_sqlite_classes: Schema.Array(Schema.String),
+      tag: Schema.String,
+    })
   ),
   name: Schema.String,
   vars: Schema.Record(Schema.String, Schema.String),
@@ -67,6 +70,45 @@ it.effect(
       expect(prepared.bundle).toMatch(/export \{[^}]*\bServiceTokenLedger\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPostbox\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bSchedule\b/u);
+      expect(prepared.bundle).not.toMatch(/from "node:/u);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  60_000
+);
+
+it.effect(
+  "a custom consumer entry builds for workerd without changing bindings, migrations or default flags",
+  () =>
+    Effect.gen(function* customEntry() {
+      const path = yield* Path.Path;
+
+      const prepared = yield* buildWorker({
+        callers: "[]",
+        commit: "0123456",
+        did: "did:web:mischief.example.invalid",
+        entry: path.resolve(
+          import.meta.dirname,
+          "../../worker/test/fixtures/call-worker.ts"
+        ),
+        judge: "shadow",
+        mailbox: {
+          did: "did:web:mailbox.example.invalid",
+          url: "http://mailbox.example.invalid",
+        },
+        thinker: { model: "faux" },
+        version: "0.1.0",
+      });
+
+      const configuration = yield* Schema.decodeUnknownEffect(
+        Schema.fromJsonString(ConfigurationSchema)
+      )(prepared.configuration);
+
+      expect(configuration.durable_objects).toEqual(
+        declaration.durable_objects
+      );
+      expect(configuration.migrations).toEqual(declaration.migrations);
+      expect(configuration.vars.MISCHIEF_STEP_KINDS).toBeUndefined();
+      expect(configuration.vars.MISCHIEF_CALL_CONCURRENCY).toBeUndefined();
+      expect(prepared.bundle).toContain("count-refs");
       expect(prepared.bundle).not.toMatch(/from "node:/u);
     }).pipe(Effect.provide(NodeServices.layer)),
   60_000

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+apps/worker/bundle/index.js
+apps/worker/bundle/types/
 .turbo/
 coverage/
 .rat/deploy/

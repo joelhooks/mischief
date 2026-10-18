@@ -23,7 +23,12 @@ export {
   type FileStats,
 } from "./stats.js";
 
-export { PlanSchema, thinkingLevels, type Plan } from "./plans/schema.js";
+export {
+  CapabilityName,
+  PlanSchema,
+  thinkingLevels,
+  type Plan,
+} from "./plans/schema.js";
 
 export { missingCriteria } from "./plans/criteria.js";
 

@@ -27,6 +27,7 @@ export interface BuildInput {
   readonly callers: string;
   readonly commit: string;
   readonly did: string;
+  readonly entry?: string;
   readonly judge: "jev" | "shadow";
   readonly mailbox: { readonly did: string; readonly url: string };
   readonly thinker: Thinker;
@@ -46,6 +47,7 @@ export const buildWorker = ({
   callers,
   commit,
   did,
+  entry,
   judge,
   mailbox,
   thinker,
@@ -55,7 +57,7 @@ export const buildWorker = ({
     const path = yield* Path.Path;
 
     return yield* prepareDeployment(
-      path.resolve(import.meta.dirname, "../worker/src/worker.ts"),
+      entry ?? path.resolve(import.meta.dirname, "../worker/src/worker.ts"),
       declaration,
       {
         commit,

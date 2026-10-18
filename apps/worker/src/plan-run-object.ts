@@ -2,6 +2,7 @@
 import type { Storage } from "@earendil-works/pi-durable";
 import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
 import {
+  CallRegistry,
   EnabledStepKinds,
   JudgeModeSchema,
   Operator,
@@ -12,7 +13,7 @@ import {
   stepKindsFrom,
   thinkConcurrencyLayer,
 } from "@mischief/core";
-import type { ThinkReceipt } from "@mischief/core";
+import type { Callable, ThinkReceipt } from "@mischief/core";
 import { makePlanRun, mailOutboxSql } from "@mischief/plan-run";
 import type { PlanRun as Runtime } from "@mischief/plan-run";
 import {
@@ -121,7 +122,11 @@ const judgeFor = (env: Env, storage: DurableObjectStorage) => {
 export class PlanRun extends DurableObject<Env> {
   private readonly runtime: Runtime;
 
-  constructor(ctx: DurableObjectState, env: Env) {
+  constructor(
+    ctx: DurableObjectState,
+    env: Env,
+    callables: ReadonlyMap<string, Callable> = new Map()
+  ) {
     super(ctx, env);
 
     let opened: Promise<Storage> | undefined;
@@ -229,6 +234,7 @@ export class PlanRun extends DurableObject<Env> {
           ? mailOutboxSql(ctx.storage)
           : postboxMail(ctx.storage, postbox),
         operator,
+        Layer.succeed(CallRegistry, callables),
         Layer.succeed(EnabledStepKinds, stepKindsFrom(env.MISCHIEF_STEP_KINDS)),
         providerResumeLayer({
           attempts: env.MISCHIEF_RESUME_ATTEMPTS,

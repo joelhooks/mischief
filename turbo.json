@@ -13,6 +13,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "@mischief/worker#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "bundle/index.js", "bundle/types/**"]
+    },
     "test": {
       "dependsOn": ["build"],
       "outputs": []

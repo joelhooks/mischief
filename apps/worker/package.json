@@ -1,12 +1,15 @@
 {
   "name": "@mischief/worker",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check": "pnpm run typecheck",
-    "build": "esbuild src/worker.ts --bundle --format=esm --platform=neutral --main-fields=module,main --conditions=workerd,worker,browser,import --external:cloudflare:* --external:node:* --outfile=dist/worker.js --log-level=warning --define:__BUNDLE_COMMIT__='\"local\"' --define:__BUNDLE_VERSION__='\"local\"'",
+    "build": "esbuild src/worker.ts --bundle --format=esm --platform=neutral --main-fields=module,main --conditions=workerd,worker,browser,import --external:cloudflare:* --external:node:* --outfile=dist/worker.js --log-level=warning --define:__BUNDLE_COMMIT__='\"local\"' --define:__BUNDLE_VERSION__='\"local\"' && pnpm run --silent build:library",
+    "build:library": "esbuild src/index.ts --bundle --format=esm --platform=neutral --main-fields=module,main --conditions=workerd,worker,browser,import --external:cloudflare:* --external:effect --external:effect/* --outfile=bundle/index.js --log-level=warning && mkdir -p bundle/types && cp ../../packages/core/dist/steps/call-registry.d.ts ../../packages/core/dist/steps/step-failed.d.ts bundle/types/",
     "test": "vitest run",
     "pretest": "pnpm run --silent build"
   },

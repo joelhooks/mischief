@@ -1,14 +1,14 @@
 import type { DurableObject } from "cloudflare:workers";
 
-import type { Callable } from "./types/call-registry.js";
+import type { Callable } from "./dist/types/call-registry.js";
 
-export { callable } from "./types/call-registry.js";
+export { callable } from "./dist/types/call-registry.js";
 
-export type { Callable, CallSpec } from "./types/call-registry.js";
+export type { Callable, CallSpec } from "./dist/types/call-registry.js";
 
-export { StepFailed } from "./types/step-failed.js";
+export { StepFailed } from "./dist/types/step-failed.js";
 
-export type { StepCall } from "./types/step-failed.js";
+export type { StepCall } from "./dist/types/step-failed.js";
 
 export interface PlanRunWorkerOptions {
   readonly callables: Iterable<readonly [string, Callable]>;

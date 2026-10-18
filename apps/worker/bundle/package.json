@@ -2,20 +2,16 @@
   "name": "@mischief/worker",
   "version": "0.1.0",
   "files": [
-    "index.js",
-    "index.d.ts",
-    "types"
+    "dist",
+    "index.d.ts"
   ],
   "type": "module",
   "sideEffects": false,
   "exports": {
     ".": {
       "types": "./index.d.ts",
-      "default": "./index.js"
+      "default": "./dist/index.js"
     }
-  },
-  "scripts": {
-    "prepack": "pnpm --dir ../../.. exec turbo run build --filter=@mischief/worker"
   },
   "dependencies": {
     "effect": "4.0.1"

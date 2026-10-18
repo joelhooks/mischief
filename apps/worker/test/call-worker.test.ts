@@ -90,7 +90,7 @@ for (const bundled of [false, true]) {
                 ? {
                     "@mischief/worker": path.resolve(
                       import.meta.dirname,
-                      "../bundle/index.js"
+                      "../bundle/dist/index.js"
                     ),
                   }
                 : {},

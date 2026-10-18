@@ -15,7 +15,7 @@
     },
     "@mischief/worker#build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "bundle/index.js", "bundle/types/**"]
+      "outputs": ["dist/**", "bundle/dist/**"]
     },
     "test": {
       "dependsOn": ["build"],

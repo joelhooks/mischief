@@ -96,31 +96,22 @@ Use `reads` instead of literal input when consuming docs. With `reads`, the capa
 
 The git-consumable package lives at `apps/worker/bundle`. It bundles internal workspace packages and leaves Effect external. It is not published to npm. Do not depend directly on `apps/worker`: that development workspace still declares workspace dependencies.
 
-Pin the implementation commit below. It must be reachable in the upstream repository before a separate checkout can install it.
+Pin a full commit sha from `main`, never a branch or floating tag.
 
 ```json
 {
   "dependencies": {
-    "@mischief/worker": "github:joelhooks/mischief#881758e09e6715fb5486fac733bbec51a1916a1b&path:/apps/worker/bundle",
+    "@mischief/worker": "github:joelhooks/mischief#<commit>&path:/apps/worker/bundle",
     "effect": "4.0.1"
   }
 }
 ```
 
-This pins implementation commit `881758e09e6715fb5486fac733bbec51a1916a1b`, not a branch or floating tag. If integration changes its commit ID, pin the landed equivalent instead. The package ships declarations for workerd projects; include the platform's Worker types in the consumer's TypeScript configuration.
-
-For pnpm 11, approve preparation in the consumer's `pnpm-workspace.yaml`:
-
-```yaml
-allowBuilds:
-  "@mischief/worker": true
-```
-
-Git preparation installs the pinned repository workspace and runs its worker build before packing the consumer package. It requires the repository's Node and pnpm toolchain. Generated JavaScript and declarations are packed, not committed. The installed package depends only on Effect, with no Mischief workspace dependencies. Ignoring preparation scripts does not produce a usable package.
+The library ships prebuilt: `apps/worker/bundle` holds the committed `dist/index.js` and `dist/types/` beside its declarations, and has no lifecycle scripts. Installing it runs nothing, needs no `allowBuilds` entry and does not depend on this repository's Node or pnpm versions. The installed package depends only on Effect, with no Mischief workspace dependencies. CI rebuilds the library and fails if the committed files differ, so any commit on `main` carries a library that matches its source. The package ships declarations for workerd projects; include the platform's Worker types in the consumer's TypeScript configuration.
 
 ## Build with the infra helper
 
-The infra package exposes `@mischief/infra/build`. Pin it to the same commit with `github:joelhooks/mischief#881758e09e6715fb5486fac733bbec51a1916a1b&path:/apps/infra`. Its source export needs a TypeScript-capable Alchemy entry.
+The infra package exposes `@mischief/infra/build`. Pin it to the same commit with `github:joelhooks/mischief#<commit>&path:/apps/infra`. Its source export needs a TypeScript-capable Alchemy entry.
 
 ```ts
 import { buildWorker } from "@mischief/infra/build";
@@ -143,6 +134,6 @@ The helper retains this repository's declaration and leaves `MISCHIEF_STEP_KINDS
 
 ## Check the integration
 
-`apps/worker/test/call-worker.test.ts` bundles an invented consumer through both the source export and prepared library. It enables `call` only in its workerd environment, runs two parallel calls, checks docs and invocation tuples, restarts workerd on the same disk, and revises the unchanged plan. Both journal results replay with no new calls.
+`apps/worker/test/call-worker.test.ts` bundles an invented consumer through both the source export and the committed library. It enables `call` only in its workerd environment, runs two parallel calls, checks docs and invocation tuples, restarts workerd on the same disk, and revises the unchanged plan. Both journal results replay with no new calls.
 
 `apps/worker/test/registered-callables.test.ts` checks duplicate refusal, name validation and registry snapshotting. `apps/infra/test/celld-build.test.ts` checks default and custom builds, unchanged bindings and migrations, default-off flags and no static `node:` imports. These checks do not deploy or enable real runs.

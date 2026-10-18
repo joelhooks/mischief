@@ -109,6 +109,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         dataRoot: DATA_ROOT,
         host,
         instance: INSTANCE,
+        legacyRandomCredentials: true,
         name: "mischief-cells",
         portBase: PORT_BASE,
         purgeOnDelete: false,
@@ -122,6 +123,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         instance: INSTANCE,
         portBase: PORT_BASE,
         purgeOnDelete: false,
+        tuning: { CELLD_HANDLER_BUDGET_S: "1800" },
         workerIPv4: host.tailnetIPv4,
       });
 

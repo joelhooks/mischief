@@ -1,5 +1,7 @@
 // @effect-diagnostics asyncFunction:off -- pi-durable commits and listeners take async callbacks at this adapter boundary.
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import type { AssistantMessage } from "@earendil-works/pi-ai";
+import { isRetryableAssistantError } from "@earendil-works/pi-ai/utils/retry";
 import {
   defineDoc,
   Harness,
@@ -9,12 +11,21 @@ import {
 import type {
   Conversation,
   ConversationId,
+  EntryId,
   HarnessOptions,
+  HarnessSettings,
   ModelRef,
+  SettledSubmissionRecord,
   Storage,
+  SubmissionRecord,
 } from "@earendil-works/pi-durable";
 import type { StepCall, ThinkReceipt } from "@mischief/core";
-import { StepFailed, ThinkModelUnmapped, Thinker } from "@mischief/core";
+import {
+  ProviderUnavailable,
+  StepFailed,
+  ThinkModelUnmapped,
+  Thinker,
+} from "@mischief/core";
 import {
   Deferred,
   Effect,
@@ -25,6 +36,8 @@ import {
   Semaphore,
 } from "effect";
 
+import { causeOf, statusOf, verdictOf } from "./provider-status.js";
+import type { ProviderVerdict } from "./provider-status.js";
 import { receiptOf, requestedOf } from "./receipt.js";
 import type { ThinkDefaults } from "./receipt.js";
 
@@ -82,6 +95,39 @@ const addressOf = (call: StepCall) =>
     ? `${call.key}#${call.visit}`
     : `${call.key}#${call.visit}@v${call.epoch}`;
 
+const attemptId = (call: StepCall, attempt: number) =>
+  attempt === 1 ? addressOf(call) : `${addressOf(call)}~${attempt}`;
+
+const THINKER_OWNS_PROVIDER_RETRIES: HarnessSettings = {
+  retry: { enabled: false },
+};
+
+interface Latest {
+  readonly attempt: number;
+  readonly record: SubmissionRecord | undefined;
+}
+
+interface ModelFailure {
+  readonly message: string;
+  readonly status: number | null;
+  readonly transient: boolean;
+}
+
+const failureOf = (
+  settled: SettledSubmissionRecord,
+  messages: readonly AssistantMessage[]
+): ModelFailure => {
+  const failed = messages.find(({ stopReason }) => stopReason === "error");
+
+  const message = failed?.errorMessage ?? settled.reason ?? "no error message";
+
+  return {
+    message,
+    status: statusOf(message),
+    transient: failed !== undefined && isRetryableAssistantError(failed),
+  };
+};
+
 export const piThinker = (options: PiThinkerOptions) =>
   Layer.effect(
     Thinker,
@@ -121,7 +167,11 @@ export const piThinker = (options: PiThinkerOptions) =>
               async () =>
                 await Harness.open(
                   storage,
-                  { models: options.models, registry: options.registry },
+                  {
+                    models: options.models,
+                    registry: options.registry,
+                    settings: THINKER_OWNS_PROVIDER_RETRIES,
+                  },
                   BACKGROUND_CONTEXT
                 )
             );
@@ -262,6 +312,157 @@ export const piThinker = (options: PiThinkerOptions) =>
           return { seen, stop: async () => await stream.stop() };
         });
 
+      const latestOf = (call: StepCall, conversation: Conversation) =>
+        pi(
+          call,
+          "find attempt",
+          async () =>
+            await conversation.commit(async (tx) => {
+              const probe = async (attempt: number): Promise<Latest> => {
+                const next = await tx.submissionByRequest(
+                  conversation.id,
+                  attemptId(call, attempt + 1)
+                );
+
+                return next === undefined
+                  ? {
+                      attempt,
+                      record: await tx.submissionByRequest(
+                        conversation.id,
+                        attemptId(call, attempt)
+                      ),
+                    }
+                  : await probe(attempt + 1);
+              };
+
+              return await probe(1);
+            }, BACKGROUND_CONTEXT)
+        );
+
+      const failedMessagesOf = (
+        call: StepCall,
+        conversation: Conversation,
+        { entry }: SettledSubmissionRecord
+      ) =>
+        entry === undefined
+          ? Effect.succeed([])
+          : pi(call, "read failure", async () => {
+              const page = await conversation.entries(
+                { minEntryId: entry },
+                20,
+                undefined,
+                BACKGROUND_CONTEXT
+              );
+
+              return page.items.flatMap((item) =>
+                (item.model ?? []).flatMap((message) =>
+                  message.role === "assistant" ? [message] : []
+                )
+              );
+            });
+
+      const settle = (
+        call: StepCall,
+        conversation: Conversation,
+        model: ModelRef,
+        attempt: { readonly n: number; readonly fresh: boolean },
+        content: string,
+        seen: Deferred.Deferred<boolean>,
+        retried: boolean
+      ): Effect.Effect<EntryId, StepFailed | ProviderUnavailable> =>
+        Effect.gen(function* submitted() {
+          if (attempt.fresh && attempt.n > 1) {
+            yield* pi(call, "reset", async () => {
+              await conversation.reset(undefined, BACKGROUND_CONTEXT);
+            });
+          }
+
+          const submission = yield* pi(
+            call,
+            "submit",
+            async () =>
+              await conversation.submit(
+                {
+                  content,
+                  requestId: attemptId(call, attempt.n),
+                  type: "input",
+                },
+                BACKGROUND_CONTEXT
+              )
+          );
+
+          yield* Effect.raceFirst(
+            Deferred.await(seen).pipe(Effect.withSpan("first_token")),
+            Effect.promise(
+              async () => await submission.wait(BACKGROUND_CONTEXT)
+            )
+          );
+
+          const settled = yield* pi(
+            call,
+            "wait",
+            async () => await submission.wait(BACKGROUND_CONTEXT)
+          );
+
+          if (settled.status === "done" && settled.type === "input") {
+            return settled.answer;
+          }
+
+          if (
+            settled.status !== "unanswered" ||
+            settled.reason !== "model_error"
+          ) {
+            return yield* new StepFailed({
+              key: call.key,
+              reason: `the model left the input unanswered (${settled.status === "unanswered" ? settled.reason : settled.status}). Check the model mapping and credentials, then resume the run`,
+            });
+          }
+
+          const failure = failureOf(
+            settled,
+            yield* failedMessagesOf(call, conversation, settled)
+          );
+
+          const held = new ProviderUnavailable({
+            cause: causeOf(failure.status),
+            key: call.key,
+            provider: `${model.provider}/${model.modelId}`,
+            status: failure.status,
+          });
+
+          const outcomes: Readonly<
+            Record<
+              ProviderVerdict,
+              () => Effect.Effect<EntryId, StepFailed | ProviderUnavailable>
+            >
+          > = {
+            fail: () =>
+              Effect.fail(
+                new StepFailed({
+                  key: call.key,
+                  reason: `the model proxy refused the think with ${failure.status === null ? "no HTTP status" : `HTTP ${failure.status}`}: ${failure.message}. Check the request, the model mapping (${model.provider}/${model.modelId}) and the key binding, then resume the run`,
+                })
+              ),
+            hold: () => Effect.fail(held),
+            retryThenHold: () =>
+              retried
+                ? Effect.fail(held)
+                : settle(
+                    call,
+                    conversation,
+                    model,
+                    { fresh: true, n: attempt.n + 1 },
+                    content,
+                    seen,
+                    true
+                  ),
+          };
+
+          return yield* outcomes[
+            verdictOf(failure.status, failure.transient)
+          ]();
+        });
+
       const answer = (
         call: StepCall,
         requested: ReturnType<typeof requestedOf>,
@@ -276,50 +477,35 @@ export const piThinker = (options: PiThinkerOptions) =>
             requested
           );
 
+          const model = yield* modelOf(call, requested);
+
           const watching = yield* firstToken(call, harness, conversation);
 
-          const settled = yield* Effect.gen(function* submitted() {
-            const submission = yield* pi(
-              call,
-              "submit",
-              async () =>
-                await conversation.submit(
-                  { content, requestId: addressOf(call), type: "input" },
-                  BACKGROUND_CONTEXT
-                )
-            );
+          const latest = yield* latestOf(call, conversation);
 
-            yield* Effect.raceFirst(
-              Deferred.await(watching.seen).pipe(
-                Effect.withSpan("first_token")
-              ),
-              Effect.promise(
-                async () => await submission.wait(BACKGROUND_CONTEXT)
-              )
-            );
+          const resumed = latest.record?.status === "unanswered";
 
-            return yield* pi(
-              call,
-              "wait",
-              async () => await submission.wait(BACKGROUND_CONTEXT)
-            );
-          }).pipe(
+          const answered = yield* settle(
+            call,
+            conversation,
+            model,
+            {
+              fresh: resumed,
+              n: resumed ? latest.attempt + 1 : latest.attempt,
+            },
+            content,
+            watching.seen,
+            false
+          ).pipe(
             Effect.ensuring(Effect.promise(async () => await watching.stop()))
           );
-
-          if (settled.status !== "done" || settled.type !== "input") {
-            return yield* new StepFailed({
-              key: call.key,
-              reason: `the model left the input unanswered (${"reason" in settled ? settled.reason : settled.status}). Check the model mapping and credentials, then resume the run`,
-            });
-          }
 
           const page = yield* pi(
             call,
             "read answer",
             async () =>
               await conversation.entries(
-                { maxEntryId: settled.answer, minEntryId: settled.answer },
+                { maxEntryId: answered, minEntryId: answered },
                 1,
                 undefined,
                 BACKGROUND_CONTEXT
@@ -351,8 +537,6 @@ export const piThinker = (options: PiThinkerOptions) =>
             "cache.write": totals.reduce((sum, u) => sum + u.cacheWrite, 0),
             respawn: fresh && !created,
           });
-
-          const model = yield* modelOf(call, requested);
 
           const receipt = receiptOf(
             requested,

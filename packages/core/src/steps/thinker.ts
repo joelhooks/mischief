@@ -2,6 +2,7 @@ import { Context, Effect, Layer } from "effect";
 import type { Option, Schema } from "effect";
 
 import type { AgentConfig, Envelope } from "../plans/schema.js";
+import type { ProviderUnavailable } from "./provider-unavailable.js";
 import type { ThinkReceipt } from "./receipt.js";
 import { StepFailed } from "./step-failed.js";
 import type { StepCall } from "./step-failed.js";
@@ -47,7 +48,7 @@ export class Thinker extends Context.Service<
         readonly ceiling: Envelope["maxThinking"];
         readonly prompt: string;
       }
-    ) => Effect.Effect<Thought, StepFailed>;
+    ) => Effect.Effect<Thought, StepFailed | ProviderUnavailable>;
     readonly decide: (
       call: StepCall & {
         readonly agent: AgentConfig;
@@ -55,7 +56,10 @@ export class Thinker extends Context.Service<
         readonly options: readonly string[];
         readonly question: string;
       }
-    ) => Effect.Effect<Deliberation, StepFailed | ThinkModelUnmapped>;
+    ) => Effect.Effect<
+      Deliberation,
+      StepFailed | ThinkModelUnmapped | ProviderUnavailable
+    >;
     readonly elaborate: (
       call: StepCall & { readonly goal: string }
     ) => Effect.Effect<Elaboration, StepFailed>;

@@ -10,7 +10,7 @@ import {
 import type { FauxResponseFactory } from "@earendil-works/pi-ai/providers/faux";
 import { createRegistry } from "@earendil-works/pi-durable";
 import { Effect, Schema } from "effect";
-import { constVoid } from "effect/Function";
+import { constUndefined, constVoid } from "effect/Function";
 
 import type { PiThinkerOptions } from "../dist/index.js";
 import { nodeSqliteStorageFor } from "../dist/node-storage.js";
@@ -44,7 +44,8 @@ export const callsOf = (dir: string) => {
 export const fauxWorld = (
   dir: string,
   hang: boolean,
-  onCall: () => void = constVoid
+  onCall: () => void = constVoid,
+  providerError: () => string | undefined = constUndefined
 ): PiThinkerOptions => {
   const faux = fauxProvider({ api: "faux" });
   const models = createModels();
@@ -63,6 +64,12 @@ export const fauxWorld = (
 
     if (hang) {
       return await Effect.runPromise(Effect.never);
+    }
+
+    const errorMessage = providerError();
+
+    if (errorMessage !== undefined) {
+      return fauxAssistantMessage("", { errorMessage, stopReason: "error" });
     }
 
     const { choice, confidence } = PICK.exec(prompt)?.groups ?? {};

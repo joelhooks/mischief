@@ -15,6 +15,10 @@ export type { GatewayConfig } from "./gateway.js";
 
 export { piThinker } from "./pi-thinker.js";
 
+export { statusOf, verdictOf } from "./provider-status.js";
+
+export type { ProviderVerdict } from "./provider-status.js";
+
 export type { PiThinkerOptions } from "./pi-thinker.js";
 
 export type { ThinkDefaults } from "./receipt.js";

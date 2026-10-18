@@ -66,6 +66,7 @@ export const buildWorker = ({
           MISCHIEF_JUDGE: judge,
           MISCHIEF_MAILBOX_DID: mailbox.did,
           MISCHIEF_MAILBOX_URL: mailbox.url,
+          MISCHIEF_THINK_CONCURRENCY: "16",
           ...thinkerVars(thinker),
         },
         version,

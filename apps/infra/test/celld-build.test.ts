@@ -59,7 +59,9 @@ it.effect(
         "MISCHIEF_MAILBOX_DID",
         "MISCHIEF_MAILBOX_URL",
         "MISCHIEF_MODEL",
+        "MISCHIEF_THINK_CONCURRENCY",
       ]);
+      expect(configuration.vars.MISCHIEF_THINK_CONCURRENCY).toBe("16");
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPlanRun\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bServiceTokenLedger\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPostbox\b/u);

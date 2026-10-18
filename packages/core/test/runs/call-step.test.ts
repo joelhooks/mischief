@@ -573,7 +573,15 @@ it.effect.prop(
           const committed = yield* backend.readJournal(RUN);
 
           for (const key of new Set(invoked.slice(before))) {
-            if (!committed.has(`logic:${key.slice(RUN.length + 1)}`)) {
+            const address = key.slice(RUN.length + 1);
+
+            const journaled = [...committed.keys()].some(
+              (entry) =>
+                entry === `logic:${address}` ||
+                (entry.startsWith("logic:") && entry.endsWith(`.${address}`))
+            );
+
+            if (!journaled) {
               caught.set(key, (caught.get(key) ?? 0) + 1);
             }
           }

@@ -180,13 +180,17 @@ it.effect(
 
       const slice = yield* sectionsOf("mischief-slice");
 
-      expect(slice.Slice).toMatchObject({ CPUQuota: "100%", MemoryMax: "3G" });
+      expect(slice.Slice).toMatchObject({
+        CPUQuota: "100%",
+        MemoryHigh: "4.5G",
+        MemoryMax: "5G",
+      });
 
       expect(Object.keys(slice.Slice ?? {})).not.toContain("OOMPolicy");
 
       for (const [fqn, memoryMax] of [
         ["store/server", "2G"],
-        ["celld/node", "1.5G"],
+        ["celld/node", "3G"],
       ] as const) {
         const unit = yield* sectionsOf(fqn);
 

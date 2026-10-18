@@ -22,14 +22,14 @@ export const PORT_BASE = 28_000;
 export const DATA_ROOT = "/data/joel/mischief";
 
 export const UNIT_LIMITS = {
-  celld: { cpuQuota: "100%", memoryMax: "1.5G", oomPolicy: "continue" },
+  celld: { cpuQuota: "100%", memoryMax: "3G", oomPolicy: "continue" },
   seaweed: {
     cpuQuota: "100%",
     memoryMax: "2G",
     oomPolicy: "continue",
     volumeMax: 64,
   },
-  slice: { cpuQuota: "100%", memoryHigh: "2.5G", memoryMax: "3G" },
+  slice: { cpuQuota: "100%", memoryHigh: "4.5G", memoryMax: "5G" },
 } as const;
 
 export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
@@ -126,6 +126,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         tuning: {
           CELLD_FETCH_TIMEOUT_S: "1500",
           CELLD_HANDLER_BUDGET_S: "1800",
+          CELLD_V8_HEAP_LIMIT_MB: "512",
         },
         workerIPv4: host.tailnetIPv4,
       });

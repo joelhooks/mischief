@@ -83,7 +83,7 @@ export const stepsOf = (
 const refsOf = (step: Step): readonly string[] => {
   switch (step.kind) {
     case "think": {
-      return docRefs(step.prompt);
+      return [...docRefs(step.prompt), ...(step.ephemeral?.reads ?? [])];
     }
 
     case "ask": {

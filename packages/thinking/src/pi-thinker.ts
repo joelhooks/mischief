@@ -19,6 +19,7 @@ import type {
   Storage,
   SubmissionRecord,
 } from "@earendil-works/pi-durable";
+import { MemoryStorage } from "@earendil-works/pi-durable/storage/memory";
 import type { StepCall, ThinkReceipt } from "@mischief/core";
 import {
   ProviderUnavailable,
@@ -134,6 +135,30 @@ const failureOf = (
   };
 };
 
+const thought = <R>(
+  answered: Effect.Effect<
+    Answer,
+    StepFailed | ProviderUnavailable | ThinkModelUnmapped,
+    R
+  >
+) =>
+  answered.pipe(
+    Effect.catchTag("ThinkModelUnmapped", ({ key, mapped, model }) =>
+      Effect.fail(
+        new StepFailed({
+          key,
+          reason: `model "${model}" has no pi-durable mapping on this host. Mapped: ${mapped.join(", ") || "none"}. Add it to the Thinker's modelRefs or pick a mapped model in the plan`,
+        })
+      )
+    ),
+    Effect.map(({ cacheRead, receipt, text, tokens }) => ({
+      cacheRead,
+      output: text,
+      receipt,
+      tokens,
+    }))
+  );
+
 export const piThinker = (options: PiThinkerOptions) =>
   Layer.effect(
     Thinker,
@@ -156,6 +181,30 @@ export const piThinker = (options: PiThinkerOptions) =>
         )
       );
 
+      const settings = {
+        models: options.models,
+        registry: options.registry,
+        settings: THINKER_OWNS_PROVIDER_RETRIES,
+      };
+
+      const unrecordedHarness = (call: StepCall) =>
+        Effect.acquireRelease(
+          pi(
+            call,
+            "open in memory",
+            async () =>
+              await Harness.open(
+                new MemoryStorage(),
+                settings,
+                BACKGROUND_CONTEXT
+              )
+          ).pipe(Effect.map((harness): OpenRun => ({ fresh: true, harness }))),
+          ({ harness }) =>
+            Effect.promise(async () => {
+              await harness.close(BACKGROUND_CONTEXT);
+            })
+        );
+
       const harnessFor = (call: StepCall) =>
         opening.withPermits(1)(
           Effect.gen(function* openHarness() {
@@ -171,15 +220,7 @@ export const piThinker = (options: PiThinkerOptions) =>
               call,
               "open",
               async () =>
-                await Harness.open(
-                  storage,
-                  {
-                    models: options.models,
-                    registry: options.registry,
-                    settings: THINKER_OWNS_PROVIDER_RETRIES,
-                  },
-                  BACKGROUND_CONTEXT
-                )
+                await Harness.open(storage, settings, BACKGROUND_CONTEXT)
             );
 
             yield* Ref.update(open, (harnesses) =>
@@ -475,13 +516,14 @@ export const piThinker = (options: PiThinkerOptions) =>
           ]();
         });
 
-      const answer = (
+      const answer = <R>(
         call: StepCall,
         requested: ReturnType<typeof requestedOf>,
-        content: string
+        content: string,
+        opened: Effect.Effect<OpenRun, StepFailed, R>
       ) =>
         Effect.gen(function* firstTurn() {
-          const { fresh, harness } = yield* harnessFor(call);
+          const { fresh, harness } = yield* opened;
 
           const { conversation, created } = yield* conversationFor(
             call,
@@ -578,7 +620,8 @@ export const piThinker = (options: PiThinkerOptions) =>
           answer(
             call,
             requestedOf(call.agent, options.defaults, call.ceiling),
-            `${call.question}\n\nAnswer with one JSON object and nothing else: {"choice": <one of ${JSON.stringify(call.options)}>, "confidence": <0 to 1>}.`
+            `${call.question}\n\nAnswer with one JSON object and nothing else: {"choice": <one of ${JSON.stringify(call.options)}>, "confidence": <0 to 1>}.`,
+            harnessFor(call)
           ).pipe(
             Effect.map(({ receipt, text, tokens, usd }) => ({
               decision: Schema.decodeUnknownOption(DecisionSchema)(
@@ -601,23 +644,16 @@ export const piThinker = (options: PiThinkerOptions) =>
           answer(
             call,
             requestedOf(call.agent, options.defaults, call.ceiling),
-            call.prompt
-          ).pipe(
-            Effect.catchTag("ThinkModelUnmapped", ({ key, mapped, model }) =>
-              Effect.fail(
-                new StepFailed({
-                  key,
-                  reason: `model "${model}" has no pi-durable mapping on this host. Mapped: ${mapped.join(", ") || "none"}. Add it to the Thinker's modelRefs or pick a mapped model in the plan`,
-                })
-              )
-            ),
-            Effect.map(({ cacheRead, receipt, text, tokens }) => ({
-              cacheRead,
-              output: text,
-              receipt,
-              tokens,
-            }))
-          ),
+            call.prompt,
+            harnessFor(call)
+          ).pipe(thought),
+        thinkUnrecorded: (call) =>
+          answer(
+            call,
+            requestedOf(call.agent, options.defaults, call.ceiling),
+            call.prompt,
+            unrecordedHarness(call)
+          ).pipe(thought, Effect.scoped),
       });
     })
   );

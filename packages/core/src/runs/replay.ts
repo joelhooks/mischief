@@ -30,6 +30,9 @@ const textsIn = (value: Schema.Json): readonly string[] => {
 
 const ReadsSchema = Schema.Struct({
   input: Schema.Struct({
+    ephemeral: Schema.optionalKey(
+      Schema.Struct({ reads: Schema.optionalKey(Schema.Array(Schema.String)) })
+    ),
     reads: Schema.optionalKey(
       Schema.Union([Schema.String, Schema.Array(Schema.String)])
     ),
@@ -38,10 +41,22 @@ const ReadsSchema = Schema.Struct({
 
 const decodeReads = Schema.decodeUnknownOption(ReadsSchema);
 
+const namesOf = (
+  names: string | readonly string[] | undefined
+): readonly string[] => {
+  if (names === undefined) {
+    return [];
+  }
+
+  return isText(names) ? [names] : names;
+};
+
 export const docsRead = (step: Schema.Json): readonly string[] => {
   const reads = decodeReads(step).pipe(
-    Option.flatMap(({ input }) => Option.fromUndefinedOr(input.reads)),
-    Option.map((names) => (isText(names) ? [names] : names)),
+    Option.map(({ input }) => [
+      ...namesOf(input.reads),
+      ...namesOf(input.ephemeral?.reads),
+    ]),
     Option.getOrElse((): readonly string[] => [])
   );
 

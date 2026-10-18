@@ -23,7 +23,7 @@ import {
 import type { Ask } from "../plans/compile.js";
 import { docRefs, docText, interpolate } from "../plans/doc-refs.js";
 import { decodeAmendment } from "../plans/schema.js";
-import type { Plan } from "../plans/schema.js";
+import type { EphemeralSource, Plan, Post } from "../plans/schema.js";
 import { checkPlan, refuseCode } from "../plans/validate.js";
 import { CallConcurrency } from "../steps/call-concurrency.js";
 import { CallRegistry } from "../steps/call-registry.js";
@@ -58,10 +58,12 @@ import { ProviderUnavailable } from "../steps/provider-unavailable.js";
 import { thinkLine, thinkTotals } from "../steps/receipt.js";
 import type { ThinkReceipt } from "../steps/receipt.js";
 import { StepFailed } from "../steps/step-failed.js";
+import type { StepCall } from "../steps/step-failed.js";
 import { ThinkConcurrency } from "../steps/think-concurrency.js";
 import { unmappedReason } from "../steps/think-model-unmapped.js";
 import { Thinker } from "../steps/thinker.js";
 import { VerdictDeferred } from "../steps/verdict-deferred.js";
+import { withheldFailure, withheldThink } from "../steps/withheld.js";
 import {
   liveEvent,
   remember,
@@ -497,7 +499,7 @@ export const driveSession = (
             Effect.ignoreCause
           );
 
-    const think = (input: ThinkInput) =>
+    const recordedThink = (input: ThinkInput) =>
       Effect.gen(function* thinkStep() {
         const thought = yield* step(
           input.key,
@@ -627,44 +629,157 @@ export const driveSession = (
         };
       });
 
-    const callInputOf = (input: CallInput) =>
-      Effect.gen(function* gatherCallInput() {
-        if (input.reads === undefined) {
-          return input.input ?? null;
+    const capabilityInput = (
+      key: string,
+      source: {
+        readonly input?: Schema.Json;
+        readonly reads?: readonly string[];
+      }
+    ) =>
+      Effect.gen(function* gatherCapabilityInput() {
+        if (source.reads === undefined) {
+          return source.input ?? null;
         }
 
         const docs = yield* store.readDocs(runId);
-        const missing = input.reads.filter((name) => !(name in docs));
+        const missing = source.reads.filter((name) => !(name in docs));
 
         if (missing.length > 0) {
           return yield* failed(
-            input.key,
-            `it reads ${missing.map((name) => `doc "${name}"`).join(", ")}, which no step has written on this run's path yet. Make the writing step run before this call, or seed the doc at submit`
+            key,
+            `it reads ${missing.map((name) => `doc "${name}"`).join(", ")}, which no step has written on this run's path yet. Make the writing step run before this one, or seed the doc at submit`
           );
         }
 
         return Object.fromEntries(
-          input.reads.map((name) => [name, docs[name] ?? null])
+          source.reads.map((name) => [name, docs[name] ?? null])
         );
       });
 
-    const callOut = (input: CallInput) =>
-      Effect.gen(function* callStep() {
-        const found = registry.get(input.capability);
+    const capabilityNamed = (key: string, capability: string) =>
+      Effect.suspend(() => {
+        const found = registry.get(capability);
 
-        if (found === undefined) {
-          return yield* step(
-            input.key,
-            Effect.fail(
+        return found === undefined
+          ? Effect.fail(
               failed(
-                input.key,
-                `capability "${input.capability}" is not registered on this host. Registered: ${[...registry.keys()].toSorted().join(", ") || "none"}`
+                key,
+                `capability "${capability}" is not registered on this host. Registered: ${[...registry.keys()].toSorted().join(", ") || "none"}`
               )
             )
-          );
-        }
+          : Effect.succeed(found);
+      });
 
-        const given = yield* step(input.key, callInputOf(input));
+    const fetchEphemeral = (
+      key: string,
+      source: EphemeralSource,
+      call: StepCall
+    ) =>
+      Effect.gen(function* fetchEphemeralText() {
+        const fetcher = yield* capabilityNamed(key, source.capability);
+        const given = yield* capabilityInput(key, source);
+
+        return yield* callPermits
+          .withPermits(1)(fetcher.invoke(given, call))
+          .pipe(
+            Effect.mapError(
+              withheldFailure(key, "ephemeral", source.capability)
+            )
+          );
+      });
+
+    const unrecordedThink = (input: ThinkInput, post: Post) =>
+      step(
+        input.key,
+        Effect.gen(function* unrecordedThinkStep() {
+          const { thinkUnrecorded } = thinker;
+
+          if (thinkUnrecorded === undefined) {
+            return yield* failed(
+              input.key,
+              "this host's Thinker cannot think without recording the conversation, so a think with ephemeral or post cannot run here. Run the plan on a host whose Thinker provides thinkUnrecorded"
+            );
+          }
+
+          const call = {
+            epoch: epochOf(),
+            key: input.key,
+            runId,
+            visit: visitOf(input.key),
+          };
+
+          const finisher = yield* capabilityNamed(input.key, post.capability);
+          const prompt = yield* withDocs(input.key, input.prompt);
+
+          yield* store.commit(runId);
+
+          const ephemeral =
+            input.ephemeral === undefined
+              ? Option.none<Schema.Json>()
+              : Option.some(
+                  yield* fetchEphemeral(input.key, input.ephemeral, call)
+                );
+
+          const thought = yield* permitted(
+            thinkUnrecorded({
+              ...call,
+              agent: input.agent ?? {},
+              ceiling: run.plan.envelope.maxThinking,
+              prompt: Option.match(ephemeral, {
+                onNone: () => prompt,
+                onSome: (text) => `${prompt}\n\n${docText(text)}`,
+              }),
+            })
+          ).pipe(Effect.mapError(withheldThink(input.key)));
+
+          yield* observed(input.key, thought.receipt);
+
+          const output = yield* callPermits
+            .withPermits(1)(
+              finisher.invoke(
+                Option.match(ephemeral, {
+                  onNone: () => ({ answer: thought.output }),
+                  onSome: (text) => ({
+                    answer: thought.output,
+                    ephemeral: text,
+                  }),
+                }),
+                call
+              )
+            )
+            .pipe(
+              Effect.mapError(
+                withheldFailure(input.key, "post", post.capability)
+              )
+            );
+
+          yield* writeDoc(input.writes, output);
+
+          const base = {
+            cacheRead: thought.cacheRead ?? 0,
+            output,
+            tokens: thought.tokens,
+          };
+
+          return thought.receipt === undefined
+            ? base
+            : { ...base, receipt: thought.receipt };
+        })
+      );
+
+    const think = (input: ThinkInput) =>
+      input.post === undefined
+        ? recordedThink(input)
+        : unrecordedThink(input, input.post);
+
+    const callOut = (input: CallInput) =>
+      Effect.gen(function* callStep() {
+        const found = yield* step(
+          input.key,
+          capabilityNamed(input.key, input.capability)
+        );
+
+        const given = yield* step(input.key, capabilityInput(input.key, input));
 
         yield* store.commit(runId);
 

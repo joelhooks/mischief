@@ -21,7 +21,11 @@ import type {
   Transitions,
 } from "./schema.js";
 import { decodePlan, thinkingLevels } from "./schema.js";
-import { EnabledStepKinds, stepKindOff } from "./step-kinds.js";
+import {
+  EnabledStepKinds,
+  ephemeralThinkOff,
+  stepKindOff,
+} from "./step-kinds.js";
 import type { GatedStepKind } from "./step-kinds.js";
 
 export class PlanRefused extends Schema.TaggedError<PlanRefused>()(
@@ -524,14 +528,67 @@ const resolveStates = (
   return { agents, errors, value: Object.fromEntries(values) };
 };
 
+const unregistered = (
+  registry: ReadonlyMap<string, Callable>,
+  where: string,
+  field: string,
+  capability: string
+) =>
+  registry.has(capability)
+    ? []
+    : [
+        `${where}: ${field} names capability "${capability}", which this host has not registered. Registered: ${[...registry.keys()].toSorted().join(", ") || "none"}. Use one of those names`,
+      ];
+
+const bothSources = (
+  where: string,
+  field: string,
+  source: { readonly input?: Schema.Json; readonly reads?: readonly string[] }
+) =>
+  source.input !== undefined && source.reads !== undefined
+    ? [
+        `${where}: ${field} takes its input from input or from reads, not both. Keep input for a fixed value, or reads to pass docs by name`,
+      ]
+    : [];
+
+const thinkCallErrors = (
+  step: ThinkStep,
+  where: string,
+  registry: ReadonlyMap<string, Callable>
+) => [
+  ...(step.ephemeral === undefined
+    ? []
+    : [
+        ...unregistered(
+          registry,
+          where,
+          "ephemeral",
+          step.ephemeral.capability
+        ),
+        ...bothSources(where, "ephemeral", step.ephemeral),
+      ]),
+  ...(step.post === undefined
+    ? [
+        `${where}: a think with ephemeral needs post. The model's answer can quote the ephemeral text, so the run never records it; post names the capability whose output is recorded instead. Add post: { capability: "<name>" }`,
+      ]
+    : unregistered(registry, where, "post", step.post.capability)),
+];
+
 const callErrors = (
   plan: Plan,
   enabled: ReadonlySet<GatedStepKind>,
   registry: ReadonlyMap<string, Callable>
-) => {
-  const registered = [...registry.keys()].toSorted().join(", ") || "none";
+) =>
+  stepsOf(plan.machine.states).flatMap(({ step, where }) => {
+    if (
+      step.kind === "think" &&
+      (step.ephemeral !== undefined || step.post !== undefined)
+    ) {
+      return enabled.has("call")
+        ? thinkCallErrors(step, where, registry)
+        : [ephemeralThinkOff(where)];
+    }
 
-  return stepsOf(plan.machine.states).flatMap(({ step, where }) => {
     if (step.kind !== "call") {
       return [];
     }
@@ -541,19 +598,10 @@ const callErrors = (
     }
 
     return [
-      ...(registry.has(step.capability)
-        ? []
-        : [
-            `${where}: call names capability "${step.capability}", which this host has not registered. Registered: ${registered}. Use one of those names`,
-          ]),
-      ...(step.input !== undefined && step.reads !== undefined
-        ? [
-            `${where}: call takes its input from input or from reads, not both. Keep input for a fixed value, or reads to pass docs by name`,
-          ]
-        : []),
+      ...unregistered(registry, where, "call", step.capability),
+      ...bothSources(where, "call", step),
     ];
   });
-};
 
 const probeLogic = createAsyncLogic({
   // oxlint-disable-next-line typescript/promise-function-async -- xstate async logic consumes a Promise factory.

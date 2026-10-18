@@ -3,13 +3,17 @@ import { Schema } from "effect";
 import {
   AgentConfigSchema,
   DocKey,
+  EphemeralSourceSchema,
+  PostSchema,
   Probability,
   RatKingName,
 } from "../plans/schema.js";
 
 export const ThinkInputSchema = Schema.Struct({
   agent: Schema.optionalKey(AgentConfigSchema),
+  ephemeral: Schema.optionalKey(EphemeralSourceSchema),
   key: Schema.String,
+  post: Schema.optionalKey(PostSchema),
   prompt: Schema.String,
   writes: Schema.optionalKey(DocKey),
 });

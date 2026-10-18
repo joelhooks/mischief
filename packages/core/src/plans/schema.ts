@@ -80,11 +80,40 @@ export const AgentConfigSchema = Schema.Struct({
 
 export type AgentConfig = typeof AgentConfigSchema.Type;
 
+export const CapabilityName = Schema.String.check(
+  Schema.isPattern(/^[a-z][a-z0-9-]{0,63}$/u)
+);
+
+export const EphemeralSourceSchema = Schema.Struct({
+  capability: CapabilityName,
+  input: Schema.optionalKey(Schema.Json),
+  reads: Schema.optionalKey(Schema.Array(DocKey)),
+}).annotate({
+  description:
+    "Text a registered capability produces when the think runs, given to the model after the prompt and never recorded anywhere the run persists. The capability's input is input as written, or with reads an object of those docs by name. Needs post",
+});
+
+export type EphemeralSource = typeof EphemeralSourceSchema.Type;
+
+export const PostSchema = Schema.Struct({
+  capability: CapabilityName,
+}).annotate({
+  description:
+    "A registered capability that turns the model's answer into what the run records. It receives { answer } and, with ephemeral, { answer, ephemeral }; its output is journaled and written to writes, and the raw answer is never recorded",
+});
+
+export type Post = typeof PostSchema.Type;
+
 export const ThinkStepSchema = Schema.Struct({
   agent: Schema.optionalKey(AgentConfigSchema),
+  ephemeral: Schema.optionalKey(EphemeralSourceSchema),
   kind: Schema.Literal("think"),
+  post: Schema.optionalKey(PostSchema),
   prompt: Schema.String,
   writes: Schema.optionalKey(DocKey),
+}).annotate({
+  description:
+    "Ask the model the prompt, then enter on.done; writes puts the answer in a doc. With post, the model call keeps no conversation and only post's output is recorded. A crash before that record repeats the ephemeral fetch, the model call and post, so each runs at least once; the capabilities receive the run, step and visit to key their idempotency. ephemeral and post are off unless the host enables call",
 });
 
 export type ThinkStep = typeof ThinkStepSchema.Type;
@@ -148,10 +177,6 @@ export const SketchStepSchema = Schema.Struct({
 });
 
 export type SketchStep = typeof SketchStepSchema.Type;
-
-export const CapabilityName = Schema.String.check(
-  Schema.isPattern(/^[a-z][a-z0-9-]{0,63}$/u)
-);
 
 export const CallStepSchema = Schema.Struct({
   capability: CapabilityName,

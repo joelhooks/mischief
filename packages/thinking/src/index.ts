@@ -1,5 +1,7 @@
 export { FAUX_MODEL_NAMES, fauxThinkerOptions } from "./faux.js";
 
+export type { FauxReply } from "./faux.js";
+
 export {
   GATEWAY_MODELS,
   THINK_DEFAULT,

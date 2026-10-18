@@ -39,15 +39,20 @@ const unwired = (call: StepCall) =>
     })
   );
 
+export type ThinkCall = StepCall & {
+  readonly agent: AgentConfig;
+  readonly ceiling: Envelope["maxThinking"];
+  readonly prompt: string;
+};
+
 export class Thinker extends Context.Service<
   Thinker,
   {
     readonly think: (
-      call: StepCall & {
-        readonly agent: AgentConfig;
-        readonly ceiling: Envelope["maxThinking"];
-        readonly prompt: string;
-      }
+      call: ThinkCall
+    ) => Effect.Effect<Thought, StepFailed | ProviderUnavailable>;
+    readonly thinkUnrecorded?: (
+      call: ThinkCall
     ) => Effect.Effect<Thought, StepFailed | ProviderUnavailable>;
     readonly decide: (
       call: StepCall & {

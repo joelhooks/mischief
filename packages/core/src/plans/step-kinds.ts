@@ -24,5 +24,11 @@ export const EnabledStepKinds = Context.Reference<ReadonlySet<GatedStepKind>>(
   { defaultValue: () => new Set() }
 );
 
+const turnOn = (kind: GatedStepKind) =>
+  `A host turns it on with ${STEP_KINDS_FLAG}=${kind}, and turning it on for real runs needs Joel's approval, so ask Joel before setting it`;
+
 export const stepKindOff = (where: string, kind: GatedStepKind) =>
-  `${where}: step kind "${kind}" is off on this host. A host turns it on with ${STEP_KINDS_FLAG}=${kind}, and turning it on for real runs needs Joel's approval, so ask Joel before setting it. Until then, express this step with think or switch, then call submitPlan again`;
+  `${where}: step kind "${kind}" is off on this host. ${turnOn(kind)}. Until then, express this step with think or switch, then call submitPlan again`;
+
+export const ephemeralThinkOff = (where: string) =>
+  `${where}: a think with ephemeral or post calls host capabilities, so it needs step kind "call", which is off on this host. ${turnOn("call")}. Until then, drop ephemeral and post from this think, then call submitPlan again`;

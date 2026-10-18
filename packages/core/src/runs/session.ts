@@ -25,6 +25,7 @@ import { docRefs, docText, interpolate } from "../plans/doc-refs.js";
 import { decodeAmendment } from "../plans/schema.js";
 import type { Plan } from "../plans/schema.js";
 import { checkPlan, refuseCode } from "../plans/validate.js";
+import { CallConcurrency } from "../steps/call-concurrency.js";
 import { CallRegistry } from "../steps/call-registry.js";
 import {
   AskInputSchema,
@@ -269,6 +270,8 @@ export const driveSession = (
     const thinkPermits = yield* Semaphore.make(yield* ThinkConcurrency);
 
     const permitted = thinkPermits.withPermits(1);
+
+    const callPermits = yield* Semaphore.make(yield* CallConcurrency);
 
     const runPromise = Effect.runPromiseWith(
       yield* Effect.context<StepServices>()
@@ -661,12 +664,14 @@ export const driveSession = (
 
         const output = yield* step(
           input.key,
-          found.invoke(given, {
-            epoch: epochOf(),
-            key: input.key,
-            runId,
-            visit: visitOf(input.key),
-          })
+          callPermits.withPermits(1)(
+            found.invoke(given, {
+              epoch: epochOf(),
+              key: input.key,
+              runId,
+              visit: visitOf(input.key),
+            })
+          )
         );
 
         yield* writeDoc(input.writes, output);

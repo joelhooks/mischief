@@ -7,6 +7,7 @@ import {
   Operator,
   StepFailed,
   Thinker,
+  callConcurrencyLayer,
   stepKindsFrom,
   thinkConcurrencyLayer,
 } from "@mischief/core";
@@ -61,6 +62,7 @@ export interface Env {
   readonly MISCHIEF_JUDGE?: string;
   readonly MISCHIEF_STEP_KINDS?: string;
   readonly MISCHIEF_THINK_CONCURRENCY?: string;
+  readonly MISCHIEF_CALL_CONCURRENCY?: string;
   readonly MISCHIEF_JEV_KEY?: string;
   readonly MISCHIEF_IDENTITY?: string;
   readonly MISCHIEF_MAILBOX_URL?: string;
@@ -216,7 +218,8 @@ export class PlanRun extends DurableObject<Env> {
           : postboxMail(ctx.storage, postbox),
         operator,
         Layer.succeed(EnabledStepKinds, stepKindsFrom(env.MISCHIEF_STEP_KINDS)),
-        thinkConcurrencyLayer(env.MISCHIEF_THINK_CONCURRENCY)
+        thinkConcurrencyLayer(env.MISCHIEF_THINK_CONCURRENCY),
+        callConcurrencyLayer(env.MISCHIEF_CALL_CONCURRENCY)
       ),
       storage: ctx.storage,
     });

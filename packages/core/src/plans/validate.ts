@@ -274,6 +274,10 @@ const resolveBranchStep = (
   where: string
 ): Checked<BranchStep> => {
   switch (step.kind) {
+    case "call": {
+      return { agents: 0, errors: nextErrors("call", on, where), value: step };
+    }
+
     case "think": {
       const resolved = resolveThink(plan, step, where);
 

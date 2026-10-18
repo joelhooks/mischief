@@ -175,6 +175,7 @@ export type Transitions = typeof TransitionsSchema.Type;
 export const FinalState = Schema.Struct({ type: Schema.Literal("final") });
 
 export const BranchStepSchema = Schema.Union([
+  CallStepSchema,
   ThinkStepSchema,
   AskStepSchema,
   JudgeStepSchema,

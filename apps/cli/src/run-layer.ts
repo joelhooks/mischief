@@ -1,4 +1,5 @@
 import {
+  CALL_CONCURRENCY_FLAG,
   EnabledStepKinds,
   Judge,
   Operator,
@@ -6,6 +7,7 @@ import {
   STEP_KINDS_FLAG,
   THINK_CONCURRENCY_FLAG,
   Thinker,
+  callConcurrencyLayer,
   stepKindsFrom,
   thinkConcurrencyLayer,
 } from "@mischief/core";
@@ -134,6 +136,14 @@ const thinkConcurrency = Layer.unwrap(
   )
 );
 
+const callConcurrency = Layer.unwrap(
+  Config.String(CALL_CONCURRENCY_FLAG).pipe(
+    Config.withDefault(""),
+    Effect.map(callConcurrencyLayer),
+    Effect.orDie
+  )
+);
+
 export const localRunLayer = RunHost.layer.pipe(
   Layer.provideMerge(Layer.unwrap(runsRoot.pipe(Effect.map(runStoreFile)))),
   Layer.provide(
@@ -143,7 +153,8 @@ export const localRunLayer = RunHost.layer.pipe(
       mail,
       operatorConsole,
       stepKinds,
-      thinkConcurrency
+      thinkConcurrency,
+      callConcurrency
     )
   )
 );

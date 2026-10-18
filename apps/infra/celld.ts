@@ -123,7 +123,10 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         instance: INSTANCE,
         portBase: PORT_BASE,
         purgeOnDelete: false,
-        tuning: { CELLD_HANDLER_BUDGET_S: "1800" },
+        tuning: {
+          CELLD_FETCH_TIMEOUT_S: "1500",
+          CELLD_HANDLER_BUDGET_S: "1800",
+        },
         workerIPv4: host.tailnetIPv4,
       });
 

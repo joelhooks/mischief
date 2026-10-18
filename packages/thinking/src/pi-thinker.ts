@@ -362,7 +362,6 @@ const thinkerOf = (options: PiThinkerOptions) =>
               await watchEvents(harness, conversation.id, BACKGROUND_CONTEXT)
           );
 
-          // oxlint-disable-next-line require-await -- pi-durable listeners must return a Promise; this one only completes a Deferred.
           stream.start(async (events) => {
             if (
               events.some(
@@ -372,6 +371,7 @@ const thinkerOf = (options: PiThinkerOptions) =>
               )
             ) {
               Deferred.doneUnsafe(seen, Effect.succeed(true));
+              await stream.stop();
             }
           });
 

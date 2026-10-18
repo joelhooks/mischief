@@ -60221,6 +60221,7 @@ var thinkerOf = (options2) => Layer21.effect(Thinker, Effect41.gen(function* mak
     stream2.start(async (events) => {
       if (events.some((event) => event.type === "message_update" || event.type === "message_end")) {
         Deferred3.doneUnsafe(seen, Effect41.succeed(true));
+        await stream2.stop();
       }
     });
     return { seen, stop: async () => await stream2.stop() };

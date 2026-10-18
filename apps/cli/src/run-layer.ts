@@ -1,5 +1,6 @@
 import {
   CALL_CONCURRENCY_FLAG,
+  Drive,
   EnabledStepKinds,
   Judge,
   Operator,
@@ -148,6 +149,7 @@ export const localRunLayer = RunHost.layer.pipe(
   Layer.provideMerge(Layer.unwrap(runsRoot.pipe(Effect.map(runStoreFile)))),
   Layer.provide(
     Layer.mergeAll(
+      Drive.inline,
       thinker,
       judge,
       mail,

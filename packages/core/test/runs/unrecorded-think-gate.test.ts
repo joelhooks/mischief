@@ -7,13 +7,13 @@ import {
   EnabledStepKinds,
   STEP_KINDS_FLAG,
 } from "../../src/plans/step-kinds.js";
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
 import { CallRegistry, callable } from "../../src/steps/call-registry.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const RUN = "gate-run";
 

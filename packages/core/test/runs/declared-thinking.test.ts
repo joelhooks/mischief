@@ -6,12 +6,12 @@ import * as Arbitrary from "effect/Arbitrary";
 import { DeclaredThinking } from "../../src/plans/declared-thinking.js";
 import type { ThinkingLevel } from "../../src/plans/declared-thinking.js";
 import { thinkingLevels } from "../../src/plans/schema.js";
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const SOL: readonly ThinkingLevel[] = [
   "off",

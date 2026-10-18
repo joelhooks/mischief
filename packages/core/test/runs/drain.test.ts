@@ -7,10 +7,10 @@ import {
   DrainOutcomeSchema,
   UNROUTED_REASON,
 } from "../../src/runs/drain.js";
-import { RunHost } from "../../src/runs/host.js";
 import { ReplyRefused } from "../../src/runs/reply-refused.js";
 import { RunReportSchema } from "../../src/runs/schema.js";
 import type { ReplyLine } from "../../src/runs/schema.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const NICODEMUS_PLAIN_LINE =
   '{"body":"hello inbox","cc":[],"did":"did:web:partner.alert-cron.pi.ratking-fleet.invalid","kind":"message","messageId":"3mxmhqom4stwi","summary":"drain proof","verified":true,"from":"partner/alert-cron"}';

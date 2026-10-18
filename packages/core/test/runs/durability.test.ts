@@ -13,7 +13,6 @@ import {
 import * as Arbitrary from "effect/Arbitrary";
 
 import { decodePlan } from "../../src/plans/schema.js";
-import { RunHost } from "../../src/runs/host.js";
 import {
   bufferedRunStore,
   memoryRunBackend,
@@ -29,6 +28,7 @@ import type { ThinkReceipt } from "../../src/steps/receipt.js";
 import { shadowJudge } from "../../src/steps/shadow-judge.js";
 import { StepFailed } from "../../src/steps/step-failed.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 import {
   launchNoteAmendment,
   launchNotePlan,
@@ -504,6 +504,10 @@ const incarnation = (
 
     const counters = {
       dead: false,
+      lastTransition: Option.match(yield* backend.readRun(RUN), {
+        onNone: () => -1,
+        onSome: ({ transitions }) => transitions,
+      }),
       pausedWhileRunning: false,
       saves: 0,
       steps: 0,
@@ -568,6 +572,8 @@ const incarnation = (
           }
 
           counters.saves += 1;
+          const transitioned = counters.lastTransition !== state.transitions;
+          counters.lastTransition = state.transitions;
           const written = base.writeRun(runId, state);
 
           if (counters.saves !== interruption?.at) {
@@ -590,7 +596,9 @@ const incarnation = (
 
           if (interruption.kind === "pause") {
             counters.pausedWhileRunning =
-              state.status === "running" && state.checkpoint !== null;
+              state.status === "running" &&
+              state.checkpoint !== null &&
+              transitioned;
 
             return durable.pipe(
               Effect.andThen(base.writePaused(runId, true)),
@@ -786,6 +794,7 @@ it.effect.prop(
         first = false;
 
         if (pausedWhileRunning) {
+          expect(Exit.isSuccess(exit), JSON.stringify(exit)).toBe(true);
           expect(Exit.isSuccess(exit) && exit.value.status).toBe("paused");
         }
       }

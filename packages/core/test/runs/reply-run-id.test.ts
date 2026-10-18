@@ -2,12 +2,12 @@ import { NodeCrypto } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const unused = () => Effect.die("this plan only asks");
 

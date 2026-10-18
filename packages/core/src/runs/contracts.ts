@@ -23,7 +23,7 @@ const runId = RunId.annotate({ description: "Run id, lowercase kebab-case" });
 export const submitPlanContract = defineContract("submitPlan", {
   annotations: { idempotent: true, openWorld: true },
   description:
-    "Validate a plan, store it as version 1 of a new run with any seed docs, and drive the run until it finishes, waits for Joel, pauses or hits its envelope. Submitting an existing run id resumes that run and ignores docs.",
+    "Validate a plan and store it as version 1 of a new run with any seed docs. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. Submitting an existing run id reports that run and ignores docs.",
   failure: PlanRefused,
   input: Schema.Struct({
     docs: Schema.optionalKey(
@@ -69,7 +69,8 @@ export const pauseRunContract = defineContract("pauseRun", {
 
 export const resumeRunContract = defineContract("resumeRun", {
   annotations: { idempotent: true, openWorld: true },
-  description: "Clear a pause and drive the run from its last checkpoint",
+  description:
+    "Clear a pause and store the run as running from its last checkpoint. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress.",
   failure: UnknownRun,
   input: Schema.Struct({ runId }),
   output: RunReportSchema,
@@ -94,7 +95,7 @@ export const abortRunContract = defineContract("abortRun", {
 export const answerRunContract = defineContract("answerRun", {
   annotations: { openWorld: true },
   description:
-    "Answer the question a run is waiting on with one of its listed options, then drive the run on",
+    "Store an answer to the question a run is waiting on with one of its listed options. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress.",
   failure: Schema.Union([UnknownRun, AnswerRefused]),
   input: Schema.Struct({
     reply: Schema.String.annotate({ description: "One of the listed options" }),
@@ -106,7 +107,7 @@ export const answerRunContract = defineContract("answerRun", {
 export const deliverReplyContract = defineContract("deliverReply", {
   annotations: { openWorld: true },
   description:
-    "Deliver a Rat King reply to the run whose ask sent the message it answers, write it to the ask's doc, and drive the run on. Takes a drained mailbox line as-is; extra fields are ignored.",
+    "Store a Rat King reply for the run whose ask sent the message it answers. Worker hosts return once stored; the alarm writes its doc and drives the run on. The local CLI drives in-process before returning. Poll inspectRun for progress. Takes a drained mailbox line as-is; extra fields are ignored.",
   failure: ReplyRefused,
   input: ReplyLineSchema,
   output: RunReportSchema,
@@ -115,7 +116,7 @@ export const deliverReplyContract = defineContract("deliverReply", {
 export const reviseRunContract = defineContract("reviseRun", {
   annotations: { openWorld: true },
   description:
-    "Rebuild a run under a revised plan with the same envelope. Steps whose definition and input docs are unchanged reuse their recorded results; the rest run live, an unchanged ask keeps its message and reply, and Joel is asked again only after work changed. dryRun reports what would be reused and the first live step on each path without touching the run.",
+    "Rebuild a run under a revised plan with the same envelope. Steps whose definition and input docs are unchanged reuse their recorded results; the rest run live, an unchanged ask keeps its message and reply, and Joel is asked again only after work changed. Worker hosts return once the revision is stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. live and reused preview reuse and the first live step on each path; dryRun previews without touching the run.",
   failure: Schema.Union([UnknownRun, RevisionRefused]),
   input: Schema.Struct({
     dryRun: Schema.Boolean.annotate({
@@ -131,7 +132,7 @@ export const reviseRunContract = defineContract("reviseRun", {
 export const extendRunContract = defineContract("extendRun", {
   annotations: { openWorld: true },
   description:
-    "Raise a run's maxSteps when it paused at its envelope, record it as a new plan version, and drive the run on. The owner decides this; nothing a worker sees ever carries the limit.",
+    "Raise a run's maxSteps when it paused at its envelope and store a new plan version. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. The owner decides this; nothing a worker sees ever carries the limit.",
   failure: Schema.Union([UnknownRun, ExtendRefused]),
   input: Schema.Struct({
     maxSteps: Schema.Int.check(Schema.isGreaterThan(0)).annotate({

@@ -3,7 +3,6 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
 import {
   Judge,
@@ -15,6 +14,7 @@ import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { SHADOW_JUDGE, shadowJudge } from "../../src/steps/shadow-judge.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const checkPlan = (goal: string) => ({
   defaults: { agent: {} },

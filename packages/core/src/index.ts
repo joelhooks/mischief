@@ -73,6 +73,14 @@ export type { DrainOutcome } from "./runs/drain.js";
 
 export { RunHost } from "./runs/host.js";
 
+export { Drive } from "./runs/drive.js";
+
+export {
+  RedriveAttempts,
+  redriveAttemptsLayer,
+  ThinkAttemptSchema,
+} from "./runs/redrive.js";
+
 export {
   ProviderResume,
   overloadHeld,
@@ -104,6 +112,7 @@ export { RunWriteOutsideUnit } from "./runs/run-write-outside-unit.js";
 export {
   AwaitingSchema,
   DocsSchema,
+  DriveLeaseSchema,
   EscalateToSchema,
   HeldSchema,
   JudgeModeSchema,
@@ -117,6 +126,7 @@ export {
   type JudgeMode,
   type ReplyLine,
   type RunReport,
+  type DriveLease,
 } from "./runs/schema.js";
 
 export { UnknownRun } from "./runs/unknown-run.js";

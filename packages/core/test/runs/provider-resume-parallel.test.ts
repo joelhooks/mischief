@@ -3,7 +3,6 @@ import { expect, it } from "@effect/vitest";
 import { Clock, Effect, Layer, Option, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
@@ -11,6 +10,7 @@ import { Operator } from "../../src/steps/operator.js";
 import { ProviderUnavailable } from "../../src/steps/provider-unavailable.js";
 import { ThinkConcurrency } from "../../src/steps/think-concurrency.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const branch = (name: string) => ({
   initial: "draft",

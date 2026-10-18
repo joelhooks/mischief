@@ -12,7 +12,6 @@ import {
 } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import { RunHost } from "../../src/runs/host.js";
 import { ReplyRefused } from "../../src/runs/reply-refused.js";
 import {
   bufferedRunStore,
@@ -28,6 +27,7 @@ import type { Sealed } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { StepFailed } from "../../src/steps/step-failed.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const RUN = "board";
 

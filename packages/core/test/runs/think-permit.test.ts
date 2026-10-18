@@ -3,7 +3,6 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Layer, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore, withinRun } from "../../src/runs/run-store.js";
 import type { RunState } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
@@ -16,6 +15,7 @@ import {
   thinkConcurrencyFrom,
 } from "../../src/steps/think-concurrency.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const RUN = "wide";
 

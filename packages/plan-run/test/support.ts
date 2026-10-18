@@ -32,6 +32,51 @@ export const call = (run: PlanRun, capability: string, body: Schema.Json) =>
     return { body: await response.json(), status: response.status };
   });
 
+const ADVANCING = new Set([
+  "submitPlan",
+  "resumeRun",
+  "answerRun",
+  "deliverReply",
+  "extendRun",
+]);
+
+export const callAndDrive = (
+  run: PlanRun,
+  capability: string,
+  body: Schema.Json
+) =>
+  Effect.gen(function* inlineDrive() {
+    const stored = yield* call(run, capability, body);
+
+    if (stored.status !== 200 || !ADVANCING.has(capability)) {
+      return stored;
+    }
+
+    const { runId } = yield* Schema.decodeUnknownEffect(
+      Schema.Struct({ runId: Schema.String })
+    )(stored.body);
+
+    yield* Effect.acquireUseRelease(
+      Effect.sync(() => {
+        const controller = new AbortController();
+        const promise = run.alarm(controller.signal);
+
+        return { controller, promise };
+      }),
+      ({ promise }) =>
+        Effect.promise(async () => {
+          await promise;
+        }),
+      ({ controller, promise }) =>
+        Effect.promise(async () => {
+          controller.abort();
+          await Promise.allSettled([promise]);
+        })
+    );
+
+    return yield* call(run, "inspectRun", { runId });
+  });
+
 const ReportSchema = Schema.Struct({
   awaiting: Schema.optionalKey(
     Schema.Array(Schema.Struct({ messageId: Schema.String }))

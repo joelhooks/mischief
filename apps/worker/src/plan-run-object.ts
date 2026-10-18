@@ -10,6 +10,7 @@ import {
   Thinker,
   callConcurrencyLayer,
   providerResumeLayer,
+  redriveAttemptsLayer,
   stepKindsFrom,
   thinkConcurrencyLayer,
 } from "@mischief/core";
@@ -63,6 +64,7 @@ export interface Env {
   readonly MISCHIEF_CLIPROXY_URL?: string;
   readonly MISCHIEF_CLIPROXY_KEY?: string;
   readonly MISCHIEF_GUARD_MS: string;
+  readonly MISCHIEF_REDRIVE_ATTEMPTS?: string;
   readonly MISCHIEF_RESUME_ATTEMPTS?: string;
   readonly MISCHIEF_RESUME_BASE_MS?: string;
   readonly MISCHIEF_RESUME_CAP_MS?: string;
@@ -241,6 +243,7 @@ export class PlanRun extends DurableObject<Env> {
           baseMs: env.MISCHIEF_RESUME_BASE_MS,
           capMs: env.MISCHIEF_RESUME_CAP_MS,
         }),
+        redriveAttemptsLayer(env.MISCHIEF_REDRIVE_ATTEMPTS),
         thinkConcurrencyLayer(env.MISCHIEF_THINK_CONCURRENCY),
         callConcurrencyLayer(env.MISCHIEF_CALL_CONCURRENCY)
       ),

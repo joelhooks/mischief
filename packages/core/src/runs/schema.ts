@@ -225,9 +225,18 @@ export const RunThinkingSchema = Schema.Struct({
   line: Schema.String,
 });
 
+export const DriveLeaseSchema = Schema.Struct({
+  epoch: Count,
+  holder: Schema.NullOr(Schema.String),
+  leaseUntil: Count,
+});
+
+export type DriveLease = typeof DriveLeaseSchema.Type;
+
 export const RunReportSchema = Schema.Struct({
   awaiting: Schema.optionalKey(Schema.Array(AwaitingSchema)),
   docs: DocsSchema,
+  driveLease: Schema.optionalKey(DriveLeaseSchema),
   failures: Schema.optionalKey(Schema.Array(FailureSchema)),
   held: Schema.optionalKey(Schema.Array(HeldSchema)),
   planId: Schema.String,

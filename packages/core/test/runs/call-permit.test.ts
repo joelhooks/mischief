@@ -4,7 +4,6 @@ import { Deferred, Effect, Layer, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { EnabledStepKinds } from "../../src/plans/step-kinds.js";
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
 import {
   CALL_CONCURRENCY_FLAG,
@@ -18,6 +17,7 @@ import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { ThinkConcurrency } from "../../src/steps/think-concurrency.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const quiet = Layer.mergeAll(
   NodeCrypto.layer,

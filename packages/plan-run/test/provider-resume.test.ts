@@ -23,7 +23,7 @@ import { TestClock } from "effect/testing";
 
 import { nodeSqlStorage } from "../src/node-sql.js";
 import { makePlanRun } from "../src/plan-run.js";
-import { alarmsFor, call, decodeReport } from "./support.js";
+import { alarmsFor, callAndDrive as call, decodeReport } from "./support.js";
 import type { AlarmLog } from "./support.js";
 
 const plan = {

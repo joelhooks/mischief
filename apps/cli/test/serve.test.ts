@@ -9,6 +9,7 @@ import {
   Judge,
   Mail,
   Operator,
+  Drive,
   RunHost,
   RunStore,
   Thinker,
@@ -38,6 +39,7 @@ const decodeOpenApi = Schema.decodeUnknownSync(
 const memoryRuns = RunHost.layer.pipe(
   Layer.provide(
     Layer.mergeAll(
+      Drive.inline,
       NodeCrypto.layer,
       RunStore.memory,
       Thinker.unwired,

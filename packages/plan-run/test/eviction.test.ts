@@ -5,6 +5,7 @@ import { Judge, Mail, Operator, Thinker } from "@mischief/core";
 import {
   Deferred,
   Effect,
+  Fiber,
   FileSystem,
   Layer,
   Path,
@@ -17,7 +18,7 @@ import { nodeSqlStorage } from "../src/node-sql.js";
 import { mailOutboxSql } from "../src/outbox.js";
 import { makePlanRun } from "../src/plan-run.js";
 import type { SqlStorage } from "../src/sql.js";
-import { alarmsFor, call, decodeReport } from "./support.js";
+import { alarmsFor, callAndDrive as call, decodeReport } from "./support.js";
 import type { AlarmLog } from "./support.js";
 
 const STEPS = ["one", "two", "three", "four"] as const;
@@ -144,12 +145,15 @@ it.live.prop(
         thinkerFor(before, hangAt, hung)
       );
 
-      yield* Effect.forkDetach(
+      const victim = yield* Effect.forkChild(
         call(first, "submitPlan", { plan: chainOf(length), runId: "line" })
       );
+
       yield* Deferred.await(hung);
 
       expect(log.pending).not.toBeNull();
+
+      yield* Fiber.interrupt(victim);
 
       const after: World = { answered: before.answered, thoughts: [] };
 
@@ -314,15 +318,18 @@ it.live.prop(
         mailFor(mailbox, die, hung)
       );
 
-      yield* Effect.forkDetach(
+      const victim = yield* Effect.forkChild(
         call(first, "submitPlan", { plan: askPlan, runId: "asks" })
       );
+
       yield* Deferred.await(hung);
 
       expect(
         log.pending,
         "the alarm stays armed while a send is in flight"
       ).not.toBeNull();
+
+      yield* Fiber.interrupt(victim);
 
       const stored = nodeSqlStorage(file)
         .sql.exec(

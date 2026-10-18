@@ -4,7 +4,6 @@ import { Clock, Effect, Layer, Option, Random, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import { TestClock } from "effect/testing";
 
-import { RunHost } from "../../src/runs/host.js";
 import { ProviderResume } from "../../src/runs/provider-resume.js";
 import {
   RunStore,
@@ -17,6 +16,7 @@ import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { ProviderUnavailable } from "../../src/steps/provider-unavailable.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const plan = {
   defaults: { agent: { model: "sol" } },

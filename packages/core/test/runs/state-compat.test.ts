@@ -4,7 +4,6 @@ import { Effect, Layer, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { decodePlan } from "../../src/plans/schema.js";
-import { RunHost } from "../../src/runs/host.js";
 import {
   bufferedRunStore,
   memoryRunBackend,
@@ -15,6 +14,7 @@ import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 import { inlineOutputsRun } from "./inline-outputs.js";
 import { oldHeldRun } from "./old-held.js";
 

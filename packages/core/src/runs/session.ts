@@ -23,7 +23,12 @@ import {
 import type { Ask } from "../plans/compile.js";
 import { docRefs, docText, interpolate } from "../plans/doc-refs.js";
 import { decodeAmendment } from "../plans/schema.js";
-import type { EphemeralSource, Plan, Post } from "../plans/schema.js";
+import type {
+  AgentConfig,
+  EphemeralSource,
+  Plan,
+  Post,
+} from "../plans/schema.js";
 import { checkPlan, refuseCode } from "../plans/validate.js";
 import { CallConcurrency } from "../steps/call-concurrency.js";
 import { CallRegistry } from "../steps/call-registry.js";
@@ -75,6 +80,7 @@ import { describeValue, leaves, openExecution } from "./execution.js";
 import type { Adapter, Execution, Sources } from "./execution.js";
 import { fingerprintOf, stepOf } from "./fingerprint.js";
 import { resumeAfter } from "./provider-resume.js";
+import { attemptedThink, settleThinkAttempt } from "./redrive.js";
 import { docWrites, docsRead } from "./replay.js";
 import { RunStore } from "./run-store.js";
 import { DirectiveKey, directiveKey, DirectiveSchema } from "./schema.js";
@@ -102,11 +108,6 @@ export interface RevisionWatch {
   readonly dryRun: boolean;
   readonly live: string[];
   readonly reused: string[];
-}
-
-export interface Delivery {
-  readonly kind: "answer";
-  readonly reply: string;
 }
 
 type Choice =
@@ -256,7 +257,6 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
 export const driveSession = (
   runId: string,
   opened: { readonly plan: Plan; readonly state: RunState },
-  delivery: Delivery | undefined,
   watch?: RevisionWatch,
   automatic = false
 ) =>
@@ -277,9 +277,21 @@ export const driveSession = (
 
     const callPermits = yield* Semaphore.make(yield* CallConcurrency);
 
-    const runPromise = Effect.runPromiseWith(
+    const controller = yield* Effect.acquireRelease(
+      Effect.sync(() => new AbortController()),
+      (active) =>
+        Effect.sync(() => {
+          active.abort();
+        })
+    );
+
+    const runPromiseWith = Effect.runPromiseWith(
       yield* Effect.context<StepServices>()
     );
+
+    // oxlint-disable-next-line typescript/promise-function-async -- XState tracks the original scoped Promise, not an additional async wrapper.
+    const runPromise: typeof runPromiseWith = (effect, options) =>
+      runPromiseWith(effect, { ...options, signal: controller.signal });
 
     const journal = new Map(yield* store.readJournal(runId));
     const prints = new Map(yield* store.readFingerprints(runId));
@@ -306,7 +318,6 @@ export const driveSession = (
     const run = {
       facts: planFacts(opened.plan),
       plan: opened.plan,
-      reply: delivery?.reply,
       state: opened.state,
     };
 
@@ -499,13 +510,53 @@ export const driveSession = (
             Effect.ignoreCause
           );
 
+    const attempt = <A, E>(
+      key: string,
+      agent: AgentConfig,
+      effect: Effect.Effect<A, E>
+    ) =>
+      permitted(
+        attemptedThink(
+          {
+            agent: {
+              model: run.plan.envelope.models[0],
+              ...run.plan.defaults.agent,
+              ...agent,
+            },
+            ceiling: run.plan.envelope.maxThinking,
+            epoch: epochOf(),
+            key,
+            runId,
+            visit: visitOf(key),
+          },
+          journal,
+          effect,
+          (reason) =>
+            deliveryKey(
+              key,
+              `redrive-exhausted:${key}#${visitOf(key)}@${epochOf()}`
+            ).pipe(
+              Effect.flatMap((notice) =>
+                produce(
+                  notice,
+                  DirectiveSchema.cases.Emit.make({
+                    question: { key, options: ["reviseRun"], question: reason },
+                  })
+                )
+              )
+            )
+        ).pipe(Effect.provideService(RunStore, store))
+      );
+
     const recordedThink = (input: ThinkInput) =>
       Effect.gen(function* thinkStep() {
         const thought = yield* step(
           input.key,
           withDocs(input.key, input.prompt).pipe(
             Effect.flatMap((prompt) =>
-              permitted(
+              attempt(
+                input.key,
+                input.agent ?? {},
                 thinker.think({
                   agent: input.agent ?? {},
                   ceiling: run.plan.envelope.maxThinking,
@@ -720,7 +771,9 @@ export const driveSession = (
                   yield* fetchEphemeral(input.key, input.ephemeral, call)
                 );
 
-          const thought = yield* permitted(
+          const thought = yield* attempt(
+            input.key,
+            input.agent ?? {},
             thinkUnrecorded({
               ...call,
               agent: input.agent ?? {},
@@ -804,7 +857,9 @@ export const driveSession = (
       Effect.gen(function* elaborateStep() {
         const result = yield* step(
           input.key,
-          permitted(
+          attempt(
+            input.key,
+            run.plan.defaults.agent,
             thinker.elaborate({
               epoch: epochOf(),
               goal: input.goal,
@@ -914,7 +969,7 @@ export const driveSession = (
 
         const deliberated = yield* step(
           input.key,
-          permitted(thinker.decide(call)).pipe(
+          attempt(input.key, call.agent, thinker.decide(call)).pipe(
             Effect.tap((done) => observed(input.key, done.usage.receipt)),
             Effect.map((done) => Result.succeed(done)),
             Effect.catchTag("ThinkModelUnmapped", (unmapped) =>
@@ -1181,6 +1236,18 @@ export const driveSession = (
                 { discard: true }
               )
           ).pipe(
+            Effect.tapError(() =>
+              settleThinkAttempt(
+                { epoch: epochOf(), key: stepKey, runId, visit },
+                journal
+              ).pipe(Effect.provideService(RunStore, store))
+            ),
+            Effect.tap(() =>
+              settleThinkAttempt(
+                { epoch: epochOf(), key: stepKey, runId, visit },
+                journal
+              ).pipe(Effect.provideService(RunStore, store))
+            ),
             Effect.tap((entry) =>
               Effect.sync(() => {
                 remember(journalKeys, key, entry);
@@ -1235,11 +1302,20 @@ export const driveSession = (
       })[0];
 
     const loggedAnswer = (question: Ask) => {
+      const pendingAnswer = journal.get(
+        `answer-pending:${question.key}#${(answers.get(question.key) ?? 0) + 1}@v${run.state.planVersion}`
+      );
+
+      if (isText(pendingAnswer)) {
+        return pendingAnswer;
+      }
+
       const answer = journal.get(
         `answer:${question.key}#${(answers.get(question.key) ?? 0) + 1}`
       );
 
-      return run.state.revision?.diverged === false && isText(answer)
+      return (run.state.revision === null || !run.state.revision.diverged) &&
+        isText(answer)
         ? answer
         : undefined;
     };
@@ -1519,9 +1595,7 @@ export const driveSession = (
         return { kind: "halt", status: "stuck" } satisfies Choice;
       }
 
-      const chosen = run.reply ?? loggedAnswer(question);
-
-      run.reply = undefined;
+      const chosen = loggedAnswer(question);
 
       if (chosen === undefined || !question.options.includes(chosen)) {
         const asked = (answers.get(question.key) ?? 0) + 1;
@@ -1736,4 +1810,4 @@ export const driveSession = (
     });
 
     return (yield* begin) ? yield* loop : yield* report;
-  });
+  }).pipe(Effect.scoped);

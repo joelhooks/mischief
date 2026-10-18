@@ -8,6 +8,8 @@ import {
   Judge,
   Mail,
   Operator,
+  Drive,
+  RedriveAttempts,
   RunHost,
   RunStore,
   StepFailed,
@@ -431,6 +433,7 @@ const incarnation = (
     const host = yield* RunHost.make.pipe(
       Effect.provide(
         Layer.mergeAll(
+          Drive.inline,
           webCrypto,
           Judge.unwired,
           Mail.unwired,
@@ -438,6 +441,7 @@ const incarnation = (
         )
       ),
       Effect.provide(thinker),
+      Effect.provideService(RedriveAttempts, Number.MAX_SAFE_INTEGER),
       Effect.provideService(RunStore, store),
       Effect.provideService(CallRegistry, registryFor(world, alive)),
       Effect.provideService(EnabledStepKinds, new Set(["call"] as const))

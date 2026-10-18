@@ -6,12 +6,12 @@ import * as Arbitrary from "effect/Arbitrary";
 import { branchLength } from "../../src/plans/compile.js";
 import type { Branch } from "../../src/plans/schema.js";
 import { validatePlan } from "../../src/plans/validate.js";
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "../runs/inline-host.js";
 
 const NAMES = ["s0", "s1", "s2", "s3"] as const;
 

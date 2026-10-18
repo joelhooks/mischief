@@ -4,12 +4,12 @@ import { Crypto, Effect, Layer, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { fingerprintOf } from "../../src/runs/fingerprint.js";
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const PromptsSchema = Schema.Array(Schema.Literals(["a", "b", "c"])).check(
   Schema.isMinLength(1),

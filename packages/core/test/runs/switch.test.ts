@@ -4,12 +4,12 @@ import { Effect, Exit, Layer, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { validatePlan } from "../../src/plans/validate.js";
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const OPTIONS = ["ship", "hold", "drop"] as const;
 
@@ -269,12 +269,12 @@ it.effect.prop(
         false
       );
 
-      const switched = revised.live.some((key) => key.includes(".gate#"));
+      const changed = revised.live.some((key) => key.includes(".light#"));
       const route = expectedRoute(after, cases, fallback);
 
       expect(revised.run.status).toBe("done");
       expect(revised.run.docs.took).toBe(route);
-      expect(switched).toBe(before !== after);
+      expect(changed).toBe(before !== after);
       expect(Object.keys(revised.run.docs).toSorted()).toEqual(
         ["light", "took"].toSorted()
       );

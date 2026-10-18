@@ -12,7 +12,6 @@ import {
 } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore, withinRun } from "../../src/runs/run-store.js";
 import type { RunReport } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
@@ -20,6 +19,7 @@ import { Mail } from "../../src/steps/mail.js";
 import { Operator } from "../../src/steps/operator.js";
 import { StepFailed } from "../../src/steps/step-failed.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const StepSchema = Schema.Struct({
   base: Schema.Literals(["a", "b", "c"]),
@@ -328,7 +328,6 @@ it.effect.prop(
         Object.fromEntries(yield* store.readJournal("run"))
       ).filter((key) => key.startsWith("logic:"));
 
-      const askKey = keys.filter((key) => key.includes(".ask#"));
       const firstDone = { ...counts };
       const preview = yield* snapshotOf(store);
       const reruns = modelReruns(before, revised);
@@ -347,12 +346,7 @@ it.effect.prop(
         false
       );
 
-      expect(committed.live.toSorted()).toEqual(
-        [
-          ...reruns.flatMap((index) => keyOf(keys, index)),
-          ...(ask ? askKey : []),
-        ].toSorted()
-      );
+      expect(committed.live).toEqual(dry.live);
       expect(committed.run.status).toBe(statusAfterRevision(ask, diverged));
       expect((yield* settle(host, committed.run)).status).toBe("done");
       expect({

@@ -8,6 +8,7 @@ import { Judge } from "../steps/judge.js";
 import { Operator } from "../steps/operator.js";
 import { AnswerRefused } from "./answer-refused.js";
 import { closeOpenAsks } from "./close-asks.js";
+import { Drive } from "./drive.js";
 import { ExtendRefused } from "./extend-refused.js";
 import { canonical } from "./fingerprint.js";
 import { overloadHeld, ProviderResume } from "./provider-resume.js";
@@ -24,7 +25,7 @@ import type {
   RunState,
 } from "./schema.js";
 import { driveSession, reportOf } from "./session.js";
-import type { Delivery, RevisionWatch, StepServices } from "./session.js";
+import type { RevisionWatch, StepServices } from "./session.js";
 import { checkSubmission } from "./submission.js";
 import { UnknownRun } from "./unknown-run.js";
 
@@ -74,6 +75,7 @@ export class RunHost extends Context.Service<
     const registry = yield* CallRegistry;
     const declared = yield* DeclaredThinking;
     const resumePolicy = yield* ProviderResume;
+    const driver = yield* Drive;
 
     const hostGates = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       effect.pipe(
@@ -136,27 +138,24 @@ export class RunHost extends Context.Service<
         }
       });
 
-    const drive = Effect.fn("RunHost.drive")(function* drive(
-      runId: string,
-      delivery?: Delivery,
-      manual?: boolean
-    ) {
+    const drive = Effect.fn("RunHost.drive")(function* drive(runId: string) {
       const opened = yield* loadRun(runId);
 
       if (
         terminalStatuses.has(opened.state.status) ||
-        (manual !== true && opened.state.status === "waiting-for-provider")
+        opened.state.status === "waiting-for-provider"
       ) {
         return yield* reportOf(runId, opened.plan, opened.state);
       }
 
-      const report = yield* driveSession(
-        runId,
-        opened,
-        delivery,
-        undefined,
-        manual !== true
-      );
+      if (
+        opened.state.status === "paused" &&
+        (yield* store.readPaused(runId))
+      ) {
+        return yield* reportOf(runId, opened.plan, opened.state);
+      }
+
+      const report = yield* driveSession(runId, opened, undefined, true);
 
       yield* announceHoldAlarm(runId, report, opened.state.resumeAttempts);
 
@@ -189,7 +188,7 @@ export class RunHost extends Context.Service<
       docs: Docs = {}
     ) {
       if (Option.isSome(yield* store.readRun(runId))) {
-        return yield* drive(runId).pipe(Effect.orDie);
+        return yield* inspect(runId).pipe(Effect.orDie);
       }
 
       const plan = yield* hostGates(checkSubmission(input, docs));
@@ -225,7 +224,9 @@ export class RunHost extends Context.Service<
 
       yield* store.writeRun(runId, fresh);
 
-      return yield* drive(runId).pipe(Effect.orDie);
+      return yield* reportOf(runId, plan, fresh).pipe(
+        Effect.provideContext(context)
+      );
     });
 
     const answer = Effect.fn("RunHost.answer")(function* answer(
@@ -248,19 +249,40 @@ export class RunHost extends Context.Service<
         });
       }
 
-      return yield* drive(runId, { kind: "answer", reply });
+      const { state } = yield* loadRun(runId);
+      const { question } = report;
+
+      yield* store.writeJournal(
+        runId,
+        `answer-pending:${question.key}#${(state.answers[question.key] ?? 0) + 1}@v${state.planVersion}`,
+        reply
+      );
+      yield* store.writeRun(runId, { ...state, status: "running" });
+
+      return yield* inspect(runId);
     });
 
     const pause = Effect.fn("RunHost.pause")(function* pause(runId: string) {
+      const { state } = yield* loadRun(runId);
       yield* store.writePaused(runId, true);
+
+      if (!terminalStatuses.has(state.status)) {
+        yield* store.writeRun(runId, { ...state, status: "paused" });
+      }
 
       return yield* inspect(runId);
     });
 
     const resume = Effect.fn("RunHost.resume")(function* resume(runId: string) {
+      const { state } = yield* loadRun(runId);
+
       yield* store.writePaused(runId, false);
 
-      return yield* drive(runId, undefined, true);
+      if (!terminalStatuses.has(state.status)) {
+        yield* store.writeRun(runId, { ...state, held: [], status: "running" });
+      }
+
+      return yield* inspect(runId);
     });
 
     const advance = Effect.fn("RunHost.advance")(function* advance(
@@ -386,12 +408,15 @@ export class RunHost extends Context.Service<
         );
       }
 
+      const resumed = (yield* store.readPaused(runId)) ? "paused" : "running";
+
       yield* store.writeRun(runId, {
         ...state,
         replies: [...state.replies, { body: line.body, key: open.key }],
+        status: state.status === "envelope-exceeded" ? state.status : resumed,
       });
 
-      return yield* drive(runId).pipe(Effect.orDie);
+      return yield* inspect(runId).pipe(Effect.orDie);
     });
 
     const extend = Effect.fn("RunHost.extend")(function* extend(
@@ -422,9 +447,13 @@ export class RunHost extends Context.Service<
       };
 
       yield* store.writePlan(runId, extended);
-      yield* store.writeRun(runId, { ...state, planVersion: extended.version });
+      yield* store.writeRun(runId, {
+        ...state,
+        planVersion: extended.version,
+        status: (yield* store.readPaused(runId)) ? "paused" : "running",
+      });
 
-      return yield* drive(runId);
+      return yield* inspect(runId);
     });
 
     const scratchOf = (runId: string, docs: Docs) =>
@@ -513,66 +542,89 @@ export class RunHost extends Context.Service<
         planVersion: plan.version,
         replies: [],
         revision: { diverged: false, from: opened.plan.version },
-        status: "running",
+        status: (yield* store.readPaused(runId)) ? "paused" : "running",
         transitions: 0,
         value: null,
       };
 
-      const watch: RevisionWatch = { dryRun, live: [], reused: [] };
+      const watch: RevisionWatch = { dryRun: true, live: [], reused: [] };
 
-      const target = dryRun
-        ? yield* scratchOf(runId, yield* store.readDocs(runId))
-        : store;
+      const target = yield* scratchOf(runId, yield* store.readDocs(runId));
 
       yield* target.writePlan(runId, plan);
       yield* target.writeRun(runId, state);
 
-      const report = yield* driveSession(
-        runId,
-        { plan, state },
-        undefined,
-        watch
-      ).pipe(
+      const report = yield* driveSession(runId, { plan, state }, watch).pipe(
         Effect.provideService(RunStore, target),
         Effect.provideService(
           Operator,
-          dryRun ? Operator.of({ notify: () => Effect.void }) : operator
+          Operator.of({ notify: () => Effect.void })
         ),
         Effect.provideContext(context)
       );
+
+      if (!dryRun) {
+        yield* store.writePlan(runId, plan);
+        yield* store.writeRun(runId, state);
+      }
 
       return {
         dryRun,
         live: [...watch.live],
         reused: [...watch.reused],
-        run: report,
+        run: dryRun
+          ? report
+          : yield* reportOf(runId, plan, state).pipe(
+              Effect.provideContext(context)
+            ),
       } satisfies RevisionReport;
     });
 
     const unit = (runId: string) => withinRun(store, runId);
 
+    const afterStored = <E, R>(effect: Effect.Effect<RunReport, E, R>) =>
+      effect.pipe(
+        Effect.flatMap((report) =>
+          driver
+            .stored(report, unit(report.runId)(advance(report.runId)))
+            .pipe(Effect.orDie)
+        )
+      );
+
     return {
       abort: (runId, supersededBy) => unit(runId)(abort(runId, supersededBy)),
       advance: (runId) => unit(runId)(advance(runId)),
-      answer: (runId, reply) => unit(runId)(answer(runId, reply)),
+      answer: (runId, reply) => afterStored(unit(runId)(answer(runId, reply))),
       deliver: (line) =>
-        store
-          .readMessage(line.replyTo)
-          .pipe(
-            Effect.flatMap((owner) =>
-              Option.isSome(owner)
-                ? unit(owner.value)(deliver(line))
-                : deliver(line)
+        afterStored(
+          store
+            .readMessage(line.replyTo)
+            .pipe(
+              Effect.flatMap((owner) =>
+                Option.isSome(owner)
+                  ? unit(owner.value)(deliver(line))
+                  : deliver(line)
+              )
             )
-          ),
-      extend: (runId, maxSteps) => unit(runId)(extend(runId, maxSteps)),
+        ),
+      extend: (runId, maxSteps) =>
+        afterStored(unit(runId)(extend(runId, maxSteps))),
       inspect,
       pause: (runId) => unit(runId)(pause(runId)),
       read,
-      resume: (runId) => unit(runId)(resume(runId)),
+      resume: (runId) => afterStored(unit(runId)(resume(runId))),
       revise: (runId, input, dryRun) =>
-        unit(runId)(revise(runId, input, dryRun)),
-      submit: (runId, input, docs) => unit(runId)(submit(runId, input, docs)),
+        unit(runId)(revise(runId, input, dryRun)).pipe(
+          Effect.flatMap((revision) =>
+            dryRun
+              ? Effect.succeed(revision)
+              : afterStored(Effect.succeed(revision.run)).pipe(
+                  Effect.map((run) => ({ ...revision, run }))
+                )
+          )
+        ),
+      submit: (runId, input, docs) =>
+        afterStored(unit(runId)(submit(runId, input, docs))),
     };
   }),
 }) {

@@ -3,7 +3,6 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Layer, Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import { RunHost } from "../../src/runs/host.js";
 import { RunStore } from "../../src/runs/run-store.js";
 import type { Held } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
@@ -14,6 +13,7 @@ import {
   ProviderUnavailable,
 } from "../../src/steps/provider-unavailable.js";
 import { Thinker } from "../../src/steps/thinker.js";
+import { InlineRunHost as RunHost } from "./inline-host.js";
 
 const gatePlan = {
   defaults: { agent: {} },

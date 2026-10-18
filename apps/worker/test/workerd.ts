@@ -134,7 +134,7 @@ export const postAs = (
     )
   );
 
-export const post = (
+export const postStored = (
   world: Workerd,
   capability: string,
   body: Schema.Json,
@@ -145,6 +145,77 @@ export const post = (
       postAs(world, capability, body, authorization)
     )
   );
+
+const advancing = new Set([
+  "submitPlan",
+  "resumeRun",
+  "answerRun",
+  "deliverReply",
+  "extendRun",
+]);
+
+const StoredReport = Schema.Struct({
+  runId: Schema.String,
+  status: Schema.String,
+});
+
+const storedReport = Schema.decodeUnknownOption(StoredReport);
+
+export const post = (
+  world: Workerd,
+  capability: string,
+  body: Schema.Json,
+  caller: Caller = world.driver
+) =>
+  Effect.gen(function* storeThenPoll() {
+    const stored = yield* postStored(world, capability, body, caller);
+
+    const revision = Schema.decodeUnknownOption(
+      Schema.Struct({ dryRun: Schema.Boolean, run: StoredReport })
+    )(stored.body);
+
+    const report =
+      Option.isSome(revision) && !revision.value.dryRun
+        ? Option.some(revision.value.run)
+        : storedReport(stored.body);
+
+    if (
+      stored.status !== 200 ||
+      (!advancing.has(capability) && capability !== "reviseRun") ||
+      Option.isNone(report)
+    ) {
+      return stored;
+    }
+
+    const settled = yield* postStored(
+      world,
+      "inspectRun",
+      { runId: report.value.runId },
+      caller
+    ).pipe(
+      Effect.repeat({
+        schedule: Schedule.spaced("10 millis"),
+        while: ({ body: current }) =>
+          Option.match(storedReport(current), {
+            onNone: () => false,
+            onSome: ({ status }) => status === "running",
+          }),
+      }),
+      Effect.timeout("60 seconds")
+    );
+
+    return Option.isSome(revision)
+      ? {
+          ...settled,
+          body: {
+            ...(yield* Schema.decodeUnknownEffect(Schema.JsonObject)(
+              stored.body
+            )),
+            run: settled.body,
+          },
+        }
+      : settled;
+  });
 
 export const getJson = ({ port }: Workerd, route: string, authorization = "") =>
   HttpClientRequest.get(`http://127.0.0.1:${port}${route}`).pipe(

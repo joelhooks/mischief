@@ -76,9 +76,9 @@ const expectRuleSoft = (result: LintResult, message: string) => {
 describe("architecture boundary rules", () => {
   it("keeps code-snippets and Shiki out of runtime import graphs", () => {
     for (const source of [
-      'import { prepareCode } from "@mischief/code-snippets";',
+      'import { prepareCode } from "../../../../packages/code-snippets/src/index.ts";',
       'const engine = import("shiki");',
-      'export * from "@mischief/code-snippets/shiki";',
+      'export * from "../../../../packages/code-snippets/src/shiki.ts";',
     ]) {
       expectRuleSoft(
         lintFixture("apps/mischief/src", source),
@@ -666,7 +666,7 @@ describe("architecture boundary rules", () => {
 
     const testPeople = lintFixture(
       "apps/mischief/src",
-      'import { ratTestPerson } from "@mischief/auth/devtools";\n\nexport const person = ratTestPerson;\n'
+      'import { ratTestPerson } from "../../../../packages/auth/src/devtools.ts";\n\nexport const person = ratTestPerson;\n'
     );
 
     expectRule(worker, "Devtools and test people");
@@ -681,7 +681,7 @@ describe("architecture boundary rules", () => {
 
     const authDistribution = lintFixture(
       "apps/web/src/server",
-      'import { ratTestPerson } from "@mischief/auth/dist/devtools.js";\nexport const person = ratTestPerson;\n'
+      'import { ratTestPerson } from "../../../../../packages/auth/dist/devtools.js";\nexport const person = ratTestPerson;\n'
     );
 
     const sourceTest = lintFixture(
@@ -691,7 +691,7 @@ describe("architecture boundary rules", () => {
 
     const authBarrel = lintFixture(
       "packages/auth/src",
-      'export { ratTestPerson } from "@mischief/auth/devtools";\n'
+      'export { ratTestPerson } from "../devtools.ts";\n'
     );
 
     const typeImport = lintFixture(
@@ -709,7 +709,7 @@ describe("architecture boundary rules", () => {
   it("allows devtools in a dev folder, the CLI, and tests", () => {
     const dev = lintFixture(
       "apps/web/src/dev",
-      'import { ratTestPerson, runAsPerson } from "@mischief/auth/devtools";\nimport { devtools } from "@mischief/devtools";\n\nexport const wiring = { devtools, ratTestPerson, runAsPerson };\n'
+      'import { ratTestPerson, runAsPerson } from "../../../../../packages/auth/src/devtools.ts";\nimport { devtools } from "@mischief/devtools";\n\nexport const wiring = { devtools, ratTestPerson, runAsPerson };\n'
     );
 
     const cli = lintFixture(

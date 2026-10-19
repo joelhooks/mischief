@@ -147,6 +147,31 @@ export class RunHost extends Context.Service<
         }
       });
 
+    const announceFailure = (runId: string, report: RunReport) =>
+      Effect.gen(function* failureNotice() {
+        if (report.status !== "failed") {
+          return;
+        }
+
+        const notice = "failed";
+        const journal = yield* store.readJournal(runId);
+
+        if (journal.has(`done:${notice}`)) {
+          return;
+        }
+
+        const sent = yield* Effect.result(
+          operator.failed?.(runId, report.failures ?? [], notice) ?? Effect.void
+        );
+
+        yield* store.writeJournal(
+          runId,
+          `done:${notice}`,
+          Result.isSuccess(sent) ? true : { error: `${notice} not announced` }
+        );
+        yield* store.commit(runId);
+      });
+
     const drive = Effect.fn("RunHost.drive")(function* drive(runId: string) {
       const opened = yield* loadRun(runId);
 
@@ -154,7 +179,11 @@ export class RunHost extends Context.Service<
         terminalStatuses.has(opened.state.status) ||
         opened.state.status === "waiting-for-provider"
       ) {
-        return yield* reportOf(runId, opened.plan, opened.state);
+        const settled = yield* reportOf(runId, opened.plan, opened.state);
+
+        yield* announceFailure(runId, settled);
+
+        return settled;
       }
 
       if (
@@ -167,6 +196,7 @@ export class RunHost extends Context.Service<
       const report = yield* driveSession(runId, opened, undefined, true);
 
       yield* announceHoldAlarm(runId, report, opened.state.resumeAttempts);
+      yield* announceFailure(runId, report);
 
       return report;
     }, Effect.provideContext(context));

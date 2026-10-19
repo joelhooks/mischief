@@ -1,6 +1,6 @@
 // @effect-diagnostics asyncFunction:off -- Durable Object RPC stubs are Promise APIs.
 import { EscalateToSchema } from "@mischief/core";
-import type { Held, QuestionInput } from "@mischief/core";
+import type { Held, QuestionInput, StepFailure } from "@mischief/core";
 import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Option, Schema } from "effect";
 
@@ -115,6 +115,16 @@ export const holdAlarmText = (
         `State ${key}: ${provider}, HTTP ${status ?? "unknown"}. Last error: ${error === "" ? "not available in this older run" : error}`
     ),
     `Fix the model proxy, then call resumeRun {"runId":"${runId}"} under the identity that submitted the run. The automatic attempt budget will not reset.`,
+  ].join("\n");
+
+export const failedText = (runId: string, failures: readonly StepFailure[]) =>
+  [
+    `Mischief run ${runId} failed${failures[0] === undefined ? "" : ` at ${failures[0].key}`}. It will not continue on its own.`,
+    ...failures.map(({ key, reason }) => `${key}: ${reason}`),
+    "",
+    JSON.stringify({ failures, runId, status: "failed" }),
+    "",
+    `Fix: inspectRun {"runId":"${runId}"} under the identity that submitted it for the full report, fix the cause, then submit the plan again under a new runId.`,
   ].join("\n");
 
 export const holdAlarmTargets = (text: string | undefined) =>

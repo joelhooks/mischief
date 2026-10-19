@@ -41716,16 +41716,32 @@ var RunHost = class extends Context20.Service()("@mischief/core/RunHost", {
         yield* store.commit(runId2);
       }
     });
+    const announceFailure = (runId2, report) => Effect27.gen(function* failureNotice() {
+      if (report.status !== "failed") {
+        return;
+      }
+      const notice = "failed";
+      const journal = yield* store.readJournal(runId2);
+      if (journal.has(`done:${notice}`)) {
+        return;
+      }
+      const sent = yield* Effect27.result(operator.failed?.(runId2, report.failures ?? [], notice) ?? Effect27.void);
+      yield* store.writeJournal(runId2, `done:${notice}`, Result6.isSuccess(sent) ? true : { error: `${notice} not announced` });
+      yield* store.commit(runId2);
+    });
     const drive = Effect27.fn("RunHost.drive")(function* drive2(runId2) {
       const opened = yield* loadRun(runId2);
       if (terminalStatuses.has(opened.state.status) || opened.state.status === "waiting-for-provider") {
-        return yield* reportOf(runId2, opened.plan, opened.state);
+        const settled2 = yield* reportOf(runId2, opened.plan, opened.state);
+        yield* announceFailure(runId2, settled2);
+        return settled2;
       }
       if (opened.state.status === "paused" && (yield* store.readPaused(runId2))) {
         return yield* reportOf(runId2, opened.plan, opened.state);
       }
       const report = yield* driveSession(runId2, opened, void 0, true);
       yield* announceHoldAlarm(runId2, report, opened.state.resumeAttempts);
+      yield* announceFailure(runId2, report);
       return report;
     }, Effect27.provideContext(context));
     const inspect = Effect27.fn("RunHost.inspect")(function* inspect2(runId2) {
@@ -60427,6 +60443,14 @@ var holdAlarmText = (runId2, held, attempts) => [
   ),
   `Fix the model proxy, then call resumeRun {"runId":"${runId2}"} under the identity that submitted the run. The automatic attempt budget will not reset.`
 ].join("\n");
+var failedText = (runId2, failures) => [
+  `Mischief run ${runId2} failed${failures[0] === void 0 ? "" : ` at ${failures[0].key}`}. It will not continue on its own.`,
+  ...failures.map(({ key, reason }) => `${key}: ${reason}`),
+  "",
+  JSON.stringify({ failures, runId: runId2, status: "failed" }),
+  "",
+  `Fix: inspectRun {"runId":"${runId2}"} under the identity that submitted it for the full report, fix the cause, then submit the plan again under a new runId.`
+].join("\n");
 var holdAlarmTargets = (text) => [
   ...new Set(
     (text ?? "").split(",").map((name) => name.trim()).filter((name) => name !== "")
@@ -76847,6 +76871,13 @@ var PlanRun = class extends DurableObject2 {
     const operator = Layer28.succeed(
       Operator,
       Operator.of({
+        failed: (runId2, failures, notice) => Effect50.logWarning(
+          `${runId2} failed at ${failures.map(({ key }) => key).join(", ")}`
+        ).pipe(
+          Effect50.andThen(
+            mailEscalation(runId2, notice, failedText(runId2, failures))
+          )
+        ),
         held: (runId2, held, notice) => Effect50.logWarning(
           `${runId2} is held at ${held.key}: ${held.provider} ${held.cause}`
         ).pipe(

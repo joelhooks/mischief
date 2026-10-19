@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { HeldSchema } from "@mischief/core";
+import { FailureSchema, HeldSchema } from "@mischief/core";
 // @effect-diagnostics asyncFunction:off -- the fake Postbox stands in for a Durable Object RPC stub, a Promise API.
 import { nodeSqlStorage } from "@mischief/plan-run/node";
 import { Effect, Option, Schema } from "effect";
@@ -8,6 +8,7 @@ import {
   escalate,
   escalationTargetOf,
   escalationText,
+  failedText,
   heldText,
   fixEscalationAtFirstSubmit,
 } from "../src/escalation.js";
@@ -229,4 +230,25 @@ it.effect.prop(
 
       expect(bare).not.toContain("- yes:");
     })
+);
+
+it.effect.prop(
+  "a failure's mail names the run, every failed state and its reason, and gives inspectRun and a new runId as its Fix, never resumeRun or answerRun",
+  { failures: Schema.Array(FailureSchema).check(Schema.isMaxLength(4)) },
+  ({ failures }) =>
+    Effect.sync(() => {
+      const text = failedText(RUN, failures);
+
+      expect(text).toContain(`Mischief run ${RUN} failed`);
+
+      for (const { key, reason } of failures) {
+        expect(text).toContain(`${key}: ${reason}`);
+      }
+
+      expect(text).toContain(`inspectRun {"runId":"${RUN}"}`);
+      expect(text).toContain("new runId");
+      expect(text).not.toContain("resumeRun");
+      expect(text).not.toContain("answerRun");
+    }),
+  { arbitrary: { runs: 100 } }
 );

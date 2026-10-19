@@ -31,6 +31,7 @@ import {
   escalate,
   escalationText,
   fixEscalationAtFirstSubmit,
+  failedText,
   heldText,
   holdAlarmTargets,
   alarmOnHolds,
@@ -197,6 +198,14 @@ export class PlanRun extends DurableObject<Env> {
     const operator = Layer.succeed(
       Operator,
       Operator.of({
+        failed: (runId, failures, notice) =>
+          Effect.logWarning(
+            `${runId} failed at ${failures.map(({ key }) => key).join(", ")}`
+          ).pipe(
+            Effect.andThen(
+              mailEscalation(runId, notice, failedText(runId, failures))
+            )
+          ),
         held: (runId, held, notice) =>
           Effect.logWarning(
             `${runId} is held at ${held.key}: ${held.provider} ${held.cause}`

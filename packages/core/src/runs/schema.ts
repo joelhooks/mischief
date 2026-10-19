@@ -223,6 +223,8 @@ export const FailureSchema = Schema.Struct({
   reason: Schema.String,
 });
 
+export type StepFailure = typeof FailureSchema.Type;
+
 export const RunThinkingSchema = Schema.Struct({
   ...ThinkTotalsSchema.fields,
   line: Schema.String,

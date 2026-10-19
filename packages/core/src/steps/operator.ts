@@ -1,7 +1,7 @@
 import { Context } from "effect";
 import type { Effect } from "effect";
 
-import type { Held } from "../runs/schema.js";
+import type { Held, StepFailure } from "../runs/schema.js";
 import type { QuestionInput } from "./inputs.js";
 import type { ThinkReceipt } from "./receipt.js";
 
@@ -27,6 +27,11 @@ export class Operator extends Context.Service<
     readonly held?: (
       runId: string,
       held: Held,
+      notice: string
+    ) => Effect.Effect<void>;
+    readonly failed?: (
+      runId: string,
+      failures: readonly StepFailure[],
       notice: string
     ) => Effect.Effect<void>;
   }

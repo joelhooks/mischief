@@ -10665,13 +10665,13 @@ async function resolveProviderAuthWithSignal(provider, credentials, authContext,
       env: overrides.env
     }, signal);
   }
-  const stored = await readCredential(credentials, provider.id, signal);
-  if (stored) {
-    if (stored.type === "oauth" && provider.auth.oauth) {
-      return resolveStoredOAuth(credentials, provider.id, provider.auth.oauth, stored, signal, overrides?.minOAuthValidityMs);
+  const stored2 = await readCredential(credentials, provider.id, signal);
+  if (stored2) {
+    if (stored2.type === "oauth" && provider.auth.oauth) {
+      return resolveStoredOAuth(credentials, provider.id, provider.auth.oauth, stored2, signal, overrides?.minOAuthValidityMs);
     }
-    if (stored.type === "api_key" && provider.auth.apiKey) {
-      const credential = overrides?.env ? { ...stored, env: { ...stored.env, ...overrides.env } } : stored;
+    if (stored2.type === "api_key" && provider.auth.apiKey) {
+      const credential = overrides?.env ? { ...stored2, env: { ...stored2.env, ...overrides.env } } : stored2;
       return resolveApiKey(requestAuthContext, provider.auth.apiKey, provider.id, credential, signal);
     }
     return void 0;
@@ -10715,10 +10715,10 @@ async function refreshStoredOAuthCredential(credentials, providerId, oauth, need
   }
   return post2?.type === "oauth" ? post2 : void 0;
 }
-async function resolveStoredOAuth(credentials, providerId, oauth, stored, signal, minOAuthValidityMs) {
+async function resolveStoredOAuth(credentials, providerId, oauth, stored2, signal, minOAuthValidityMs) {
   const minimumValidityMs = Math.max(DEFAULT_OAUTH_MINIMUM_VALIDITY_MS, minOAuthValidityMs ?? 0);
   const expiresSoon = (credential2) => Date.now() + minimumValidityMs >= credential2.expires;
-  let credential = stored;
+  let credential = stored2;
   if (expiresSoon(credential)) {
     const post2 = await refreshStoredOAuthCredential(credentials, providerId, oauth, expiresSoon, signal);
     if (!post2)
@@ -11312,10 +11312,10 @@ var init_models = __esm({
         return raceWithAbortSignal(queued2, signal);
       }
       async runProviderRefreshPhase(provider, credential, allowNetwork, force, generation, signal) {
-        const stored = await this.modelsStore.read(provider.id, { signal });
+        const stored2 = await this.modelsStore.read(provider.id, { signal });
         await provider.refreshModels({
           credential,
-          stored: stored ? withKnownModelTypes(structuredClone(stored)) : void 0,
+          stored: stored2 ? withKnownModelTypes(structuredClone(stored2)) : void 0,
           publish: (publication) => this.publishProviderModels(provider.id, generation, signal, publication),
           allowNetwork,
           force: allowNetwork ? force : void 0,
@@ -11371,13 +11371,13 @@ var init_models = __esm({
         }
         return { aborted: callerSignal.aborted, errors: new Map(errors) };
       }
-      async resolveRefreshCredential(provider, stored, signal) {
-        if (stored?.type === "oauth") {
+      async resolveRefreshCredential(provider, stored2, signal) {
+        if (stored2?.type === "oauth") {
           const oauth = provider.auth.oauth;
           if (!oauth)
             return void 0;
-          if (Date.now() < stored.expires)
-            return stored;
+          if (Date.now() < stored2.expires)
+            return stored2;
           if (signal.aborted)
             return void 0;
           return refreshStoredOAuthCredential(this.credentials, provider.id, oauth, (current) => Date.now() >= current.expires, signal);
@@ -11385,7 +11385,7 @@ var init_models = __esm({
         const apiKey = provider.auth.apiKey;
         if (!apiKey)
           return void 0;
-        const credential = stored?.type === "api_key" ? stored : void 0;
+        const credential = stored2?.type === "api_key" ? stored2 : void 0;
         const result = await apiKey.resolve({ ctx: this.authContext, credential, signal });
         if (!result)
           return void 0;
@@ -34519,12 +34519,12 @@ function setProperty(node, property, supplied) {
   const key = String(property);
   if (supplied === void 0)
     return deleteProperty(node, key);
-  const stored = clonePlacement(supplied);
+  const stored2 = clonePlacement(supplied);
   const current = objectValue(node, key);
   const wasDeleted = isObjectDeleted(node, key);
-  if (!wasDeleted && !isContainer2(stored) && current === stored)
+  if (!wasDeleted && !isContainer2(stored2) && current === stored2)
     return true;
-  setObjectWrite(node, key, stored);
+  setObjectWrite(node, key, stored2);
   if (wasDeleted && Object.hasOwn(nodeBase(node), key)) {
     if (node.readded === void 0)
       node.readded = /* @__PURE__ */ new Set();
@@ -35014,32 +35014,32 @@ function insertPlacementPiece(node, values, start = 0) {
     }
   ];
 }
-function setArrayIndex(node, index3, stored) {
+function setArrayIndex(node, index3, stored2) {
   const overlay = arrayOverlay(node);
   const length3 = arrayLength(overlay);
   if (index3 === length3) {
-    replacePieceRange(node, length3, 0, insertPiece(node, [stored]));
+    replacePieceRange(node, length3, 0, insertPiece(node, [stored2]));
     return;
   }
   const piece = locatePiece(overlay, index3);
   const sourceIndex = piece.start + piece.step * overlay.locatedOffset;
   const current = entryValueAt(node, piece, sourceIndex);
-  if (!isContainer2(stored) && current === stored)
+  if (!isContainer2(stored2) && current === stored2)
     return;
   if (piece.kind === "base") {
     const existingIndex = overlay.baseOverrides?.get(sourceIndex);
-    if (!isContainer2(stored) && stored === nodeBase(node)[sourceIndex]) {
+    if (!isContainer2(stored2) && stored2 === nodeBase(node)[sourceIndex]) {
       if (existingIndex !== void 0)
         releaseStoredValue(node.context, existingIndex);
       overlay.baseOverrides?.delete(sourceIndex);
     } else if (existingIndex === void 0) {
-      baseOverridesForWrite(overlay).set(sourceIndex, storeValue(node.context, stored));
+      baseOverridesForWrite(overlay).set(sourceIndex, storeValue(node.context, stored2));
     } else
-      overlay.baseOverrides.set(sourceIndex, replaceStoredValue(node.context, existingIndex, stored));
+      overlay.baseOverrides.set(sourceIndex, replaceStoredValue(node.context, existingIndex, stored2));
   } else {
     let overrides = overlay.insertOverrides?.get(piece.source);
     const existingIndex = overrides?.get(sourceIndex);
-    if (!isContainer2(stored) && stored === storedValue(node.context, piece.source.refs[sourceIndex])) {
+    if (!isContainer2(stored2) && stored2 === storedValue(node.context, piece.source.refs[sourceIndex])) {
       if (existingIndex !== void 0)
         releaseStoredValue(node.context, existingIndex);
       overrides?.delete(sourceIndex);
@@ -35051,9 +35051,9 @@ function setArrayIndex(node, index3, stored) {
         insertOverridesForWrite(overlay).set(piece.source, overrides);
       }
       if (existingIndex === void 0)
-        overrides.set(sourceIndex, storeValue(node.context, stored));
+        overrides.set(sourceIndex, storeValue(node.context, stored2));
       else
-        overrides.set(sourceIndex, replaceStoredValue(node.context, existingIndex, stored));
+        overrides.set(sourceIndex, replaceStoredValue(node.context, existingIndex, stored2));
     }
   }
   markDirty(node);
@@ -36405,13 +36405,13 @@ function scanStart(requested, cursor, fallback) {
   }
   if (cursor === void 0)
     return { order: requested ?? fallback, after: void 0 };
-  const { after, order: stored } = cursor;
+  const { after, order: stored2 } = cursor;
   if (typeof after !== "number" || !Number.isSafeInteger(after))
     throw new TypeError("Invalid storage cursor");
-  if (stored !== void 0 && stored !== "ascending" && stored !== "descending") {
+  if (stored2 !== void 0 && stored2 !== "ascending" && stored2 !== "descending") {
     throw new TypeError("Invalid storage cursor");
   }
-  const order = stored ?? fallback;
+  const order = stored2 ?? fallback;
   if (requested !== void 0 && requested !== order) {
     throw new TypeError(`The cursor continues a ${order} scan; the query asks for ${requested}`);
   }
@@ -37113,14 +37113,14 @@ var SqliteStorage = class _SqliteStorage {
       let content = action.content;
       if (action.copy !== void 0) {
         try {
-          const stored = await this.materializeDocument(executor, action.copy.id, action.copy.at);
-          if (stored === void 0)
+          const stored2 = await this.materializeDocument(executor, action.copy.id, action.copy.at);
+          if (stored2 === void 0)
             throw new Error(`Fork source document ${action.copy.id} cannot be read`);
           const create4 = action.create;
-          if (stored.record.scope.kind !== "conversation" || create4.scope.kind !== "conversation" || stored.record.kind !== create4.kind || stored.record.key !== create4.key || stored.record.history !== create4.history || stored.record.fork !== create4.fork) {
+          if (stored2.record.scope.kind !== "conversation" || create4.scope.kind !== "conversation" || stored2.record.kind !== create4.kind || stored2.record.key !== create4.key || stored2.record.history !== create4.history || stored2.record.fork !== create4.fork) {
             throw new Error(`Fork source document ${action.copy.id} does not match the copied record`);
           }
-          content = { kind: "base", version: stored.version, value: stored.value };
+          content = { kind: "base", version: stored2.version, value: stored2.value };
         } catch (error) {
           if (error instanceof StorageRejected)
             throw error;
@@ -39818,6 +39818,7 @@ var RunStateSchema = Schema19.Struct({
   revision: Schema19.NullOr(Schema19.Struct({ diverged: Schema19.Boolean, from: Count })).pipe(Schema19.withDecodingDefaultKey(Effect11.succeed(null))),
   seeded: Schema19.NullOr(Schema19.Array(Schema19.String)).pipe(Schema19.withDecodingDefaultKey(Effect11.succeed(null))),
   status: RunStatusSchema,
+  submitted: Schema19.NullOr(Schema19.String).pipe(Schema19.withDecodingDefaultKey(Effect11.succeed(null))),
   transitions: Count,
   value: Schema19.NullOr(Schema19.String)
 });
@@ -39884,7 +39885,7 @@ var UnknownRun = class extends Schema20.TaggedError()("UnknownRun", {
 var runId = RunId.annotate({ description: "Run id, lowercase kebab-case" });
 var submitPlanContract = defineContract("submitPlan", {
   annotations: { idempotent: true, openWorld: true },
-  description: "Validate a plan and store it as version 1 of a new run with any seed docs. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. Submitting an existing run id reports that run and ignores docs.",
+  description: "Validate a plan and store it as version 1 of a new run with any seed docs. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. Submitting an existing run id with the same plan and docs reports that run; a different plan or docs is refused, so use reviseRun to change a run.",
   failure: PlanRefused,
   input: Schema21.Struct({
     docs: Schema21.optionalKey(DocsSchema.annotate({
@@ -39981,7 +39982,7 @@ var extendRunContract = defineContract("extendRun", {
 });
 
 // ../../packages/core/dist/runs/host.js
-import { Clock as Clock3, Context as Context20, Effect as Effect27, Layer as Layer13, Option as Option12, Result as Result6, Schema as Schema39 } from "effect";
+import { Clock as Clock3, Context as Context20, Crypto as Crypto2, Effect as Effect27, Layer as Layer13, Option as Option12, Result as Result6, Schema as Schema39 } from "effect";
 
 // ../../packages/core/dist/steps/judge.js
 import { Context as Context10, Effect as Effect12, Layer as Layer4, Schema as Schema22 } from "effect";
@@ -40110,17 +40111,17 @@ var bufferedRunStore = (backend) => {
     open: (runId2) => Effect14.sync(() => {
       units.set(runId2, (units.get(runId2) ?? 0) + 1);
     }),
-    readDocs: (runId2) => backend.readDocs(runId2).pipe(Effect14.map((stored) => {
+    readDocs: (runId2) => backend.readDocs(runId2).pipe(Effect14.map((stored2) => {
       const pending = buffers.get(runId2);
       if (pending === void 0) {
-        return stored;
+        return stored2;
       }
       const written = Object.fromEntries(structuredClone([...pending.docs]));
-      return pending.replaceDocs ? written : { ...stored, ...written };
+      return pending.replaceDocs ? written : { ...stored2, ...written };
     })),
-    readFingerprints: (runId2) => backend.readFingerprints(runId2).pipe(Effect14.map((stored) => new Map([...stored, ...buffers.get(runId2)?.fingerprints ?? []]))),
-    readJournal: (runId2) => backend.readJournal(runId2).pipe(Effect14.map((stored) => new Map([
-      ...stored,
+    readFingerprints: (runId2) => backend.readFingerprints(runId2).pipe(Effect14.map((stored2) => new Map([...stored2, ...buffers.get(runId2)?.fingerprints ?? []]))),
+    readJournal: (runId2) => backend.readJournal(runId2).pipe(Effect14.map((stored2) => new Map([
+      ...stored2,
       ...structuredClone([...buffers.get(runId2)?.journal ?? []])
     ]))),
     readMessage: (messageId) => Effect14.suspend(() => {
@@ -40253,8 +40254,8 @@ var closeOpenAsks = (runId2, open3, supersededBy) => Effect15.gen(function* clos
       continue;
     }
     const call = { epoch: 0, key, runId: runId2, visit: 1 };
-    const stored = decodeSealed(journal.get(`seal:${key}`));
-    const sealed = Option4.isSome(stored) ? Result.succeed(stored.value) : yield* Effect15.result(mail.seal({
+    const stored2 = decodeSealed(journal.get(`seal:${key}`));
+    const sealed = Option4.isSome(stored2) ? Result.succeed(stored2.value) : yield* Effect15.result(mail.seal({
       ...call,
       message: closeText(runId2, messageId, supersededBy),
       to
@@ -40263,7 +40264,7 @@ var closeOpenAsks = (runId2, open3, supersededBy) => Effect15.gen(function* clos
       yield* Effect15.logWarning(`${runId2} could not seal its closing note for ${messageId}: ${sealed.failure.reason}`);
       continue;
     }
-    if (Option4.isNone(stored)) {
+    if (Option4.isNone(stored2)) {
       yield* store.writeJournal(runId2, `seal:${key}`, { ...sealed.success });
     }
     yield* store.commit(runId2);
@@ -40546,8 +40547,8 @@ var withoutDoneOutputs = (persisted) => Option6.match(decodeChildren(persisted),
         withoutOutput(child)
       ]))
     };
-    const stored = { ...persisted, ...compact };
-    return stored;
+    const stored2 = { ...persisted, ...compact };
+    return stored2;
   }
 });
 
@@ -41142,8 +41143,8 @@ ${docText(text)}`
     return { amendment: result.amendment, tokens: result.tokens };
   });
   const decide2 = (input) => Effect25.gen(function* decideStep() {
-    const stored = yield* store.readDocs(runId2);
-    const asked = interpolate(input.question, stored).text;
+    const stored2 = yield* store.readDocs(runId2);
+    const asked = interpolate(input.question, stored2).text;
     const call = {
       agent: input.thinkAgent ?? {},
       ceiling: run2.plan.envelope.maxThinking,
@@ -41155,7 +41156,7 @@ ${docText(text)}`
       visit: visitOf(input.key)
     };
     const reply = Option10.fromNullishOr(run2.state.replies.find(({ key }) => key === input.key));
-    const docs = Object.fromEntries((input.reads ?? []).flatMap((name) => name in stored ? [[name, stored[name] ?? null]] : []));
+    const docs = Object.fromEntries((input.reads ?? []).flatMap((name) => name in stored2 ? [[name, stored2[name] ?? null]] : []));
     const { probabilities, usage, why } = yield* step(input.key, judge.choose({
       ...call,
       criteria: input.criteria,
@@ -41438,12 +41439,12 @@ ${docText(text)}`
   });
   const mark = (status) => Effect25.gen(function* markRun() {
     yield* saving.withPermits(1)(Effect25.gen(function* storeStatus() {
-      const { checkpoint: stored } = run2.state;
+      const { checkpoint: stored2 } = run2.state;
       const docs = yield* store.readDocs(runId2);
       run2.state = {
         ...run2.state,
         awaiting: [...awaitingOf(docs), ...parked.values()],
-        checkpoint: stored === null ? null : { ...stored, pending: yield* pendingNow },
+        checkpoint: stored2 === null ? null : { ...stored2, pending: yield* pendingNow },
         held: [...holds.values()],
         status
       };
@@ -41742,7 +41743,16 @@ var RunHost = class extends Context20.Service()("@mischief/core/RunHost", {
       };
     });
     const submit = Effect27.fn("RunHost.submit")(function* submit2(runId2, input, docs = {}) {
-      if (Option12.isSome(yield* store.readRun(runId2))) {
+      const submitted = yield* fingerprintOf(Context20.get(context, Crypto2.Crypto), { docs, plan: input });
+      const existing = yield* store.readRun(runId2);
+      if (Option12.isSome(existing)) {
+        if (existing.value.submitted !== null && existing.value.submitted !== submitted) {
+          return yield* new PlanRefused({
+            errors: [
+              `run "${runId2}" already exists with a different plan or seed docs, so this submit changes nothing. Call inspectRun({ runId: "${runId2}" }) to see it, reviseRun({ runId: "${runId2}", plan }) to change its plan, or submitPlan under a new runId.`
+            ]
+          });
+        }
         return yield* inspect(runId2).pipe(Effect27.orDie);
       }
       const plan = yield* hostGates(checkSubmission(input, docs));
@@ -41765,6 +41775,7 @@ var RunHost = class extends Context20.Service()("@mischief/core/RunHost", {
         revision: null,
         seeded: Object.keys(docs).toSorted(),
         status: "running",
+        submitted,
         transitions: 0,
         value: null
       };
@@ -42690,7 +42701,7 @@ var runBackendSql = (storage) => Effect32.gen(function* openSqlStore() {
 var runStoreSql = (storage) => runBackendSql(storage).pipe(Effect32.map(bufferedRunStore));
 
 // ../../packages/plan-run/dist/web-crypto.js
-import { Crypto as Crypto2, Effect as Effect33, Layer as Layer15, PlatformError } from "effect";
+import { Crypto as Crypto3, Effect as Effect33, Layer as Layer15, PlatformError } from "effect";
 var digest = (algorithm, data) => Effect33.tryPromise({
   catch: (cause) => PlatformError.systemError({
     // oxlint-disable-next-line anti-slop-effect/no-manual-tagged-construction -- systemError takes the SystemError kind as a field named _tag; this is Effect's constructor, not a literal union member.
@@ -42702,7 +42713,7 @@ var digest = (algorithm, data) => Effect33.tryPromise({
   }),
   try: async () => await crypto.subtle.digest(algorithm, new Uint8Array(data))
 }).pipe(Effect33.map((buffer2) => new Uint8Array(buffer2)));
-var webCrypto = Layer15.succeed(Crypto2.Crypto, Crypto2.make({
+var webCrypto = Layer15.succeed(Crypto3.Crypto, Crypto3.make({
   digest,
   randomBytes: (size) => crypto.getRandomValues(new Uint8Array(size))
 }));
@@ -42898,7 +42909,7 @@ var toHttpApi = (id, capabilities2, options2) => {
 };
 
 // ../../packages/plan-run/dist/plan-run.js
-import { Clock as Clock5, Crypto as Crypto3, Effect as Effect36, Layer as Layer18, ManagedRuntime, Option as Option18, Schema as Schema52, Schedule, Semaphore as Semaphore2 } from "effect";
+import { Clock as Clock5, Crypto as Crypto4, Effect as Effect36, Layer as Layer18, ManagedRuntime, Option as Option18, Schema as Schema52, Schedule, Semaphore as Semaphore2 } from "effect";
 import { constVoid as constVoid3 } from "effect/Function";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder2 } from "effect/http-api";
@@ -42949,6 +42960,8 @@ var runsOf = (storage) => storage.sql.exec("SELECT run_id, state FROM mischief_r
   const state3 = decodeState(row.state);
   return isText4(row.run_id) && Option18.isSome(state3) ? [{ runId: row.run_id, state: state3.value }] : [];
 });
+var decodeSubmit = Schema52.decodeUnknownOption(Schema52.Struct({ runId: Schema52.String }));
+var stored = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_runs WHERE run_id = ?", runId2).toArray().length > 0;
 var alarmPending = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = ?", runId2, "done:hold-alarm").toArray().length === 0;
 var wakeAt = (storage, now2, guardMs, attempts, runningAt) => {
   const times = runsOf(storage).flatMap(({ runId: runId2, state: state3 }) => {
@@ -43003,7 +43016,7 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
   });
   const exclusive = (effect, wait2, acquired = constVoid3) => Effect36.gen(function* leasedWrite() {
     yield* armGuard;
-    const holder = yield* Crypto3.Crypto.use((crypto2) => crypto2.randomUUIDv4).pipe(Effect36.provide(webCrypto), Effect36.orDie);
+    const holder = yield* Crypto4.Crypto.use((crypto2) => crypto2.randomUUIDv4).pipe(Effect36.provide(webCrypto), Effect36.orDie);
     const take = Clock5.currentTimeMillis.pipe(Effect36.map((now2) => lease.take(holder, now2, guardMs)));
     const held = yield* wait2 ? take.pipe(Effect36.repeat({
       schedule: Schedule.spaced(interval),
@@ -43027,7 +43040,7 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
     onNone: () => Effect36.die(new Error("The writer wait ended without a lease; retry the capability and inspectRun.")),
     onSome: Effect36.succeed
   })), requests.withPermits(1), Effect36.ensuring(reconcile(true)));
-  const http2 = toHttpApi("Mischief", aroundHandlers(runCapabilities, (contract, _input, effect) => contract.annotations.readOnly ? effect : mutate(effect)));
+  const http2 = toHttpApi("Mischief", aroundHandlers(runCapabilities, (contract, input, effect) => contract.annotations.readOnly || contract.name === "submitPlan" && Option18.exists(decodeSubmit(input), ({ runId: runId2 }) => stored(storage, runId2)) ? effect : mutate(effect)));
   const { handler } = HttpRouter.toWebHandler(HttpApiBuilder2.layer(http2.api).pipe(Layer18.provide(http2.layer), Layer18.provide(Layer18.merge(host, HttpServer.layerServices))), { disableLogger: true, memoMap });
   return {
     alarm: async (signal) => {
@@ -44034,8 +44047,8 @@ function checkRecordVersion(definition, record, version) {
     throw new Error(`Document ${record.id} (${record.kind}) requires migration from version ${version}`);
   }
 }
-function materializeDocument(definition, stored) {
-  return materializeDocumentValue(definition, stored.record, stored.version, stored.value);
+function materializeDocument(definition, stored2) {
+  return materializeDocumentValue(definition, stored2.record, stored2.version, stored2.value);
 }
 function materializeDocumentValue(definition, record, version, value) {
   checkRecordScope(definition, record);
@@ -44221,13 +44234,13 @@ function resolveAgent(state3, snapshot, settings2, report) {
   };
   return agent;
 }
-function selectExtensions(stored, snapshot, settings2) {
+function selectExtensions(stored2, snapshot, settings2) {
   let selected;
-  if (Array.isArray(stored))
-    selected = stored;
+  if (Array.isArray(stored2))
+    selected = stored2;
   else {
     const base3 = settings2.extensions?.map((extension) => extension.name) ?? snapshot.installed().map((e) => e.name);
-    const edit = stored;
+    const edit = stored2;
     const removed = new Set(edit?.remove ?? []);
     selected = [...base3, ...edit?.add ?? []].filter((name) => !removed.has(name));
   }
@@ -53831,12 +53844,12 @@ var OutputBuffer = class {
   }
   /** Retained, sanitized output and what the limits dropped from the whole stream. */
   snapshot() {
-    const stored = this.#chunks.length === 1 ? this.#chunks[0].text : this.#chunks.map((chunk) => chunk.text).join("");
-    const kept = boundOutput(stored, this.#limits);
-    const storedLines = lines(this.#storedNewlines, stored === "" || stored.endsWith("\n"));
+    const stored2 = this.#chunks.length === 1 ? this.#chunks[0].text : this.#chunks.map((chunk) => chunk.text).join("");
+    const kept = boundOutput(stored2, this.#limits);
+    const storedLines = lines(this.#storedNewlines, stored2 === "" || stored2.endsWith("\n"));
     const keptLines = storedLines - kept.droppedLines;
     if (this.#limits.retain === "tail" || this.#chunks.length > 1) {
-      const text = this.#limits.retain === "tail" ? tailMargin(stored, this.#limits) : stored;
+      const text = this.#limits.retain === "tail" ? tailMargin(stored2, this.#limits) : stored2;
       const bytes2 = this.#limits.retain === "tail" ? utf8ByteLength(text) : this.#storedBytes;
       this.#chunks = text === "" ? [] : [{ text, bytes: bytes2, newlines: countNewlines(text) }];
       this.#storedBytes = bytes2;
@@ -56554,15 +56567,15 @@ var Transaction = class {
     return entry.change.state;
   }
   async #acquireForkCopy(entry, definition, target) {
-    const stored = await this.#host.storage.document(target.source.id, target.source.at, this.#context);
+    const stored2 = await this.#host.storage.document(target.source.id, target.source.at, this.#context);
     this.#assertOpen();
-    if (stored === void 0) {
+    if (stored2 === void 0) {
       throw new Error(`Fork source document ${target.source.id} cannot be read`);
     }
-    if (stored.record.scope.kind !== "conversation" || stored.record.kind !== target.record.kind || stored.record.key !== target.record.key || stored.record.history !== target.record.history || stored.record.fork !== target.record.fork) {
+    if (stored2.record.scope.kind !== "conversation" || stored2.record.kind !== target.record.kind || stored2.record.key !== target.record.key || stored2.record.history !== target.record.history || stored2.record.fork !== target.record.fork) {
       throw new Error(`Fork source document ${target.source.id} does not match the copied record`);
     }
-    const value = materializeDocumentValue(definition, target.record, stored.version, stored.value);
+    const value = materializeDocumentValue(definition, target.record, stored2.version, stored2.value);
     const tracker = track(value);
     entry.definition = definition;
     entry.target = { kind: "created", record: target.record, version: definition.version, tracker };
@@ -57115,11 +57128,11 @@ var SessionImpl = class {
       const record = await this.#storage.findDocument(address, storedEntry.commitSeq, context);
       if (record === void 0)
         return void 0;
-      const stored = await this.#storage.document(record.id, storedEntry.commitSeq, context);
-      if (stored === void 0) {
+      const stored2 = await this.#storage.document(record.id, storedEntry.commitSeq, context);
+      if (stored2 === void 0) {
         throw new Error(`Historical document ${record.id} (${record.kind}) cannot be read`);
       }
-      return materializeDocument(definition, stored);
+      return materializeDocument(definition, stored2);
     });
   }
   close(context) {
@@ -57260,16 +57273,16 @@ var SessionImpl = class {
     const record = await this.#storage.findDocument(address, "current", context);
     if (record === void 0)
       return void 0;
-    const stored = await this.#storage.document(record.id, "current", context);
-    if (stored === void 0)
+    const stored2 = await this.#storage.document(record.id, "current", context);
+    if (stored2 === void 0)
       throw new Error(`Current document ${record.id} (${record.kind}) cannot be read`);
-    const value = materializeDocument(definition, stored);
+    const value = materializeDocument(definition, stored2);
     const loaded2 = {
       addressId: addressId2,
-      record: stored.record,
-      storedVersion: stored.version,
+      record: stored2.record,
+      storedVersion: stored2.version,
       valueVersion: definition.version,
-      deltasSinceBase: stored.deltasSinceBase,
+      deltasSinceBase: stored2.deltasSinceBase,
       tracker: track(value)
     };
     this.#documents.set(addressId2, loaded2);
@@ -59218,16 +59231,16 @@ var MemoryStorage = class {
         if (changedDocumentIds.has(write2.source.id)) {
           throw new Error(`Fork source document ${write2.source.id} is changed in the copy batch`);
         }
-        const stored = this.materializeDocument(write2.source.id, write2.source.at);
-        if (stored === void 0)
+        const stored2 = this.materializeDocument(write2.source.id, write2.source.at);
+        if (stored2 === void 0)
           throw new Error(`Fork source document ${write2.source.id} cannot be read`);
-        if (stored.record.scope.kind !== "conversation" || write2.record.scope.kind !== "conversation" || stored.record.kind !== write2.record.kind || stored.record.key !== write2.record.key || stored.record.history !== write2.record.history || stored.record.fork !== write2.record.fork) {
+        if (stored2.record.scope.kind !== "conversation" || write2.record.scope.kind !== "conversation" || stored2.record.kind !== write2.record.kind || stored2.record.key !== write2.record.key || stored2.record.history !== write2.record.history || stored2.record.fork !== write2.record.fork) {
           throw new Error(`Fork source document ${write2.source.id} does not match the copied record`);
         }
         return {
           type: "document.create",
           record: write2.record,
-          content: { kind: "base", version: stored.version, value: stored.value }
+          content: { kind: "base", version: stored2.version, value: stored2.value }
         };
       } catch (error) {
         if (error instanceof StorageRejected)
@@ -59480,12 +59493,12 @@ var MemoryStorage = class {
   }
   async document(id, at, _context) {
     this.assertOpen();
-    const stored = this.materializeDocument(id, at);
-    return stored === void 0 ? void 0 : {
-      record: clone(stored.record),
-      version: stored.version,
-      value: clone(stored.value),
-      deltasSinceBase: stored.deltasSinceBase
+    const stored2 = this.materializeDocument(id, at);
+    return stored2 === void 0 ? void 0 : {
+      record: clone(stored2.record),
+      version: stored2.version,
+      value: clone(stored2.value),
+      deltasSinceBase: stored2.deltasSinceBase
     };
   }
   async scanDocuments(query, limit2, cursor, _context) {
@@ -59507,15 +59520,15 @@ var MemoryStorage = class {
     this.closed = true;
   }
   materializeDocument(id, at) {
-    const stored = this.state.documents.get(id);
-    if (stored === void 0)
+    const stored2 = this.state.documents.get(id);
+    if (stored2 === void 0)
       return void 0;
-    if (at !== "current" && isCurrentOnly2(stored.record)) {
+    if (at !== "current" && isCurrentOnly2(stored2.record)) {
       throw new Error(`Document ${id} does not retain historical content`);
     }
-    if (!isAliveAt2(stored.record, at))
+    if (!isAliveAt2(stored2.record, at))
       return void 0;
-    const revisions = at === "current" ? stored.revisions : stored.revisions.filter((revision) => revision.seq <= at);
+    const revisions = at === "current" ? stored2.revisions : stored2.revisions.filter((revision) => revision.seq <= at);
     let baseIndex = revisions.length - 1;
     while (baseIndex >= 0 && revisions[baseIndex].kind !== "base")
       baseIndex--;
@@ -59523,7 +59536,7 @@ var MemoryStorage = class {
     if (base3?.kind !== "base")
       throw new Error(`Document ${id} is missing a required base`);
     const value = applyImmutableBatches(base3.value, documentDeltaBatches(id, base3.version, revisions, baseIndex + 1));
-    return { record: stored.record, version: base3.version, value, deltasSinceBase: revisions.length - baseIndex - 1 };
+    return { record: stored2.record, version: base3.version, value, deltasSinceBase: revisions.length - baseIndex - 1 };
   }
   *visibleEntries(conversationId, minEntryId = Number.NEGATIVE_INFINITY, maxEntryId = Number.POSITIVE_INFINITY) {
     if (!this.state.conversations.has(conversationId)) {
@@ -59671,16 +59684,16 @@ var MemoryStorage = class {
   }
   applyDocumentActions(actions, seq) {
     for (const [id, action] of actions) {
-      let stored = this.state.documents.get(id);
+      let stored2 = this.state.documents.get(id);
       if (action.create !== void 0) {
         const record = {
           ...action.create,
           createdAt: seq,
           ...action.retire ? { retiredAt: seq } : {}
         };
-        stored = { record, revisions: [{ ...action.content, seq }] };
+        stored2 = { record, revisions: [{ ...action.content, seq }] };
         this.state.recordTypes.set(id, "document");
-        this.state.documents.set(id, stored);
+        this.state.documents.set(id, stored2);
         const key = recordAddressKey(record);
         let address = this.state.documentAddresses.get(key);
         if (address === void 0) {
@@ -59697,17 +59710,17 @@ var MemoryStorage = class {
         this.nextId = Math.max(this.nextId, id + 1);
       } else if (action.content !== void 0) {
         const revision = { ...action.content, seq };
-        if (revision.kind === "base" && isCurrentOnly2(stored.record))
-          stored.revisions = [revision];
+        if (revision.kind === "base" && isCurrentOnly2(stored2.record))
+          stored2.revisions = [revision];
         else
-          stored.revisions.push(revision);
+          stored2.revisions.push(revision);
       }
       if (action.retire && action.create === void 0)
-        stored.record = { ...stored.record, retiredAt: seq };
-      if (action.retire && isCurrentOnly2(stored.record))
-        stored.revisions = [];
+        stored2.record = { ...stored2.record, retiredAt: seq };
+      if (action.retire && isCurrentOnly2(stored2.record))
+        stored2.revisions = [];
       if (action.create !== void 0 || action.retire) {
-        const address = this.state.documentAddresses.get(recordAddressKey(stored.record));
+        const address = this.state.documentAddresses.get(recordAddressKey(stored2.record));
         if (action.retire && address.currentId === id)
           delete address.currentId;
         if (action.create !== void 0 && !action.retire)
@@ -60006,6 +60019,8 @@ import { Option as Option20, Schema as Schema56 } from "effect";
 var HOLD = /* @__PURE__ */ new Set([408, 429, 502, 503]);
 var RETRY_THEN_HOLD = /* @__PURE__ */ new Set([500, 507, 520]);
 var SERVER_ERROR = 500;
+var TRANSPORT_DROP = /error decoding response body|stream closed before response\.completed|connection reset|ECONNRESET|stream disconnected before completion/iu;
+var isTransportDrop = (errorMessage) => TRANSPORT_DROP.test(errorMessage);
 var LEADING_STATUS = /^(?<status>[1-5]\d{2})\b/u;
 var PREFIXED_STATUS = /\((?<status>[1-5]\d{2})\):/u;
 var statusOf = (errorMessage) => {
@@ -60132,7 +60147,7 @@ var failureOf = (settled2, messages) => {
   return {
     message,
     status: statusOf(message),
-    transient: failed3 !== void 0 && isRetryableAssistantError(failed3)
+    transient: failed3 !== void 0 && isRetryableAssistantError(failed3) || isTransportDrop(message)
   };
 };
 var thought = (answered) => answered.pipe(Effect41.catchTag("ThinkModelUnmapped", ({ key, mapped, model }) => Effect41.fail(new StepFailed({
@@ -60349,7 +60364,7 @@ var HOST_DEFAULT = "";
 var SubmitEscalation = Schema58.Struct({
   escalateTo: Schema58.optionalKey(EscalateToSchema)
 });
-var decodeSubmit = Schema58.decodeUnknownOption(
+var decodeSubmit2 = Schema58.decodeUnknownOption(
   Schema58.fromJsonString(SubmitEscalation)
 );
 var TargetRow = Schema58.Struct({ name: Schema58.String });
@@ -60359,7 +60374,7 @@ var SealedRow = Schema58.Struct({
 });
 var fixEscalationAtFirstSubmit = (storage, body) => {
   storage.sql.exec(TARGET);
-  const name = decodeSubmit(body).pipe(
+  const name = decodeSubmit2(body).pipe(
     Option22.flatMap(({ escalateTo }) => Option22.fromNullishOr(escalateTo)),
     Option22.getOrElse(() => HOST_DEFAULT)
   );
@@ -60533,14 +60548,14 @@ var HOST_DEFAULT2 = "default";
 var SubmitJudge = Schema59.Struct({
   judge: Schema59.optionalKey(JudgeModeSchema)
 });
-var decodeSubmit2 = Schema59.decodeUnknownOption(
+var decodeSubmit3 = Schema59.decodeUnknownOption(
   Schema59.fromJsonString(SubmitJudge)
 );
 var ChoiceRow = Schema59.Struct({ mode: Schema59.String });
 var decodeMode = Schema59.decodeUnknownOption(JudgeModeSchema);
 var fixJudgeAtFirstSubmit = (storage, body) => {
   storage.sql.exec(CHOICE);
-  const mode = decodeSubmit2(body).pipe(
+  const mode = decodeSubmit3(body).pipe(
     Option23.flatMap(({ judge }) => Option23.fromNullishOr(judge)),
     Option23.getOrElse(() => HOST_DEFAULT2)
   );
@@ -60610,10 +60625,10 @@ var judgeChosenPerCall = ({
   })
 );
 var forgetUnlessStored = (storage, ...forgets) => {
-  const stored = storage.sql.exec(
+  const stored2 = storage.sql.exec(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'mischief_runs'"
   ).toArray().length > 0 && storage.sql.exec("SELECT run_id FROM mischief_runs LIMIT 1").toArray().length > 0;
-  if (!stored) {
+  if (!stored2) {
     for (const forget of forgets) {
       forget();
     }
@@ -76293,11 +76308,11 @@ var encodeEnvelope = (envelope) => JSON.stringify({
   enc: base64url22(envelope.enc)
 });
 var decodeEnvelope = (text) => Schema68.decodeUnknownEffect(StoredEnvelope)(text).pipe(
-  Effect48.map((stored) => {
+  Effect48.map((stored2) => {
     const restored = {
-      ...stored,
-      ciphertext: unbase64url(stored.ciphertext),
-      enc: unbase64url(stored.enc)
+      ...stored2,
+      ciphertext: unbase64url(stored2.ciphertext),
+      enc: unbase64url(stored2.enc)
     };
     return restored;
   }),

@@ -30,11 +30,12 @@ const OlderStateArbitrary = Arbitrary.map(
     held: [],
     replies: [],
     resumeAttempts: 0,
+    submitted: null,
   })
 );
 
 it.effect.prop(
-  "a run file written before awaiting, capped, held, replies and resumeAttempts existed still reads",
+  "a run file written before awaiting, capped, held, replies, resumeAttempts and submitted existed still reads",
   { state: OlderStateArbitrary },
   ({ state }) =>
     Effect.gen(function* property() {
@@ -48,6 +49,7 @@ it.effect.prop(
         held: _held,
         replies: _replies,
         resumeAttempts: _resumeAttempts,
+        submitted: _submitted,
         ...older
       } = yield* Schema.encodeEffect(RunStateSchema)(written);
 

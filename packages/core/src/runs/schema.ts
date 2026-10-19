@@ -202,6 +202,9 @@ export const RunStateSchema = Schema.Struct({
     Schema.withDecodingDefaultKey(Effect.succeed(null))
   ),
   status: RunStatusSchema,
+  submitted: Schema.NullOr(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
   transitions: Count,
   value: Schema.NullOr(Schema.String),
 });

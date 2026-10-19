@@ -1,4 +1,13 @@
-import { Clock, Context, Effect, Layer, Option, Result, Schema } from "effect";
+import {
+  Clock,
+  Context,
+  Crypto,
+  Effect,
+  Layer,
+  Option,
+  Result,
+  Schema,
+} from "effect";
 
 import { DeclaredThinking } from "../plans/declared-thinking.js";
 import { EnabledStepKinds } from "../plans/step-kinds.js";
@@ -10,7 +19,7 @@ import { AnswerRefused } from "./answer-refused.js";
 import { closeOpenAsks } from "./close-asks.js";
 import { Drive } from "./drive.js";
 import { ExtendRefused } from "./extend-refused.js";
-import { canonical } from "./fingerprint.js";
+import { canonical, fingerprintOf } from "./fingerprint.js";
 import { overloadHeld, ProviderResume } from "./provider-resume.js";
 import { ReplyRefused } from "./reply-refused.js";
 import { RevisionRefused } from "./revision-refused.js";
@@ -187,7 +196,25 @@ export class RunHost extends Context.Service<
       input: Schema.Json,
       docs: Docs = {}
     ) {
-      if (Option.isSome(yield* store.readRun(runId))) {
+      const submitted = yield* fingerprintOf(
+        Context.get(context, Crypto.Crypto),
+        { docs, plan: input }
+      );
+
+      const existing = yield* store.readRun(runId);
+
+      if (Option.isSome(existing)) {
+        if (
+          existing.value.submitted !== null &&
+          existing.value.submitted !== submitted
+        ) {
+          return yield* new PlanRefused({
+            errors: [
+              `run "${runId}" already exists with a different plan or seed docs, so this submit changes nothing. Call inspectRun({ runId: "${runId}" }) to see it, reviseRun({ runId: "${runId}", plan }) to change its plan, or submitPlan under a new runId.`,
+            ],
+          });
+        }
+
         return yield* inspect(runId).pipe(Effect.orDie);
       }
 
@@ -218,6 +245,7 @@ export class RunHost extends Context.Service<
         revision: null,
         seeded: Object.keys(docs).toSorted(),
         status: "running",
+        submitted,
         transitions: 0,
         value: null,
       };

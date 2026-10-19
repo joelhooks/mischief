@@ -678,3 +678,60 @@ it.live.prop(
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   { arbitrary: { runs: 4 }, timeout: 30_000 }
 );
+
+it.live.prop(
+  "resubmitting a run mid-think never starts a second drive or charges a second think, the same body reports the stored run, and a different body is refused",
+  {
+    resubmits: Schema.Int.check(Schema.isBetween({ maximum: 3, minimum: 1 })),
+  },
+  ({ resubmits }) =>
+    Effect.gen(function* doubleSubmit() {
+      const file = yield* fileFor;
+      const log: AlarmLog = { pending: null, sets: 0 };
+      const entered = yield* Deferred.make<boolean>();
+      const release = yield* Deferred.make<boolean>();
+      const counts = { calls: 0 };
+
+      const thinker = faux(() =>
+        Effect.gen(function* blockedThink() {
+          counts.calls += 1;
+          yield* Deferred.succeed(entered, true);
+          yield* Deferred.await(release);
+        })
+      );
+
+      const first = hostOn(nodeSqlStorage(file), log, thinker, 3, [], 1000);
+      const second = hostOn(nodeSqlStorage(file), log, thinker, 3, [], 1000);
+      const body = { docs: { brief: "b" }, plan: planOf([], []), runId: "run" };
+      yield* call(first, "submitPlan", body);
+      const active = yield* alarm(first).pipe(Effect.forkScoped);
+      yield* Deferred.await(entered);
+
+      for (let index = 0; index < resubmits; index += 1) {
+        const again = yield* call(second, "submitPlan", body).pipe(
+          Effect.timeout("1 second")
+        );
+
+        expect(again.status).toBe(200);
+        expect(decodeReport(again.body).status).toBe("running");
+        yield* alarm(second).pipe(Effect.timeout("1 second"));
+      }
+
+      const changed = yield* call(second, "submitPlan", {
+        ...body,
+        docs: { brief: "another brief" },
+      }).pipe(Effect.timeout("1 second"));
+
+      expect(changed.status).not.toBe(200);
+      expect(JSON.stringify(changed.body)).toContain("reviseRun");
+      expect(counts.calls).toBe(1);
+
+      yield* Deferred.succeed(release, true);
+      yield* Fiber.join(active);
+      yield* alarm(second);
+      const done = yield* call(second, "submitPlan", body);
+      expect(decodeReport(done.body).status).toBe("done");
+      expect(counts.calls).toBe(1);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  { arbitrary: { runs: 3 }, timeout: 30_000 }
+);

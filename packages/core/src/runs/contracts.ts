@@ -23,7 +23,7 @@ const runId = RunId.annotate({ description: "Run id, lowercase kebab-case" });
 export const submitPlanContract = defineContract("submitPlan", {
   annotations: { idempotent: true, openWorld: true },
   description:
-    "Validate a plan and store it as version 1 of a new run with any seed docs. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. Submitting an existing run id reports that run and ignores docs.",
+    "Validate a plan and store it as version 1 of a new run with any seed docs. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. Submitting an existing run id with the same plan and docs reports that run; a different plan or docs is refused, so use reviseRun to change a run.",
   failure: PlanRefused,
   input: Schema.Struct({
     docs: Schema.optionalKey(

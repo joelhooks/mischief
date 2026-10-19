@@ -88,6 +88,7 @@ const stateWith = (transitions: number): typeof RunStateSchema.Type => ({
   revision: null,
   seeded: ["brief"],
   status: "running",
+  submitted: null,
   transitions,
   value: null,
 });

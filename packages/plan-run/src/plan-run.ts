@@ -77,6 +77,15 @@ const runsOf = (storage: SqlStorage) =>
         : [];
     });
 
+const decodeSubmit = Schema.decodeUnknownOption(
+  Schema.Struct({ runId: Schema.String })
+);
+
+const stored = (storage: SqlStorage, runId: string) =>
+  storage.sql
+    .exec("SELECT 1 FROM mischief_runs WHERE run_id = ?", runId)
+    .toArray().length > 0;
+
 const alarmPending = (storage: SqlStorage, runId: string) =>
   storage.sql
     .exec(
@@ -301,8 +310,14 @@ export const makePlanRun = ({
 
   const http = toHttpApi(
     "Mischief",
-    aroundHandlers(runCapabilities, (contract, _input, effect) =>
-      contract.annotations.readOnly ? effect : mutate(effect)
+    aroundHandlers(runCapabilities, (contract, input, effect) =>
+      contract.annotations.readOnly ||
+      (contract.name === "submitPlan" &&
+        Option.exists(decodeSubmit(input), ({ runId }) =>
+          stored(storage, runId)
+        ))
+        ? effect
+        : mutate(effect)
     )
   );
 

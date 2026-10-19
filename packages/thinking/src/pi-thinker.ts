@@ -47,6 +47,7 @@ import {
 
 import {
   causeOf,
+  isTransportDrop,
   retryAfterOf,
   statusOf,
   verdictOf,
@@ -140,7 +141,9 @@ const failureOf = (
   return {
     message,
     status: statusOf(message),
-    transient: failed !== undefined && isRetryableAssistantError(failed),
+    transient:
+      (failed !== undefined && isRetryableAssistantError(failed)) ||
+      isTransportDrop(message),
   };
 };
 

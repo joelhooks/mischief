@@ -9,6 +9,12 @@ const RETRY_THEN_HOLD = new Set([500, 507, 520]);
 
 const SERVER_ERROR = 500;
 
+const TRANSPORT_DROP =
+  /error decoding response body|stream closed before response\.completed|connection reset|ECONNRESET|stream disconnected before completion/iu;
+
+export const isTransportDrop = (errorMessage: string) =>
+  TRANSPORT_DROP.test(errorMessage);
+
 const LEADING_STATUS = /^(?<status>[1-5]\d{2})\b/u;
 
 const PREFIXED_STATUS = /\((?<status>[1-5]\d{2})\):/u;

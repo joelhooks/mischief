@@ -18,6 +18,7 @@ import {
   gatewayThinkerOptions,
   jevJudge,
   piThinker,
+  opusBridgeFrom,
 } from "@mischief/thinking";
 import { nodeSqliteStorageFor } from "@mischief/thinking/node";
 import {
@@ -81,7 +82,17 @@ const thinker = Layer.unwrap(
     });
 
     return piThinker(
-      gatewayThinkerOptions(nodeSqliteStorageFor(root), gateway)
+      gatewayThinkerOptions(nodeSqliteStorageFor(root), {
+        ...gateway,
+        opusBridge: opusBridgeFrom(
+          yield* Config.String("MISCHIEF_OPUS_BRIDGE_URL").pipe(
+            Config.withDefault("")
+          ),
+          yield* Config.String("MISCHIEF_OPUS_BRIDGE_KEY").pipe(
+            Config.withDefault("")
+          )
+        ),
+      })
     );
   }).pipe(Effect.orDie)
 );

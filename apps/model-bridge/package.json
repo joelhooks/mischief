@@ -1,0 +1,28 @@
+{
+  "name": "@mischief/model-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "pnpm run typecheck",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "pnpm run --silent build",
+    "test": "vitest run",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@effect/platform-node": "4.0.1",
+    "@mischief/capability": "workspace:*",
+    "@xstate/effect": "0.1.0-alpha.7",
+    "effect": "4.0.1",
+    "xstate": "6.0.0-alpha.65"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "1.1.0",
+    "@effect/vitest": "4.0.1",
+    "@types/node": "24.13.6",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

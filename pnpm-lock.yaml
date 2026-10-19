@@ -327,6 +327,40 @@ importers:
         specifier: 5.0.3
         version: 5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
 
+  apps/model-bridge:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 4.0.1
+        version: 4.0.1(effect@4.0.1)(redis@6.2.1)
+      '@mischief/capability':
+        specifier: workspace:*
+        version: link:../../packages/capability
+      '@xstate/effect':
+        specifier: 0.1.0-alpha.7
+        version: 0.1.0-alpha.7(effect@4.0.1)(xstate@6.0.0-alpha.65)
+      effect:
+        specifier: 4.0.1
+        version: 4.0.1
+      xstate:
+        specifier: 6.0.0-alpha.65
+        version: 6.0.0-alpha.65
+    devDependencies:
+      '@earendil-works/pi-ai':
+        specifier: 1.1.0
+        version: 1.1.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.2)(undici@8.11.2)(ws@8.22.0)(zod@4.6.5)
+      '@effect/vitest':
+        specifier: 4.0.1
+        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@types/node':
+        specifier: 24.13.6
+        version: 24.13.6
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 5.0.3
+        version: 5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+
   apps/worker:
     dependencies:
       '@earendil-works/pi-durable':

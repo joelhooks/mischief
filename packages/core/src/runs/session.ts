@@ -151,7 +151,10 @@ const isStepFailed = Schema.is(StepFailed);
 const decodeVerdict = Schema.decodeUnknownOption(OutputEventSchema);
 
 const decodeSent = Schema.decodeUnknownOption(
-  Schema.Struct({ messageId: Schema.String })
+  Schema.Struct({
+    message: Schema.optionalKey(Schema.String),
+    messageId: Schema.String,
+  })
 );
 
 const decodeOutput = Schema.decodeUnknownEffect(Schema.Json);
@@ -610,8 +613,14 @@ export const driveSession = (
           Effect.mapError(() => failed(input.key, "sealed envelope refused"))
         );
 
+        const message = yield* step(
+          input.key,
+          withDocs(input.key, input.message)
+        );
+
         yield* store.writeMessage(sealed.messageId, runId);
         yield* store.writeDoc(runId, `__sent:${input.key}`, {
+          message,
           messageId: sealed.messageId,
           to: input.to,
         });
@@ -1166,6 +1175,7 @@ export const driveSession = (
               yield* store.writeMessage(messageId, runId);
               parked.set(stepKey, {
                 key: stepKey,
+                message: null,
                 messageId,
                 to: deferred.to,
                 writes: null,
@@ -1328,8 +1338,9 @@ export const driveSession = (
     ): Awaiting[] =>
       awaitsHere().flatMap((fact) =>
         Option.toArray(decodeSent(docs[`__sent:${fact.key}`])).map(
-          ({ messageId }) => ({
+          ({ message, messageId }) => ({
             key: fact.key,
+            message: message ?? null,
             messageId,
             to: fact.to,
             writes: fact.writes,

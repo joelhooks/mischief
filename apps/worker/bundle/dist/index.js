@@ -39779,6 +39779,7 @@ var EscalateToSchema = Schema19.String.check(Schema19.isPattern(/^[a-z][a-z0-9_-
 });
 var AwaitingSchema = Schema19.Struct({
   key: Schema19.String,
+  message: Schema19.NullOr(Schema19.String).pipe(Schema19.withDecodingDefaultKey(Effect11.succeed(null))),
   messageId: Schema19.String,
   to: Schema19.String,
   writes: Schema19.NullOr(Schema19.String)
@@ -40803,7 +40804,10 @@ var decodeFailure = Schema37.decodeUnknownOption(Schema37.Struct({
 var reasonOf = (failure5) => failure5.reason ?? failure5.error;
 var isStepFailed = Schema37.is(StepFailed);
 var decodeVerdict = Schema37.decodeUnknownOption(OutputEventSchema);
-var decodeSent = Schema37.decodeUnknownOption(Schema37.Struct({ messageId: Schema37.String }));
+var decodeSent = Schema37.decodeUnknownOption(Schema37.Struct({
+  message: Schema37.optionalKey(Schema37.String),
+  messageId: Schema37.String
+}));
 var decodeOutput = Schema37.decodeUnknownEffect(Schema37.Json);
 var decodeIdentity = Schema37.decodeUnknownOption(Schema37.Struct({ machine: Schema37.Struct({ id: Schema37.String }) }));
 var failed = (key, reason) => new StepFailed({ key, reason });
@@ -41015,9 +41019,11 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect25.gen(f
       runId: runId2,
       visit: visitOf(input.key)
     };
-    const sealed = yield* journaled(`seal:${input.key}#${call.visit}`, step(input.key, withDocs(input.key, input.message).pipe(Effect25.flatMap((message) => mail.seal({ ...call, message, to: input.to })))), printOf({ input, src: "ask" })).pipe(Effect25.flatMap(Schema37.decodeUnknownEffect(SealedSchema)), Effect25.mapError(() => failed(input.key, "sealed envelope refused")));
+    const sealed = yield* journaled(`seal:${input.key}#${call.visit}`, step(input.key, withDocs(input.key, input.message).pipe(Effect25.flatMap((message2) => mail.seal({ ...call, message: message2, to: input.to })))), printOf({ input, src: "ask" })).pipe(Effect25.flatMap(Schema37.decodeUnknownEffect(SealedSchema)), Effect25.mapError(() => failed(input.key, "sealed envelope refused")));
+    const message = yield* step(input.key, withDocs(input.key, input.message));
     yield* store.writeMessage(sealed.messageId, runId2);
     yield* store.writeDoc(runId2, `__sent:${input.key}`, {
+      message,
       messageId: sealed.messageId,
       to: input.to
     });
@@ -41296,6 +41302,7 @@ ${docText(text)}`
         yield* store.writeMessage(messageId, runId2);
         parked.set(stepKey, {
           key: stepKey,
+          message: null,
           messageId,
           to: deferred.to,
           writes: null
@@ -41368,8 +41375,9 @@ ${docText(text)}`
     return (run2.state.revision === null || !run2.state.revision.diverged) && isText3(answer2) ? answer2 : void 0;
   };
   const awaitsHere = () => factsHere().flatMap((fact) => fact.kind === "await" ? [fact] : []);
-  const awaitingOf = (docs) => awaitsHere().flatMap((fact) => Option10.toArray(decodeSent(docs[`__sent:${fact.key}`])).map(({ messageId }) => ({
+  const awaitingOf = (docs) => awaitsHere().flatMap((fact) => Option10.toArray(decodeSent(docs[`__sent:${fact.key}`])).map(({ message, messageId }) => ({
     key: fact.key,
+    message: message ?? null,
     messageId,
     to: fact.to,
     writes: fact.writes

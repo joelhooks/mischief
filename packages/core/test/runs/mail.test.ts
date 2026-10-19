@@ -36,10 +36,11 @@ const BRANCHES = ["engine", "wire", "content"] as const;
 const ASKS = [
   ...BRANCHES.map((branch) => ({
     key: `build.${branch}.land`,
+    message: `land ${branch}`,
     to: `desk/${branch}`,
     writes: branch,
   })),
-  { key: "budget", to: "desk/joel", writes: "budget" },
+  { key: "budget", message: "budgetUsd?", to: "desk/joel", writes: "budget" },
 ] as const;
 
 type AskKey = (typeof ASKS)[number]["key"];
@@ -393,6 +394,11 @@ const playBoard = (world: World) =>
 
       const open = (before.awaiting ?? []).find(({ key }) => key === ask.key);
       const messageId = open?.messageId ?? "";
+
+      expect(
+        open?.message,
+        "the ask's text, as sent, is on its awaiting entry"
+      ).toBe(ask.message);
 
       if (world.impostor) {
         const { from: _verified, ...unsigned } = lineFor(messageId, ask.to);

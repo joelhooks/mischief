@@ -59,6 +59,7 @@ it.effect(
       expect(waiting.awaiting).toStrictEqual([
         {
           key: "gate",
+          message: null,
           messageId: "gated/gate#1",
           to: SHADOW_JUDGE,
           writes: null,

@@ -152,3 +152,30 @@ it.effect(
       });
     })
 );
+
+it.effect(
+  "an ask parked before awaiting carried its message still reads, with no message",
+  () =>
+    Effect.gen(function* olderAsk() {
+      const state = yield* Schema.decodeEffect(RunStateJson)(
+        JSON.stringify({
+          ...JSON.parse(oldHeldRun),
+          awaiting: [
+            { key: "land", messageId: "m-1", to: "desk/a", writes: "a" },
+          ],
+          held: [],
+          status: "waiting-for-reply",
+        })
+      );
+
+      expect(state.awaiting).toStrictEqual([
+        {
+          key: "land",
+          message: null,
+          messageId: "m-1",
+          to: "desk/a",
+          writes: "a",
+        },
+      ]);
+    })
+);

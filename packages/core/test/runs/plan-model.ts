@@ -30,6 +30,7 @@ interface ModelStep {
   readonly goal?: string;
   readonly join?: string;
   readonly kind: string;
+  readonly message?: string;
   readonly next?: string;
   readonly prompt?: string;
   readonly question?: string;
@@ -476,6 +477,7 @@ const askMove = (
   }
 
   world.docs.set(`__sent:${key}`, {
+    message: step.message ?? "",
     messageId: `${key}#${visit}`,
     to: step.to ?? "",
   });

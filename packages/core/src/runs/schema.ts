@@ -135,6 +135,9 @@ export const EscalateToSchema = Schema.String.check(
 
 export const AwaitingSchema = Schema.Struct({
   key: Schema.String,
+  message: Schema.NullOr(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
   messageId: Schema.String,
   to: Schema.String,
   writes: Schema.NullOr(Schema.String),

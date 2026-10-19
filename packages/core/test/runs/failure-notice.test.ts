@@ -1,9 +1,9 @@
 import { NodeCrypto } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import { RunStore } from "../../src/runs/run-store.js";
+import { RunStore, withinRun } from "../../src/runs/run-store.js";
 import type { StepFailure } from "../../src/runs/schema.js";
 import { Judge } from "../../src/steps/judge.js";
 import { Mail } from "../../src/steps/mail.js";
@@ -105,6 +105,31 @@ it.effect.prop(
       if (fails) {
         expect(announced[0]?.failures).toHaveLength(1);
       }
+
+      const store = yield* RunStore;
+      const state = yield* store.readRun("run");
+      const stored = yield* store.readPlan("run", 1);
+
+      if (Option.isSome(state) && Option.isSome(stored)) {
+        yield* withinRun(
+          store,
+          "older"
+        )(
+          Effect.all([
+            store.writePlan("older", stored.value),
+            store.writeRun("older", state.value),
+          ])
+        );
+      }
+
+      for (let drive = 0; drive <= drives; drive += 1) {
+        yield* host.advance("older");
+      }
+
+      expect(
+        announced.filter(({ runId }) => runId === "older"),
+        "a run that failed before notices existed never mails when driven again"
+      ).toEqual([]);
     }).pipe(Effect.provide(servicesFor(fails, announced)));
   },
   { arbitrary: { runs: 40 } }

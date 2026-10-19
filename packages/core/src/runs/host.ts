@@ -179,11 +179,7 @@ export class RunHost extends Context.Service<
         terminalStatuses.has(opened.state.status) ||
         opened.state.status === "waiting-for-provider"
       ) {
-        const settled = yield* reportOf(runId, opened.plan, opened.state);
-
-        yield* announceFailure(runId, settled);
-
-        return settled;
+        return yield* reportOf(runId, opened.plan, opened.state);
       }
 
       if (

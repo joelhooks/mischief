@@ -41740,9 +41740,7 @@ var RunHost = class extends Context20.Service()("@mischief/core/RunHost", {
     const drive = Effect27.fn("RunHost.drive")(function* drive2(runId2) {
       const opened = yield* loadRun(runId2);
       if (terminalStatuses.has(opened.state.status) || opened.state.status === "waiting-for-provider") {
-        const settled2 = yield* reportOf(runId2, opened.plan, opened.state);
-        yield* announceFailure(runId2, settled2);
-        return settled2;
+        return yield* reportOf(runId2, opened.plan, opened.state);
       }
       if (opened.state.status === "paused" && (yield* store.readPaused(runId2))) {
         return yield* reportOf(runId2, opened.plan, opened.state);

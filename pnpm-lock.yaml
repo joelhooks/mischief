@@ -409,14 +409,14 @@ importers:
         specifier: workspace:*
         version: link:../capability
       '@xstate/effect':
-        specifier: 0.1.0-alpha.7
-        version: 0.1.0-alpha.7(effect@4.0.1)(xstate@6.0.0-alpha.65)
+        specifier: 1.0.0-alpha.9
+        version: 1.0.0-alpha.9(effect@4.0.1)(xstate@6.0.0-alpha.70)
       effect:
         specifier: 4.0.1
         version: 4.0.1
       xstate:
-        specifier: 6.0.0-alpha.65
-        version: 6.0.0-alpha.65
+        specifier: 6.0.0-alpha.70
+        version: 6.0.0-alpha.70
     devDependencies:
       '@effect/vitest':
         specifier: 4.0.1
@@ -2479,11 +2479,11 @@ packages:
   '@vitest/spy@5.0.3':
     resolution: {integrity: sha512-XhFysQTB8AZ+P4gMi+Lpo99vg2AZi0qKpaB9yXQl37+CaMEAPO3iH/wGVnSyL5MPERiLezpqTVtrR6UZH5GCXg==}
 
-  '@xstate/effect@0.1.0-alpha.7':
-    resolution: {integrity: sha512-EYHVGzFxFVfQfp14Evqx+qOQKMh7khHVFriolVqUgGXdQEv0hJm/x+O7jSyzWItaT+DA74XsPd2OTvgSbhC+kw==}
+  '@xstate/effect@1.0.0-alpha.9':
+    resolution: {integrity: sha512-/j88zmjdhbHpBx5klhHIH+Tj8CpT+fb5x0syOKaZIFymPDShgOKwRVtCkz+t1KrX5p4qV4XBEQOCSsmqYnfgqg==}
     peerDependencies:
       effect: ^4.0.0
-      xstate: ^6.0.0-alpha.65
+      xstate: ^6.0.0-alpha.70
 
   acorn@8.18.0:
     resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
@@ -3673,6 +3673,10 @@ packages:
 
   xstate@6.0.0-alpha.65:
     resolution: {integrity: sha512-fCRPjxUeefg4AFzEcnBv/Z6A1UoNLBVWeWaXQ7C3DQ3iuobV/A9OLneLDN0SosN2exYmwLxMP4N1Sy0G7oHpsg==}
+    hasBin: true
+
+  xstate@6.0.0-alpha.70:
+    resolution: {integrity: sha512-TSFfXYaTNz+ylEpguNsu0L5vDy8cjHRXAqpZBKQnJI++Jm61Vb41TAg1HzeEbC+Mnq9XelKs2dQNOizTwcnssQ==}
     hasBin: true
 
   y18n@5.0.8:
@@ -5396,10 +5400,10 @@ snapshots:
 
   '@vitest/spy@5.0.3': {}
 
-  '@xstate/effect@0.1.0-alpha.7(effect@4.0.1)(xstate@6.0.0-alpha.65)':
+  '@xstate/effect@1.0.0-alpha.9(effect@4.0.1)(xstate@6.0.0-alpha.70)':
     dependencies:
       effect: 4.0.1
-      xstate: 6.0.0-alpha.65
+      xstate: 6.0.0-alpha.70
 
   acorn@8.18.0: {}
 
@@ -6580,6 +6584,8 @@ snapshots:
   ws@8.22.0: {}
 
   xstate@6.0.0-alpha.65: {}
+
+  xstate@6.0.0-alpha.70: {}
 
   y18n@5.0.8: {}
 

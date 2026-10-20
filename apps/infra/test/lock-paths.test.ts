@@ -1,5 +1,14 @@
-// @effect-diagnostics nodeBuiltinImport:off -- This test reads the real lockfile from disk.
-import { readFileSync } from "node:fs";
+// @effect-diagnostics nodeBuiltinImport:off -- This test reads the real lockfile and spawns the CLI through a symlink.
+import { spawnSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import nodePath from "node:path";
 
 import { expect, it } from "@effect/vitest";
 import { Schema } from "effect";
@@ -54,4 +63,34 @@ it("fails on the real lockfile with one selector removed, naming key and path", 
   expect(found.map(({ path }) => path)).toEqual(["/packages/alchemy-nest"]);
   expect(refusal(found)).toContain("@rat-king/alchemy-nest");
   expect(refusal(found)).toContain("05e018f");
+});
+
+it("fails through a symlinked directory instead of silently passing", () => {
+  const real = readFileSync(
+    new URL("../../../pnpm-lock.yaml", import.meta.url),
+    "utf-8"
+  );
+
+  const directory = mkdtempSync(nodePath.join(tmpdir(), "lock-paths-"));
+  const target = nodePath.join(directory, "target");
+  const link = nodePath.join(directory, "link");
+  mkdirSync(target);
+  symlinkSync(target, link);
+  writeFileSync(
+    nodePath.join(target, "lock-paths.ts"),
+    readFileSync(new URL("../../../scripts/lock-paths.ts", import.meta.url))
+  );
+  const stripped = nodePath.join(directory, "stripped.yaml");
+  writeFileSync(stripped, real.replace("path: /packages/alchemy-nest, ", ""));
+
+  const result = spawnSync(
+    "node",
+    [nodePath.join(link, "lock-paths.ts"), stripped],
+    {
+      encoding: "utf-8",
+    }
+  );
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain("@rat-king/alchemy-nest");
 });

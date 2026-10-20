@@ -64,7 +64,7 @@ export const refusal = (stripped: readonly StrippedSelector[]): string =>
     "Next call: add the missing `path: <p>` field to each resolution in pnpm-lock.yaml by hand, as commit 05e018f did, then rerun `pnpm run lockfile:check`.",
   ].join("\n");
 
-if (process.argv[1] === import.meta.filename) {
+if (import.meta.main) {
   const stripped = findStrippedSelectors(
     readFileSync(process.argv[2] ?? "pnpm-lock.yaml", "utf-8")
   );

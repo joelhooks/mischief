@@ -5,9 +5,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { expect, it } from "@effect/vitest";
-import { Thinker } from "@mischief/core";
+import { StepFailed, Thinker } from "@mischief/core";
 import { Effect, Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import { TestClock } from "effect/testing";
 
 import { piThinker } from "../dist/index.js";
 import { callsOf, fauxWorld } from "./faux-world.js";
@@ -114,6 +115,64 @@ it.effect.prop(
       }
     }),
   { arbitrary: { runs: 12 }, timeout: 120_000 }
+);
+
+it.effect.prop(
+  "a crash-loop parked think fails with StepFailed and restart_limit without blocking another conversation or hanging on replay",
+  {
+    crashes: Schema.Int.check(Schema.isBetween({ maximum: 7, minimum: 5 })),
+    epoch: StepSchema.fields.epoch,
+    key: StepSchema.fields.key,
+    visit: StepSchema.fields.visit,
+  },
+  ({ crashes, epoch, key, visit }) =>
+    Effect.gen(function* parkedThink() {
+      const dir = mkdtempSync(path.join(tmpdir(), "mischief-parked-"));
+      const step: Step = { crash: "mid-call", epoch, key, visit };
+
+      for (let attempt = 0; attempt < crashes; attempt += 1) {
+        const output = yield* crashChild(dir, step);
+
+        expect(output).toContain(attempt < 5 ? "CALLED" : "restart_limit");
+      }
+
+      yield* Effect.gen(function* observePark() {
+        const thinker = yield* Thinker;
+
+        const call = {
+          agent: { model: "sol" },
+          ceiling: "high",
+          epoch,
+          key,
+          prompt: promptOf(step),
+          runId: RUN,
+          visit,
+        } as const;
+
+        for (let replay = 0; replay < 2; replay += 1) {
+          const failure = yield* thinker.think(call).pipe(Effect.flip);
+
+          expect(failure._tag).toBe("StepFailed");
+
+          if (Schema.is(StepFailed)(failure)) {
+            expect(failure.key).toBe(key);
+            expect(failure.reason).toContain("restart_limit");
+            expect(failure.reason).toContain("inspectRun");
+          }
+
+          const other = yield* thinker.think({ ...call, key: "unaffected" });
+
+          expect(other.output).toBe(`answer:${promptOf(step)}:1`);
+        }
+      }).pipe(
+        Effect.provide(piThinker(fauxWorld(dir, false))),
+        Effect.timeout("5 seconds"),
+        TestClock.withLive
+      );
+
+      expect(callsOf(dir)).toHaveLength(6);
+    }),
+  { arbitrary: { runs: 6 }, timeout: 120_000 }
 );
 
 it.effect.prop(

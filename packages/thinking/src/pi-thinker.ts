@@ -2,6 +2,7 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { clampThinkingLevel } from "@earendil-works/pi-ai/models";
+import type { Models } from "@earendil-works/pi-ai/models";
 import { isRetryableAssistantError } from "@earendil-works/pi-ai/utils/retry";
 import {
   defineDoc,
@@ -17,6 +18,7 @@ import type {
   HarnessOptions,
   HarnessSettings,
   ModelRef,
+  ReportTask,
   SettledSubmissionRecord,
   Storage,
   SubmissionRecord,
@@ -57,6 +59,7 @@ import { receiptOf, requestedOf } from "./receipt.js";
 import type { ThinkDefaults } from "./receipt.js";
 
 const StepsDoc = defineDoc<{ byAddress: Record<string, ConversationId> }>({
+  checkpointWhen: () => false,
   fork: "initial",
   history: "latest",
   initial: () => ({ byAddress: {} }),
@@ -68,7 +71,7 @@ const StepsDoc = defineDoc<{ byAddress: Record<string, ConversationId> }>({
 export interface PiThinkerOptions {
   readonly declared?: ThinkingDeclaration;
   readonly defaults?: ThinkDefaults;
-  readonly models: HarnessOptions["models"];
+  readonly models: Models;
   readonly registry: HarnessOptions["registry"];
   readonly modelRefs: Readonly<Record<string, ModelRef>>;
   readonly storageFor: (runId: string) => Effect.Effect<Storage, StepFailed>;
@@ -78,7 +81,25 @@ export interface PiThinkerOptions {
 interface OpenRun {
   readonly harness: Harness;
   readonly fresh: boolean;
+  readonly parked: Map<ConversationId, Deferred.Deferred<ReportTask>>;
 }
+
+const parkedFor = (
+  parked: OpenRun["parked"],
+  conversationId: ConversationId
+) => {
+  const existing = parked.get(conversationId);
+
+  if (existing !== undefined) {
+    return existing;
+  }
+
+  const signal = Deferred.makeUnsafe<ReportTask>();
+
+  parked.set(conversationId, signal);
+
+  return signal;
+};
 
 interface Answer {
   readonly cacheRead: number;
@@ -175,7 +196,7 @@ const thinkerOf = (options: PiThinkerOptions) =>
   Layer.effect(
     Thinker,
     Effect.gen(function* make() {
-      const open = yield* Ref.make(new Map<string, Harness>());
+      const open = yield* Ref.make(new Map<string, OpenRun>());
       const opening = yield* Semaphore.make(1);
 
       yield* Effect.addFinalizer(() =>
@@ -183,7 +204,7 @@ const thinkerOf = (options: PiThinkerOptions) =>
           Effect.flatMap((harnesses) =>
             Effect.forEach(
               harnesses.values(),
-              (harness) =>
+              ({ harness }) =>
                 Effect.promise(async () => {
                   await harness.close(BACKGROUND_CONTEXT);
                 }),
@@ -193,8 +214,19 @@ const thinkerOf = (options: PiThinkerOptions) =>
         )
       );
 
-      const settingsFor = (runId: string): HarnessOptions => ({
+      const settingsFor = (
+        runId: string,
+        parked: OpenRun["parked"]
+      ): HarnessOptions => ({
         models: options.models,
+        onReport: (_error, info) => {
+          if (info.type === "task_parked") {
+            Deferred.doneUnsafe(
+              parkedFor(parked, info.task.conversationId),
+              Effect.succeed(info.task)
+            );
+          }
+        },
         registry: options.registry,
         settings:
           options.streamFor === undefined
@@ -205,18 +237,48 @@ const thinkerOf = (options: PiThinkerOptions) =>
               },
       });
 
+      const openHarness = (
+        call: StepCall,
+        operation: string,
+        storage: Storage
+      ) =>
+        Effect.gen(function* openingHarness() {
+          const parked: OpenRun["parked"] = new Map();
+
+          const harness = yield* pi(call, operation, async () => {
+            const opened = await Harness.open(
+              storage,
+              settingsFor(call.runId, parked),
+              BACKGROUND_CONTEXT
+            );
+
+            const inspection = await opened.inspect(BACKGROUND_CONTEXT);
+
+            for (const { record, state } of inspection.tasks) {
+              if (
+                state.kind === "blocked" &&
+                state.reason === "restart_limit"
+              ) {
+                Deferred.doneUnsafe(
+                  parkedFor(parked, record.conversationId),
+                  Effect.succeed({
+                    conversationId: record.conversationId,
+                    id: record.id,
+                    kind: record.kind,
+                  })
+                );
+              }
+            }
+
+            return opened;
+          });
+
+          return { fresh: true, harness, parked } satisfies OpenRun;
+        });
+
       const unrecordedHarness = (call: StepCall) =>
         Effect.acquireRelease(
-          pi(
-            call,
-            "open in memory",
-            async () =>
-              await Harness.open(
-                new MemoryStorage(),
-                settingsFor(call.runId),
-                BACKGROUND_CONTEXT
-              )
-          ).pipe(Effect.map((harness): OpenRun => ({ fresh: true, harness }))),
+          openHarness(call, "open in memory", new MemoryStorage()),
           ({ harness }) =>
             Effect.promise(async () => {
               await harness.close(BACKGROUND_CONTEXT);
@@ -225,31 +287,22 @@ const thinkerOf = (options: PiThinkerOptions) =>
 
       const harnessFor = (call: StepCall) =>
         opening.withPermits(1)(
-          Effect.gen(function* openHarness() {
+          Effect.gen(function* activateHarness() {
             const existing = (yield* Ref.get(open)).get(call.runId);
 
             if (existing !== undefined) {
-              return { fresh: false, harness: existing } satisfies OpenRun;
+              return { ...existing, fresh: false } satisfies OpenRun;
             }
 
             const storage = yield* options.storageFor(call.runId);
 
-            const harness = yield* pi(
-              call,
-              "open",
-              async () =>
-                await Harness.open(
-                  storage,
-                  settingsFor(call.runId),
-                  BACKGROUND_CONTEXT
-                )
-            );
+            const opened = yield* openHarness(call, "open", storage);
 
             yield* Ref.update(open, (harnesses) =>
-              new Map(harnesses).set(call.runId, harness)
+              new Map(harnesses).set(call.runId, opened)
             );
 
-            return { fresh: true, harness } satisfies OpenRun;
+            return opened;
           }).pipe(Effect.withSpan("spawn.activate"))
         );
 
@@ -462,7 +515,9 @@ const thinkerOf = (options: PiThinkerOptions) =>
 
           yield* Effect.raceFirst(
             Deferred.await(seen).pipe(Effect.withSpan("first_token")),
-            Effect.promise(
+            pi(
+              call,
+              "wait for first token",
               async () => await submission.wait(BACKGROUND_CONTEXT)
             )
           );
@@ -545,7 +600,7 @@ const thinkerOf = (options: PiThinkerOptions) =>
         opened: Effect.Effect<OpenRun, StepFailed, R>
       ) =>
         Effect.gen(function* firstTurn() {
-          const { fresh, harness } = yield* opened;
+          const { fresh, harness, parked } = yield* opened;
 
           const { conversation, created } = yield* conversationFor(
             call,
@@ -561,17 +616,29 @@ const thinkerOf = (options: PiThinkerOptions) =>
 
           const resumed = latest.record?.status === "unanswered";
 
-          const answered = yield* settle(
-            call,
-            conversation,
-            model,
-            {
-              fresh: resumed,
-              n: resumed ? latest.attempt + 1 : latest.attempt,
-            },
-            content,
-            watching.seen,
-            false
+          const answered = yield* Effect.raceFirst(
+            settle(
+              call,
+              conversation,
+              model,
+              {
+                fresh: resumed,
+                n: resumed ? latest.attempt + 1 : latest.attempt,
+              },
+              content,
+              watching.seen,
+              false
+            ),
+            Deferred.await(parkedFor(parked, conversation.id)).pipe(
+              Effect.flatMap((task) =>
+                Effect.fail(
+                  new StepFailed({
+                    key: call.key,
+                    reason: `pi-durable task ${task.id} (${task.kind}) is parked: restart_limit after repeated crashes without progress. The think cannot finish while parked. Inspect the run with inspectRun; fix the crash cause, then abort the run and submit a new run`,
+                  })
+                )
+              )
+            )
           ).pipe(
             Effect.ensuring(Effect.promise(async () => await watching.stop()))
           );

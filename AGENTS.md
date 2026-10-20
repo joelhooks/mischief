@@ -11,8 +11,8 @@ Workspace `package.json` files declare the pinned stack. [README.md](./README.md
 - pnpm workspaces + Turborepo (`apps/*`, `packages/*`)
 - Node `>=24.18.0` and pnpm `11.3.0`; do not replace pnpm with Bun or npm for installs
 - Effect `4.0.0` and `@effect/platform-node` `4.0.0`, one runtime family. Bumping it is its own change.
-- XState `6.0.0-alpha.65` for finite lifecycles, retries, cancellation, and resumability
-- `@xstate/effect` `0.1.0-alpha.7` bridges the two: machines run as scoped Effects via `createEffectActor`, side effects are declared `fromEffect` actors. This pin was published to npm 2026-10-08; `vendor/README.md` keeps the rules for the next unpublished pin
+- XState `6.0.0-alpha.70` for finite lifecycles, retries, cancellation, and resumability
+- `@xstate/effect` `1.0.0-alpha.9` bridges the two: machines run as scoped Effects via `createEffectActor`, side effects are declared `createEffectLogic` actors. Both pins come from npm; `vendor/README.md` keeps the rules for the next unpublished pin
 - Alchemy `2.0.0-beta.83` (Infrastructure as Effects) for every cloud resource; declared in `apps/infra/alchemy.run.ts`, authenticated through Alchemy profiles, never through env vars in this repo
 - TypeScript `7.0.2` in strict mode, patched by `@effect/tsgo` `0.51.1` in `prepare` so the Effect language service diagnostics in `tsconfig.base.json` fail `tsc`, not just the editor. Escape hatch for a real boundary: `// @effect-diagnostics-next-line <rule>:off` with a reason
 - `@effect/vitest` `4.0.0` for every Effect test: `it.effect` and `it.layer(layer)`; `Effect.run*` and `ManagedRuntime.make` in test files are a lint error
@@ -115,7 +115,7 @@ Preserve existing work. Inspect status before editing, stage only files changed 
 These are Mischief's product rules. Durable intent lives in `VISION.md`; the approved design lives in `.brain/projects/mischief-design.svx`, in the private Brain (gitignored).
 
 - Plans are data. A plan names registry steps by kind and never carries code. Strict decoding refuses any key the schema does not know, including `@code` and `@expr`. The step registry is fixed, versioned, and owned by core.
-- Plans compile to plain XState JSON and are hydrated with `createMachineFromConfig` against the registry. The compiler generates escalation (`<state>__joel`), migration (`<state>__amend`), and branch-failure (`__failed`) states; plan authors never write them.
+- Plans compile to plain XState JSON and are hydrated with `hydratePlan` against the registry. This boundary uses `machineFromJSON` while preserving stored invoke ids and translating legacy completion selectors. The compiler generates escalation (`<state>__joel`), migration (`<state>__amend`), and branch-failure (`__failed`) states; plan authors never write them.
 - Engines are pinned exactly and sit behind Effect ports: `xstate/durable` runs the plan graph, pi-durable runs agent conversations. When an engine has a gap, patch it on our fork, prove the patch with the durability property, and send it upstream with a shrunk counterexample.
 - The durability property is the gate. A run interrupted by any generated schedule of crashes, mid-step crashes, and pauses ends where an independent plan model ends, repeats only steps running at a crash, and writes artifacts that decode with the schemas. Every durability rule below exists because a re-introduced bug fails the property. Code the property cannot reach is removed until a property reaches it.
 - Durability rules: checkpoint right after `transition()` and before effects; the checkpoint holds the snapshot, per-address visit counts, and every unconsumed completion; restored completions are re-stamped with the restored child's `sessionId`; the host owns the event queue and drops completions from children that are no longer live; failed steps are journaled; the journal key is `logic:<address>#<visit>`; pause, waiting, and refusal change the run's status, never the snapshot; the question asked comes from the state's `meta.ask`.
@@ -127,7 +127,7 @@ These are Mischief's product rules. Durable intent lives in `VISION.md`; the app
 - Comms go only over Rat King. A plan never touches Herdr panes, clones, or landings; it may `ask` a Muster desk for that work.
 - One contract, every surface. Define schemas and metadata with `defineContract`; bind a server-side handler with `implement` and add the capability to `capabilities`. CLI, HTTP, MCP, RPC, and code mode are projections in `packages/capability`. Do not add a command, route, or tool handler that bypasses a capability.
 - Schemas are the contract. Input, output, and failure are Effect `Schema`; JSON Schema, OpenAPI, and the code-mode declarations are derived from them, never hand-written.
-- Lifecycles are machines. Finite modes, retries, and cancellation live in XState machines started with `createEffectActor`; side effects live in declared `fromEffect` actors, never inline.
+- Lifecycles are machines. Finite modes, retries, and cancellation live in XState machines started with `createEffectActor`; side effects live in declared `createEffectLogic` actors, never inline.
 - The sandbox is a surface, not a bypass. Anything reachable from a code-mode program must be a capability and goes through that capability's schemas and handler.
 - Gardener rule: add a lint rule before cleaning up a bad pattern; lint baselines only shrink. The routine is `skills/gardener`; before simplifying or replacing a design, run `skills/uncomplect`.
 - Tautological tests considered harmful.
@@ -147,7 +147,7 @@ These are Mischief's product rules. Durable intent lives in `VISION.md`; the app
 - `rat-stack-boundaries/no-hand-rolled-surface` keeps `Rpc.make`, `RpcGroup.make`, `HttpApi*`, `Tool.make`, and `Toolkit.make` inside `packages/capability`; everything else projects contracts.
 - `rat-stack-patterns` (`scripts/oxlint-plugin-patterns.ts`): `contract-binding-matches-name`, `no-module-level-mutable-state` (module `let`/`var` leaks across Worker requests), `acquire-release-constructs-in-acquire-body`, and `watch-effect-actors`.
 - `packages/core/src/file-inspector.ts` is the reference service shape: a `Context.Service` class whose `make` captures its dependencies, with `static layer` beside it. `packages/core/src/config-service.ts` derives a service from Effect `Config`; `AppConfig` mirrors `.env.schema`.
-- `packages/core/src/inspect-machine.ts` is the reference lifecycle: the machine owns states, declared `fromEffect` actors own side effects and typed failures. Effect-backed machines start only under `createEffectActor`, never `createActor`. The plan lifecycle (`loading → stepping → committing → waiting | done | refused`) follows this shape.
+- `packages/core/src/inspect-machine.ts` is the reference lifecycle: the machine owns states, declared `createEffectLogic` actors own side effects and typed failures. Effect-backed machines start only under `createEffectActor`, never `createActor`. The plan lifecycle (`loading → stepping → committing → waiting | done | refused`) follows this shape.
 - Devtools are capabilities: `devtools(capabilities)` adds the `rat_*` capabilities, recorded through `CallWatch`. `rat-stack-boundaries/no-devtools-in-production` keeps devtools out of deployed entries; `--devtools` binds `127.0.0.1` only.
 - `apps/cli/src/surfaces.ts` is the only place projections are instantiated; `apps/cli/src/command.ts` maps them to subcommands; `apps/cli/src/cli.ts` is the composition root.
 

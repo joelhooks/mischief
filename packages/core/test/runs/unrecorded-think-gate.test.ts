@@ -93,7 +93,7 @@ const expectedRefusals = (gate: Gate): readonly string[] => {
 
   if (!gate.on) {
     return [
-      `think: a think with ephemeral or post calls host capabilities, so it needs step kind "call", which is off on this host. A host turns it on with ${STEP_KINDS_FLAG}=call, and turning it on for real runs needs Joel's approval, so ask Joel before setting it. Until then, drop ephemeral and post from this think, then call submitPlan again`,
+      `think: a think with ephemeral or post calls host capabilities, so it needs step kind "call", which is off on this host. A host turns it on with ${STEP_KINDS_FLAG}=call, and turning it on changes what every live run on this host can do, so it ships as a host config change under the deploy rules, with the go and its provenance in the deploy receipt. Until then, drop ephemeral and post from this think, then call submitPlan again`,
     ];
   }
 

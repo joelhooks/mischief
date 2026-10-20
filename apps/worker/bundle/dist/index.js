@@ -39641,7 +39641,7 @@ var gatedStepKinds = ["call"];
 var isGated = (name) => gatedStepKinds.some((kind) => kind === name);
 var stepKindsFrom = (text) => new Set((text ?? "").split(",").map((name) => name.trim()).filter(isGated));
 var EnabledStepKinds = Context9.Reference("@mischief/core/EnabledStepKinds", { defaultValue: () => /* @__PURE__ */ new Set() });
-var turnOn = (kind) => `A host turns it on with ${STEP_KINDS_FLAG}=${kind}, and turning it on for real runs needs Joel's approval, so ask Joel before setting it`;
+var turnOn = (kind) => `A host turns it on with ${STEP_KINDS_FLAG}=${kind}, and turning it on changes what every live run on this host can do, so it ships as a host config change under the deploy rules, with the go and its provenance in the deploy receipt`;
 var stepKindOff = (where, kind) => `${where}: step kind "${kind}" is off on this host. ${turnOn(kind)}. Until then, express this step with think or switch, then call submitPlan again`;
 var ephemeralThinkOff = (where) => `${where}: a think with ephemeral or post calls host capabilities, so it needs step kind "call", which is off on this host. ${turnOn("call")}. Until then, drop ephemeral and post from this think, then call submitPlan again`;
 

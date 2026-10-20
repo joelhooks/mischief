@@ -131,7 +131,7 @@ it.effect.prop(
                   errors: [
                     expect.stringMatching(
                       new RegExp(
-                        `fetch: step kind "call" is off on this host.*${STEP_KINDS_FLAG}=call.*needs Joel's approval`,
+                        `fetch: step kind "call" is off on this host.*${STEP_KINDS_FLAG}=call.*deploy receipt`,
                         "u"
                       )
                     ),

@@ -25,7 +25,7 @@ export const EnabledStepKinds = Context.Reference<ReadonlySet<GatedStepKind>>(
 );
 
 const turnOn = (kind: GatedStepKind) =>
-  `A host turns it on with ${STEP_KINDS_FLAG}=${kind}, and turning it on for real runs needs Joel's approval, so ask Joel before setting it`;
+  `A host turns it on with ${STEP_KINDS_FLAG}=${kind}, and turning it on changes what every live run on this host can do, so it ships as a host config change under the deploy rules, with the go and its provenance in the deploy receipt`;
 
 export const stepKindOff = (where: string, kind: GatedStepKind) =>
   `${where}: step kind "${kind}" is off on this host. ${turnOn(kind)}. Until then, express this step with think or switch, then call submitPlan again`;

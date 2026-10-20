@@ -1,12 +1,12 @@
 # Vendored packages
 
-Keep pinned dependencies here until npm publishes them. Each entry records its build source and removal condition. Nothing is vendored right now.
+Keep pinned dependencies here until npm publishes them. Each entry records its build source and removal condition.
 
 The current `xstate@6.0.0-alpha.65` and `@xstate/effect@0.1.0-alpha.7` pins come from npm. Their exact `minimumReleaseAgeExclude` entries move together. The bridge accepts Effect `^4.0.0` and XState `^6.0.0-alpha.65`.
 
 | Tarball | Built from | Why | Remove when |
-| ------- | ---------- | --- | ----------- |
-| (none)  |            |     |             |
+| --- | --- | --- | --- |
+| `pi-main-73f8de8/*.tgz` (chord, pi-ai, pi-codemode, pi-durable, pi-telemetry) | `earendil-works/pi@73f8de8`, packed once as `1.3.1-main.73f8de8`; hashes in `pi-main-73f8de8/SHA256SUMS` | Unreleased crash-loop guard and SQLite v2 compatibility | npm publishes the matching release; replace all five file overrides and direct pins, then remove this directory and its release-age exceptions |
 
 The last one was `xstate-effect-0.1.0-alpha.2.tgz`, built from the `statelyai/xstate` tag `xstate@6.0.0-alpha.58` with `pnpm exec preconstruct build && pnpm pack` after the first npm publish failed on 2026-09-17. npm published the same bytes on 2026-09-19 and `packages/core` moved to the registry version on 2026-09-20.
 

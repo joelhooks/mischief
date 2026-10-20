@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Harness, watchEvents } from "@earendil-works/pi-durable";
 import { Thinker } from "@mischief/core";
-import { Effect, Redacted, Schema } from "effect";
+import { Effect, Predicate, Redacted, Schema } from "effect";
 
 import { gatewayThinkerOptions, piThinker } from "../dist/index.js";
 import { nodeSqliteStorageFor } from "../dist/node-storage.js";
@@ -44,7 +44,12 @@ Harness.open = async (storage, options, context) => {
     storage,
     {
       ...options,
-      settings: { ...options.settings, progress: { partialIntervalMs: 0 } },
+      settings: {
+        ...(Predicate.isFunction(options.settings)
+          ? options.settings()
+          : options.settings),
+        progress: { partialIntervalMs: 0 },
+      },
     },
     context
   );

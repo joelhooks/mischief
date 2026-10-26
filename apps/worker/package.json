@@ -7,6 +7,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:fast": "tsrs --noEmit -p tsconfig.json",
     "check": "pnpm run typecheck",
     "build": "esbuild src/worker.ts --bundle --format=esm --platform=neutral --main-fields=module,main --conditions=workerd,worker,browser,import --external:cloudflare:* --external:node:* --outfile=dist/worker.js --log-level=warning --define:__BUNDLE_COMMIT__='\"local\"' --define:__BUNDLE_VERSION__='\"local\"' && pnpm run --silent build:library",
     "build:library": "esbuild src/index.ts --bundle --format=esm --platform=neutral --main-fields=module,main --conditions=workerd,worker,browser,import --external:cloudflare:* --external:effect --external:effect/* --outfile=bundle/dist/index.js --log-level=warning && mkdir -p bundle/dist/types && cp ../../packages/core/dist/steps/call-registry.d.ts ../../packages/core/dist/steps/step-failed.d.ts bundle/dist/types/",

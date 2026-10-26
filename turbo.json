@@ -5,6 +5,17 @@
       "dependsOn": ["^typecheck"],
       "outputs": []
     },
+    "typecheck:fast": {
+      "dependsOn": ["^typecheck:fast"],
+      "outputs": []
+    },
+    "//#typecheck:fast-scripts": {
+      "outputs": []
+    },
+    "@mischief/thinking#typecheck:fast": {
+      "dependsOn": ["^typecheck:fast", "build"],
+      "outputs": []
+    },
     "@mischief/thinking#typecheck": {
       "dependsOn": ["^typecheck", "build"],
       "outputs": []

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:fast": "tsrs --noEmit -p tsconfig.json",
     "check": "pnpm run typecheck",
     "plan": "turbo run build --filter=@mischief/worker... --output-logs=errors-only && jiti plan.ts plan",
     "test": "vitest run",

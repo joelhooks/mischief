@@ -20,6 +20,8 @@
     "prepare": "effect-tsgo patch && if git rev-parse --git-dir >/dev/null 2>&1; then lefthook install; fi",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
+    "typecheck:fast": "turbo run typecheck:fast typecheck:fast-scripts",
+    "typecheck:fast-scripts": "tsrs --noEmit -p tsconfig.json",
     "typecheck-scripts": "tsc --noEmit -p tsconfig.json",
     "vendor:agent-sources": "./scripts/vendor-agent-sources.sh",
     "find-peers": "node scripts/find-peers.ts"
@@ -36,6 +38,7 @@
     "oxlint": "1.83.0",
     "oxlint-tsgolint": "7.0.2002",
     "portless": "0.15.6",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "turbo": "2.11.2",
     "typescript": "7.0.2",
     "ultracite": "7.12.0",

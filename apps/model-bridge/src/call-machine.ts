@@ -1,7 +1,7 @@
 import { watchActor } from "@mischief/capability/actor-watch";
 import {
   createEffectActor,
-  fromEffect,
+  createEffectLogic,
   join,
   setupEffect,
 } from "@xstate/effect";
@@ -14,7 +14,7 @@ import { CALL_TIMEOUT_MS, PiProcess } from "./pi-process.js";
 import { ResponsesRequestSchema } from "./protocol.js";
 import type { Completion, ResponsesRequest } from "./protocol.js";
 
-const review = fromEffect({
+const review = createEffectLogic({
   effect: ({ input }) =>
     PiProcess.use(({ run }) => run(input)).pipe(
       Effect.timeoutOrElse({

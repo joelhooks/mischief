@@ -4,6 +4,11 @@ import { RunHost } from "./host.js";
 import { ReplyLineSchema } from "./schema.js";
 
 export const DrainOutcomeSchema = Schema.TaggedUnion({
+  AlreadyJournaled: {
+    messageId: Schema.String,
+    replyTo: Schema.String,
+    runId: Schema.String,
+  },
   Delivered: { replyTo: Schema.String, status: Schema.String },
   Refused: { reason: Schema.String, replyTo: Schema.String },
   Unrouted: { line: Schema.String, reason: Schema.String },
@@ -35,6 +40,15 @@ export const consumeDrained = Effect.fn("consumeDrained")(function* consume(
   return yield* RunHost.use((host) => host.deliver(line.value)).pipe(
     Effect.map(({ status }) =>
       DrainOutcomeSchema.cases.Delivered.make({ replyTo, status })
+    ),
+    Effect.catchTag("AlreadyJournaled", ({ messageId, runId }) =>
+      Effect.succeed(
+        DrainOutcomeSchema.cases.AlreadyJournaled.make({
+          messageId,
+          replyTo,
+          runId,
+        })
+      )
     ),
     Effect.catchTag("ReplyRefused", ({ reason }) =>
       Effect.succeed(DrainOutcomeSchema.cases.Refused.make({ reason, replyTo }))

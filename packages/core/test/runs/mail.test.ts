@@ -12,7 +12,7 @@ import {
 } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import { ReplyRefused } from "../../src/runs/reply-refused.js";
+import { AlreadyJournaled } from "../../src/runs/already-journaled.js";
 import {
   bufferedRunStore,
   memoryRunBackend,
@@ -438,7 +438,7 @@ const playBoard = (world: World) =>
 
         expect(
           Exit.isFailure(again.exit) &&
-            Schema.is(ReplyRefused)(
+            Schema.is(AlreadyJournaled)(
               Option.getOrUndefined(Exit.findErrorOption(again.exit))
             )
         ).toBe(true);

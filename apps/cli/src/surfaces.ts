@@ -12,6 +12,7 @@ import {
 import {
   capabilities as coreCapabilities,
   runCapabilities,
+  thinkingCapabilities,
 } from "@mischief/core";
 import { devtools, devtoolsLayer } from "@mischief/devtools";
 import { Effect, Layer, Logger } from "effect";
@@ -22,7 +23,11 @@ import { HttpApiBuilder, HttpApiScalar } from "effect/http-api";
 import { mcpProtocols } from "./mcp-protocols.js";
 import { VERSION } from "./version.js";
 
-export const capabilities = [...coreCapabilities, ...runCapabilities] as const;
+export const capabilities = [
+  ...coreCapabilities,
+  ...runCapabilities,
+  ...thinkingCapabilities,
+] as const;
 
 export const cliCapabilities = capabilities;
 

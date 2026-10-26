@@ -3,6 +3,12 @@ import { Schema } from "effect";
 
 import { FileStatsError, FileStatsSchema } from "./stats.js";
 
+export {
+  ThinkDaySchema,
+  ThinkStatusSchema,
+  thinkStatusContract,
+} from "./thinking/contracts.js";
+
 export const inspectFileContract = defineContract("inspectFile", {
   annotations: { idempotent: true, readOnly: true },
   description: "Count bytes, characters, words, and lines in a file",

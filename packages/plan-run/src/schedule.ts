@@ -5,6 +5,7 @@ import {
   ScheduleAlarm,
   ScheduleStore,
   scheduleCapabilities,
+  thinkingCapabilities,
   WakeRuns,
   wakeSchedule,
 } from "@mischief/core";
@@ -31,7 +32,11 @@ const http = toHttpApi("Mischief schedules", scheduleCapabilities);
 
 export const mischiefApiSpec = () =>
   OpenApi.fromApi(
-    toHttpApi("Mischief", [...runCapabilities, ...scheduleCapabilities]).api
+    toHttpApi("Mischief", [
+      ...runCapabilities,
+      ...scheduleCapabilities,
+      ...thinkingCapabilities,
+    ]).api
   );
 
 export const makeSchedule = ({

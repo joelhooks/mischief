@@ -1,5 +1,17 @@
 export { AppConfig } from "./app-config.js";
 
+export { thinkStatus, thinkingCapabilities } from "./thinking/capabilities.js";
+
+export {
+  ThinkDaySchema,
+  ThinkStatusSchema,
+  thinkStatusContract,
+} from "./thinking/contracts.js";
+
+export { ThinkTelemetry } from "./thinking/telemetry.js";
+
+export { ThinkTelemetryUnavailable } from "./thinking/telemetry-unavailable.js";
+
 export { ConfigService } from "./config-service.js";
 
 export { FileInspector } from "./file-inspector.js";
@@ -91,6 +103,8 @@ export {
 export { ExtendRefused } from "./runs/extend-refused.js";
 
 export { RevisionRefused } from "./runs/revision-refused.js";
+
+export { AlreadyJournaled } from "./runs/already-journaled.js";
 
 export { ReplyRefused } from "./runs/reply-refused.js";
 

@@ -1,3 +1,5 @@
+import { gzipSync } from "node:zlib";
+
 import { NodeServices } from "@effect/platform-node";
 import { Crypto, Effect, FileSystem, Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
@@ -133,9 +135,9 @@ export const captureAlpha65 = Effect.gen(function* captureOld() {
   });
 
   yield* fs.makeDirectory("test/runs/fixtures/alpha65", { recursive: true });
-  yield* fs.writeFileString(
-    "test/runs/fixtures/alpha65/runs.json",
-    `${JSON.stringify(JSON.parse(data), null, 2)}\n`
+  yield* fs.writeFile(
+    "test/runs/fixtures/alpha65/runs.json.gz",
+    gzipSync(`${JSON.stringify(JSON.parse(data), null, 2)}\n`, { level: 9 })
   );
 
   return fixtures.length;

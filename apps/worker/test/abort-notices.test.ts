@@ -5,7 +5,7 @@ import { Effect, FileSystem, Layer, Path, Schedule, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { build } from "esbuild";
 
-import { post, prepare, start } from "./workerd.js";
+import { kill, post, prepare, start } from "./workerd.js";
 
 const services = Layer.merge(NodeServices.layer, FetchHttpClient.layer);
 
@@ -59,7 +59,7 @@ const Notices = Schema.Array(
 );
 
 it.live(
-  "a delivered reply used by a wake is reported once when the schedule aborts that wake past wakeTimeout",
+  "a reply survives a workerd crash between run journal and receipt, then gives one notice when its wake aborts",
   () =>
     Effect.gen(function* timedOut() {
       const fs = yield* FileSystem.FileSystem;
@@ -91,7 +91,7 @@ it.live(
       );
 
       const world = yield* prepare(1000, [], undefined, { bundle });
-      yield* start(world);
+      const child = yield* start(world);
 
       const created = yield* post(world, "createSchedule", {
         every: "1 minute",
@@ -119,13 +119,28 @@ it.live(
       const ask = asks.awaiting.find(({ to }) => to === "sender/desk");
       expect(ask).toBeDefined();
 
-      yield* HttpClientRequest.post(
+      const deliver = HttpClientRequest.post(
         `http://127.0.0.1:${world.port}/test/reply`
       ).pipe(
         HttpClientRequest.bodyJsonUnsafe({
           ask: ask?.messageId,
           objectName: `${world.driver.did}/records-wake-1`,
-        }),
+        })
+      );
+
+      yield* deliver.pipe(
+        HttpClientRequest.setHeader("x-test-crash-after-journal", "true"),
+        HttpClient.execute,
+        Effect.flatMap((response) => response.text),
+        Effect.tap((text) =>
+          Effect.sync(() => {
+            expect(text).toContain('"ok":false');
+          })
+        )
+      );
+      yield* kill(child);
+      yield* start(world);
+      yield* deliver.pipe(
         HttpClient.execute,
         Effect.flatMap((response) => response.text),
         Effect.tap((text) =>

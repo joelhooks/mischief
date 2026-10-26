@@ -70,12 +70,16 @@ it.effect.prop(
   { stream: Arbitrary.schema(StreamSchema) },
   ({ stream }) =>
     Effect.gen(function* property() {
-      const result = yield* Schema.decodeEffect(ResultSchema)(
-        yield* measure(stream, false)
-      );
-
-      const held = yield* Schema.decodeEffect(ResultSchema)(
-        yield* measure(stream, true)
+      const { held, result } = yield* Effect.all(
+        {
+          held: measure(stream, true).pipe(
+            Effect.flatMap(Schema.decodeEffect(ResultSchema))
+          ),
+          result: measure(stream, false).pipe(
+            Effect.flatMap(Schema.decodeEffect(ResultSchema))
+          ),
+        },
+        { concurrency: 2 }
       );
 
       const tokens = {

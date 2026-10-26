@@ -209,7 +209,7 @@ overrides:
   '@earendil-works/pi-codemode': file:vendor/pi-main-73f8de8/earendil-works-pi-codemode-1.3.1-main.73f8de8.tgz
   '@earendil-works/pi-durable': file:vendor/pi-main-73f8de8/earendil-works-pi-durable-1.3.1-main.73f8de8.tgz
   '@earendil-works/pi-telemetry': file:vendor/pi-main-73f8de8/earendil-works-pi-telemetry-1.3.1-main.73f8de8.tgz
-  '@effect/platform-node-shared': 4.0.1
+  '@effect/platform-node-shared': 4.0.5
 
 importers:
 
@@ -223,7 +223,7 @@ importers:
         version: 0.51.1
       '@foldkit/oxlint-plugin':
         specifier: 0.15.3
-        version: 0.15.3(effect@4.0.1)
+        version: 0.15.3(effect@4.0.5)
       '@oxlint/plugins':
         specifier: 1.83.0
         version: 1.83.0
@@ -231,8 +231,8 @@ importers:
         specifier: 24.13.6
         version: 24.13.6
       effect:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.5
+        version: 4.0.5
       lefthook:
         specifier: 2.1.14
         version: 2.1.14
@@ -270,8 +270,8 @@ importers:
   apps/cli:
     dependencies:
       '@effect/platform-node':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(redis@6.2.1)
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(redis@6.2.1)
       '@mischief/capability':
         specifier: workspace:*
         version: link:../../packages/capability
@@ -285,12 +285,12 @@ importers:
         specifier: workspace:*
         version: link:../../packages/thinking
       effect:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.5
+        version: 4.0.5
     devDependencies:
       '@effect/vitest':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
@@ -304,24 +304,24 @@ importers:
   apps/infra:
     dependencies:
       '@effect/platform-node':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(redis@6.2.1)
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(redis@6.2.1)
       '@rat-king/alchemy-nest':
-        specifier: github:joelhooks/rat-king#13b437522b6f039af2e552ab0eb617a15171c3d5&path:/packages/alchemy-nest
-        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/13b437522b6f039af2e552ab0eb617a15171c3d5#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
+        specifier: github:joelhooks/rat-king#9dbd61b5cb5d56a462c7a207ce8f14800089f49b&path:/packages/alchemy-nest
+        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/alchemy-nest(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1))(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
       '@rat-king/mailbox-client':
-        specifier: github:joelhooks/rat-king#f20dd1bafceb2b6beb192027878f5303738525fe&path:/packages/mailbox-client/bundle
-        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/f20dd1bafceb2b6beb192027878f5303738525fe#path:/packages/mailbox-client/bundle
+        specifier: github:joelhooks/rat-king#9dbd61b5cb5d56a462c7a207ce8f14800089f49b&path:/packages/mailbox-client/bundle
+        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/mailbox-client/bundle
       alchemy:
         specifier: 2.0.0-beta.83
-        version: 2.0.0-beta.83(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.1)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
+        version: 2.0.0-beta.83(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1))(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.5)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
       effect:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.5
+        version: 4.0.5
     devDependencies:
       '@effect/vitest':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
@@ -338,17 +338,17 @@ importers:
   apps/model-bridge:
     dependencies:
       '@effect/platform-node':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(redis@6.2.1)
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(redis@6.2.1)
       '@mischief/capability':
         specifier: workspace:*
         version: link:../../packages/capability
       '@xstate/effect':
         specifier: 1.0.0-alpha.9
-        version: 1.0.0-alpha.9(effect@4.0.1)(xstate@6.0.0-alpha.70)
+        version: 1.0.0-alpha.9(effect@4.0.5)(xstate@6.0.0-alpha.70)
       effect:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.5
+        version: 4.0.5
       xstate:
         specifier: 6.0.0-alpha.70
         version: 6.0.0-alpha.70
@@ -357,8 +357,8 @@ importers:
         specifier: file:../../vendor/pi-main-73f8de8/earendil-works-pi-ai-1.3.1-main.73f8de8.tgz
         version: file:vendor/pi-main-73f8de8/earendil-works-pi-ai-1.3.1-main.73f8de8.tgz(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.2)(undici@8.11.2)(ws@8.22.0)(zod@4.6.5)
       '@effect/vitest':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
@@ -384,21 +384,21 @@ importers:
         specifier: workspace:*
         version: link:../../packages/thinking
       '@rat-king/mailbox-client':
-        specifier: github:joelhooks/rat-king#f20dd1bafceb2b6beb192027878f5303738525fe&path:/packages/mailbox-client/bundle
-        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/f20dd1bafceb2b6beb192027878f5303738525fe#path:/packages/mailbox-client/bundle
+        specifier: github:joelhooks/rat-king#9dbd61b5cb5d56a462c7a207ce8f14800089f49b&path:/packages/mailbox-client/bundle
+        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/mailbox-client/bundle
       effect:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.5
+        version: 4.0.5
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 5.20261001.1
         version: 5.20261001.1
       '@effect/platform-node':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(redis@6.2.1)
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(redis@6.2.1)
       '@effect/vitest':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.25.12)(jiti@2.7.0)(yaml@2.9.0)))
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.25.12)(jiti@2.7.0)(yaml@2.9.0)))
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
@@ -418,15 +418,15 @@ importers:
   packages/capability:
     dependencies:
       effect:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.5
+        version: 4.0.5
     devDependencies:
       '@effect/platform-node':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(redis@6.2.1)
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(redis@6.2.1)
       '@effect/vitest':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
@@ -440,24 +440,24 @@ importers:
   packages/core:
     dependencies:
       '@effect/platform-node':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(redis@6.2.1)
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(redis@6.2.1)
       '@mischief/capability':
         specifier: workspace:*
         version: link:../capability
       '@xstate/effect':
         specifier: 1.0.0-alpha.9
-        version: 1.0.0-alpha.9(effect@4.0.1)(xstate@6.0.0-alpha.70)
+        version: 1.0.0-alpha.9(effect@4.0.5)(xstate@6.0.0-alpha.70)
       effect:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.5
+        version: 4.0.5
       xstate:
         specifier: 6.0.0-alpha.70
         version: 6.0.0-alpha.70
     devDependencies:
       '@effect/vitest':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
@@ -474,12 +474,12 @@ importers:
         specifier: workspace:*
         version: link:../capability
       effect:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.5
+        version: 4.0.5
     devDependencies:
       '@effect/vitest':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
@@ -499,15 +499,15 @@ importers:
         specifier: workspace:*
         version: link:../core
       effect:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.5
+        version: 4.0.5
     devDependencies:
       '@effect/platform-node':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(redis@6.2.1)
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(redis@6.2.1)
       '@effect/vitest':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
@@ -533,12 +533,12 @@ importers:
         specifier: workspace:*
         version: link:../core
       effect:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.5
+        version: 4.0.5
     devDependencies:
       '@effect/vitest':
-        specifier: 4.0.1
-        version: 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+        specifier: 4.0.5
+        version: 4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
@@ -941,17 +941,17 @@ packages:
     resolution: {integrity: sha512-FU/zU/zG4RWokcZt+BVXXcieWi5ggvYnWP2kkB5XXjMaHRoy5BDhcZJ9JAnLTN9MwrCRoXgPQxOI0bFqwYeZkQ==}
     engines: {node: '>=22.19.0'}
 
-  '@effect/platform-node-shared@4.0.1':
-    resolution: {integrity: sha512-VanaejudEhKJ4mpmqnEzdncVUhN6sGSO9ZDND54mRxAlZxj+4dYAWjDTYAy9o4tJo9aALeP2U8cVcOFzEdSeLg==}
+  '@effect/platform-node-shared@4.0.5':
+    resolution: {integrity: sha512-a8rCdEkfZBGe9C6bsIjxVZuRp73svIyK5IHwHdDAVsvZXjrbkxusfI+rZ8WlX31RP1mKizwI/E72GQTNfdMWHw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.1
+      effect: ^4.0.5
 
-  '@effect/platform-node@4.0.1':
-    resolution: {integrity: sha512-FT0Fu5LO0/XP9zBpj0HqrtJNLluK4StNKqf6TSulUsjp8FPBsDVXGJiDuyoN5J2yVMT7tgvhxSwaDcObWVRIaQ==}
+  '@effect/platform-node@4.0.5':
+    resolution: {integrity: sha512-v4KD5fWvEUa4QmWFpZFbBsRhmfnTP6ETCME2r9ifyXVDPjhfpxpTZl41prjgQFMqZBHdWWCl7YC5ImbXv5ui5g==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.1
+      effect: ^4.0.5
       redis: '>=5.0.0 <7.0.0'
 
   '@effect/sql-d1@4.0.0':
@@ -1003,10 +1003,10 @@ packages:
     resolution: {integrity: sha512-i6mA6cNah+0mkPdu8qZILCO3Pnd9kWo03/s82Ju+1DFhdL28HFagi+1PRGxqgq1uMaHziWQ+ciKvOmIoks2RdA==}
     hasBin: true
 
-  '@effect/vitest@4.0.1':
-    resolution: {integrity: sha512-DbY9kf/018zBxRIX7rJwBnPVPzSarnUpcshm0vfYPFiDkSa7AFrXTh2BlDNUbrdrmqcIOBhVZ7GkEtxf8WiQrg==}
+  '@effect/vitest@4.0.5':
+    resolution: {integrity: sha512-q64paZ/i4V2NiRhTyqCmT2KiDbFjlxc2EZrZca8GGt+Nf8844946HyJM5bPk/q+YeRkFSxIrlCs+J+LSfky/wA==}
     peerDependencies:
-      effect: ^4.0.1
+      effect: ^4.0.5
       vitest: '>=5.0.0 <6.0.0'
 
   '@electric-sql/pglite-socket@0.0.20':
@@ -2034,12 +2034,12 @@ packages:
       yauzl:
         optional: true
 
-  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/13b437522b6f039af2e552ab0eb617a15171c3d5#path:/packages/alchemy-nest':
-    resolution: {gitHosted: true, integrity: sha512-7clMx/jSAtrl1pnRLSAgkjkgAs8j4lyBP56rsTX51Zc1bmGbhXzygIoFRH5tYKTJ3KiB5cdH/fX0VVmbIKHCoQ==, path: /packages/alchemy-nest, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/13b437522b6f039af2e552ab0eb617a15171c3d5}
+  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/alchemy-nest':
+    resolution: {gitHosted: true, path: /packages/alchemy-nest, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b}
     version: 0.1.0
 
-  '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/f20dd1bafceb2b6beb192027878f5303738525fe#path:/packages/mailbox-client/bundle':
-    resolution: {gitHosted: true, integrity: sha512-rPNNE2kgHd2TRqP/tm0VVpXlswRN4iBNxJx32vOo/BJgl/ct13BfaGon0jODnsmBRsgm18lqOQiXXguQxAk3Ig==, path: /packages/mailbox-client/bundle, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/f20dd1bafceb2b6beb192027878f5303738525fe}
+  '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/mailbox-client/bundle':
+    resolution: {gitHosted: true, path: /packages/mailbox-client/bundle, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b}
     version: 0.1.0
 
   '@redis/bloom@6.2.1':
@@ -2775,8 +2775,8 @@ packages:
     peerDependencies:
       effect: ^4.0.0
 
-  effect@4.0.1:
-    resolution: {integrity: sha512-b1VlQG9g8fwxE5QnIZuPoOP/0MsqHJSRKxUijjoM80E5q95FXrX5yWtY5XI8G+GJsBQAVSDbLS458z9a++uVvw==}
+  effect@4.0.5:
+    resolution: {integrity: sha512-BY4/28NlpOd99yzmV741xbVGmp+1U7tks4oB7F/Png64bTa5tm5eCA6W0RiXsnuLDDoJpjfVSo4Dnq4BZb/89Q==}
 
   emoji-regex@10.6.0:
     resolution: {integrity: sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A==}
@@ -3747,10 +3747,6 @@ packages:
       utf-8-validate:
         optional: true
 
-  xstate@6.0.0-alpha.65:
-    resolution: {integrity: sha512-fCRPjxUeefg4AFzEcnBv/Z6A1UoNLBVWeWaXQ7C3DQ3iuobV/A9OLneLDN0SosN2exYmwLxMP4N1Sy0G7oHpsg==}
-    hasBin: true
-
   xstate@6.0.0-alpha.70:
     resolution: {integrity: sha512-TSFfXYaTNz+ylEpguNsu0L5vDy8cjHRXAqpZBKQnJI++Jm61Vb41TAg1HzeEbC+Mnq9XelKs2dQNOizTwcnssQ==}
     hasBin: true
@@ -3791,14 +3787,14 @@ packages:
 
 snapshots:
 
-  '@alchemy.run/cloudflare-runtime@2.0.0-beta.83(@distilled.cloud/cloudflare@1.0.0-rc.15(effect@4.0.1))(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@types/node@24.13.6)(effect@4.0.1)(rolldown@1.2.5)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
+  '@alchemy.run/cloudflare-runtime@2.0.0-beta.83(@distilled.cloud/cloudflare@1.0.0-rc.15(effect@4.0.5))(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1))(@types/node@24.13.6)(effect@4.0.5)(rolldown@1.2.5)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
     dependencies:
       '@alchemy.run/node-utils': 2.0.0-beta.83
       '@cloudflare/unenv-preset': 2.16.1(unenv@2.0.0-rc.24)(workerd@1.20261002.1)
-      '@distilled.cloud/cloudflare': 1.0.0-rc.15(effect@4.0.1)
+      '@distilled.cloud/cloudflare': 1.0.0-rc.15(effect@4.0.5)
       '@puppeteer/browsers': 3.2.2(yauzl@3.4.0)
       capnp-es: 0.0.16(typescript@7.0.2)
-      effect: 4.0.1
+      effect: 4.0.5
       magic-string: 0.30.21
       mime: 4.1.0
       sharp: 0.35.4(@types/node@24.13.6)
@@ -3806,7 +3802,7 @@ snapshots:
       workerd: 1.20261002.1
       yauzl: 3.4.0
     optionalDependencies:
-      '@effect/platform-node': 4.0.1(effect@4.0.1)(redis@6.2.1)
+      '@effect/platform-node': 4.0.5(effect@4.0.5)(redis@6.2.1)
       rolldown: 1.2.5
       vite: 8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
     transitivePeerDependencies:
@@ -3814,9 +3810,9 @@ snapshots:
       - proxy-agent
       - typescript
 
-  '@alchemy.run/floci@2.0.0-beta.83(effect@4.0.1)':
+  '@alchemy.run/floci@2.0.0-beta.83(effect@4.0.5)':
     dependencies:
-      effect: 4.0.1
+      effect: 4.0.5
 
   '@alchemy.run/node-utils@2.0.0-beta.83':
     dependencies:
@@ -4124,94 +4120,94 @@ snapshots:
 
   '@cloudflare/workers-types@5.20261001.1': {}
 
-  '@distilled.cloud/acme@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/acme@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/aws@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/aws@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/axiom@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/axiom@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/cloudflare@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/cloudflare@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/core@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/core@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      effect: 4.0.1
+      effect: 4.0.5
 
-  '@distilled.cloud/doppler@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/doppler@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/fly-io@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/fly-io@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/gcp@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/gcp@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/hetzner@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/hetzner@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/iceberg@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/iceberg@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/infisical@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/infisical@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/neon@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/neon@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/planetscale@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/planetscale@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/prisma@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/prisma@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/railway@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/railway@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/stripe@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/stripe@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/turso@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/turso@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
-  '@distilled.cloud/zerossl@1.0.0-rc.15(effect@4.0.1)':
+  '@distilled.cloud/zerossl@1.0.0-rc.15(effect@4.0.5)':
     dependencies:
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      effect: 4.0.1
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      effect: 4.0.5
 
   '@earendil-works/chord@file:vendor/pi-main-73f8de8/earendil-works-chord-1.3.1-main.73f8de8.tgz':
     dependencies:
@@ -4403,33 +4399,33 @@ snapshots:
       get-east-asian-width: 1.6.0
       marked: 18.0.11
 
-  '@effect/platform-node-shared@4.0.1(effect@4.0.1)':
+  '@effect/platform-node-shared@4.0.5(effect@4.0.5)':
     dependencies:
       '@types/ws': 8.18.2
-      effect: 4.0.1
+      effect: 4.0.5
       ws: 8.22.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1)':
+  '@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.1(effect@4.0.1)
-      effect: 4.0.1
+      '@effect/platform-node-shared': 4.0.5(effect@4.0.5)
+      effect: 4.0.5
       redis: 6.2.1
       undici: 8.11.2
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/sql-d1@4.0.0(effect@4.0.1)':
+  '@effect/sql-d1@4.0.0(effect@4.0.5)':
     dependencies:
       '@cloudflare/workers-types': 5.20261001.1
-      effect: 4.0.1
+      effect: 4.0.5
 
-  '@effect/sql-sqlite-do@4.0.0(effect@4.0.1)':
+  '@effect/sql-sqlite-do@4.0.0(effect@4.0.5)':
     dependencies:
-      effect: 4.0.1
+      effect: 4.0.5
 
   '@effect/tsgo-darwin-arm64@0.51.1':
     optional: true
@@ -4462,14 +4458,14 @@ snapshots:
       '@effect/tsgo-win32-arm64': 0.51.1
       '@effect/tsgo-win32-x64': 0.51.1
 
-  '@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.25.12)(jiti@2.7.0)(yaml@2.9.0)))':
+  '@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.25.12)(jiti@2.7.0)(yaml@2.9.0)))':
     dependencies:
-      effect: 4.0.1
+      effect: 4.0.5
       vitest: 5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.25.12)(jiti@2.7.0)(yaml@2.9.0))
 
-  '@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))':
+  '@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))':
     dependencies:
-      effect: 4.0.1
+      effect: 4.0.5
       vitest: 5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
 
   '@electric-sql/pglite-socket@0.0.20(@electric-sql/pglite@0.3.15)':
@@ -4643,9 +4639,9 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@foldkit/oxlint-plugin@0.15.3(effect@4.0.1)':
+  '@foldkit/oxlint-plugin@0.15.3(effect@4.0.5)':
     dependencies:
-      effect-oxlint: 0.4.0(effect@4.0.1)
+      effect-oxlint: 0.4.0(effect@4.0.5)
     transitivePeerDependencies:
       - effect
 
@@ -5147,12 +5143,12 @@ snapshots:
     optionalDependencies:
       yauzl: 3.4.0
 
-  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/13b437522b6f039af2e552ab0eb617a15171c3d5#path:/packages/alchemy-nest(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)':
+  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/alchemy-nest(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1))(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)':
     dependencies:
-      alchemy: 2.0.0-beta.83(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.1)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
-      effect: 4.0.1
+      alchemy: 2.0.0-beta.83(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1))(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.5)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
+      effect: 4.0.5
       esbuild: 0.28.2
-      xstate: 6.0.0-alpha.65
+      xstate: 6.0.0-alpha.70
     transitivePeerDependencies:
       - '@alchemy.run/frontend-frameworks'
       - '@aws/durable-execution-sdk-js'
@@ -5181,14 +5177,14 @@ snapshots:
       - vite
       - ws
 
-  '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/f20dd1bafceb2b6beb192027878f5303738525fe#path:/packages/mailbox-client/bundle':
+  '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/mailbox-client/bundle':
     dependencies:
       '@atproto/lex-data': 0.1.8
       '@atproto/lexicon': 0.7.16
       '@hpke/core': 1.9.0
       '@ipld/dag-cbor': 10.0.2
-      effect: 4.0.1
-      xstate: 6.0.0-alpha.65
+      effect: 4.0.5
+      xstate: 6.0.0-alpha.70
 
   '@redis/bloom@6.2.1(@redis/client@6.2.1)':
     dependencies:
@@ -5491,9 +5487,9 @@ snapshots:
 
   '@vitest/spy@5.0.3': {}
 
-  '@xstate/effect@1.0.0-alpha.9(effect@4.0.1)(xstate@6.0.0-alpha.70)':
+  '@xstate/effect@1.0.0-alpha.9(effect@4.0.5)(xstate@6.0.0-alpha.70)':
     dependencies:
-      effect: 4.0.1
+      effect: 4.0.5
       xstate: 6.0.0-alpha.70
 
   acorn@8.18.0: {}
@@ -5502,32 +5498,32 @@ snapshots:
 
   agent-base@9.0.0: {}
 
-  alchemy@2.0.0-beta.83(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@effect/vitest@4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.1)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0):
+  alchemy@2.0.0-beta.83(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1))(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.5)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0):
     dependencies:
-      '@alchemy.run/cloudflare-runtime': 2.0.0-beta.83(@distilled.cloud/cloudflare@1.0.0-rc.15(effect@4.0.1))(@effect/platform-node@4.0.1(effect@4.0.1)(redis@6.2.1))(@types/node@24.13.6)(effect@4.0.1)(rolldown@1.2.5)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
-      '@alchemy.run/floci': 2.0.0-beta.83(effect@4.0.1)
+      '@alchemy.run/cloudflare-runtime': 2.0.0-beta.83(@distilled.cloud/cloudflare@1.0.0-rc.15(effect@4.0.5))(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1))(@types/node@24.13.6)(effect@4.0.5)(rolldown@1.2.5)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
+      '@alchemy.run/floci': 2.0.0-beta.83(effect@4.0.5)
       '@alchemy.run/node-utils': 2.0.0-beta.83
       '@alchemy.run/sigil': 0.1.0-alpha.1
-      '@distilled.cloud/acme': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/aws': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/axiom': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/cloudflare': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/doppler': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/fly-io': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/gcp': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/hetzner': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/iceberg': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/infisical': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/neon': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/planetscale': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/prisma': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/railway': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/stripe': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/turso': 1.0.0-rc.15(effect@4.0.1)
-      '@distilled.cloud/zerossl': 1.0.0-rc.15(effect@4.0.1)
-      '@effect/sql-d1': 4.0.0(effect@4.0.1)
-      '@effect/sql-sqlite-do': 4.0.0(effect@4.0.1)
+      '@distilled.cloud/acme': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/aws': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/axiom': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/cloudflare': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/core': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/doppler': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/fly-io': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/gcp': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/hetzner': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/iceberg': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/infisical': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/neon': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/planetscale': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/prisma': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/railway': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/stripe': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/turso': 1.0.0-rc.15(effect@4.0.5)
+      '@distilled.cloud/zerossl': 1.0.0-rc.15(effect@4.0.5)
+      '@effect/sql-d1': 4.0.0(effect@4.0.5)
+      '@effect/sql-sqlite-do': 4.0.0(effect@4.0.5)
       '@libsql/client': 0.17.4
       '@neon/functions': 0.11.0(hono@4.11.4)
       '@octokit/rest': 22.0.1
@@ -5535,7 +5531,7 @@ snapshots:
       '@prisma/dev': 0.20.0(typescript@7.0.2)
       '@types/aws-lambda': 8.10.163
       capnweb: 0.12.0
-      effect: 4.0.1
+      effect: 4.0.5
       fflate: 0.8.3
       libsodium-wrappers: 0.8.4
       pathe: 2.0.3
@@ -5544,8 +5540,8 @@ snapshots:
       tinyglobby: 0.2.17
       yaml: 2.9.0
     optionalDependencies:
-      '@effect/platform-node': 4.0.1(effect@4.0.1)(redis@6.2.1)
-      '@effect/vitest': 4.0.1(effect@4.0.1)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@effect/platform-node': 4.0.5(effect@4.0.5)(redis@6.2.1)
+      '@effect/vitest': 4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)))
       vite: 8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
       ws: 8.22.0
     transitivePeerDependencies:
@@ -5662,12 +5658,12 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  effect-oxlint@0.4.0(effect@4.0.1):
+  effect-oxlint@0.4.0(effect@4.0.5):
     dependencies:
       '@oxlint/plugins': 1.86.0
-      effect: 4.0.1
+      effect: 4.0.5
 
-  effect@4.0.1: {}
+  effect@4.0.5: {}
 
   emoji-regex@10.6.0: {}
 
@@ -6681,8 +6677,6 @@ snapshots:
       strip-ansi: 7.2.0
 
   ws@8.22.0: {}
-
-  xstate@6.0.0-alpha.65: {}
 
   xstate@6.0.0-alpha.70: {}
 

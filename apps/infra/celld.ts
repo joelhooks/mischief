@@ -6,6 +6,8 @@ import {
   RemoteFileProvider,
   sourceLayer,
   stageDeploymentFiles,
+  SystemdUnit,
+  SystemdUnitProvider,
 } from "@rat-king/alchemy-nest";
 import type { DeploymentProps, HostShell } from "@rat-king/alchemy-nest";
 import { localState, Stack } from "alchemy";
@@ -16,6 +18,7 @@ import { FetchHttpClient } from "effect/http";
 import { callersFromConfig } from "./callers.ts";
 import { buildWorker, INSTANCE } from "./celld-build.ts";
 import type { Thinker } from "./celld-build.ts";
+import { opusBridgeUnit } from "./opus-bridge-unit.ts";
 
 export const PORT_BASE = 28_000;
 
@@ -41,7 +44,8 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         Celld.providers(),
         Celld.deploymentProvider(),
         HostDirectoryProvider(),
-        RemoteFileProvider()
+        RemoteFileProvider(),
+        SystemdUnitProvider()
       ).pipe(
         Layer.provide(hostServices),
         Layer.provide(sourceLayer.pipe(Layer.orDie)),
@@ -88,12 +92,27 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
             }
           : { model: "faux" };
 
+      const opusBridgeUrl = yield* Config.String(
+        "MISCHIEF_OPUS_BRIDGE_URL"
+      ).pipe(Config.withDefault(""));
+
+      if (opusBridgeUrl !== "") {
+        yield* SystemdUnit(
+          "opus-bridge",
+          opusBridgeUnit(
+            host,
+            yield* Config.String("MISCHIEF_OPUS_BRIDGE_ENTRY")
+          )
+        );
+      }
+
       const prepared = yield* buildWorker({
         callers,
         commit,
         did,
         judge,
         mailbox,
+        opusBridgeUrl: opusBridgeUrl === "" ? undefined : opusBridgeUrl,
         thinker,
         version,
       });
@@ -163,6 +182,9 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
                     secretNames: [
                       "MISCHIEF_IDENTITY",
                       "MISCHIEF_JEV_KEY",
+                      ...(opusBridgeUrl === ""
+                        ? []
+                        : ["MISCHIEF_OPUS_BRIDGE_KEY"]),
                       ...(thinker.model === "cliproxy"
                         ? ["MISCHIEF_CLIPROXY_KEY"]
                         : []),

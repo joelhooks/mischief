@@ -49868,7 +49868,12 @@ var refusal = (declaration, { field, from: from4, level, model: model2, subject,
 var undeclaredThinking = (plan, declaration) => askersOf(plan).flatMap((asker) => {
   const asked = askedBy(plan, declaration, asker);
   const declared = declaration.models[asked.model];
-  return declared === void 0 || declared.includes(asked.level) ? [] : [refusal(declaration, asked, declared)];
+  if (declared === void 0) {
+    return declaration.exhaustive === true ? [
+      `${asked.where}: model "${asked.model}" has no registered route on this host. Mapped: ${Object.keys(declaration.models).join(", ") || "none"}. Fix: set ${asked.field}.model to a mapped model, or configure the host route before submitPlan.`
+    ] : [];
+  }
+  return declared.includes(asked.level) ? [] : [refusal(declaration, asked, declared)];
 });
 
 // ../../packages/core/dist/plans/hydrate.js
@@ -72887,7 +72892,44 @@ var gatewayStreams = (api, fetch2) => {
     streamSimple: (model2, context, options2) => api.streamSimple(model2, context, optionsOf(options2))
   };
 };
-var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2 }) => {
+var opusBridgeFrom = (url, key) => url === void 0 || url.trim() === "" || key === void 0 || key.trim() === "" ? void 0 : { apiKey: Redacted.make(key), baseUrl: url };
+var opusProvider = ({ apiKey, baseUrl, fetch: fetch2 }) => createProvider({
+  api: gatewayStreams(openAIResponsesApi(), fetch2),
+  auth: {
+    apiKey: {
+      name: "Mischief Opus bridge key",
+      resolve: async () => await Promise.resolve({
+        auth: {
+          apiKey: Redacted.value(apiKey),
+          headers: { Authorization: `Bearer ${Redacted.value(apiKey)}` }
+        }
+      })
+    }
+  },
+  baseUrl,
+  id: "claude-bridge",
+  models: [
+    {
+      api: "openai-responses",
+      baseUrl,
+      contextWindow: 1e6,
+      cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
+      id: "claude-opus-5-5",
+      input: ["text"],
+      maxTokens: 128e3,
+      name: "Claude Opus 5.5 review bridge",
+      provider: "claude-bridge",
+      reasoning: true,
+      thinkingLevelMap: {
+        max: "max",
+        minimal: null,
+        off: null,
+        xhigh: "xhigh"
+      }
+    }
+  ]
+});
+var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2, opusBridge }) => {
   const models = createModels();
   models.setProvider(createProvider({
     api: gatewayStreams(openAIResponsesApi(), fetch2),
@@ -72918,12 +72960,24 @@ var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2 }) => 
       ...LIMITS[id]
     }))
   }));
+  if (opusBridge !== void 0 && opusBridge.baseUrl.trim() !== "" && Redacted.value(opusBridge.apiKey).trim() !== "") {
+    models.setProvider(opusProvider(opusBridge));
+  }
+  const opus = models.getModel("claude-bridge", "claude-opus-5-5");
+  const opusRef = { modelId: "claude-opus-5-5", provider: "claude-bridge" };
   const modelRefs = Object.fromEntries(Object.entries(GATEWAY_MODELS).map(([name, modelId]) => [
     name,
     { modelId, provider: PROVIDER }
   ]));
+  if (opus !== void 0) {
+    modelRefs.opus = opusRef;
+    modelRefs["claude-opus-5-5"] = opusRef;
+  }
   return {
-    declared: declaredThinkingOf(models, modelRefs, THINK_DEFAULT.thinking),
+    declared: {
+      ...declaredThinkingOf(models, modelRefs, THINK_DEFAULT.thinking),
+      exhaustive: true
+    },
     defaults: THINK_DEFAULT,
     modelRefs,
     models,
@@ -89859,7 +89913,11 @@ var thinkerFor = (env, storageFor) => {
   return env.MISCHIEF_MODEL === "cliproxy" && key !== "" && baseUrl !== "" ? piThinker(
     gatewayThinkerOptions(storageFor, {
       apiKey: Redacted3.make(key),
-      baseUrl
+      baseUrl,
+      opusBridge: opusBridgeFrom(
+        env.MISCHIEF_OPUS_BRIDGE_URL,
+        env.MISCHIEF_OPUS_BRIDGE_KEY
+      )
     })
   ) : Thinker.unwired;
 };

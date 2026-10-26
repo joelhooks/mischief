@@ -104,6 +104,8 @@ export { ExtendRefused } from "./runs/extend-refused.js";
 
 export { RevisionRefused } from "./runs/revision-refused.js";
 
+export { AlreadyJournaled } from "./runs/already-journaled.js";
+
 export { ReplyRefused } from "./runs/reply-refused.js";
 
 export {

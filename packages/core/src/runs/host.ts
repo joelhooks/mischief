@@ -16,6 +16,7 @@ import { PlanRefused, validatePlan } from "../plans/validate.js";
 import { CallRegistry } from "../steps/call-registry.js";
 import { Judge } from "../steps/judge.js";
 import { Operator } from "../steps/operator.js";
+import { AlreadyJournaled } from "./already-journaled.js";
 import { AnswerRefused } from "./answer-refused.js";
 import { closeOpenAsks } from "./close-asks.js";
 import { Drive } from "./drive.js";
@@ -56,7 +57,7 @@ export class RunHost extends Context.Service<
     ) => Effect.Effect<RunReport, UnknownRun | AnswerRefused>;
     readonly deliver: (
       line: ReplyLine
-    ) => Effect.Effect<RunReport, ReplyRefused>;
+    ) => Effect.Effect<RunReport, AlreadyJournaled | ReplyRefused>;
     readonly extend: (
       runId: string,
       maxSteps: number
@@ -484,6 +485,36 @@ export class RunHost extends Context.Service<
         );
       }
 
+      const receiptKey =
+        line.messageId === undefined
+          ? undefined
+          : `received-reply:${line.messageId}`;
+
+      const receipt = {
+        body: line.body,
+        from: line.from ?? null,
+        replyTo: line.replyTo,
+      };
+
+      const previous =
+        receiptKey === undefined
+          ? undefined
+          : (yield* store.readJournal(runId)).get(receiptKey);
+
+      if (previous !== undefined && line.messageId !== undefined) {
+        if (JSON.stringify(previous) !== JSON.stringify(receipt)) {
+          return yield* refuse(
+            `message ${line.messageId} was already stored with different reply bytes or sender. Resend the original signed reply unchanged, or send a new message id; nothing changed.`
+          );
+        }
+
+        return yield* new AlreadyJournaled({
+          messageId: line.messageId,
+          replyTo: line.replyTo,
+          runId,
+        });
+      }
+
       const { state } = yield* loadRun(runId).pipe(Effect.orDie);
 
       const open = state.awaiting.find(
@@ -515,6 +546,10 @@ export class RunHost extends Context.Service<
       }
 
       const resumed = (yield* store.readPaused(runId)) ? "paused" : "running";
+
+      if (receiptKey !== undefined) {
+        yield* store.writeJournal(runId, receiptKey, receipt);
+      }
 
       yield* store.writeRun(runId, {
         ...state,

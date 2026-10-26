@@ -40515,141 +40515,153 @@ var AnswerRefused = class extends Schema14.TaggedError()("AnswerRefused", { reas
 };
 
 // ../../packages/core/dist/runs/contracts.js
-import { Schema as Schema23 } from "effect";
+import { Schema as Schema24 } from "effect";
+
+// ../../packages/core/dist/runs/already-journaled.js
+import { Schema as Schema15 } from "effect";
+var AlreadyJournaled = class extends Schema15.TaggedError()("AlreadyJournaled", {
+  messageId: Schema15.String,
+  replyTo: Schema15.String,
+  runId: Schema15.String
+}) {
+  get message() {
+    return `Run ${this.runId} already stored reply ${this.messageId} to ${this.replyTo}. Record its delivery receipt; do not deliver it again.`;
+  }
+};
 
 // ../../packages/core/dist/runs/extend-refused.js
-import { Schema as Schema15 } from "effect";
-var ExtendRefused = class extends Schema15.TaggedError()("ExtendRefused", { reason: Schema15.String, runId: Schema15.String }) {
+import { Schema as Schema16 } from "effect";
+var ExtendRefused = class extends Schema16.TaggedError()("ExtendRefused", { reason: Schema16.String, runId: Schema16.String }) {
   get message() {
     return `Extending run ${this.runId} refused: ${this.reason}`;
   }
 };
 
 // ../../packages/core/dist/runs/reply-refused.js
-import { Schema as Schema16 } from "effect";
-var ReplyRefused = class extends Schema16.TaggedError()("ReplyRefused", { reason: Schema16.String, replyTo: Schema16.String }) {
+import { Schema as Schema17 } from "effect";
+var ReplyRefused = class extends Schema17.TaggedError()("ReplyRefused", { reason: Schema17.String, replyTo: Schema17.String }) {
   get message() {
     return `Reply to ${this.replyTo} refused: ${this.reason}`;
   }
 };
 
 // ../../packages/core/dist/runs/revision-refused.js
-import { Schema as Schema17 } from "effect";
-var RevisionRefused = class extends Schema17.TaggedError()("RevisionRefused", { reason: Schema17.String, runId: Schema17.String }) {
+import { Schema as Schema18 } from "effect";
+var RevisionRefused = class extends Schema18.TaggedError()("RevisionRefused", { reason: Schema18.String, runId: Schema18.String }) {
   get message() {
     return `Revising run ${this.runId} refused, nothing changed: ${this.reason}`;
   }
 };
 
 // ../../packages/core/dist/runs/schema.js
-import { Effect as Effect12, Schema as Schema21 } from "effect";
+import { Effect as Effect12, Schema as Schema22 } from "effect";
 
 // ../../packages/core/dist/steps/inputs.js
-import { Schema as Schema18 } from "effect";
-var ThinkInputSchema = Schema18.Struct({
-  agent: Schema18.optionalKey(AgentConfigSchema),
-  ephemeral: Schema18.optionalKey(EphemeralSourceSchema),
-  key: Schema18.String,
-  post: Schema18.optionalKey(PostSchema),
-  prompt: Schema18.String,
-  writes: Schema18.optionalKey(DocKey)
+import { Schema as Schema19 } from "effect";
+var ThinkInputSchema = Schema19.Struct({
+  agent: Schema19.optionalKey(AgentConfigSchema),
+  ephemeral: Schema19.optionalKey(EphemeralSourceSchema),
+  key: Schema19.String,
+  post: Schema19.optionalKey(PostSchema),
+  prompt: Schema19.String,
+  writes: Schema19.optionalKey(DocKey)
 });
-var AskInputSchema = Schema18.Struct({
-  key: Schema18.String,
-  message: Schema18.String,
+var AskInputSchema = Schema19.Struct({
+  key: Schema19.String,
+  message: Schema19.String,
   to: RatKingName,
-  writes: Schema18.optionalKey(DocKey)
+  writes: Schema19.optionalKey(DocKey)
 });
-var QuestionInputSchema = Schema18.Struct({
-  criteria: Schema18.optionalKey(Schema18.Record(Schema18.String, Schema18.Json)),
-  key: Schema18.String,
-  options: Schema18.Array(Schema18.String),
-  question: Schema18.String,
-  reason: Schema18.optionalKey(Schema18.String)
+var QuestionInputSchema = Schema19.Struct({
+  criteria: Schema19.optionalKey(Schema19.Record(Schema19.String, Schema19.Json)),
+  key: Schema19.String,
+  options: Schema19.Array(Schema19.String),
+  question: Schema19.String,
+  reason: Schema19.optionalKey(Schema19.String)
 });
-var JudgeInputSchema = Schema18.Struct({
+var JudgeInputSchema = Schema19.Struct({
   ...QuestionInputSchema.fields,
-  fallback: Schema18.optional(Schema18.String),
-  reads: Schema18.optional(Schema18.Array(DocKey)),
-  thinkAgent: Schema18.optional(AgentConfigSchema),
-  thinkThreshold: Schema18.optional(Probability),
-  threshold: Schema18.optional(Probability)
+  fallback: Schema19.optional(Schema19.String),
+  reads: Schema19.optional(Schema19.Array(DocKey)),
+  thinkAgent: Schema19.optional(AgentConfigSchema),
+  thinkThreshold: Schema19.optional(Probability),
+  threshold: Schema19.optional(Probability)
 });
-var SwitchInputSchema = Schema18.Struct({
-  cases: Schema18.Record(Schema18.String, Schema18.String),
-  default: Schema18.String,
-  key: Schema18.String,
+var SwitchInputSchema = Schema19.Struct({
+  cases: Schema19.Record(Schema19.String, Schema19.String),
+  default: Schema19.String,
+  key: Schema19.String,
   reads: DocKey
 });
-var CallInputSchema = Schema18.Struct({
-  capability: Schema18.String,
-  input: Schema18.optionalKey(Schema18.Json),
-  key: Schema18.String,
-  reads: Schema18.optionalKey(Schema18.Array(DocKey)),
-  writes: Schema18.optionalKey(DocKey)
+var CallInputSchema = Schema19.Struct({
+  capability: Schema19.String,
+  input: Schema19.optionalKey(Schema19.Json),
+  key: Schema19.String,
+  reads: Schema19.optionalKey(Schema19.Array(DocKey)),
+  writes: Schema19.optionalKey(DocKey)
 });
-var ElaborateInputSchema = Schema18.Struct({
-  goal: Schema18.String,
-  key: Schema18.String
+var ElaborateInputSchema = Schema19.Struct({
+  goal: Schema19.String,
+  key: Schema19.String
 });
-var PickParamsSchema = Schema18.Struct({ option: Schema18.String });
-var JudgeVerdictSchema = Schema18.Struct({
-  choice: Schema18.optionalKey(Schema18.String),
-  escalate: Schema18.optionalKey(Schema18.Boolean)
+var PickParamsSchema = Schema19.Struct({ option: Schema19.String });
+var JudgeVerdictSchema = Schema19.Struct({
+  choice: Schema19.optionalKey(Schema19.String),
+  escalate: Schema19.optionalKey(Schema19.Boolean)
 });
-var OutputEventSchema = Schema18.Struct({
+var OutputEventSchema = Schema19.Struct({
   output: JudgeVerdictSchema
 });
 
 // ../../packages/core/dist/steps/provider-unavailable.js
-import { Schema as Schema19 } from "effect";
-var ProviderCauseSchema = Schema19.Literals([
+import { Schema as Schema20 } from "effect";
+var ProviderCauseSchema = Schema20.Literals([
   "billing",
   "busy",
   "server",
   "timeout"
 ]);
-var ProviderUnavailable = class extends Schema19.TaggedError()("ProviderUnavailable", {
+var ProviderUnavailable = class extends Schema20.TaggedError()("ProviderUnavailable", {
   cause: ProviderCauseSchema,
-  error: Schema19.optionalKey(Schema19.String),
-  key: Schema19.String,
-  provider: Schema19.String,
-  retryAfter: Schema19.optional(Schema19.Finite),
-  status: Schema19.NullOr(Schema19.Int)
+  error: Schema20.optionalKey(Schema20.String),
+  key: Schema20.String,
+  provider: Schema20.String,
+  retryAfter: Schema20.optional(Schema20.Finite),
+  status: Schema20.NullOr(Schema20.Int)
 }) {
 };
 
 // ../../packages/core/dist/steps/receipt.js
-import { Option as Option2, Schema as Schema20 } from "effect";
-var ThinkReceiptSchema = Schema20.Struct({
-  effective: Schema20.Struct({
-    model: Schema20.NullOr(Schema20.String),
-    thinking: Schema20.NullOr(Schema20.String)
+import { Option as Option2, Schema as Schema21 } from "effect";
+var ThinkReceiptSchema = Schema21.Struct({
+  effective: Schema21.Struct({
+    model: Schema21.NullOr(Schema21.String),
+    thinking: Schema21.NullOr(Schema21.String)
   }),
-  latencyMs: Schema20.NullOr(Count),
-  matched: Schema20.Boolean,
-  requested: Schema20.Struct({
-    from: Schema20.Literals(["plan", "default"]),
-    model: Schema20.String,
-    thinking: Schema20.String,
-    thinkingFrom: Schema20.optionalKey(Schema20.Literals(["plan", "default", "envelope"]))
+  latencyMs: Schema21.NullOr(Count),
+  matched: Schema21.Boolean,
+  requested: Schema21.Struct({
+    from: Schema21.Literals(["plan", "default"]),
+    model: Schema21.String,
+    thinking: Schema21.String,
+    thinkingFrom: Schema21.optionalKey(Schema21.Literals(["plan", "default", "envelope"]))
   }),
-  tokens: Schema20.Struct({
+  tokens: Schema21.Struct({
     cacheRead: Count,
     input: Count,
     output: Count,
     total: Count
   })
 });
-var ThinkTotalsSchema = Schema20.Struct({
+var ThinkTotalsSchema = Schema21.Struct({
   calls: Count,
   mismatched: Count,
-  models: Schema20.Array(Schema20.String),
+  models: Schema21.Array(Schema21.String),
   tokens: ThinkReceiptSchema.fields.tokens
 });
-var decodeReceipt = Schema20.decodeUnknownOption(ThinkReceiptSchema);
-var isRecord = Schema20.is(Schema20.Record(Schema20.String, Schema20.Json));
-var isList = Schema20.is(Schema20.Array(Schema20.Json));
+var decodeReceipt = Schema21.decodeUnknownOption(ThinkReceiptSchema);
+var isRecord = Schema21.is(Schema21.Record(Schema21.String, Schema21.Json));
+var isList = Schema21.is(Schema21.Array(Schema21.Json));
 var receiptsIn = (value) => {
   if (isList(value)) {
     return value.flatMap(receiptsIn);
@@ -40684,8 +40696,8 @@ var thinkTotals = (entries2) => {
 var thinkLine = (totals) => `think: ${totals.models.join(", ")} \xB7 ${totals.calls} call${totals.calls === 1 ? "" : "s"} \xB7 ${totals.tokens.total.toLocaleString("en-US")} tok (${totals.tokens.cacheRead.toLocaleString("en-US")} cached)${totals.mismatched > 0 ? ` \xB7 ${totals.mismatched} served by another model` : ""}`;
 
 // ../../packages/core/dist/runs/schema.js
-var RunId = Schema21.String.check(Schema21.isPattern(/^[a-z0-9][a-z0-9-]{0,63}$/u));
-var RunStatusSchema = Schema21.Literals([
+var RunId = Schema22.String.check(Schema22.isPattern(/^[a-z0-9][a-z0-9-]{0,63}$/u));
+var RunStatusSchema = Schema22.Literals([
   "running",
   "paused",
   "waiting-for-joel",
@@ -40704,145 +40716,145 @@ var terminalStatuses = /* @__PURE__ */ new Set([
   "aborted",
   "failed"
 ]);
-var QueuedEventSchema = Schema21.StructWithRest(Schema21.Struct({
-  actorId: Schema21.optionalKey(Schema21.String),
-  type: Schema21.String
-}), [Schema21.Record(Schema21.String, Schema21.Unknown)]);
-var StoredEventSchema = Schema21.StructWithRest(Schema21.Struct({
-  actorId: Schema21.optionalKey(Schema21.String),
-  outputAt: Schema21.optionalKey(Schema21.String),
-  type: Schema21.String
-}), [Schema21.Record(Schema21.String, Schema21.Unknown)]);
-var DirectiveSchema = Schema21.TaggedUnion({
+var QueuedEventSchema = Schema22.StructWithRest(Schema22.Struct({
+  actorId: Schema22.optionalKey(Schema22.String),
+  type: Schema22.String
+}), [Schema22.Record(Schema22.String, Schema22.Unknown)]);
+var StoredEventSchema = Schema22.StructWithRest(Schema22.Struct({
+  actorId: Schema22.optionalKey(Schema22.String),
+  outputAt: Schema22.optionalKey(Schema22.String),
+  type: Schema22.String
+}), [Schema22.Record(Schema22.String, Schema22.Unknown)]);
+var DirectiveSchema = Schema22.TaggedUnion({
   Ask: {
-    envelope: Schema21.String,
+    envelope: Schema22.String,
     epoch: Count,
-    messageId: Schema21.String,
-    to: Schema21.String,
+    messageId: Schema22.String,
+    to: Schema22.String,
     visit: Count
   },
   Emit: { question: QuestionInputSchema }
 });
 var DIRECTIVE_KEY = /^(?<runId>[a-z0-9][a-z0-9-]{0,63}):(?<step>[a-z_][a-z0-9_-]*(?:\.[a-z_][a-z0-9_-]*)*):(?<visit>[1-9][0-9]*):(?<index>0|[1-9][0-9]*)$/u;
-var DirectiveKey = Schema21.String.check(Schema21.isPattern(DIRECTIVE_KEY));
+var DirectiveKey = Schema22.String.check(Schema22.isPattern(DIRECTIVE_KEY));
 var directiveKey = ({ index: index3, runId: runId2, step, visit }) => `${runId2}:${step}:${visit}:${index3}`;
-var PendingDirectiveSchema = Schema21.Struct({
+var PendingDirectiveSchema = Schema22.Struct({
   directive: DirectiveSchema,
   key: DirectiveKey
 });
-var CheckpointSchema = Schema21.Struct({
-  mailbox: Schema21.Array(StoredEventSchema),
-  pending: Schema21.Array(PendingDirectiveSchema).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed([]))),
-  snapshot: Schema21.Unknown,
-  starts: Schema21.Record(Schema21.String, Count),
+var CheckpointSchema = Schema22.Struct({
+  mailbox: Schema22.Array(StoredEventSchema),
+  pending: Schema22.Array(PendingDirectiveSchema).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed([]))),
+  snapshot: Schema22.Unknown,
+  starts: Schema22.Record(Schema22.String, Count),
   transitionIndex: Count
 });
-var DocsSchema = Schema21.Record(Schema21.String, Schema21.Json);
-var JudgeModeSchema = Schema21.Literals(["shadow", "jev"]).annotate({
+var DocsSchema = Schema22.Record(Schema22.String, Schema22.Json);
+var JudgeModeSchema = Schema22.Literals(["shadow", "jev"]).annotate({
   description: `Who answers this run's judge steps: "shadow" records each question for a relay to answer, "jev" asks Jev. Omitted, the host default answers. Fixed at the first submit`
 });
-var EscalateToSchema = Schema21.String.check(Schema21.isPattern(/^[a-z][a-z0-9_-]{0,63}(?:\/[a-z][a-z0-9_-]{0,63})?$/u)).annotate({
+var EscalateToSchema = Schema22.String.check(Schema22.isPattern(/^[a-z][a-z0-9_-]{0,63}(?:\/[a-z][a-z0-9_-]{0,63})?$/u)).annotate({
   description: 'The Rat King name that gets mail when a judge escalates, such as "agent-graph/desk". Omitted, an escalation only waits for answerRun. Fixed at the first submit'
 });
-var AwaitingSchema = Schema21.Struct({
-  key: Schema21.String,
-  message: Schema21.NullOr(Schema21.String).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed(null))),
-  messageId: Schema21.String,
-  to: Schema21.String,
-  writes: Schema21.NullOr(Schema21.String)
+var AwaitingSchema = Schema22.Struct({
+  key: Schema22.String,
+  message: Schema22.NullOr(Schema22.String).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed(null))),
+  messageId: Schema22.String,
+  to: Schema22.String,
+  writes: Schema22.NullOr(Schema22.String)
 });
-var ReplyLineSchema = Schema21.Struct({
-  acceptedAt: Schema21.optionalKey(Schema21.String),
-  body: Schema21.String,
-  from: Schema21.optionalKey(Schema21.String),
-  messageId: Schema21.optionalKey(Schema21.String),
-  replyTo: Schema21.String,
-  runId: Schema21.optionalKey(RunId)
+var ReplyLineSchema = Schema22.Struct({
+  acceptedAt: Schema22.optionalKey(Schema22.String),
+  body: Schema22.String,
+  from: Schema22.optionalKey(Schema22.String),
+  messageId: Schema22.optionalKey(Schema22.String),
+  replyTo: Schema22.String,
+  runId: Schema22.optionalKey(RunId)
 });
-var PendingReplySchema = Schema21.Struct({
-  body: Schema21.String,
-  key: Schema21.String
+var PendingReplySchema = Schema22.Struct({
+  body: Schema22.String,
+  key: Schema22.String
 });
-var HeldSchema = Schema21.Struct({
+var HeldSchema = Schema22.Struct({
   cause: ProviderCauseSchema,
-  error: Schema21.String.pipe(Schema21.withDecodingDefaultKey(Effect12.succeed(""))),
-  key: Schema21.String,
-  provider: Schema21.String,
-  resumeAfter: Schema21.NullOr(Schema21.Finite).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed(null))),
-  retryAfter: Schema21.NullOr(Schema21.Finite).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed(null))),
-  since: Schema21.Finite,
-  status: Schema21.NullOr(Schema21.Int)
+  error: Schema22.String.pipe(Schema22.withDecodingDefaultKey(Effect12.succeed(""))),
+  key: Schema22.String,
+  provider: Schema22.String,
+  resumeAfter: Schema22.NullOr(Schema22.Finite).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed(null))),
+  retryAfter: Schema22.NullOr(Schema22.Finite).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed(null))),
+  since: Schema22.Finite,
+  status: Schema22.NullOr(Schema22.Int)
 });
-var RunStateSchema = Schema21.Struct({
-  answers: Schema21.Record(Schema21.String, Count),
-  asking: Schema21.NullOr(QuestionInputSchema),
-  awaiting: Schema21.Array(AwaitingSchema).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed([]))),
-  capped: Schema21.NullOr(Schema21.String).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed(null))),
-  checkpoint: Schema21.NullOr(CheckpointSchema),
-  held: Schema21.Array(HeldSchema).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed([]))),
+var RunStateSchema = Schema22.Struct({
+  answers: Schema22.Record(Schema22.String, Count),
+  asking: Schema22.NullOr(QuestionInputSchema),
+  awaiting: Schema22.Array(AwaitingSchema).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed([]))),
+  capped: Schema22.NullOr(Schema22.String).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed(null))),
+  checkpoint: Schema22.NullOr(CheckpointSchema),
+  held: Schema22.Array(HeldSchema).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed([]))),
   planVersion: Count,
-  replies: Schema21.Array(PendingReplySchema).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed([]))),
-  resumeAttempts: Count.pipe(Schema21.withDecodingDefaultKey(Effect12.succeed(0))),
-  revision: Schema21.NullOr(Schema21.Struct({ diverged: Schema21.Boolean, from: Count })).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed(null))),
-  seeded: Schema21.NullOr(Schema21.Array(Schema21.String)).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed(null))),
+  replies: Schema22.Array(PendingReplySchema).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed([]))),
+  resumeAttempts: Count.pipe(Schema22.withDecodingDefaultKey(Effect12.succeed(0))),
+  revision: Schema22.NullOr(Schema22.Struct({ diverged: Schema22.Boolean, from: Count })).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed(null))),
+  seeded: Schema22.NullOr(Schema22.Array(Schema22.String)).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed(null))),
   status: RunStatusSchema,
-  submitted: Schema21.NullOr(Schema21.String).pipe(Schema21.withDecodingDefaultKey(Effect12.succeed(null))),
+  submitted: Schema22.NullOr(Schema22.String).pipe(Schema22.withDecodingDefaultKey(Effect12.succeed(null))),
   transitions: Count,
-  value: Schema21.NullOr(Schema21.String)
+  value: Schema22.NullOr(Schema22.String)
 });
-var QuestionSchema = Schema21.Struct({
+var QuestionSchema = Schema22.Struct({
   ...QuestionInputSchema.fields,
   answered: Count
 });
-var FailureSchema = Schema21.Struct({
-  key: Schema21.String,
-  reason: Schema21.String
+var FailureSchema = Schema22.Struct({
+  key: Schema22.String,
+  reason: Schema22.String
 });
-var RunThinkingSchema = Schema21.Struct({
+var RunThinkingSchema = Schema22.Struct({
   ...ThinkTotalsSchema.fields,
-  line: Schema21.String
+  line: Schema22.String
 });
-var DriveLeaseSchema = Schema21.Struct({
+var DriveLeaseSchema = Schema22.Struct({
   epoch: Count,
-  holder: Schema21.NullOr(Schema21.String),
+  holder: Schema22.NullOr(Schema22.String),
   leaseUntil: Count
 });
-var RunReportSchema = Schema21.Struct({
-  awaiting: Schema21.optionalKey(Schema21.Array(AwaitingSchema)),
+var RunReportSchema = Schema22.Struct({
+  awaiting: Schema22.optionalKey(Schema22.Array(AwaitingSchema)),
   docs: DocsSchema,
-  driveLease: Schema21.optionalKey(DriveLeaseSchema),
-  failures: Schema21.optionalKey(Schema21.Array(FailureSchema)),
-  held: Schema21.optionalKey(Schema21.Array(HeldSchema)),
-  planId: Schema21.String,
+  driveLease: Schema22.optionalKey(DriveLeaseSchema),
+  failures: Schema22.optionalKey(Schema22.Array(FailureSchema)),
+  held: Schema22.optionalKey(Schema22.Array(HeldSchema)),
+  planId: Schema22.String,
   planVersion: Count,
-  question: Schema21.optionalKey(QuestionSchema),
+  question: Schema22.optionalKey(QuestionSchema),
   runId: RunId,
   status: RunStatusSchema,
-  thinking: Schema21.optionalKey(RunThinkingSchema),
+  thinking: Schema22.optionalKey(RunThinkingSchema),
   transitions: Count,
-  value: Schema21.NullOr(Schema21.String)
+  value: Schema22.NullOr(Schema22.String)
 });
-var RevisionReportSchema = Schema21.Struct({
-  dryRun: Schema21.Boolean,
-  live: Schema21.Array(Schema21.String),
-  reused: Schema21.Array(Schema21.String),
+var RevisionReportSchema = Schema22.Struct({
+  dryRun: Schema22.Boolean,
+  live: Schema22.Array(Schema22.String),
+  reused: Schema22.Array(Schema22.String),
   run: RunReportSchema
 });
-var JournalLineSchema = Schema21.Struct({
-  entry: Schema21.Json,
-  key: Schema21.String
+var JournalLineSchema = Schema22.Struct({
+  entry: Schema22.Json,
+  key: Schema22.String
 });
-var RunRecordSchema = Schema21.Struct({
-  journal: Schema21.Array(JournalLineSchema),
+var RunRecordSchema = Schema22.Struct({
+  journal: Schema22.Array(JournalLineSchema),
   plan: PlanSchema,
   planVersion: Count,
   runId: RunId
 });
 
 // ../../packages/core/dist/runs/unknown-run.js
-import { Schema as Schema22 } from "effect";
-var UnknownRun = class extends Schema22.TaggedError()("UnknownRun", {
-  runId: Schema22.String
+import { Schema as Schema23 } from "effect";
+var UnknownRun = class extends Schema23.TaggedError()("UnknownRun", {
+  runId: Schema23.String
 }) {
   get message() {
     return `No run named "${this.runId}". Check the runId, or start one with submitPlan({ runId, plan }).`;
@@ -40855,13 +40867,13 @@ var submitPlanContract = defineContract("submitPlan", {
   annotations: { idempotent: true, openWorld: true },
   description: "Validate a plan and store it as version 1 of a new run with any seed docs. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. Submitting an existing run id with the same plan and docs reports that run; a different plan or docs is refused, so use reviseRun to change a run.",
   failure: PlanRefused,
-  input: Schema23.Struct({
-    docs: Schema23.optionalKey(DocsSchema.annotate({
+  input: Schema24.Struct({
+    docs: Schema24.optionalKey(DocsSchema.annotate({
       description: "Seed docs, by name, that judge steps can list in reads; the plan stays the same across runs"
     })),
-    escalateTo: Schema23.optionalKey(EscalateToSchema),
-    judge: Schema23.optionalKey(JudgeModeSchema),
-    plan: Schema23.Json.annotate({ description: "The plan, as JSON" }),
+    escalateTo: Schema24.optionalKey(EscalateToSchema),
+    judge: Schema24.optionalKey(JudgeModeSchema),
+    plan: Schema24.Json.annotate({ description: "The plan, as JSON" }),
     runId
   }),
   output: RunReportSchema
@@ -40870,38 +40882,38 @@ var inspectRunContract = defineContract("inspectRun", {
   annotations: { idempotent: true, readOnly: true },
   description: "Report a run's status, current state, documents, and any open question",
   failure: UnknownRun,
-  input: Schema23.Struct({ runId }),
+  input: Schema24.Struct({ runId }),
   output: RunReportSchema
 });
 var readRunContract = defineContract("readRun", {
   annotations: { idempotent: true, readOnly: true },
   description: "Read a run's current plan and its whole journal in the order it was written, for viewers that draw the plan's states and what each step recorded",
   failure: UnknownRun,
-  input: Schema23.Struct({ runId }),
+  input: Schema24.Struct({ runId }),
   output: RunRecordSchema
 });
 var pauseRunContract = defineContract("pauseRun", {
   annotations: { idempotent: true },
   description: "Ask a run to stop before its next transition; steps already running finish",
   failure: UnknownRun,
-  input: Schema23.Struct({ runId }),
+  input: Schema24.Struct({ runId }),
   output: RunReportSchema
 });
 var resumeRunContract = defineContract("resumeRun", {
   annotations: { idempotent: true, openWorld: true },
   description: "Clear a pause and store the run as running from its last checkpoint. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress.",
   failure: UnknownRun,
-  input: Schema23.Struct({ runId }),
+  input: Schema24.Struct({ runId }),
   output: RunReportSchema
 });
 var abortRunContract = defineContract("abortRun", {
   annotations: { destructive: true, idempotent: true },
   description: "End a run for good; its checkpoint and documents stay readable",
   failure: UnknownRun,
-  input: Schema23.Struct({
-    reason: Schema23.optionalKey(Schema23.String),
+  input: Schema24.Struct({
+    reason: Schema24.optionalKey(Schema24.String),
     runId,
-    supersededBy: Schema23.optionalKey(RunId.annotate({
+    supersededBy: Schema24.optionalKey(RunId.annotate({
       description: "The run replacing this one. Each open ask gets one closing note naming it, so the asked desk stops treating the old ask as live"
     }))
   }),
@@ -40910,9 +40922,9 @@ var abortRunContract = defineContract("abortRun", {
 var answerRunContract = defineContract("answerRun", {
   annotations: { openWorld: true },
   description: "Store an answer to the question a run is waiting on with one of its listed options. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress.",
-  failure: Schema23.Union([UnknownRun, AnswerRefused]),
-  input: Schema23.Struct({
-    reply: Schema23.String.annotate({ description: "One of the listed options" }),
+  failure: Schema24.Union([UnknownRun, AnswerRefused]),
+  input: Schema24.Struct({
+    reply: Schema24.String.annotate({ description: "One of the listed options" }),
     runId
   }),
   output: RunReportSchema
@@ -40920,19 +40932,19 @@ var answerRunContract = defineContract("answerRun", {
 var deliverReplyContract = defineContract("deliverReply", {
   annotations: { openWorld: true },
   description: "Store a Rat King reply for the run whose ask sent the message it answers. Worker hosts return once stored; the alarm writes its doc and drives the run on. The local CLI drives in-process before returning. Poll inspectRun for progress. Takes a drained mailbox line as-is; extra fields are ignored.",
-  failure: ReplyRefused,
+  failure: Schema24.Union([AlreadyJournaled, ReplyRefused]),
   input: ReplyLineSchema,
   output: RunReportSchema
 });
 var reviseRunContract = defineContract("reviseRun", {
   annotations: { openWorld: true },
   description: "Rebuild a run under a revised plan with the same envelope. Steps whose definition and input docs are unchanged reuse their recorded results; the rest run live, an unchanged ask keeps its message and reply, and Joel is asked again only after work changed. Worker hosts return once the revision is stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. live and reused preview reuse and the first live step on each path; dryRun previews without touching the run.",
-  failure: Schema23.Union([UnknownRun, RevisionRefused]),
-  input: Schema23.Struct({
-    dryRun: Schema23.Boolean.annotate({
+  failure: Schema24.Union([UnknownRun, RevisionRefused]),
+  input: Schema24.Struct({
+    dryRun: Schema24.Boolean.annotate({
       description: "Preview only: report reuse and the first live steps, change nothing"
     }),
-    plan: Schema23.Json.annotate({ description: "The revised plan, as JSON" }),
+    plan: Schema24.Json.annotate({ description: "The revised plan, as JSON" }),
     runId
   }),
   output: RevisionReportSchema
@@ -40940,9 +40952,9 @@ var reviseRunContract = defineContract("reviseRun", {
 var extendRunContract = defineContract("extendRun", {
   annotations: { openWorld: true },
   description: "Raise a run's maxSteps when it paused at its envelope and store a new plan version. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. The owner decides this; nothing a worker sees ever carries the limit.",
-  failure: Schema23.Union([UnknownRun, ExtendRefused]),
-  input: Schema23.Struct({
-    maxSteps: Schema23.Int.check(Schema23.isGreaterThan(0)).annotate({
+  failure: Schema24.Union([UnknownRun, ExtendRefused]),
+  input: Schema24.Struct({
+    maxSteps: Schema24.Int.check(Schema24.isGreaterThan(0)).annotate({
       description: "The new step limit, above the current one"
     }),
     runId
@@ -40951,13 +40963,13 @@ var extendRunContract = defineContract("extendRun", {
 });
 
 // ../../packages/core/dist/runs/host.js
-import { Clock as Clock3, Context as Context21, Crypto as Crypto2, Effect as Effect28, Exit as Exit4, Layer as Layer14, Option as Option13, Result as Result6, Schema as Schema42 } from "effect";
+import { Clock as Clock3, Context as Context21, Crypto as Crypto2, Effect as Effect28, Exit as Exit4, Layer as Layer14, Option as Option13, Result as Result6, Schema as Schema43 } from "effect";
 
 // ../../packages/core/dist/steps/judge.js
-import { Context as Context11, Effect as Effect13, Layer as Layer5, Schema as Schema24 } from "effect";
+import { Context as Context11, Effect as Effect13, Layer as Layer5, Schema as Schema25 } from "effect";
 var WHY_LINES = 8;
 var WHY_LINE_CHARS = 240;
-var WhySchema = Schema24.Array(Schema24.String.check(Schema24.isMaxLength(WHY_LINE_CHARS))).check(Schema24.isMaxLength(WHY_LINES));
+var WhySchema = Schema25.Array(Schema25.String.check(Schema25.isMaxLength(WHY_LINE_CHARS))).check(Schema25.isMaxLength(WHY_LINES));
 var whyDocName = (key) => `${key.replaceAll(".", "-")}-why`;
 var askedDocName = (key) => `__asked:${key}`;
 var reasonDocName = (key) => `__reason:${key}`;
@@ -40977,13 +40989,13 @@ var Operator = class extends Context12.Service()("@mischief/core/Operator") {
 };
 
 // ../../packages/core/dist/runs/close-asks.js
-import { Effect as Effect16, Option as Option4, Result, Schema as Schema28 } from "effect";
+import { Effect as Effect16, Option as Option4, Result, Schema as Schema29 } from "effect";
 
 // ../../packages/core/dist/steps/mail.js
-import { Context as Context13, Effect as Effect14, Layer as Layer6, Schema as Schema25 } from "effect";
-var SealedSchema = Schema25.Struct({
-  envelope: Schema25.String,
-  messageId: Schema25.String
+import { Context as Context13, Effect as Effect14, Layer as Layer6, Schema as Schema26 } from "effect";
+var SealedSchema = Schema26.Struct({
+  envelope: Schema26.String,
+  messageId: Schema26.String
 });
 var unwired2 = (call) => Effect14.fail(new StepFailed({
   key: call.key,
@@ -41000,16 +41012,16 @@ var Mail = class extends Context13.Service()("@mischief/core/Mail") {
 import { Cause as Cause3, Context as Context14, Effect as Effect15, Exit as Exit3, Layer as Layer7, Option as Option3 } from "effect";
 
 // ../../packages/core/dist/runs/run-left-uncommitted.js
-import { Schema as Schema26 } from "effect";
-var RunLeftUncommitted = class extends Schema26.TaggedError()("RunLeftUncommitted", { runId: Schema26.String, writes: Schema26.Array(Schema26.String) }) {
+import { Schema as Schema27 } from "effect";
+var RunLeftUncommitted = class extends Schema27.TaggedError()("RunLeftUncommitted", { runId: Schema27.String, writes: Schema27.Array(Schema27.String) }) {
   get message() {
     return `run ${this.runId}'s unit of work closed with writes nobody committed or discarded (${this.writes.join(", ")}). Commit or discard before the unit ends; withinRun does both.`;
   }
 };
 
 // ../../packages/core/dist/runs/run-write-outside-unit.js
-import { Schema as Schema27 } from "effect";
-var RunWriteOutsideUnit = class extends Schema27.TaggedError()("RunWriteOutsideUnit", { runId: Schema27.String, write: Schema27.String }) {
+import { Schema as Schema28 } from "effect";
+var RunWriteOutsideUnit = class extends Schema28.TaggedError()("RunWriteOutsideUnit", { runId: Schema28.String, write: Schema28.String }) {
   get message() {
     return `${this.write} for run ${this.runId} came outside a unit of work, so it would never be committed. Go through RunHost, or wrap the writes in withinRun(store, "${this.runId}").`;
   }
@@ -41212,7 +41224,7 @@ var closeText = (runId2, messageId, supersededBy) => [
   "",
   JSON.stringify(supersededBy === void 0 ? { closed: runId2, supersedes: messageId } : { closed: runId2, supersededBy, supersedes: messageId })
 ].join("\n");
-var decodeSealed = Schema28.decodeUnknownOption(SealedSchema);
+var decodeSealed = Schema29.decodeUnknownOption(SealedSchema);
 var closeOpenAsks = (runId2, open3, supersededBy) => Effect16.gen(function* closeAsks() {
   const store = yield* RunStore;
   const mail = yield* Mail;
@@ -41254,13 +41266,13 @@ var Drive = class extends Context15.Service()("@mischief/core/Drive") {
 };
 
 // ../../packages/core/dist/runs/fingerprint.js
-import { Effect as Effect18, Option as Option5, Schema as Schema29 } from "effect";
+import { Effect as Effect18, Option as Option5, Schema as Schema30 } from "effect";
 import { Hex } from "effect/encoding";
 var canonical = (value) => {
-  if (Schema29.is(Schema29.Array(Schema29.Json))(value)) {
+  if (Schema30.is(Schema30.Array(Schema30.Json))(value)) {
     return `[${value.map((item) => canonical(item)).join(",")}]`;
   }
-  if (Schema29.is(Schema29.Record(Schema29.String, Schema29.Json))(value)) {
+  if (Schema30.is(Schema30.Record(Schema30.String, Schema30.Json))(value)) {
     const fields = Object.entries(value).toSorted(([left], [right]) => left < right ? -1 : 1).map(([name, field]) => `${JSON.stringify(name)}:${canonical(field)}`);
     return `{${fields.join(",")}}`;
   }
@@ -41270,24 +41282,24 @@ var fingerprintOf = (crypto2, value) => Effect18.gen(function* fingerprint() {
   const digest2 = yield* crypto2.digest("SHA-256", new TextEncoder().encode(canonical(value)));
   return Hex.encode(digest2);
 }).pipe(Effect18.orDie);
-var ActorStepSchema = Schema29.Struct({
-  options: Schema29.Struct({ input: Schema29.Unknown, src: Schema29.String })
+var ActorStepSchema = Schema30.Struct({
+  options: Schema30.Struct({ input: Schema30.Unknown, src: Schema30.String })
 });
-var decodeJson = Schema29.decodeUnknownOption(Schema29.fromJsonString(Schema29.Json));
-var stepOf = (actor) => Schema29.decodeUnknownOption(ActorStepSchema)(actor).pipe(Option5.flatMap(({ options: options2 }) => decodeJson(JSON.stringify({ input: options2.input, src: options2.src }))), Option5.getOrElse(() => null));
+var decodeJson = Schema30.decodeUnknownOption(Schema30.fromJsonString(Schema30.Json));
+var stepOf = (actor) => Schema30.decodeUnknownOption(ActorStepSchema)(actor).pipe(Option5.flatMap(({ options: options2 }) => decodeJson(JSON.stringify({ input: options2.input, src: options2.src }))), Option5.getOrElse(() => null));
 
 // ../../packages/core/dist/runs/provider-resume.js
-import { Context as Context16, Effect as Effect19, Layer as Layer9, Random, Schema as Schema30 } from "effect";
-var ProviderResumeSchema = Schema30.Struct({
-  attempts: Schema30.Int.check(Schema30.isGreaterThanOrEqualTo(0)),
-  baseMs: Schema30.Int.check(Schema30.isGreaterThanOrEqualTo(1)),
-  capMs: Schema30.Int.check(Schema30.isGreaterThanOrEqualTo(1))
+import { Context as Context16, Effect as Effect19, Layer as Layer9, Random, Schema as Schema31 } from "effect";
+var ProviderResumeSchema = Schema31.Struct({
+  attempts: Schema31.Int.check(Schema31.isGreaterThanOrEqualTo(0)),
+  baseMs: Schema31.Int.check(Schema31.isGreaterThanOrEqualTo(1)),
+  capMs: Schema31.Int.check(Schema31.isGreaterThanOrEqualTo(1))
 });
 var ProviderResume = Context16.Reference("@mischief/core/ProviderResume", {
   defaultValue: () => ({ attempts: 6, baseMs: 3e4, capMs: 9e5 })
 });
 var setting = (text, fallback) => text === void 0 || text.trim() === "" ? fallback : Number(text);
-var providerResumeLayer = (settings2) => Layer9.effect(ProviderResume, Schema30.decodeEffect(ProviderResumeSchema)({
+var providerResumeLayer = (settings2) => Layer9.effect(ProviderResume, Schema31.decodeEffect(ProviderResumeSchema)({
   attempts: setting(settings2.attempts, 6),
   baseMs: setting(settings2.baseMs, 3e4),
   capMs: setting(settings2.capMs, 9e5)
@@ -41308,7 +41320,7 @@ var providerWakeAt = (held) => {
 };
 
 // ../../packages/core/dist/runs/session.js
-import { Clock as Clock2, Crypto, Deferred, Effect as Effect26, Option as Option11, Result as Result5, Schema as Schema40, Semaphore } from "effect";
+import { Clock as Clock2, Crypto, Deferred, Effect as Effect26, Option as Option11, Result as Result5, Schema as Schema41, Semaphore } from "effect";
 import { constVoid as constVoid2 } from "effect/Function";
 
 // ../../packages/core/dist/plans/amend.js
@@ -41352,11 +41364,11 @@ var amendPlan = (plan, point, amendment) => ({
 });
 
 // ../../packages/core/dist/steps/call-concurrency.js
-import { Context as Context17, Effect as Effect20, Layer as Layer10, Result as Result2, Schema as Schema31 } from "effect";
+import { Context as Context17, Effect as Effect20, Layer as Layer10, Result as Result2, Schema as Schema32 } from "effect";
 var CALL_CONCURRENCY_FLAG = "MISCHIEF_CALL_CONCURRENCY";
 var DEFAULT_CALL_CONCURRENCY = 16;
 var CallConcurrency = Context17.Reference("@mischief/core/CallConcurrency", { defaultValue: () => DEFAULT_CALL_CONCURRENCY });
-var CallConcurrencyRefused = class extends Schema31.TaggedError()("CallConcurrencyRefused", { given: Schema31.String }) {
+var CallConcurrencyRefused = class extends Schema32.TaggedError()("CallConcurrencyRefused", { given: Schema32.String }) {
   get message() {
     return `${CALL_CONCURRENCY_FLAG}="${this.given}" is refused: it caps the capability calls one run invokes at once, so it must be a positive whole number such as ${DEFAULT_CALL_CONCURRENCY}. Set ${CALL_CONCURRENCY_FLAG}=${DEFAULT_CALL_CONCURRENCY}, or leave it unset for the default of ${DEFAULT_CALL_CONCURRENCY}, then start the host again`;
   }
@@ -41371,11 +41383,11 @@ var callConcurrencyFrom = (text) => {
 var callConcurrencyLayer = (text) => Layer10.effect(CallConcurrency, Effect20.fromResult(callConcurrencyFrom(text)).pipe(Effect20.orDie));
 
 // ../../packages/core/dist/steps/think-concurrency.js
-import { Context as Context18, Effect as Effect21, Layer as Layer11, Result as Result3, Schema as Schema32 } from "effect";
+import { Context as Context18, Effect as Effect21, Layer as Layer11, Result as Result3, Schema as Schema33 } from "effect";
 var THINK_CONCURRENCY_FLAG = "MISCHIEF_THINK_CONCURRENCY";
 var DEFAULT_THINK_CONCURRENCY = 20;
 var ThinkConcurrency = Context18.Reference("@mischief/core/ThinkConcurrency", { defaultValue: () => DEFAULT_THINK_CONCURRENCY });
-var ThinkConcurrencyRefused = class extends Schema32.TaggedError()("ThinkConcurrencyRefused", { given: Schema32.String }) {
+var ThinkConcurrencyRefused = class extends Schema33.TaggedError()("ThinkConcurrencyRefused", { given: Schema33.String }) {
   get message() {
     return `${THINK_CONCURRENCY_FLAG}="${this.given}" is refused: it caps the think calls one run sends to the model at once, so it must be a positive whole number such as ${DEFAULT_THINK_CONCURRENCY}. Set ${THINK_CONCURRENCY_FLAG}=${DEFAULT_THINK_CONCURRENCY}, or leave it unset for the default of ${DEFAULT_THINK_CONCURRENCY}, then start the host again`;
   }
@@ -41416,7 +41428,7 @@ var VerdictDeferred = class extends Data6.TaggedError("VerdictDeferred") {
 };
 
 // ../../packages/core/dist/steps/withheld.js
-import { Schema as Schema33 } from "effect";
+import { Schema as Schema34 } from "effect";
 var HTTP_STATUS = /\bHTTP (?<status>[1-5]\d{2})\b/u;
 var statusIn = (reason) => {
   const found = HTTP_STATUS.exec(reason)?.groups?.status;
@@ -41445,14 +41457,14 @@ var withheldOutage = (outage) => new ProviderUnavailable({
   retryAfter: outage.retryAfter,
   status: outage.status
 });
-var withheldThink = (key) => (failure5) => Schema33.is(ProviderUnavailable)(failure5) ? withheldOutage(failure5) : withheldFailure(key, "model", "")(failure5);
+var withheldThink = (key) => (failure5) => Schema34.is(ProviderUnavailable)(failure5) ? withheldOutage(failure5) : withheldFailure(key, "model", "")(failure5);
 
 // ../../packages/core/dist/runs/completions.js
-import { Effect as Effect23, Option as Option6, Predicate, Schema as Schema35 } from "effect";
+import { Effect as Effect23, Option as Option6, Predicate, Schema as Schema36 } from "effect";
 
 // ../../packages/core/dist/runs/completion-lost.js
-import { Schema as Schema34 } from "effect";
-var CompletionLost = class extends Schema34.TaggedError()("CompletionLost", { key: Schema34.String, runId: Schema34.String, type: Schema34.String }) {
+import { Schema as Schema35 } from "effect";
+var CompletionLost = class extends Schema35.TaggedError()("CompletionLost", { key: Schema35.String, runId: Schema35.String, type: Schema35.String }) {
   get message() {
     return `run ${this.runId}'s checkpoint holds an unconsumed ${this.type} event whose output is stored under journal key ${this.key}, and the journal has no entry there, so the run cannot resume with the value that step returned. The journal row was deleted after the checkpoint that names it was committed. Restore the run's journal from a backup, or abortRun({ runId: "${this.runId}" }) and submitPlan it as a new run.`;
   }
@@ -41481,18 +41493,18 @@ var liveEvent = (runId2, journal, keys) => (event) => {
   remember(keys, outputAt, output);
   return Effect23.succeed({ ...rest, output });
 };
-var Rest = Schema35.Record(Schema35.String, Schema35.Unknown);
-var EffectSchema = Schema35.StructWithRest(Schema35.Struct({ status: Schema35.String }), [Rest]);
-var DoneSchema = Schema35.StructWithRest(Schema35.Struct({
-  effects: Schema35.optionalKey(Schema35.Record(Schema35.String, EffectSchema)),
-  status: Schema35.Literal("done")
+var Rest = Schema36.Record(Schema36.String, Schema36.Unknown);
+var EffectSchema = Schema36.StructWithRest(Schema36.Struct({ status: Schema36.String }), [Rest]);
+var DoneSchema = Schema36.StructWithRest(Schema36.Struct({
+  effects: Schema36.optionalKey(Schema36.Record(Schema36.String, EffectSchema)),
+  status: Schema36.Literal("done")
 }), [Rest]);
-var ChildSchema = Schema35.StructWithRest(Schema35.Struct({ snapshot: Schema35.optionalKey(Schema35.Unknown) }), [Rest]);
-var ChildrenSchema = Schema35.Struct({
-  children: Schema35.Record(Schema35.String, ChildSchema)
+var ChildSchema = Schema36.StructWithRest(Schema36.Struct({ snapshot: Schema36.optionalKey(Schema36.Unknown) }), [Rest]);
+var ChildrenSchema = Schema36.Struct({
+  children: Schema36.Record(Schema36.String, ChildSchema)
 });
-var decodeDone = Schema35.decodeUnknownOption(DoneSchema);
-var decodeChildren = Schema35.decodeUnknownOption(ChildrenSchema);
+var decodeDone = Schema36.decodeUnknownOption(DoneSchema);
+var decodeChildren = Schema36.decodeUnknownOption(ChildrenSchema);
 var settledEffect = ({ output: _output, ...effect }) => effect;
 var withoutOutput = (child) => Option6.match(decodeDone(child.snapshot), {
   onNone: () => child,
@@ -41522,11 +41534,11 @@ var withoutDoneOutputs = (persisted) => Option6.match(decodeChildren(persisted),
 });
 
 // ../../packages/core/dist/runs/execution.js
-import { Effect as Effect24, Option as Option8, Predicate as Predicate2, Schema as Schema37 } from "effect";
+import { Effect as Effect24, Option as Option8, Predicate as Predicate2, Schema as Schema38 } from "effect";
 
 // ../../packages/core/dist/runs/restore-snapshot.js
-import { Option as Option7, Schema as Schema36 } from "effect";
-var decodeEmptyLegacyTimers = Schema36.decodeUnknownOption(Schema36.Struct({ timers: Schema36.Record(Schema36.String, Schema36.Never) }));
+import { Option as Option7, Schema as Schema37 } from "effect";
+var decodeEmptyLegacyTimers = Schema37.decodeUnknownOption(Schema37.Struct({ timers: Schema37.Record(Schema37.String, Schema37.Never) }));
 var restorePlanSnapshot = (persisted) => Option7.match(decodeEmptyLegacyTimers(persisted), {
   onNone: () => persisted,
   onSome: () => ({
@@ -41536,23 +41548,23 @@ var restorePlanSnapshot = (persisted) => Option7.match(decodeEmptyLegacyTimers(p
 });
 
 // ../../packages/core/dist/runs/execution.js
-var StateValueSchema = Schema37.Union([
-  Schema37.String,
-  Schema37.Record(Schema37.String, Schema37.suspend(() => StateValueSchema))
+var StateValueSchema = Schema38.Union([
+  Schema38.String,
+  Schema38.Record(Schema38.String, Schema38.suspend(() => StateValueSchema))
 ]);
-var ViewSchema = Schema37.Struct({
-  children: Schema37.Record(Schema37.String, Schema37.UndefinedOr(Schema37.Struct({ sessionId: Schema37.String }))),
-  status: Schema37.String,
+var ViewSchema = Schema38.Struct({
+  children: Schema38.Record(Schema38.String, Schema38.UndefinedOr(Schema38.Struct({ sessionId: Schema38.String }))),
+  status: Schema38.String,
   value: StateValueSchema
 });
-var decodeView = Schema37.decodeUnknownSync(ViewSchema);
-var StartSchema = Schema37.Struct({
-  descriptor: Schema37.Struct({
-    actor: Schema37.Struct({ $actor: Schema37.String }),
-    type: Schema37.Literal("@xstate.start")
+var decodeView = Schema38.decodeUnknownSync(ViewSchema);
+var StartSchema = Schema38.Struct({
+  descriptor: Schema38.Struct({
+    actor: Schema38.Struct({ $actor: Schema38.String }),
+    type: Schema38.Literal("@xstate.start")
   })
 });
-var decodeStart = Schema37.decodeUnknownOption(StartSchema);
+var decodeStart = Schema38.decodeUnknownOption(StartSchema);
 var typed = (step) => {
   const snapshot = step[0];
   return { effects: step[1], snapshot };
@@ -41594,20 +41606,20 @@ var openExecution = (compiled, sources, adapter, opening) => {
 };
 
 // ../../packages/core/dist/runs/redrive.js
-import { Context as Context20, Effect as Effect25, Layer as Layer13, Option as Option9, Result as Result4, Schema as Schema38 } from "effect";
-var Attempts = Schema38.Int.check(Schema38.isGreaterThan(0));
+import { Context as Context20, Effect as Effect25, Layer as Layer13, Option as Option9, Result as Result4, Schema as Schema39 } from "effect";
+var Attempts = Schema39.Int.check(Schema39.isGreaterThan(0));
 var RedriveAttempts = Context20.Reference("@mischief/core/RedriveAttempts", {
   defaultValue: () => 3
 });
-var redriveAttemptsLayer = (value) => Layer13.effect(RedriveAttempts, Schema38.decodeEffect(Attempts)(value === void 0 || value.trim() === "" ? 3 : Number(value)).pipe(Effect25.orDie));
-var ThinkAttemptSchema = Schema38.Struct({
-  attempts: Schema38.Int.check(Schema38.isGreaterThanOrEqualTo(0)),
-  level: Schema38.String,
-  model: Schema38.String,
-  pending: Schema38.Boolean,
-  unfinished: Schema38.Int.check(Schema38.isGreaterThanOrEqualTo(0))
+var redriveAttemptsLayer = (value) => Layer13.effect(RedriveAttempts, Schema39.decodeEffect(Attempts)(value === void 0 || value.trim() === "" ? 3 : Number(value)).pipe(Effect25.orDie));
+var ThinkAttemptSchema = Schema39.Struct({
+  attempts: Schema39.Int.check(Schema39.isGreaterThanOrEqualTo(0)),
+  level: Schema39.String,
+  model: Schema39.String,
+  pending: Schema39.Boolean,
+  unfinished: Schema39.Int.check(Schema39.isGreaterThanOrEqualTo(0))
 });
-var decode = Schema38.decodeUnknownOption(ThinkAttemptSchema);
+var decode = Schema39.decodeUnknownOption(ThinkAttemptSchema);
 var settleThinkAttempt = (call, journal) => Effect25.gen(function* settleAttempt() {
   const key = `think-attempt:${call.key}#${call.visit}@${call.epoch}`;
   const attempt = decode(journal.get(key));
@@ -41657,10 +41669,10 @@ var attemptedThink = (call, journal, effect, exhausted) => Effect25.gen(function
 });
 
 // ../../packages/core/dist/runs/replay.js
-import { Option as Option10, Schema as Schema39 } from "effect";
-var isText2 = Schema39.is(Schema39.String);
-var isList2 = Schema39.is(Schema39.Array(Schema39.Json));
-var isRecord2 = Schema39.is(Schema39.Record(Schema39.String, Schema39.Json));
+import { Option as Option10, Schema as Schema40 } from "effect";
+var isText2 = Schema40.is(Schema40.String);
+var isList2 = Schema40.is(Schema40.Array(Schema40.Json));
+var isRecord2 = Schema40.is(Schema40.Record(Schema40.String, Schema40.Json));
 var textsIn = (value) => {
   if (isText2(value)) {
     return [value];
@@ -41670,13 +41682,13 @@ var textsIn = (value) => {
   }
   return isRecord2(value) ? Object.values(value).flatMap((item) => textsIn(item)) : [];
 };
-var ReadsSchema = Schema39.Struct({
-  input: Schema39.Struct({
-    ephemeral: Schema39.optionalKey(Schema39.Struct({ reads: Schema39.optionalKey(Schema39.Array(Schema39.String)) })),
-    reads: Schema39.optionalKey(Schema39.Union([Schema39.String, Schema39.Array(Schema39.String)]))
+var ReadsSchema = Schema40.Struct({
+  input: Schema40.Struct({
+    ephemeral: Schema40.optionalKey(Schema40.Struct({ reads: Schema40.optionalKey(Schema40.Array(Schema40.String)) })),
+    reads: Schema40.optionalKey(Schema40.Union([Schema40.String, Schema40.Array(Schema40.String)]))
   })
 });
-var decodeReads = Schema39.decodeUnknownOption(ReadsSchema);
+var decodeReads = Schema40.decodeUnknownOption(ReadsSchema);
 var namesOf = (names3) => {
   if (names3 === void 0) {
     return [];
@@ -41690,59 +41702,59 @@ var docsRead = (step) => {
   ]), Option10.getOrElse(() => []));
   return [.../* @__PURE__ */ new Set([...textsIn(step).flatMap(docRefs), ...reads])].toSorted();
 };
-var ThinkSchema = Schema39.Struct({
-  output: Schema39.Struct({ output: Schema39.Json }),
-  step: Schema39.Struct({
-    input: Schema39.Struct({ writes: Schema39.String }),
-    src: Schema39.Literal("think")
+var ThinkSchema = Schema40.Struct({
+  output: Schema40.Struct({ output: Schema40.Json }),
+  step: Schema40.Struct({
+    input: Schema40.Struct({ writes: Schema40.String }),
+    src: Schema40.Literal("think")
   })
 });
-var CalledSchema = Schema39.Struct({
-  output: Schema39.Struct({ output: Schema39.Json }),
-  step: Schema39.Struct({
-    input: Schema39.Struct({ writes: Schema39.String }),
-    src: Schema39.Literal("call")
+var CalledSchema = Schema40.Struct({
+  output: Schema40.Struct({ output: Schema40.Json }),
+  step: Schema40.Struct({
+    input: Schema40.Struct({ writes: Schema40.String }),
+    src: Schema40.Literal("call")
   })
 });
-var decodeCalled = Schema39.decodeUnknownOption(CalledSchema);
-var AskSchema = Schema39.Struct({
-  output: Schema39.Struct({ messageId: Schema39.String }),
-  step: Schema39.Struct({
-    input: Schema39.Struct({ key: Schema39.String, to: Schema39.String }),
-    src: Schema39.Literal("ask")
+var decodeCalled = Schema40.decodeUnknownOption(CalledSchema);
+var AskSchema = Schema40.Struct({
+  output: Schema40.Struct({ messageId: Schema40.String }),
+  step: Schema40.Struct({
+    input: Schema40.Struct({ key: Schema40.String, to: Schema40.String }),
+    src: Schema40.Literal("ask")
   })
 });
-var ElaborateSchema = Schema39.Struct({
-  output: Schema39.Struct({ amendment: Schema39.Json }),
-  step: Schema39.Struct({
-    input: Schema39.Struct({ key: Schema39.String }),
-    src: Schema39.Literal("elaborate")
+var ElaborateSchema = Schema40.Struct({
+  output: Schema40.Struct({ amendment: Schema40.Json }),
+  step: Schema40.Struct({
+    input: Schema40.Struct({ key: Schema40.String }),
+    src: Schema40.Literal("elaborate")
   })
 });
-var JudgedSchema = Schema39.Struct({
-  output: Schema39.Struct({ why: WhySchema }),
-  step: Schema39.Struct({
-    input: Schema39.Struct({ key: Schema39.String }),
-    src: Schema39.Literal("judge")
+var JudgedSchema = Schema40.Struct({
+  output: Schema40.Struct({ why: WhySchema }),
+  step: Schema40.Struct({
+    input: Schema40.Struct({ key: Schema40.String }),
+    src: Schema40.Literal("judge")
   })
 });
-var decodeThink = Schema39.decodeUnknownOption(ThinkSchema);
-var AskedSchema = Schema39.Struct({
-  output: Schema39.Struct({ asked: Schema39.String }),
-  step: Schema39.Struct({
-    input: Schema39.Struct({ key: Schema39.String }),
-    src: Schema39.Literal("judge")
+var decodeThink = Schema40.decodeUnknownOption(ThinkSchema);
+var AskedSchema = Schema40.Struct({
+  output: Schema40.Struct({ asked: Schema40.String }),
+  step: Schema40.Struct({
+    input: Schema40.Struct({ key: Schema40.String }),
+    src: Schema40.Literal("judge")
   })
 });
-var ReasonSchema = Schema39.Struct({
-  output: Schema39.Struct({ reason: Schema39.String }),
+var ReasonSchema = Schema40.Struct({
+  output: Schema40.Struct({ reason: Schema40.String }),
   step: AskedSchema.fields.step
 });
-var decodeJudged = Schema39.decodeUnknownOption(JudgedSchema);
-var decodeReason = Schema39.decodeUnknownOption(ReasonSchema);
-var decodeAsked = Schema39.decodeUnknownOption(AskedSchema);
-var decodeAsk = Schema39.decodeUnknownOption(AskSchema);
-var decodeElaborate = Schema39.decodeUnknownOption(ElaborateSchema);
+var decodeJudged = Schema40.decodeUnknownOption(JudgedSchema);
+var decodeReason = Schema40.decodeUnknownOption(ReasonSchema);
+var decodeAsked = Schema40.decodeUnknownOption(AskedSchema);
+var decodeAsk = Schema40.decodeUnknownOption(AskSchema);
+var decodeElaborate = Schema40.decodeUnknownOption(ElaborateSchema);
 var docWrites = (step, output) => {
   const done = { output, step };
   return [
@@ -41764,7 +41776,7 @@ var docWrites = (step, output) => {
 
 // ../../packages/core/dist/runs/session.js
 var DRAINED = { type: "mischief.drained" };
-var isText3 = Schema40.is(Schema40.String);
+var isText3 = Schema41.is(Schema41.String);
 var statusAfter = (machine) => {
   switch (machine) {
     case "done": {
@@ -41778,19 +41790,19 @@ var statusAfter = (machine) => {
     }
   }
 };
-var decodeFailure = Schema40.decodeUnknownOption(Schema40.Struct({
-  error: Schema40.String,
-  reason: Schema40.optionalKey(Schema40.String)
+var decodeFailure = Schema41.decodeUnknownOption(Schema41.Struct({
+  error: Schema41.String,
+  reason: Schema41.optionalKey(Schema41.String)
 }));
 var reasonOf = (failure5) => failure5.reason ?? failure5.error;
-var isStepFailed = Schema40.is(StepFailed);
-var decodeVerdict = Schema40.decodeUnknownOption(OutputEventSchema);
-var decodeSent = Schema40.decodeUnknownOption(Schema40.Struct({
-  message: Schema40.optionalKey(Schema40.String),
-  messageId: Schema40.String
+var isStepFailed = Schema41.is(StepFailed);
+var decodeVerdict = Schema41.decodeUnknownOption(OutputEventSchema);
+var decodeSent = Schema41.decodeUnknownOption(Schema41.Struct({
+  message: Schema41.optionalKey(Schema41.String),
+  messageId: Schema41.String
 }));
-var decodeOutput = Schema40.decodeUnknownEffect(Schema40.Json);
-var decodeIdentity = Schema40.decodeUnknownOption(Schema40.Struct({ machine: Schema40.Struct({ id: Schema40.String }) }));
+var decodeOutput = Schema41.decodeUnknownEffect(Schema41.Json);
+var decodeIdentity = Schema41.decodeUnknownOption(Schema41.Struct({ machine: Schema41.Struct({ id: Schema41.String }) }));
 var failed = (key, reason) => new StepFailed({ key, reason });
 var shown = (ask, docs) => {
   if (ask === void 0) {
@@ -41936,7 +41948,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect26.gen(f
   const PRODUCED = "directive:";
   const produce = (key, directive) => Effect26.suspend(() => journal.has(`${PRODUCED}${key}`) ? Effect26.void : recordJournal(`${PRODUCED}${key}`, directive));
   const deliveryKey = (stepKey, cause) => Effect26.suspend(() => {
-    const known = Schema40.decodeUnknownOption(DirectiveKey)(journal.get(cause));
+    const known = Schema41.decodeUnknownOption(DirectiveKey)(journal.get(cause));
     if (Option11.isSome(known)) {
       return Effect26.succeed(known.value);
     }
@@ -41948,7 +41960,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect26.gen(f
     });
     return recordJournal(cause, key).pipe(Effect26.as(key));
   });
-  const pendingNow = Effect26.suspend(() => Effect26.forEach([...journal.keys()].flatMap((entry3) => entry3.startsWith(PRODUCED) && !journal.has(`done:${entry3.slice(PRODUCED.length)}`) ? [entry3.slice(PRODUCED.length)] : []), (key) => Schema40.decodeUnknownEffect(DirectiveSchema)(journal.get(`${PRODUCED}${key}`)).pipe(Effect26.map((directive) => ({ directive, key })), Effect26.orDie)));
+  const pendingNow = Effect26.suspend(() => Effect26.forEach([...journal.keys()].flatMap((entry3) => entry3.startsWith(PRODUCED) && !journal.has(`done:${entry3.slice(PRODUCED.length)}`) ? [entry3.slice(PRODUCED.length)] : []), (key) => Schema41.decodeUnknownEffect(DirectiveSchema)(journal.get(`${PRODUCED}${key}`)).pipe(Effect26.map((directive) => ({ directive, key })), Effect26.orDie)));
   const visitOf = (key) => visits.get(key) ?? 1;
   const epochOf = () => run2.state.revision === null ? 0 : run2.plan.version;
   const step = (key, effect) => effect.pipe(Effect26.tapError((failure5) => isStepFailed(failure5) ? store.writeDoc(runId2, `failed:${key}`, true) : Effect26.void));
@@ -42000,7 +42012,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect26.gen(f
       runId: runId2,
       visit: visitOf(input.key)
     };
-    const sealed = yield* journaled(`seal:${input.key}#${call.visit}`, step(input.key, withDocs(input.key, input.message).pipe(Effect26.flatMap((message2) => mail.seal({ ...call, message: message2, to: input.to })))), printOf({ input, src: "ask" })).pipe(Effect26.flatMap(Schema40.decodeUnknownEffect(SealedSchema)), Effect26.mapError(() => failed(input.key, "sealed envelope refused")));
+    const sealed = yield* journaled(`seal:${input.key}#${call.visit}`, step(input.key, withDocs(input.key, input.message).pipe(Effect26.flatMap((message2) => mail.seal({ ...call, message: message2, to: input.to })))), printOf({ input, src: "ask" })).pipe(Effect26.flatMap(Schema41.decodeUnknownEffect(SealedSchema)), Effect26.mapError(() => failed(input.key, "sealed envelope refused")));
     const message = yield* step(input.key, withDocs(input.key, input.message));
     yield* store.writeMessage(sealed.messageId, runId2);
     yield* store.writeDoc(runId2, `__sent:${input.key}`, {
@@ -42202,7 +42214,7 @@ ${docText(text)}`
   });
   const logic = (schema2, body) => (0, import_xstate_cjs.createAsyncLogic)({
     // oxlint-disable-next-line typescript/promise-function-async -- xstate async logic consumes a Promise factory.
-    run: ({ input }) => runPromise(Schema40.decodeEffect(schema2)(input).pipe(Effect26.mapError(() => failed("input", "step input refused")), Effect26.flatMap(body)))
+    run: ({ input }) => runPromise(Schema41.decodeEffect(schema2)(input).pipe(Effect26.mapError(() => failed("input", "step input refused")), Effect26.flatMap(body)))
   });
   const sources = {
     actions: {
@@ -42271,7 +42283,7 @@ ${docText(text)}`
       const key = `logic:${actor.address}#${visit}`;
       const stepKey = stepKeyOf(actor.address);
       const work = Effect26.tryPromise({
-        catch: (cause) => cause instanceof VerdictDeferred || Schema40.is(ProviderUnavailable)(cause) ? cause : failed(key, isStepFailed(cause) ? cause.reason : `${key} failed`),
+        catch: (cause) => cause instanceof VerdictDeferred || Schema41.is(ProviderUnavailable)(cause) ? cause : failed(key, isStepFailed(cause) ? cause.reason : `${key} failed`),
         // oxlint-disable-next-line typescript/promise-function-async -- xstate hands the step body over as a Promise factory.
         try: () => {
           visits.set(stepKeyOf(actor.address), visit);
@@ -42647,9 +42659,9 @@ ${docText(text)}`
 }).pipe(Effect26.scoped);
 
 // ../../packages/core/dist/runs/submission.js
-import { Effect as Effect27, Option as Option12, Schema as Schema41 } from "effect";
-var decodeJsonObject = Schema41.decodeUnknownOption(Schema41.JsonObject);
-var docKeyGuard = Schema41.is(DocKey);
+import { Effect as Effect27, Option as Option12, Schema as Schema42 } from "effect";
+var decodeJsonObject = Schema42.decodeUnknownOption(Schema42.JsonObject);
+var docKeyGuard = Schema42.is(DocKey);
 var isDocKey = (name) => docKeyGuard(name);
 var checkSubmission = Effect27.fn("checkSubmission")(function* checkSubmission2(input, docs) {
   const badNames = Object.keys(docs).filter((name) => !isDocKey(name));
@@ -42665,7 +42677,7 @@ var checkSubmission = Effect27.fn("checkSubmission")(function* checkSubmission2(
 });
 
 // ../../packages/core/dist/runs/host.js
-var decodeJsonObject2 = Schema42.decodeUnknownOption(Schema42.JsonObject);
+var decodeJsonObject2 = Schema43.decodeUnknownOption(Schema43.JsonObject);
 var RunHost = class extends Context21.Service()("@mischief/core/RunHost", {
   make: Effect28.gen(function* makeRunHost() {
     const context = yield* Effect28.context();
@@ -42723,7 +42735,7 @@ var RunHost = class extends Context21.Service()("@mischief/core/RunHost", {
       if (journal.has("done:abort-notices")) {
         return;
       }
-      const reason = Option13.getOrElse(Schema42.decodeUnknownOption(Schema42.String)(journal.get("abort-reason")), () => "abortRun was requested");
+      const reason = Option13.getOrElse(Schema43.decodeUnknownOption(Schema43.String)(journal.get("abort-reason")), () => "abortRun was requested");
       const sent = yield* Effect28.exit(operator.aborted?.(runId2, reason) ?? Effect28.void);
       if (Exit4.isSuccess(sent)) {
         yield* store.writeJournal(runId2, "done:abort-notices", true);
@@ -42888,6 +42900,23 @@ var RunHost = class extends Context21.Service()("@mischief/core/RunHost", {
       if (line.runId !== void 0 && line.runId !== runId2) {
         return yield* refuse2(`${line.replyTo} was sent by run ${runId2}, not ${line.runId}. Send it again with runId "${runId2}"; nothing changed.`);
       }
+      const receiptKey = line.messageId === void 0 ? void 0 : `received-reply:${line.messageId}`;
+      const receipt = {
+        body: line.body,
+        from: line.from ?? null,
+        replyTo: line.replyTo
+      };
+      const previous2 = receiptKey === void 0 ? void 0 : (yield* store.readJournal(runId2)).get(receiptKey);
+      if (previous2 !== void 0 && line.messageId !== void 0) {
+        if (JSON.stringify(previous2) !== JSON.stringify(receipt)) {
+          return yield* refuse2(`message ${line.messageId} was already stored with different reply bytes or sender. Resend the original signed reply unchanged, or send a new message id; nothing changed.`);
+        }
+        return yield* new AlreadyJournaled({
+          messageId: line.messageId,
+          replyTo: line.replyTo,
+          runId: runId2
+        });
+      }
       const { state: state3 } = yield* loadRun(runId2).pipe(Effect28.orDie);
       const open3 = state3.awaiting.find(({ messageId }) => messageId === line.replyTo);
       const openAsks = state3.awaiting.map(({ key, messageId, to }) => `${key} to ${to} (replyTo ${messageId})`).join("; ");
@@ -42901,6 +42930,9 @@ var RunHost = class extends Context21.Service()("@mischief/core/RunHost", {
         return yield* refuse2(`the ask went to ${open3.to}, but this reply is from ${line.from}. Only ${open3.to} can answer it.`);
       }
       const resumed = (yield* store.readPaused(runId2)) ? "paused" : "running";
+      if (receiptKey !== void 0) {
+        yield* store.writeJournal(runId2, receiptKey, receipt);
+      }
       yield* store.writeRun(runId2, {
         ...state3,
         replies: [...state3.replies, { body: line.body, key: open3.key }],
@@ -43045,14 +43077,19 @@ var runCapabilities = [
 ];
 
 // ../../packages/core/dist/runs/drain.js
-import { Effect as Effect29, Option as Option14, Schema as Schema43 } from "effect";
-var DrainOutcomeSchema = Schema43.TaggedUnion({
-  Delivered: { replyTo: Schema43.String, status: Schema43.String },
-  Refused: { reason: Schema43.String, replyTo: Schema43.String },
-  Unrouted: { line: Schema43.String, reason: Schema43.String }
+import { Effect as Effect29, Option as Option14, Schema as Schema44 } from "effect";
+var DrainOutcomeSchema = Schema44.TaggedUnion({
+  AlreadyJournaled: {
+    messageId: Schema44.String,
+    replyTo: Schema44.String,
+    runId: Schema44.String
+  },
+  Delivered: { replyTo: Schema44.String, status: Schema44.String },
+  Refused: { reason: Schema44.String, replyTo: Schema44.String },
+  Unrouted: { line: Schema44.String, reason: Schema44.String }
 });
 var UNROUTED_REASON = "not a reply to a Mischief ask: it needs string body and replyTo fields. Kept in __unrouted.jsonl; read it there and answer the sender directly";
-var decodeLine = Schema43.decodeUnknownOption(Schema43.fromJsonString(ReplyLineSchema));
+var decodeLine = Schema44.decodeUnknownOption(Schema44.fromJsonString(ReplyLineSchema));
 var consumeDrained = Effect29.fn("consumeDrained")(function* consume(raw) {
   const line = decodeLine(raw);
   if (Option14.isNone(line)) {
@@ -43062,21 +43099,25 @@ var consumeDrained = Effect29.fn("consumeDrained")(function* consume(raw) {
     });
   }
   const { replyTo } = line.value;
-  return yield* RunHost.use((host) => host.deliver(line.value)).pipe(Effect29.map(({ status }) => DrainOutcomeSchema.cases.Delivered.make({ replyTo, status })), Effect29.catchTag("ReplyRefused", ({ reason }) => Effect29.succeed(DrainOutcomeSchema.cases.Refused.make({ reason, replyTo }))));
+  return yield* RunHost.use((host) => host.deliver(line.value)).pipe(Effect29.map(({ status }) => DrainOutcomeSchema.cases.Delivered.make({ replyTo, status })), Effect29.catchTag("AlreadyJournaled", ({ messageId, runId: runId2 }) => Effect29.succeed(DrainOutcomeSchema.cases.AlreadyJournaled.make({
+    messageId,
+    replyTo,
+    runId: runId2
+  }))), Effect29.catchTag("ReplyRefused", ({ reason }) => Effect29.succeed(DrainOutcomeSchema.cases.Refused.make({ reason, replyTo }))));
 });
 
 // ../../packages/core/dist/steps/shadow-judge.js
-import { Effect as Effect30, Layer as Layer15, Option as Option15, Schema as Schema44 } from "effect";
+import { Effect as Effect30, Layer as Layer15, Option as Option15, Schema as Schema45 } from "effect";
 var SHADOW_JUDGE = "shadow/judge";
-var Probability2 = Schema44.Number.check(Schema44.isBetween({ maximum: 1, minimum: 0 }));
-var VerdictSchema = Schema44.Union([
-  Schema44.Struct({
-    probabilities: Schema44.Record(Schema44.String, Probability2),
-    why: Schema44.optionalKey(WhySchema)
+var Probability2 = Schema45.Number.check(Schema45.isBetween({ maximum: 1, minimum: 0 }));
+var VerdictSchema = Schema45.Union([
+  Schema45.Struct({
+    probabilities: Schema45.Record(Schema45.String, Probability2),
+    why: Schema45.optionalKey(WhySchema)
   }),
-  Schema44.Struct({ choice: Schema44.String, why: Schema44.optionalKey(WhySchema) })
+  Schema45.Struct({ choice: Schema45.String, why: Schema45.optionalKey(WhySchema) })
 ]);
-var decodeVerdict2 = Schema44.decodeUnknownOption(Schema44.fromJsonString(VerdictSchema));
+var decodeVerdict2 = Schema45.decodeUnknownOption(Schema45.fromJsonString(VerdictSchema));
 var NO_USAGE = { tokens: 0 };
 var refused = (key, why, options2) => Effect30.fail(new StepFailed({
   key,
@@ -43098,89 +43139,89 @@ var shadowJudge = Layer15.succeed(Judge, Judge.of({
 }));
 
 // ../../packages/core/dist/schedules/host.js
-import { Clock as Clock4, Duration as Duration2, Effect as Effect32, Option as Option16, Result as Result8, Schema as Schema48 } from "effect";
+import { Clock as Clock4, Duration as Duration2, Effect as Effect32, Option as Option16, Result as Result8, Schema as Schema49 } from "effect";
 
 // ../../packages/core/dist/schedules/decide.js
 import { Cron, Data as Data7, Predicate as Predicate3, Result as Result7 } from "effect";
 
 // ../../packages/core/dist/schedules/schema.js
-import { Effect as Effect31, Schema as Schema45 } from "effect";
-var ScheduleId = Schema45.String.check(Schema45.isPattern(/^[a-z0-9][a-z0-9-]{0,47}$/u));
+import { Effect as Effect31, Schema as Schema46 } from "effect";
+var ScheduleId = Schema46.String.check(Schema46.isPattern(/^[a-z0-9][a-z0-9-]{0,47}$/u));
 var HISTORY = 100;
-var Millis = Schema45.Int.check(Schema45.isGreaterThanOrEqualTo(0));
-var Every = Schema45.TaggedStruct("every", { ms: Millis });
-var CronCadence = Schema45.TaggedStruct("cron", {
-  expression: Schema45.String
+var Millis = Schema46.Int.check(Schema46.isGreaterThanOrEqualTo(0));
+var Every = Schema46.TaggedStruct("every", { ms: Millis });
+var CronCadence = Schema46.TaggedStruct("cron", {
+  expression: Schema46.String
 });
-var CadenceSchema = Schema45.Union([Every, CronCadence]);
-var WakeSchema = Schema45.Struct({
+var CadenceSchema = Schema46.Union([Every, CronCadence]);
+var WakeSchema = Schema46.Struct({
   at: Millis,
   due: Millis,
   n: Count,
-  runId: Schema45.String
+  runId: Schema46.String
 });
-var SkipSchema = Schema45.Struct({
+var SkipSchema = Schema46.Struct({
   at: Millis,
   due: Millis,
-  reason: Schema45.String
+  reason: Schema46.String
 });
-var AbortSchema = Schema45.Struct({
+var AbortSchema = Schema46.Struct({
   at: Millis,
-  reason: Schema45.String,
-  runId: Schema45.String
+  reason: Schema46.String,
+  runId: Schema46.String
 });
-var EndReasonSchema = Schema45.Literals([
+var EndReasonSchema = Schema46.Literals([
   "completed",
   "done",
   "cap",
   "timeout",
   "failed"
 ]);
-var EndedSchema = Schema45.Struct({
+var EndedSchema = Schema46.Struct({
   at: Millis,
-  detail: Schema45.String,
+  detail: Schema46.String,
   reason: EndReasonSchema
 });
-var ScheduleStateSchema = Schema45.Struct({
-  abortCount: Count.pipe(Schema45.withDecodingDefaultKey(Effect31.succeed(0))),
-  aborting: Schema45.NullOr(Schema45.String).pipe(Schema45.withDecodingDefaultKey(Effect31.succeed(null))),
-  aborts: Schema45.Array(AbortSchema).pipe(Schema45.withDecodingDefaultKey(Effect31.succeed([]))),
+var ScheduleStateSchema = Schema46.Struct({
+  abortCount: Count.pipe(Schema46.withDecodingDefaultKey(Effect31.succeed(0))),
+  aborting: Schema46.NullOr(Schema46.String).pipe(Schema46.withDecodingDefaultKey(Effect31.succeed(null))),
+  aborts: Schema46.Array(AbortSchema).pipe(Schema46.withDecodingDefaultKey(Effect31.succeed([]))),
   cadence: CadenceSchema,
-  carry: Schema45.Array(Schema45.String),
+  carry: Schema46.Array(Schema46.String),
   createdAt: Millis,
   docs: DocsSchema,
-  ended: Schema45.NullOr(EndedSchema),
-  endsAt: Schema45.NullOr(Millis),
-  escalateTo: Schema45.NullOr(EscalateToSchema).pipe(Schema45.withDecodingDefaultKey(Effect31.succeed(null))),
-  judge: Schema45.NullOr(JudgeModeSchema).pipe(Schema45.withDecodingDefaultKey(Effect31.succeed(null))),
-  maxWakes: Schema45.NullOr(Count),
+  ended: Schema46.NullOr(EndedSchema),
+  endsAt: Schema46.NullOr(Millis),
+  escalateTo: Schema46.NullOr(EscalateToSchema).pipe(Schema46.withDecodingDefaultKey(Effect31.succeed(null))),
+  judge: Schema46.NullOr(JudgeModeSchema).pipe(Schema46.withDecodingDefaultKey(Effect31.succeed(null))),
+  maxWakes: Schema46.NullOr(Count),
   nextAt: Millis,
   pendingDocs: DocsSchema,
-  plan: Schema45.Json,
+  plan: Schema46.Json,
   scheduleId: ScheduleId,
   skipCount: Count,
-  skips: Schema45.Array(SkipSchema),
+  skips: Schema46.Array(SkipSchema),
   wakeCount: Count,
-  wakeTimeoutMs: Schema45.NullOr(Millis).pipe(Schema45.withDecodingDefaultKey(Effect31.succeed(null))),
-  wakes: Schema45.Array(WakeSchema)
+  wakeTimeoutMs: Schema46.NullOr(Millis).pipe(Schema46.withDecodingDefaultKey(Effect31.succeed(null))),
+  wakes: Schema46.Array(WakeSchema)
 });
-var ScheduleReportSchema = Schema45.Struct({
+var ScheduleReportSchema = Schema46.Struct({
   abortCount: Count,
-  aborts: Schema45.Array(AbortSchema),
+  aborts: Schema46.Array(AbortSchema),
   cadence: CadenceSchema,
-  carry: Schema45.Array(Schema45.String),
-  ended: Schema45.NullOr(EndedSchema),
-  endsAt: Schema45.NullOr(Millis),
-  escalateTo: Schema45.NullOr(EscalateToSchema),
-  judge: Schema45.NullOr(JudgeModeSchema),
-  maxWakes: Schema45.NullOr(Count),
-  nextAt: Schema45.NullOr(Millis),
+  carry: Schema46.Array(Schema46.String),
+  ended: Schema46.NullOr(EndedSchema),
+  endsAt: Schema46.NullOr(Millis),
+  escalateTo: Schema46.NullOr(EscalateToSchema),
+  judge: Schema46.NullOr(JudgeModeSchema),
+  maxWakes: Schema46.NullOr(Count),
+  nextAt: Schema46.NullOr(Millis),
   scheduleId: ScheduleId,
   skipCount: Count,
-  skips: Schema45.Array(SkipSchema),
+  skips: Schema46.Array(SkipSchema),
   wakeCount: Count,
-  wakeTimeoutMs: Schema45.NullOr(Millis),
-  wakes: Schema45.Array(WakeSchema)
+  wakeTimeoutMs: Schema46.NullOr(Millis),
+  wakes: Schema46.Array(WakeSchema)
 });
 var reportOf2 = (state3) => ({
   abortCount: state3.abortCount,
@@ -43358,8 +43399,8 @@ var ScheduleAlarm = class extends Context22.Service()("@mischief/core/ScheduleAl
 };
 
 // ../../packages/core/dist/schedules/schedule-refused.js
-import { Schema as Schema46 } from "effect";
-var ScheduleRefused = class extends Schema46.TaggedError()("ScheduleRefused", { errors: Schema46.Array(Schema46.String), scheduleId: Schema46.String }) {
+import { Schema as Schema47 } from "effect";
+var ScheduleRefused = class extends Schema47.TaggedError()("ScheduleRefused", { errors: Schema47.Array(Schema47.String), scheduleId: Schema47.String }) {
   get message() {
     return `Schedule ${this.scheduleId} refused, nothing was stored. Fix each problem and call createSchedule again:
 ${this.errors.map((error) => `- ${error}`).join("\n")}`;
@@ -43372,8 +43413,8 @@ var ScheduleStore = class extends Context23.Service()("@mischief/core/ScheduleSt
 };
 
 // ../../packages/core/dist/schedules/unknown-schedule.js
-import { Schema as Schema47 } from "effect";
-var UnknownSchedule = class extends Schema47.TaggedError()("UnknownSchedule", { scheduleId: Schema47.String }) {
+import { Schema as Schema48 } from "effect";
+var UnknownSchedule = class extends Schema48.TaggedError()("UnknownSchedule", { scheduleId: Schema48.String }) {
   get message() {
     return `No schedule named "${this.scheduleId}". Check the scheduleId, or start one with createSchedule({ scheduleId, plan, every or cron, maxWakes or timeout }).`;
   }
@@ -43386,7 +43427,7 @@ var WakeRuns = class extends Context24.Service()("@mischief/core/WakeRuns") {
 
 // ../../packages/core/dist/schedules/host.js
 var MIN_EVERY_MS = 6e4;
-var decodeDuration = Schema48.decodeUnknownOption(Schema48.DurationFromString);
+var decodeDuration = Schema49.decodeUnknownOption(Schema49.DurationFromString);
 var millisOf = (text) => decodeDuration(text).pipe(Option16.filter(Duration2.isFinite), Option16.map(Duration2.toMillis));
 var cadenceOf = (input) => {
   if (input.every === void 0 === (input.cron === void 0)) {
@@ -43565,7 +43606,7 @@ var wakeSchedule = Effect32.fn("wakeSchedule")(function* wakeSchedule2() {
 });
 
 // ../../packages/core/dist/schedules/contracts.js
-import { Schema as Schema49 } from "effect";
+import { Schema as Schema50 } from "effect";
 var scheduleId = ScheduleId.annotate({
   description: "Schedule id, lowercase kebab-case, up to 48 characters"
 });
@@ -43573,30 +43614,30 @@ var createScheduleContract = defineContract("createSchedule", {
   annotations: { idempotent: true, openWorld: true },
   description: 'Wake a fresh run of one plan on a cadence, one wake at a time, until completeSchedule, a "done" doc, maxWakes or the timeout. Wake n is the run "<scheduleId>-wake-<n>"; a slot whose previous wake is still going is skipped, and missed slots collapse to one wake. With wakeTimeout, a wake still going past it is aborted at the next slot instead. Creating an existing schedule id returns it unchanged.',
   failure: ScheduleRefused,
-  input: Schema49.Struct({
-    carry: Schema49.optionalKey(Schema49.Array(Schema49.String).annotate({
+  input: Schema50.Struct({
+    carry: Schema50.optionalKey(Schema50.Array(Schema50.String).annotate({
       description: "Doc names each wake passes to the next; each needs a starting value in docs"
     })),
-    cron: Schema49.optionalKey(Schema49.String.annotate({
+    cron: Schema50.optionalKey(Schema50.String.annotate({
       description: 'Five cron fields in UTC, such as "0 9 * * 1-5"'
     })),
-    docs: Schema49.optionalKey(DocsSchema.annotate({ description: "Seed docs for every wake" })),
-    escalateTo: Schema49.optionalKey(EscalateToSchema),
-    every: Schema49.optionalKey(Schema49.String.annotate({
+    docs: Schema50.optionalKey(DocsSchema.annotate({ description: "Seed docs for every wake" })),
+    escalateTo: Schema50.optionalKey(EscalateToSchema),
+    every: Schema50.optionalKey(Schema50.String.annotate({
       description: 'A duration of at least 1 minute, such as "30 minutes"'
     })),
-    judge: Schema49.optionalKey(JudgeModeSchema),
-    maxWakes: Schema49.optionalKey(Schema49.Int.check(Schema49.isGreaterThan(0)).annotate({
+    judge: Schema50.optionalKey(JudgeModeSchema),
+    maxWakes: Schema50.optionalKey(Schema50.Int.check(Schema50.isGreaterThan(0)).annotate({
       description: "The most wakes before the schedule ends"
     })),
-    plan: Schema49.Json.annotate({
+    plan: Schema50.Json.annotate({
       description: "The plan every wake runs, as JSON"
     }),
     scheduleId,
-    timeout: Schema49.optionalKey(Schema49.String.annotate({
+    timeout: Schema50.optionalKey(Schema50.String.annotate({
       description: 'How long the schedule may live, such as "7 days"'
     })),
-    wakeTimeout: Schema49.optionalKey(Schema49.String.annotate({
+    wakeTimeout: Schema50.optionalKey(Schema50.String.annotate({
       description: 'How long one wake may run, at least 1 minute, such as "2 hours". At the next slot, a wake past it is aborted, and the next wake starts from the docs the aborted one started with'
     }))
   }),
@@ -43606,14 +43647,14 @@ var inspectScheduleContract = defineContract("inspectSchedule", {
   annotations: { idempotent: true, readOnly: true },
   description: "Report a schedule's cadence, its recent wakes and skips with counts, when it wakes next, and why it ended",
   failure: UnknownSchedule,
-  input: Schema49.Struct({ scheduleId }),
+  input: Schema50.Struct({ scheduleId }),
   output: ScheduleReportSchema
 });
 var completeScheduleContract = defineContract("completeSchedule", {
   annotations: { destructive: true, idempotent: true },
   description: "End a schedule for good; a wake already running finishes, and its runs stay readable",
   failure: UnknownSchedule,
-  input: Schema49.Struct({ scheduleId }),
+  input: Schema50.Struct({ scheduleId }),
   output: ScheduleReportSchema
 });
 
@@ -43628,7 +43669,7 @@ var scheduleCapabilities = [
 ];
 
 // ../../packages/plan-run/dist/sql-store.js
-import { Effect as Effect33, Option as Option17, Schema as Schema50 } from "effect";
+import { Effect as Effect33, Option as Option17, Schema as Schema51 } from "effect";
 var SCHEMA = `
 CREATE TABLE IF NOT EXISTS mischief_runs (run_id TEXT PRIMARY KEY, state TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS mischief_plans (run_id TEXT NOT NULL, version INTEGER NOT NULL, plan TEXT NOT NULL, PRIMARY KEY (run_id, version));
@@ -43638,14 +43679,14 @@ CREATE TABLE IF NOT EXISTS mischief_fingerprints (run_id TEXT NOT NULL, key TEXT
 CREATE TABLE IF NOT EXISTS mischief_paused (run_id TEXT PRIMARY KEY, paused INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS mischief_messages (message_id TEXT PRIMARY KEY, run_id TEXT NOT NULL);
 `;
-var JsonText = Schema50.fromJsonString(Schema50.Json);
-var StateText = Schema50.fromJsonString(RunStateSchema);
-var PlanText = Schema50.fromJsonString(PlanSchema);
-var PrintText = Schema50.fromJsonString(Schema50.String);
-var textOf = (value) => Schema50.is(Schema50.String)(value) ? value : "";
-var read2 = (codec, text) => Schema50.decodeUnknownEffect(codec)(text).pipe(Effect33.orDie);
+var JsonText = Schema51.fromJsonString(Schema51.Json);
+var StateText = Schema51.fromJsonString(RunStateSchema);
+var PlanText = Schema51.fromJsonString(PlanSchema);
+var PrintText = Schema51.fromJsonString(Schema51.String);
+var textOf = (value) => Schema51.is(Schema51.String)(value) ? value : "";
+var read2 = (codec, text) => Schema51.decodeUnknownEffect(codec)(text).pipe(Effect33.orDie);
 var entriesOf = (found, name, value, codec) => Effect33.all(found.map((row2) => read2(codec, textOf(row2[value])).pipe(Effect33.map((decoded) => [textOf(row2[name]), decoded]))));
-var write = (codec, value) => Schema50.encodeEffect(codec)(value).pipe(Effect33.orDie);
+var write = (codec, value) => Schema51.encodeEffect(codec)(value).pipe(Effect33.orDie);
 var docStatements = (runId2, changes) => Effect33.forEach([...changes.docs], ([name, doc]) => write(JsonText, doc).pipe(Effect33.map((text) => [
   "INSERT INTO mischief_docs (run_id, name, doc) VALUES (?, ?, ?) ON CONFLICT (run_id, name) DO UPDATE SET doc = excluded.doc",
   runId2,
@@ -43745,13 +43786,13 @@ var webCrypto = Layer16.succeed(Crypto3.Crypto, Crypto3.make({
 }));
 
 // ../../packages/plan-run/dist/outbox.js
-import { Effect as Effect35, Layer as Layer17, Schema as Schema51 } from "effect";
+import { Effect as Effect35, Layer as Layer17, Schema as Schema52 } from "effect";
 var OUTBOX = `CREATE TABLE IF NOT EXISTS mischief_outbox (message_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, envelope TEXT NOT NULL)`;
-var EnvelopeText = Schema51.fromJsonString(Schema51.Struct({ message: Schema51.String, to: Schema51.String }));
+var EnvelopeText = Schema52.fromJsonString(Schema52.Struct({ message: Schema52.String, to: Schema52.String }));
 var mailOutboxSql = (storage) => Layer17.effect(Mail, Effect35.sync(() => {
   storage.sql.exec(OUTBOX);
   return Mail.of({
-    seal: ({ key, message, runId: runId2, to, visit }) => Schema51.encodeEffect(EnvelopeText)({ message, to }).pipe(Effect35.map((envelope) => ({
+    seal: ({ key, message, runId: runId2, to, visit }) => Schema52.encodeEffect(EnvelopeText)({ message, to }).pipe(Effect35.map((envelope) => ({
       envelope,
       messageId: `${runId2}/${key}#${visit}`
     })), Effect35.mapError(() => new StepFailed({ key, reason: "envelope did not encode" }))),
@@ -43762,7 +43803,7 @@ var mailOutboxSql = (storage) => Layer17.effect(Mail, Effect35.sync(() => {
 }));
 
 // ../../packages/capability/dist/to-http-api.js
-import { Data as Data8, Effect as Effect36, Layer as Layer18, Predicate as Predicate5, Schema as Schema52, SchemaAST } from "effect";
+import { Data as Data8, Effect as Effect36, Layer as Layer18, Predicate as Predicate5, Schema as Schema53, SchemaAST } from "effect";
 import { HttpServerRequest } from "effect/http";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, OpenApi } from "effect/http-api";
 
@@ -43791,12 +43832,12 @@ var membersOf = (failure5) => {
   if (!SchemaAST.isUnion(failure5.ast) || failure5.ast.annotations?.httpApiStatus !== void 0 || !Predicate5.hasProperty(failure5, "members") || !Array.isArray(failure5.members)) {
     return [failure5];
   }
-  return failure5.members.filter((member) => Schema52.isSchema(member));
+  return failure5.members.filter((member) => Schema53.isSchema(member));
 };
 var UndeclaredFailure = class extends Data8.TaggedError("UndeclaredFailure") {
 };
 var declaredFailuresOnly = (contract) => {
-  const isDeclared = Schema52.is(failureSchemaOf(contract));
+  const isDeclared = Schema53.is(failureSchemaOf(contract));
   return (handled) => Effect36.catchIf(handled, (failure5) => !isDeclared(failure5), (failure5) => Effect36.die(new UndeclaredFailure({ cause: failure5, contract: contract.name })));
 };
 var httpFailure = (contract) => [
@@ -43814,10 +43855,10 @@ var routedEndpoint = (contract, http3, error) => {
     }
   }
   const params2 = Object.fromEntries(Object.entries(fields).filter(([name]) => names3.includes(name)));
-  const input = names3.length === 0 ? contract.input : Schema52.Struct(Object.fromEntries(Object.entries(fields).filter(([name]) => !names3.includes(name))));
+  const input = names3.length === 0 ? contract.input : Schema53.Struct(Object.fromEntries(Object.entries(fields).filter(([name]) => !names3.includes(name))));
   return route(http3.method)(contract.name, http3.path, {
     error,
-    params: names3.length === 0 ? void 0 : Schema52.Struct(params2),
+    params: names3.length === 0 ? void 0 : Schema53.Struct(params2),
     success: contract.output,
     ...BODY_METHODS.has(http3.method) ? { payload: input } : { query: input }
   });
@@ -43830,7 +43871,7 @@ var inputOf = (contract, request2) => {
   if (pathParamNames(contract.http.path).length === 0) {
     return Effect36.succeed(parts2);
   }
-  return HttpApiError.HttpApiSchemaError.wrap("Params", Schema52.decodeEffect(Schema52.toType(contract.input))({
+  return HttpApiError.HttpApiSchemaError.wrap("Params", Schema53.decodeEffect(Schema53.toType(contract.input))({
     ...request2.params,
     ...parts2
   }));
@@ -43935,22 +43976,22 @@ var toHttpApi = (id, capabilities2, options2) => {
 };
 
 // ../../packages/plan-run/dist/plan-run.js
-import { Clock as Clock5, Crypto as Crypto4, Effect as Effect37, Layer as Layer19, ManagedRuntime, Option as Option19, Schema as Schema55, Schedule, Semaphore as Semaphore2 } from "effect";
+import { Clock as Clock5, Crypto as Crypto4, Effect as Effect37, Layer as Layer19, ManagedRuntime, Option as Option19, Schema as Schema56, Schedule, Semaphore as Semaphore2 } from "effect";
 import { constVoid as constVoid3 } from "effect/Function";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder2 } from "effect/http-api";
 
 // ../../packages/plan-run/dist/drive-lease-lost.js
-import { Schema as Schema53 } from "effect";
-var DriveLeaseLost = class extends Schema53.TaggedError()("DriveLeaseLost", {
-  owner: Schema53.String,
-  reason: Schema53.String
+import { Schema as Schema54 } from "effect";
+var DriveLeaseLost = class extends Schema54.TaggedError()("DriveLeaseLost", {
+  owner: Schema54.String,
+  reason: Schema54.String
 }) {
 };
 
 // ../../packages/plan-run/dist/drive-lease.js
-import { Option as Option18, Schema as Schema54 } from "effect";
-var decode2 = Schema54.decodeUnknownSync(DriveLeaseSchema);
+import { Option as Option18, Schema as Schema55 } from "effect";
+var decode2 = Schema55.decodeUnknownSync(DriveLeaseSchema);
 var driveLease = (storage) => {
   storage.sql.exec("CREATE TABLE IF NOT EXISTS mischief_drive_lease (id INTEGER PRIMARY KEY CHECK (id = 1), epoch INTEGER NOT NULL, holder TEXT, lease_until INTEGER NOT NULL)");
   storage.sql.exec("INSERT OR IGNORE INTO mischief_drive_lease VALUES (1, 0, NULL, 0)");
@@ -43980,13 +44021,13 @@ var driveLease = (storage) => {
 };
 
 // ../../packages/plan-run/dist/plan-run.js
-var isText4 = Schema55.is(Schema55.String);
-var decodeState = Schema55.decodeUnknownOption(Schema55.fromJsonString(RunStateSchema));
+var isText4 = Schema56.is(Schema56.String);
+var decodeState = Schema56.decodeUnknownOption(Schema56.fromJsonString(RunStateSchema));
 var runsOf = (storage) => storage.sql.exec("SELECT run_id, state FROM mischief_runs WHERE run_id NOT IN (SELECT run_id FROM mischief_paused WHERE paused = 1) OR run_id IN (SELECT run_id FROM mischief_journal WHERE key = 'abort-reason' AND run_id NOT IN (SELECT run_id FROM mischief_journal WHERE key = 'done:abort-notices')) ORDER BY run_id").toArray().flatMap((row2) => {
   const state3 = decodeState(row2.state);
   return isText4(row2.run_id) && Option19.isSome(state3) ? [{ runId: row2.run_id, state: state3.value }] : [];
 });
-var decodeSubmit = Schema55.decodeUnknownOption(Schema55.Struct({ runId: Schema55.String }));
+var decodeSubmit = Schema56.decodeUnknownOption(Schema56.Struct({ runId: Schema56.String }));
 var stored = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_runs WHERE run_id = ?", runId2).toArray().length > 0;
 var alarmPending = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = ?", runId2, "done:hold-alarm").toArray().length === 0;
 var abortNoticePending = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = 'abort-reason' AND NOT EXISTS (SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = 'done:abort-notices')", runId2, runId2).toArray().length > 0;
@@ -44108,21 +44149,21 @@ import { HttpRouter as HttpRouter2, HttpServer as HttpServer2 } from "effect/htt
 import { HttpApiBuilder as HttpApiBuilder3, OpenApi as OpenApi2 } from "effect/http-api";
 
 // ../../packages/plan-run/dist/schedule-store.js
-import { Effect as Effect38, Option as Option20, Schema as Schema56 } from "effect";
+import { Effect as Effect38, Option as Option20, Schema as Schema57 } from "effect";
 var SCHEMA2 = "CREATE TABLE IF NOT EXISTS mischief_schedule (id INTEGER PRIMARY KEY CHECK (id = 1), state TEXT NOT NULL)";
-var StateText2 = Schema56.fromJsonString(ScheduleStateSchema);
-var StateRow = Schema56.Struct({ state: Schema56.String });
+var StateText2 = Schema57.fromJsonString(ScheduleStateSchema);
+var StateRow = Schema57.Struct({ state: Schema57.String });
 var scheduleStoreSql = (storage) => {
   const rows = (query, ...bindings) => {
     storage.sql.exec(SCHEMA2);
     return storage.sql.exec(query, ...bindings).toArray();
   };
   return ScheduleStore.of({
-    load: Effect38.suspend(() => Option20.match(Schema56.decodeUnknownOption(StateRow)(rows("SELECT state FROM mischief_schedule WHERE id = 1")[0]), {
+    load: Effect38.suspend(() => Option20.match(Schema57.decodeUnknownOption(StateRow)(rows("SELECT state FROM mischief_schedule WHERE id = 1")[0]), {
       onNone: () => Effect38.succeedNone,
-      onSome: ({ state: state3 }) => Schema56.decodeUnknownEffect(StateText2)(state3).pipe(Effect38.map(Option20.some), Effect38.orDie)
+      onSome: ({ state: state3 }) => Schema57.decodeUnknownEffect(StateText2)(state3).pipe(Effect38.map(Option20.some), Effect38.orDie)
     })),
-    save: (state3) => Schema56.encodeEffect(StateText2)(state3).pipe(Effect38.orDie, Effect38.flatMap((text) => Effect38.sync(() => {
+    save: (state3) => Schema57.encodeEffect(StateText2)(state3).pipe(Effect38.orDie, Effect38.flatMap((text) => Effect38.sync(() => {
       rows("INSERT INTO mischief_schedule (id, state) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET state = excluded.state", text);
     })))
   });
@@ -63035,7 +63076,7 @@ var openAIResponsesApi = () => lazyApi(() => Promise.resolve().then(() => (init_
 
 // ../../packages/thinking/dist/gateway.js
 init_models();
-import { Hash as Hash3, Redacted, Schema as Schema57 } from "effect";
+import { Hash as Hash3, Redacted, Schema as Schema58 } from "effect";
 
 // ../../packages/thinking/dist/declared.js
 init_models();
@@ -63074,8 +63115,8 @@ var promptCacheKeyOf = (runId2) => {
   const key = `mischief-${runId2}`;
   return key.length <= PROMPT_CACHE_KEY_MAX ? key : `mischief-${runId2.slice(0, 40)}-${Math.abs(Hash3.string(runId2)).toString(36)}`;
 };
-var isPayload = Schema57.is(Schema57.Record(Schema57.String, Schema57.Unknown));
-var isKey = Schema57.is(Schema57.String);
+var isPayload = Schema58.is(Schema58.Record(Schema58.String, Schema58.Unknown));
+var isKey = Schema58.is(Schema58.String);
 var keyed = (options2) => {
   const key = options2.metadata?.[RUN_CACHE_KEY];
   if (!isKey(key) || options2.cacheRetention === "none") {
@@ -63208,28 +63249,28 @@ var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2, opusB
 };
 
 // ../../packages/thinking/dist/jev.js
-import { Effect as Effect41, Layer as Layer21, Predicate as Predicate6, Redacted as Redacted2, Schedule as Schedule2, Schema as Schema58 } from "effect";
+import { Effect as Effect41, Layer as Layer21, Predicate as Predicate6, Redacted as Redacted2, Schedule as Schedule2, Schema as Schema59 } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 var JEV_URL = "https://api.typesafe.ai/v1/systemone";
 var JEV_MODEL = "jev-latest";
 var JEV_PATIENCE = "2 minutes";
-var Unit = Schema58.Finite.check(Schema58.isBetween({ maximum: 1, minimum: 0 }));
-var ChoiceAnswer = Schema58.Struct({
-  choice: Schema58.String,
-  probabilities: Schema58.Record(Schema58.String, Unit),
-  type: Schema58.Literal("choice")
+var Unit = Schema59.Finite.check(Schema59.isBetween({ maximum: 1, minimum: 0 }));
+var ChoiceAnswer = Schema59.Struct({
+  choice: Schema59.String,
+  probabilities: Schema59.Record(Schema59.String, Unit),
+  type: Schema59.Literal("choice")
 });
-var NoulAnswer = Schema58.Struct({
+var NoulAnswer = Schema59.Struct({
   noul: Unit,
-  type: Schema58.Literal("noul")
+  type: Schema59.Literal("noul")
 });
-var Evaluation = Schema58.Struct({
-  answers: Schema58.Struct({
-    decision: Schema58.Union([ChoiceAnswer, NoulAnswer])
+var Evaluation = Schema59.Struct({
+  answers: Schema59.Struct({
+    decision: Schema59.Union([ChoiceAnswer, NoulAnswer])
   }),
-  usage: Schema58.Struct({
-    input_tokens: Schema58.Int,
-    output_tokens: Schema58.Int
+  usage: Schema59.Struct({
+    input_tokens: Schema59.Int,
+    output_tokens: Schema59.Int
   })
 });
 var SUM_SLACK = 0.02;
@@ -63260,8 +63301,8 @@ var answerProblem = (answer2, options2) => {
 };
 var probabilitiesOf = (answer2) => answer2.type === "noul" ? { no: 1 - answer2.noul, yes: answer2.noul } : answer2.probabilities;
 var RETRYABLE = /* @__PURE__ */ new Set([429, 529]);
-var Busy = class extends Schema58.TaggedError()("Busy", {
-  status: Schema58.Int
+var Busy = class extends Schema59.TaggedError()("Busy", {
+  status: Schema59.Int
 }) {
 };
 var advice = (status) => {
@@ -63301,7 +63342,7 @@ var jevJudge = ({ apiKey, patience = JEV_PATIENCE, retryBase = "500 millis", url
         schedule: Schedule2.exponential(retryBase),
         times: 4,
         while: Predicate6.isTagged("Busy")
-      }), Effect41.catchTag("Busy", ({ status }) => Effect41.fail(unavailable2("busy", status))), Effect41.flatMap((response) => response.status === 200 ? response.json.pipe(Effect41.mapError(() => failed3("TypeSafe's answer was not JSON. Resume the run"))) : Effect41.fail(refusal3(response.status))), Effect41.flatMap((body) => Schema58.decodeUnknownEffect(Evaluation)(body).pipe(Effect41.mapError(() => failed3("TypeSafe's answer did not hold one Choice or Noul. Resume the run; if it repeats, the API has changed")))), Effect41.flatMap(({ answers, usage }) => {
+      }), Effect41.catchTag("Busy", ({ status }) => Effect41.fail(unavailable2("busy", status))), Effect41.flatMap((response) => response.status === 200 ? response.json.pipe(Effect41.mapError(() => failed3("TypeSafe's answer was not JSON. Resume the run"))) : Effect41.fail(refusal3(response.status))), Effect41.flatMap((body) => Schema59.decodeUnknownEffect(Evaluation)(body).pipe(Effect41.mapError(() => failed3("TypeSafe's answer did not hold one Choice or Noul. Resume the run; if it repeats, the API has changed")))), Effect41.flatMap(({ answers, usage }) => {
         const problem = answerProblem(answers.decision, options2);
         return problem === void 0 ? Effect41.succeed({
           probabilities: probabilitiesOf(answers.decision),
@@ -63314,10 +63355,10 @@ var jevJudge = ({ apiKey, patience = JEV_PATIENCE, retryBase = "500 millis", url
 
 // ../../packages/thinking/dist/pi-thinker.js
 init_models();
-import { Clock as Clock6, Deferred as Deferred3, Effect as Effect42, Layer as Layer22, Option as Option22, Ref as Ref3, Schema as Schema60, Semaphore as Semaphore4 } from "effect";
+import { Clock as Clock6, Deferred as Deferred3, Effect as Effect42, Layer as Layer22, Option as Option22, Ref as Ref3, Schema as Schema61, Semaphore as Semaphore4 } from "effect";
 
 // ../../packages/thinking/dist/provider-status.js
-import { Option as Option21, Schema as Schema59 } from "effect";
+import { Option as Option21, Schema as Schema60 } from "effect";
 var HOLD = /* @__PURE__ */ new Set([408, 429, 502, 503]);
 var RETRY_THEN_HOLD = /* @__PURE__ */ new Set([500, 507, 520]);
 var SERVER_ERROR = 500;
@@ -63340,15 +63381,15 @@ var verdictOf2 = (status, transient) => {
 };
 var TIMEOUT = 408;
 var TOO_MANY_REQUESTS = 429;
-var CooldownBody = Schema59.Struct({
-  code: Schema59.Literal("model_cooldown"),
-  reset_seconds: Schema59.Finite.check(Schema59.isGreaterThanOrEqualTo(0))
+var CooldownBody = Schema60.Struct({
+  code: Schema60.Literal("model_cooldown"),
+  reset_seconds: Schema60.Finite.check(Schema60.isGreaterThanOrEqualTo(0))
 });
-var Cooldown = Schema59.Union([
+var Cooldown = Schema60.Union([
   CooldownBody,
-  Schema59.Struct({ error: CooldownBody })
+  Schema60.Struct({ error: CooldownBody })
 ]);
-var decodeCooldown = Schema59.decodeUnknownOption(Schema59.fromJsonString(Cooldown));
+var decodeCooldown = Schema60.decodeUnknownOption(Schema60.fromJsonString(Cooldown));
 var RETRY_AFTER = /["']?retry-after["']?\s*[:=]\s*["']?(?<value>[^\r\n"}]+)/iu;
 var retryHeaderAt = (header, now2) => /^\d+(?:\.\d+)?$/u.test(header) ? now2 + Number(header) * 1e3 : Date.parse(header);
 var retryAfterOf = (message, status, now2) => {
@@ -63437,9 +63478,9 @@ var parkedFor = (parked, conversationId) => {
   parked.set(conversationId, signal);
   return signal;
 };
-var DecisionSchema = Schema60.fromJsonString(Schema60.Struct({
-  choice: Schema60.String,
-  confidence: Schema60.Finite.check(Schema60.isBetween({ maximum: 1, minimum: 0 }))
+var DecisionSchema = Schema61.fromJsonString(Schema61.Struct({
+  choice: Schema61.String,
+  confidence: Schema61.Finite.check(Schema61.isBetween({ maximum: 1, minimum: 0 }))
 }));
 var pi = (call, operation, run2) => Effect42.tryPromise({
   catch: (cause) => new StepFailed({
@@ -63673,7 +63714,7 @@ var thinkerOf = (options2) => Layer22.effect(Thinker, Effect42.gen(function* mak
     decide: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), `${call.question}
 
 Answer with one JSON object and nothing else: {"choice": <one of ${JSON.stringify(call.options)}>, "confidence": <0 to 1>}.`, harnessFor(call)).pipe(Effect42.map(({ receipt, text, tokens, usd }) => ({
-      decision: Schema60.decodeUnknownOption(DecisionSchema)(text.trim()).pipe(Option22.filter(({ choice }) => call.options.includes(choice))),
+      decision: Schema61.decodeUnknownOption(DecisionSchema)(text.trim()).pipe(Option22.filter(({ choice }) => call.options.includes(choice))),
       usage: { receipt, tokens, usd }
     }))),
     elaborate: (call) => Effect42.fail(new StepFailed({
@@ -63691,14 +63732,14 @@ var piThinker = (options2) => Layer22.merge(thinkerOf(options2), Layer22.succeed
 
 // src/plan-run-object.ts
 import { DurableObject as DurableObject2 } from "cloudflare:workers";
-import { Clock as Clock10, Effect as Effect56, Layer as Layer29, Option as Option39, Redacted as Redacted3, Schema as Schema78 } from "effect";
+import { Clock as Clock10, Effect as Effect57, Layer as Layer29, Option as Option40, Redacted as Redacted3, Schema as Schema80 } from "effect";
 import { FetchHttpClient as FetchHttpClient2 } from "effect/http";
 
 // src/abort-notices.ts
 import { Effect as Effect44, Option as Option24 } from "effect";
 
 // src/postbox-mail.ts
-import { Effect as Effect43, Layer as Layer23, Option as Option23, Schema as Schema61 } from "effect";
+import { Effect as Effect43, Layer as Layer23, Option as Option23, Schema as Schema62 } from "effect";
 var OBJECT = "CREATE TABLE IF NOT EXISTS mischief_object (id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL)";
 var OBJECT_HEADER = "x-mischief-object";
 var rememberObject = (storage, name) => {
@@ -63710,13 +63751,13 @@ var rememberObject = (storage, name) => {
     );
   }
 };
-var ObjectRow = Schema61.Struct({ name: Schema61.String });
+var ObjectRow = Schema62.Struct({ name: Schema62.String });
 var objectOf = (storage) => {
   storage.sql.exec(OBJECT);
   return Option23.fromNullishOr(
     storage.sql.exec("SELECT name FROM mischief_object WHERE id = 1").toArray()[0]
   ).pipe(
-    Option23.flatMap(Schema61.decodeUnknownOption(ObjectRow)),
+    Option23.flatMap(Schema62.decodeUnknownOption(ObjectRow)),
     Option23.map(({ name }) => name)
   );
 };
@@ -63732,10 +63773,10 @@ var settled = (key, call) => Effect43.tryPromise({
   )
 );
 var SHADOW2 = "shadow/";
-var OutboxEnvelope = Schema61.fromJsonString(
-  Schema61.Struct({ message: Schema61.String, to: Schema61.String })
+var OutboxEnvelope = Schema62.fromJsonString(
+  Schema62.Struct({ message: Schema62.String, to: Schema62.String })
 );
-var recordOnly = (envelope) => Option23.isSome(Schema61.decodeUnknownOption(OutboxEnvelope)(envelope));
+var recordOnly = (envelope) => Option23.isSome(Schema62.decodeUnknownOption(OutboxEnvelope)(envelope));
 var postboxMail = (storage, postbox2) => Layer23.effect(
   Mail,
   Effect43.gen(function* routedMail() {
@@ -63787,20 +63828,20 @@ var abortNotices = (storage, postbox2) => (runId2, reason) => Option24.match(obj
 });
 
 // src/escalation.ts
-import { Effect as Effect45, Option as Option25, Schema as Schema62 } from "effect";
+import { Effect as Effect45, Option as Option25, Schema as Schema63 } from "effect";
 var TARGET = "CREATE TABLE IF NOT EXISTS mischief_escalate_to (id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL)";
 var SEALED = "CREATE TABLE IF NOT EXISTS mischief_escalations (notice TEXT PRIMARY KEY, envelope TEXT NOT NULL, message_id TEXT NOT NULL)";
 var HOST_DEFAULT = "";
-var SubmitEscalation = Schema62.Struct({
-  escalateTo: Schema62.optionalKey(EscalateToSchema)
+var SubmitEscalation = Schema63.Struct({
+  escalateTo: Schema63.optionalKey(EscalateToSchema)
 });
-var decodeSubmit2 = Schema62.decodeUnknownOption(
-  Schema62.fromJsonString(SubmitEscalation)
+var decodeSubmit2 = Schema63.decodeUnknownOption(
+  Schema63.fromJsonString(SubmitEscalation)
 );
-var TargetRow = Schema62.Struct({ name: Schema62.String });
-var SealedRow = Schema62.Struct({
-  envelope: Schema62.String,
-  message_id: Schema62.String
+var TargetRow = Schema63.Struct({ name: Schema63.String });
+var SealedRow = Schema63.Struct({
+  envelope: Schema63.String,
+  message_id: Schema63.String
 });
 var fixEscalationAtFirstSubmit = (storage, body) => {
   storage.sql.exec(TARGET);
@@ -63829,12 +63870,12 @@ var escalationTargetOf = (storage) => {
   return Option25.fromNullishOr(
     storage.sql.exec("SELECT name FROM mischief_escalate_to WHERE id = 1").toArray()[0]
   ).pipe(
-    Option25.flatMap(Schema62.decodeUnknownOption(TargetRow)),
+    Option25.flatMap(Schema63.decodeUnknownOption(TargetRow)),
     Option25.map(({ name }) => name),
     Option25.filter((name) => name !== HOST_DEFAULT)
   );
 };
-var isText5 = Schema62.is(Schema62.String);
+var isText5 = Schema63.is(Schema63.String);
 var meaningOf = (criterion) => isText5(criterion) ? criterion : JSON.stringify(criterion);
 var escalationText = (runId2, { criteria, key, options: options2, question, reason }) => [
   `Mischief run ${runId2} is waiting on a judge that could not decide at state ${key}: ${question}`,
@@ -63869,7 +63910,7 @@ var holdAlarmTargets = (text) => [
   ...new Set(
     (text ?? "").split(",").map((name) => name.trim()).filter((name) => name !== "")
   )
-].map((name) => Schema62.decodeUnknownSync(EscalateToSchema)(name));
+].map((name) => Schema63.decodeUnknownSync(EscalateToSchema)(name));
 var heldText = (runId2, { cause, key, provider: provider2, resumeAfter: resumeAfter2, since, status }) => [
   `Mischief run ${runId2} is held at state ${key}: its model provider ${provider2} is unavailable (${cause}${status === null ? "" : `, HTTP ${status}`}). The run is waiting-for-provider, not failed.`,
   "",
@@ -63893,7 +63934,7 @@ var sealedFor = (storage, notice) => Option25.fromNullishOr(
     "SELECT envelope, message_id FROM mischief_escalations WHERE notice = ?",
     notice
   ).toArray()[0]
-).pipe(Option25.flatMap(Schema62.decodeUnknownOption(SealedRow)));
+).pipe(Option25.flatMap(Schema63.decodeUnknownOption(SealedRow)));
 var posted = (call) => Effect45.tryPromise({
   catch: (cause) => `the Postbox did not answer: ${String(cause)}`,
   try: call
@@ -63980,17 +64021,17 @@ var escalate = (ports) => (runId2, notice, text) => {
 };
 
 // src/judge-choice.ts
-import { Effect as Effect46, Layer as Layer24, Option as Option26, Schema as Schema63 } from "effect";
+import { Effect as Effect46, Layer as Layer24, Option as Option26, Schema as Schema64 } from "effect";
 var CHOICE = "CREATE TABLE IF NOT EXISTS mischief_judge (id INTEGER PRIMARY KEY CHECK (id = 1), mode TEXT NOT NULL)";
 var HOST_DEFAULT2 = "default";
-var SubmitJudge = Schema63.Struct({
-  judge: Schema63.optionalKey(JudgeModeSchema)
+var SubmitJudge = Schema64.Struct({
+  judge: Schema64.optionalKey(JudgeModeSchema)
 });
-var decodeSubmit3 = Schema63.decodeUnknownOption(
-  Schema63.fromJsonString(SubmitJudge)
+var decodeSubmit3 = Schema64.decodeUnknownOption(
+  Schema64.fromJsonString(SubmitJudge)
 );
-var ChoiceRow = Schema63.Struct({ mode: Schema63.String });
-var decodeMode = Schema63.decodeUnknownOption(JudgeModeSchema);
+var ChoiceRow = Schema64.Struct({ mode: Schema64.String });
+var decodeMode = Schema64.decodeUnknownOption(JudgeModeSchema);
 var fixJudgeAtFirstSubmit = (storage, body) => {
   storage.sql.exec(CHOICE);
   const mode = decodeSubmit3(body).pipe(
@@ -64018,7 +64059,7 @@ var judgeModeOf = (storage) => {
   return Option26.fromNullishOr(
     storage.sql.exec("SELECT mode FROM mischief_judge WHERE id = 1").toArray()[0]
   ).pipe(
-    Option26.flatMap(Schema63.decodeUnknownOption(ChoiceRow)),
+    Option26.flatMap(Schema64.decodeUnknownOption(ChoiceRow)),
     Option26.flatMap(({ mode }) => decodeMode(mode))
   );
 };
@@ -73194,7 +73235,7 @@ function resolveRefUris(obj, baseUri) {
 }
 
 // ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+9dbd61b5_48910ba0880a1f0e1711a026bc6eafdf/node_modules/@rat-king/mailbox-client/index.js
-import { Schema as Schema64, SchemaGetter } from "effect";
+import { Schema as Schema65, SchemaGetter } from "effect";
 import { Effect as Effect52, Schema as Schema72 } from "effect";
 
 // ../../node_modules/.pnpm/cborg@6.1.3/node_modules/cborg/lib/is.js
@@ -76167,7 +76208,7 @@ import { Effect as Effect47, Schema as Schema510 } from "effect";
 import { Schema as Schema410 } from "effect";
 import { Effect as Effect310 } from "effect";
 import { Effect as Effect210 } from "effect";
-import { Effect as Effect48, Schema as Schema65 } from "effect";
+import { Effect as Effect48, Schema as Schema66 } from "effect";
 import { Schema as Schema82 } from "effect";
 import { Context as Context25, Effect as Effect102, Layer as Layer25, Result as Result9, Schema as Schema262 } from "effect";
 import { Effect as Effect62, Schema as Schema112 } from "effect";
@@ -76261,67 +76302,67 @@ import { Effect as Effect322, Schema as Schema532 } from "effect";
 import { Array as Arr, Schema as Schema552 } from "effect";
 import { Schema as Schema542 } from "effect";
 import { Effect as Effect332, Option as Option52, Schema as Schema562 } from "effect";
-var Cid = Schema64.declare(
+var Cid = Schema65.declare(
   (value) => isCid(value, { flavor: "dasl" })
 );
-var CidText = Schema64.String.check(
-  Schema64.makeFilter(
+var CidText = Schema65.String.check(
+  Schema65.makeFilter(
     (value) => parseCidSafe(value, { flavor: "dasl" }) !== null,
     { expected: "CIDv1, raw or DAG-CBOR, SHA-256" }
   )
 );
-var Link = Schema64.StructWithRest(Schema64.Struct({ $link: CidText }), [
-  Schema64.Record(Schema64.String, Schema64.String)
+var Link = Schema65.StructWithRest(Schema65.Struct({ $link: CidText }), [
+  Schema65.Record(Schema65.String, Schema65.String)
 ]).check(
-  Schema64.makeFilter((value) => Object.keys(value).length === 1, {
+  Schema65.makeFilter((value) => Object.keys(value).length === 1, {
     expected: "one link wrapper key"
   })
 ).pipe(
-  Schema64.decodeTo(Cid, {
+  Schema65.decodeTo(Cid, {
     decode: SchemaGetter.transform(
       (value) => parseCid(value.$link, { flavor: "dasl" })
     ),
     encode: SchemaGetter.transform((value) => ({ $link: value.toString() }))
   })
 );
-var Bytes2 = Schema64.StructWithRest(
-  Schema64.Struct({ $bytes: Schema64.String }),
-  [Schema64.Record(Schema64.String, Schema64.String)]
+var Bytes2 = Schema65.StructWithRest(
+  Schema65.Struct({ $bytes: Schema65.String }),
+  [Schema65.Record(Schema65.String, Schema65.String)]
 ).check(
-  Schema64.makeFilter((value) => Object.keys(value).length === 1, {
+  Schema65.makeFilter((value) => Object.keys(value).length === 1, {
     expected: "one byte wrapper key"
   })
-).pipe(Schema64.decodeTo(Schema64.Struct({ $bytes: Schema64.Uint8ArrayFromBase64 }))).pipe(
-  Schema64.decodeTo(Schema64.Uint8Array, {
+).pipe(Schema65.decodeTo(Schema65.Struct({ $bytes: Schema65.Uint8ArrayFromBase64 }))).pipe(
+  Schema65.decodeTo(Schema65.Uint8Array, {
     decode: SchemaGetter.transform((value) => value.$bytes),
     encode: SchemaGetter.transform((value) => ({ $bytes: value }))
   })
 );
-var Data9 = Schema64.suspend(
-  () => Schema64.Union([
-    Schema64.Null,
-    Schema64.Boolean,
-    Schema64.Int,
-    Schema64.String,
+var Data9 = Schema65.suspend(
+  () => Schema65.Union([
+    Schema65.Null,
+    Schema65.Boolean,
+    Schema65.Int,
+    Schema65.String,
     Bytes2,
     Link,
-    Schema64.Array(Data9),
-    Schema64.Record(Schema64.String, Data9).check(
-      Schema64.makeFilter(
+    Schema65.Array(Data9),
+    Schema65.Record(Schema65.String, Data9).check(
+      Schema65.makeFilter(
         (value) => !("$bytes" in value) && !("$link" in value),
         { expected: "data map, not a malformed byte or link wrapper" }
       )
     )
   ])
 );
-var DataMap = Schema64.Record(Schema64.String, Data9).check(
-  Schema64.makeFilter((value) => !("$bytes" in value) && !("$link" in value), {
+var DataMap = Schema65.Record(Schema65.String, Data9).check(
+  Schema65.makeFilter((value) => !("$bytes" in value) && !("$link" in value), {
     expected: "data-model map"
   })
 );
-var TaggedMap = Schema64.StructWithRest(
-  Schema64.Struct({ $type: Schema64.String }),
-  [Schema64.Record(Schema64.String, Data9)]
+var TaggedMap = Schema65.StructWithRest(
+  Schema65.Struct({ $type: Schema65.String }),
+  [Schema65.Record(Schema65.String, Data9)]
 );
 var lexString2 = (definition) => {
   const validators = new Lexicons([
@@ -76337,28 +76378,28 @@ var lexString2 = (definition) => {
       lexicon: 1
     }
   ]);
-  return Schema64.String.check(
-    Schema64.makeFilter(
+  return Schema65.String.check(
+    Schema65.makeFilter(
       (value) => validators.validate("sh.mschf.ratking.lexgen", { value }).success,
       { expected: "Lexicon string constraints" }
     )
   );
 };
-var Blob2 = Schema64.StructWithRest(
-  Schema64.Struct({
-    $type: Schema64.Literal("blob"),
-    mimeType: Schema64.String,
+var Blob2 = Schema65.StructWithRest(
+  Schema65.Struct({
+    $type: Schema65.Literal("blob"),
+    mimeType: Schema65.String,
     ref: Link,
-    size: Schema64.Int.check(Schema64.isGreaterThanOrEqualTo(0))
+    size: Schema65.Int.check(Schema65.isGreaterThanOrEqualTo(0))
   }),
-  [Schema64.Record(Schema64.String, Data9)]
+  [Schema65.Record(Schema65.String, Data9)]
 );
-var XrpcErrorBody = Schema64.StructWithRest(
-  Schema64.Struct({
-    error: Schema64.String,
-    message: Schema64.optionalKey(Schema64.String)
+var XrpcErrorBody = Schema65.StructWithRest(
+  Schema65.Struct({
+    error: Schema65.String,
+    message: Schema65.optionalKey(Schema65.String)
   }),
-  [Schema64.Record(Schema64.String, Data9)]
+  [Schema65.Record(Schema65.String, Data9)]
 );
 var Main = Schema210.StructWithRest(
   Schema210.Struct({
@@ -76967,8 +77008,8 @@ var CompatibleP256Kem = class extends DhkemP256HkdfSha256 {
   }
 };
 var decodeSigned = Effect48.fn("Envelope.decodeSigned")(function* decodeSigned2(signedBytes) {
-  const signed = yield* Schema65.decodeUnknownEffect(
-    Schema65.toType(SignedMessage)
+  const signed = yield* Schema66.decodeUnknownEffect(
+    Schema66.toType(SignedMessage)
   )(yield* canonicalDecode(signedBytes));
   const bytes22 = signed.canonicalSigningBytes;
   if (!equalBytes(bytes22.subarray(0, signatureDomain.length), signatureDomain)) {
@@ -76976,8 +77017,8 @@ var decodeSigned = Effect48.fn("Envelope.decodeSigned")(function* decodeSigned2(
       new EnvelopeFailure({ reason: "Wrong signature domain" })
     );
   }
-  const payload = yield* Schema65.decodeUnknownEffect(
-    Schema65.toType(SigningPayload)
+  const payload = yield* Schema66.decodeUnknownEffect(
+    Schema66.toType(SigningPayload)
   )(yield* canonicalDecode(bytes22.subarray(signatureDomain.length)));
   return { bytes: bytes22, payload, signed };
 });
@@ -81617,14 +81658,55 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
 
 // src/postbox-object.ts
 import { DurableObject } from "cloudflare:workers";
-import { Clock as Clock9, Effect as Effect55, Exit as Exit5, Layer as Layer28, Option as Option38, Schema as Schema77, Scope as Scope2 } from "effect";
+import { Clock as Clock9, Effect as Effect56, Exit as Exit5, Layer as Layer28, Option as Option39, Schema as Schema79, Scope as Scope2 } from "effect";
 import { FetchHttpClient } from "effect/http";
 
+// src/decode-delivery.ts
+import { Effect as Effect49, Option as Option29, Predicate as Predicate8, Schema as Schema69 } from "effect";
+
+// src/postbox-failed.ts
+import { Schema as Schema67 } from "effect";
+var PostboxFailed = class extends Schema67.TaggedError()(
+  "PostboxFailed",
+  { reason: Schema67.String }
+) {
+};
+
+// src/runs-port.ts
+import { Context as Context27, Schema as Schema68 } from "effect";
+var Delivered = Schema68.TaggedUnion({
+  AlreadyJournaled: {},
+  Journaled: {},
+  Refused: { reason: Schema68.String }
+});
+var Runs3 = class extends Context27.Service()("@mischief/worker/Runs") {
+};
+
+// src/decode-delivery.ts
+var Outcome = Schema69.fromJsonString(
+  Schema69.Union([AlreadyJournaled, ReplyRefused])
+);
+var decodeDelivery = (objectName, status, body) => {
+  if (status === 200) {
+    return Effect49.succeed(Delivered.cases.Journaled.make({}));
+  }
+  return Option29.match(Schema69.decodeUnknownOption(Outcome)(body), {
+    onNone: () => Effect49.fail(
+      new PostboxFailed({
+        reason: `run ${objectName} answered HTTP ${status}`
+      })
+    ),
+    onSome: (outcome) => Effect49.succeed(
+      Predicate8.isTagged(outcome, "AlreadyJournaled") ? Delivered.cases.AlreadyJournaled.make({}) : Delivered.cases.Refused.make({ reason: outcome.reason })
+    )
+  });
+};
+
 // src/mailroom.ts
-import { Clock as Clock8, Effect as Effect51, Layer as Layer27, Option as Option33, Predicate as Predicate8, Schema as Schema73 } from "effect";
+import { Clock as Clock8, Effect as Effect53, Layer as Layer27, Option as Option34, Predicate as Predicate9, Schema as Schema75 } from "effect";
 
 // src/fleet-names.ts
-import { Option as Option29, Schema as Schema66 } from "effect";
+import { Option as Option30, Schema as Schema70 } from "effect";
 var FLEET_TEMPLATE = "did:web:{agent}.pi.ratking-fleet.invalid";
 var RESERVED = {
   "claude-bridge-owner": {
@@ -81655,69 +81737,61 @@ var RESERVED = {
   }
 };
 var reserved = Object.entries(RESERVED);
-var isName = Schema66.is(AgentName);
+var isName = Schema70.is(AgentName);
 var canonicalName = (name) => reserved.find(([, entry3]) => entry3.aliases?.includes(name) === true)?.[0] ?? name;
 var didFor = (name) => {
   if (!isName(name)) {
-    return Option29.none();
+    return Option30.none();
   }
-  return Option29.some(
+  return Option30.some(
     reserved.find(([key]) => key === canonicalName(name))?.[1].did ?? FLEET_TEMPLATE.replace("{agent}", name.replace("/", "."))
   );
 };
 var nameFor = (did2) => {
   const fixed = reserved.find(([, entry3]) => entry3.did === did2);
   if (fixed !== void 0) {
-    return Option29.some(fixed[0]);
+    return Option30.some(fixed[0]);
   }
   const [prefix = "", suffix = ""] = FLEET_TEMPLATE.split("{agent}");
   if (!did2.startsWith(prefix) || !did2.endsWith(suffix) || did2.length <= prefix.length + suffix.length) {
-    return Option29.none();
+    return Option30.none();
   }
   const name = did2.slice(prefix.length, did2.length - suffix.length).replace(".", "/");
-  return Option29.filter(
-    Option29.some(name),
-    (candidate) => Option29.contains(didFor(candidate), did2)
+  return Option30.filter(
+    Option30.some(name),
+    (candidate) => Option30.contains(didFor(candidate), did2)
   );
 };
 
 // src/mailroom-port.ts
-import { Context as Context27, Schema as Schema67 } from "effect";
-var SendVerdict = Schema67.TaggedUnion({
+import { Context as Context28, Schema as Schema71 } from "effect";
+var SendVerdict = Schema71.TaggedUnion({
   Accepted: {},
   Conflict: {},
-  Refused: { reason: Schema67.String },
-  Uncertain: { reason: Schema67.String }
+  Refused: { reason: Schema71.String },
+  Uncertain: { reason: Schema71.String }
 });
-var Mailroom = class extends Context27.Service()("@mischief/worker/Mailroom") {
-};
-
-// src/postbox-failed.ts
-import { Schema as Schema68 } from "effect";
-var PostboxFailed = class extends Schema68.TaggedError()(
-  "PostboxFailed",
-  { reason: Schema68.String }
-) {
+var Mailroom = class extends Context28.Service()("@mischief/worker/Mailroom") {
 };
 
 // src/postbox.ts
-import { Duration as Duration5, Effect as Effect50, Option as Option31, Schedule as Schedule4, Schema as Schema71 } from "effect";
+import { Duration as Duration5, Effect as Effect51, Option as Option33, Schedule as Schedule4, Schema as Schema74 } from "effect";
 
 // src/postbox-aborts.ts
-import { Effect as Effect49, Option as Option30, Schema as Schema69, Semaphore as Semaphore5 } from "effect";
-var Column = Schema69.Struct({ name: Schema69.String });
-var Pending = Schema69.Struct({
-  envelope: Schema69.NullOr(Schema69.String),
-  message_id: Schema69.String,
-  reason: Schema69.String,
-  run_id: Schema69.String,
-  sender: Schema69.String
+import { Effect as Effect50, Option as Option31, Schema as Schema73, Semaphore as Semaphore5 } from "effect";
+var Column = Schema73.Struct({ name: Schema73.String });
+var Pending = Schema73.Struct({
+  envelope: Schema73.NullOr(Schema73.String),
+  message_id: Schema73.String,
+  reason: Schema73.String,
+  run_id: Schema73.String,
+  sender: Schema73.String
 });
 var abortReplyText = (runId2, messageId, reason) => `Your reply ${messageId} reached Mischief run ${runId2}. The run was aborted before it finished: ${reason}. Nothing your reply fed carried forward. Resend it as a reply to the next wake's ask, or contact the run's owner. SR \u{1F400}`;
 var postboxAborts = (storage, send2) => {
   const columns = new Set(
     storage.sql.exec("PRAGMA table_info(postbox_delivered)").toArray().flatMap(
-      (row2) => Option30.toArray(Schema69.decodeUnknownOption(Column)(row2)).map(
+      (row2) => Option31.toArray(Schema73.decodeUnknownOption(Column)(row2)).map(
         ({ name }) => name
       )
     )
@@ -81741,7 +81815,7 @@ var postboxAborts = (storage, send2) => {
     "CREATE TABLE IF NOT EXISTS postbox_aborted (run_id TEXT PRIMARY KEY, reason TEXT NOT NULL)"
   );
   const sending = Semaphore5.makeUnsafe(1);
-  const flush = Effect49.gen(function* flushAbortNotices() {
+  const flush = Effect50.gen(function* flushAbortNotices() {
     let after = "";
     while (true) {
       const [raw] = storage.sql.exec(
@@ -81751,8 +81825,8 @@ var postboxAborts = (storage, send2) => {
       if (raw === void 0) {
         break;
       }
-      const row2 = yield* Schema69.decodeUnknownEffect(Pending)(raw).pipe(
-        Effect49.orDie
+      const row2 = yield* Schema73.decodeUnknownEffect(Pending)(raw).pipe(
+        Effect50.orDie
       );
       after = row2.message_id;
       let { envelope } = row2;
@@ -81786,19 +81860,10 @@ var postboxAborts = (storage, send2) => {
       reason
     );
   };
-  const abort = (runId2, reason) => Effect49.sync(() => {
+  const abort = (runId2, reason) => Effect50.sync(() => {
     markAborted(runId2, reason);
-  }).pipe(Effect49.andThen(flush));
+  }).pipe(Effect50.andThen(flush));
   return { abort, flush, markAborted };
-};
-
-// src/runs-port.ts
-import { Context as Context28, Schema as Schema70 } from "effect";
-var Delivered = Schema70.TaggedUnion({
-  Journaled: {},
-  Refused: { reason: Schema70.String }
-});
-var Runs3 = class extends Context28.Service()("@mischief/worker/Runs") {
 };
 
 // src/postbox.ts
@@ -81811,22 +81876,22 @@ var DELIVERED = "CREATE TABLE IF NOT EXISTS postbox_delivered (message_id TEXT P
 var CURSOR = "CREATE TABLE IF NOT EXISTS postbox_cursor (id INTEGER PRIMARY KEY CHECK (id = 1), seq INTEGER NOT NULL)";
 var OWN_NAME = "mischief/worker";
 var DESK = "pi-durable/desk";
-var RunRow = Schema71.Struct({ run_id: Schema71.String });
-var SeqRow = Schema71.Struct({ seq: Schema71.Number });
-var Addressed = Schema71.fromJsonString(Schema71.Struct({ to: Schema71.String }));
-var addressedElsewhere = (body) => Option31.exists(
-  Schema71.decodeUnknownOption(Addressed)(body),
+var RunRow = Schema74.Struct({ run_id: Schema74.String });
+var SeqRow = Schema74.Struct({ seq: Schema74.Number });
+var Addressed = Schema74.fromJsonString(Schema74.Struct({ to: Schema74.String }));
+var addressedElsewhere = (body) => Option33.exists(
+  Schema74.decodeUnknownOption(Addressed)(body),
   ({ to }) => to !== OWN_NAME
 );
 var settle3 = (verdict) => SendVerdict.match(verdict, {
-  Accepted: () => Effect50.void,
-  Conflict: () => Effect50.void,
-  Refused: ({ reason }) => Effect50.fail(
+  Accepted: () => Effect51.void,
+  Conflict: () => Effect51.void,
+  Refused: ({ reason }) => Effect51.fail(
     new PostboxFailed({
       reason: `the mailbox refused the message: ${reason}`
     })
   ),
-  Uncertain: ({ reason }) => Effect50.fail(
+  Uncertain: ({ reason }) => Effect51.fail(
     new PostboxFailed({
       reason: `the mailbox did not confirm the message: ${reason}`
     })
@@ -81835,7 +81900,7 @@ var settle3 = (verdict) => SendVerdict.match(verdict, {
 var UNCONFIRMED_WINDOW = "2 minutes";
 var UNCONFIRMED_RETRY = Schedule4.exponential("1 second").pipe(
   Schedule4.modifyDelay(
-    ({ duration }) => Effect50.succeed(Duration5.min(duration, Duration5.seconds(10)))
+    ({ duration }) => Effect51.succeed(Duration5.min(duration, Duration5.seconds(10)))
   ),
   Schedule4.upTo({ duration: UNCONFIRMED_WINDOW })
 );
@@ -81849,16 +81914,16 @@ var postbox = (storage) => {
     "SELECT message_id FROM postbox_delivered WHERE message_id = ?",
     messageId
   ).toArray().length > 0;
-  const runOf = (messageId) => Option31.fromNullishOr(
+  const runOf = (messageId) => Option33.fromNullishOr(
     storage.sql.exec(
       "SELECT run_id FROM postbox_threads WHERE message_id = ?",
       messageId
     ).toArray()[0]
   ).pipe(
-    Option31.flatMap(Schema71.decodeUnknownOption(RunRow)),
-    Option31.map(({ run_id }) => run_id)
+    Option33.flatMap(Schema74.decodeUnknownOption(RunRow)),
+    Option33.map(({ run_id }) => run_id)
   );
-  const park = (message, sender, reason, quiet = false) => Effect50.gen(function* parkMessage() {
+  const park = (message, sender, reason, quiet = false) => Effect51.gen(function* parkMessage() {
     const fresh = storage.sql.exec(
       "INSERT INTO postbox_parked (message_id, sender, reason, body) VALUES (?, ?, ?, ?) ON CONFLICT (message_id) DO NOTHING RETURNING message_id",
       message.messageId,
@@ -81877,8 +81942,8 @@ ${message.body}`
       );
     }
   });
-  const prompt = (message, sender) => Effect50.gen(function* promptSender() {
-    const asks = [...new Set(message.body.match(MENTIONED_IDS))].filter((id) => id !== message.messageId && Option31.isSome(runOf(id))).slice(0, PROMPTS_PER_MESSAGE);
+  const prompt = (message, sender) => Effect51.gen(function* promptSender() {
+    const asks = [...new Set(message.body.match(MENTIONED_IDS))].filter((id) => id !== message.messageId && Option33.isSome(runOf(id))).slice(0, PROMPTS_PER_MESSAGE);
     const fresh = asks.filter(
       (askId) => storage.sql.exec(
         "INSERT INTO postbox_prompted (ask_id, sender) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING ask_id",
@@ -81886,7 +81951,7 @@ ${message.body}`
         sender
       ).toArray().length > 0
     );
-    yield* Effect50.forEach(
+    yield* Effect51.forEach(
       fresh,
       (askId) => Mailroom.use(
         (mailroom) => mailroom.tell(
@@ -81904,8 +81969,8 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
     return fresh;
   });
   const seal5 = (runId2, to, body) => Mailroom.use((mailroom) => mailroom.seal(to, body)).pipe(
-    Effect50.tap(
-      ({ messageId }) => Effect50.sync(() => {
+    Effect51.tap(
+      ({ messageId }) => Effect51.sync(() => {
         storage.sql.exec(
           "INSERT INTO postbox_threads (message_id, run_id) VALUES (?, ?) ON CONFLICT (message_id) DO NOTHING",
           messageId,
@@ -81915,29 +81980,29 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
     )
   );
   const send2 = (envelope) => Mailroom.use((mailroom) => mailroom.send(envelope)).pipe(
-    Effect50.flatMap(settle3),
-    Effect50.retry({
+    Effect51.flatMap(settle3),
+    Effect51.retry({
       schedule: UNCONFIRMED_RETRY,
       while: ({ reason }) => reason.startsWith("the mailbox did not confirm")
     })
   );
   const aborts = postboxAborts(storage, send2);
-  const receive = (message, seq) => Effect50.gen(function* receiveMessage() {
+  const receive = (message, seq) => Effect51.gen(function* receiveMessage() {
     const named2 = yield* Mailroom.use(
       (mailroom) => mailroom.nameOf(message.senderDid)
     );
-    const sender = Option31.getOrElse(named2, () => message.senderDid);
-    const runId2 = message.replyTo.pipe(Option31.flatMap(runOf));
+    const sender = Option33.getOrElse(named2, () => message.senderDid);
+    const runId2 = message.replyTo.pipe(Option33.flatMap(runOf));
     if (delivered(message.messageId)) {
       return;
     }
-    if (Option31.isNone(runId2)) {
-      const prompted = Option31.isSome(named2) ? yield* prompt(message, named2.value) : [];
+    if (Option33.isNone(runId2)) {
+      const prompted = Option33.isSome(named2) ? yield* prompt(message, named2.value) : [];
       const told = prompted.length === 0 ? "" : `; ${sender} was told how to reply to ${prompted.join(", ")}`;
       yield* park(
         message,
         sender,
-        Option31.match(message.replyTo, {
+        Option33.match(message.replyTo, {
           onNone: () => `it is not a reply to anything Mischief sent${told}`,
           onSome: (replyTo) => `it replies to ${replyTo}, which no Mischief run sent${told}`
         }),
@@ -81949,7 +82014,7 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
           body: message.body,
           from: sender,
           messageId: message.messageId,
-          replyTo: Option31.getOrElse(message.replyTo, () => "")
+          replyTo: Option33.getOrElse(message.replyTo, () => "")
         })
       );
       if (Delivered.guards.Refused(outcome)) {
@@ -81972,11 +82037,11 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
       seq
     );
   });
-  const cursor = () => Option31.fromNullishOr(
+  const cursor = () => Option33.fromNullishOr(
     storage.sql.exec("SELECT seq FROM postbox_cursor WHERE id = 1").toArray()[0]
   ).pipe(
-    Option31.flatMap(Schema71.decodeUnknownOption(SeqRow)),
-    Option31.match({ onNone: () => 0, onSome: ({ seq }) => seq })
+    Option33.flatMap(Schema74.decodeUnknownOption(SeqRow)),
+    Option33.match({ onNone: () => 0, onSome: ({ seq }) => seq })
   );
   return {
     abort: aborts.abort,
@@ -81991,10 +82056,10 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
 
 // src/mailroom.ts
 var failed2 = (reason) => new PostboxFailed({ reason });
-var StoredEnvelope = Schema73.fromJsonString(
-  Schema73.StructWithRest(
-    Schema73.Struct({ ciphertext: Schema73.String, enc: Schema73.String }),
-    [Schema73.Record(Schema73.String, Schema73.Json)]
+var StoredEnvelope = Schema75.fromJsonString(
+  Schema75.StructWithRest(
+    Schema75.Struct({ ciphertext: Schema75.String, enc: Schema75.String }),
+    [Schema75.Record(Schema75.String, Schema75.Json)]
   )
 );
 var encodeEnvelope = (envelope) => JSON.stringify({
@@ -82002,8 +82067,8 @@ var encodeEnvelope = (envelope) => JSON.stringify({
   ciphertext: base64url22(envelope.ciphertext),
   enc: base64url22(envelope.enc)
 });
-var decodeEnvelope = (text) => Schema73.decodeUnknownEffect(StoredEnvelope)(text).pipe(
-  Effect51.map((stored2) => {
+var decodeEnvelope = (text) => Schema75.decodeUnknownEffect(StoredEnvelope)(text).pipe(
+  Effect53.map((stored2) => {
     const restored = {
       ...stored2,
       ciphertext: unbase64url(stored2.ciphertext),
@@ -82011,20 +82076,20 @@ var decodeEnvelope = (text) => Schema73.decodeUnknownEffect(StoredEnvelope)(text
     };
     return restored;
   }),
-  Effect51.mapError(() => failed2("the stored envelope did not decode"))
+  Effect53.mapError(() => failed2("the stored envelope did not decode"))
 );
 var verdictOf3 = (outcome) => {
-  if (Predicate8.isTagged(outcome, "Accepted")) {
+  if (Predicate9.isTagged(outcome, "Accepted")) {
     return SendVerdict.cases.Accepted.make({});
   }
-  if (Predicate8.isTagged(outcome, "Rejected")) {
+  if (Predicate9.isTagged(outcome, "Rejected")) {
     const { error, reason, status } = outcome.error;
     if (status === 409 && error === "Conflict") {
       return SendVerdict.cases.Conflict.make({});
     }
     return error === "LeaseMismatch" ? SendVerdict.cases.Uncertain.make({ reason }) : SendVerdict.cases.Refused.make({ reason });
   }
-  if (Predicate8.isTagged(outcome, "Uncertain")) {
+  if (Predicate9.isTagged(outcome, "Uncertain")) {
     return SendVerdict.cases.Uncertain.make({ reason: outcome.error.reason });
   }
   return SendVerdict.cases.Refused.make({ reason: outcome.reason });
@@ -82032,20 +82097,20 @@ var verdictOf3 = (outcome) => {
 var inboundOf = (message) => ({
   body: message.body,
   messageId: message.tid,
-  replyTo: Option33.fromNullishOr(message.replyTo?.messageId),
+  replyTo: Option34.fromNullishOr(message.replyTo?.messageId),
   senderDid: message.senderDid
 });
-var openMailroom = (config) => Effect51.gen(function* openMailroomFor() {
-  const context = yield* Effect51.context();
+var openMailroom = (config) => Effect53.gen(function* openMailroomFor() {
+  const context = yield* Effect53.context();
   const own = yield* ownIdentity(config.identity).pipe(
-    Effect51.mapError((error) => failed2(error.reason))
+    Effect53.mapError((error) => failed2(error.reason))
   );
   const names3 = {};
   const known = /* @__PURE__ */ new Set();
   const fence = Clock8.currentTimeMillis.pipe(
-    Effect51.map(
-      (now2) => Option33.getOrUndefined(
-        Option33.map(
+    Effect53.map(
+      (now2) => Option34.getOrUndefined(
+        Option34.map(
           config.leases.held(now2),
           ({ did: did2, generation, leaseId }) => ({
             did: did2,
@@ -82063,64 +82128,64 @@ var openMailroom = (config) => Effect51.gen(function* openMailroomFor() {
     peers: [],
     serviceDid: config.serviceDid
   }).pipe(
-    Effect51.mapError((error) => failed2(error.reason)),
-    Effect51.provideContext(context)
+    Effect53.mapError((error) => failed2(error.reason)),
+    Effect53.provideContext(context)
   );
-  const peer = (to, did2) => known.has(did2) ? Effect51.void : prepared.refresh(did2).pipe(
-    Effect51.mapError(
+  const peer = (to, did2) => known.has(did2) ? Effect53.void : prepared.refresh(did2).pipe(
+    Effect53.mapError(
       (failure5) => failed2(
         failure5.status === 404 ? `${to} has no Rat King mailbox: no document is published for ${did2}. Use a registered desk name, such as pi-durable/desk` : `${to}'s document could not be fetched (${failure5.reason})`
       )
     ),
-    Effect51.tap(() => Effect51.sync(() => known.add(did2))),
-    Effect51.asVoid
+    Effect53.tap(() => Effect53.sync(() => known.add(did2))),
+    Effect53.asVoid
   );
-  const seal5 = (to, body) => Effect51.gen(function* sealFor() {
+  const seal5 = (to, body) => Effect53.gen(function* sealFor() {
     const name = canonicalName(to);
-    const did2 = yield* Option33.match(didFor(name), {
-      onNone: () => Effect51.fail(
+    const did2 = yield* Option34.match(didFor(name), {
+      onNone: () => Effect53.fail(
         failed2(
           `${to} is not a Rat King name. Names look like project/desk, such as pi-durable/desk`
         )
       ),
-      onSome: Effect51.succeed
+      onSome: Effect53.succeed
     });
     yield* peer(name, did2);
     names3[did2] = name;
-    const sealed = yield* prepared.sealPayload(did2, body).pipe(Effect51.mapError((error) => failed2(error.reason)));
+    const sealed = yield* prepared.sealPayload(did2, body).pipe(Effect53.mapError((error) => failed2(error.reason)));
     return {
       envelope: encodeEnvelope(sealed.envelope),
       messageId: sealed.messageId
     };
   });
   const send2 = (envelope) => decodeEnvelope(envelope).pipe(
-    Effect51.matchEffect({
-      onFailure: ({ reason }) => Effect51.succeed(SendVerdict.cases.Refused.make({ reason })),
+    Effect53.matchEffect({
+      onFailure: ({ reason }) => Effect53.succeed(SendVerdict.cases.Refused.make({ reason })),
       onSuccess: (decoded) => fence.pipe(
-        Effect51.flatMap((held) => prepared.sendSealed(decoded, held)),
-        Effect51.map(verdictOf3)
+        Effect53.flatMap((held) => prepared.sendSealed(decoded, held)),
+        Effect53.map(verdictOf3)
       )
     })
   );
   const tell = (to, summary, body) => seal5(to, `${summary}
 
 ${body}`).pipe(
-    Effect51.flatMap(({ envelope }) => send2(envelope)),
-    Effect51.tap(
-      (verdict) => SendVerdict.guards.Accepted(verdict) ? Effect51.void : Effect51.logWarning(`Postbox could not reach ${to}: ${summary}`)
+    Effect53.flatMap(({ envelope }) => send2(envelope)),
+    Effect53.tap(
+      (verdict) => SendVerdict.guards.Accepted(verdict) ? Effect53.void : Effect53.logWarning(`Postbox could not reach ${to}: ${summary}`)
     ),
-    Effect51.catchTag(
+    Effect53.catchTag(
       "PostboxFailed",
-      ({ reason }) => Effect51.logWarning(
+      ({ reason }) => Effect53.logWarning(
         `Postbox could not reach ${to} (${reason}): ${summary}`
       )
     ),
-    Effect51.asVoid
+    Effect53.asVoid
   );
   const layer2 = Layer27.succeed(
     Mailroom,
     Mailroom.of({
-      nameOf: (did2) => Effect51.succeed(nameFor(did2)),
+      nameOf: (did2) => Effect53.succeed(nameFor(did2)),
       seal: seal5,
       send: send2,
       surface: (summary, body) => tell(DESK, summary, body),
@@ -82128,14 +82193,14 @@ ${body}`).pipe(
     })
   );
   const consume4 = (handler, afterSeq) => fence.pipe(
-    Effect51.flatMap((resume) => {
+    Effect53.flatMap((resume) => {
       const options2 = {
         afterSeq,
         harness: {
           $type: "sh.mschf.ratking.runtime.lease#other",
           kind: "mischief-postbox"
         },
-        onLease: (lease) => Effect51.sync(() => {
+        onLease: (lease) => Effect53.sync(() => {
           config.leases.save({
             did: config.identity.did,
             expiresAt: Date.parse(lease.expiresAt),
@@ -82143,17 +82208,17 @@ ${body}`).pipe(
             leaseId: lease.leaseId
           });
         }),
-        onSkip: ({ reason, seq }) => Effect51.logWarning(`Postbox skipped message ${seq}: ${reason}`),
+        onSkip: ({ reason, seq }) => Effect53.logWarning(`Postbox skipped message ${seq}: ${reason}`),
         unopenable: (event) => prepared.refresh(event.envelope.aad.senderDid).pipe(
-          Effect51.tap(
-            () => Effect51.sync(() => known.add(event.envelope.aad.senderDid))
+          Effect53.tap(
+            () => Effect53.sync(() => known.add(event.envelope.aad.senderDid))
           ),
-          Effect51.flatMap(() => prepared.open(event.envelope)),
-          Effect51.matchEffect({
-            onFailure: (failure5) => Effect51.logWarning(
+          Effect53.flatMap(() => prepared.open(event.envelope)),
+          Effect53.matchEffect({
+            onFailure: (failure5) => Effect53.logWarning(
               `Postbox could not open message ${event.seq} from ${event.envelope.aad.senderDid}: ${failure5.reason}`
-            ).pipe(Effect51.as(Option33.none())),
-            onSuccess: (opened) => Effect51.succeed(Option33.some(opened))
+            ).pipe(Effect53.as(Option34.none())),
+            onSuccess: (opened) => Effect53.succeed(Option34.some(opened))
           })
         )
       };
@@ -82167,29 +82232,29 @@ ${body}`).pipe(
 });
 
 // src/postbox-lease.ts
-import { Option as Option34, Schema as Schema74 } from "effect";
+import { Option as Option35, Schema as Schema76 } from "effect";
 var LEASE = "CREATE TABLE IF NOT EXISTS postbox_lease (id INTEGER PRIMARY KEY CHECK (id = 1), did TEXT NOT NULL, lease_id TEXT NOT NULL, generation INTEGER NOT NULL, expires_at INTEGER NOT NULL)";
-var Row = Schema74.Struct({
-  did: Schema74.String,
-  expires_at: Schema74.Number,
-  generation: Schema74.Number,
-  lease_id: Schema74.String
+var Row = Schema76.Struct({
+  did: Schema76.String,
+  expires_at: Schema76.Number,
+  generation: Schema76.Number,
+  lease_id: Schema76.String
 });
 var leaseBook = (storage) => {
   storage.sql.exec(LEASE);
   return {
-    held: (now2) => Option34.filter(
-      Option34.map(
-        Option34.fromNullishOr(
+    held: (now2) => Option35.filter(
+      Option35.map(
+        Option35.fromNullishOr(
           storage.sql.exec(
             "SELECT did, lease_id, generation, expires_at FROM postbox_lease WHERE id = 1"
           ).toArray()[0]
         ),
-        (row2) => Schema74.decodeUnknownOption(Row)(row2)
-      ).pipe(Option34.flatten),
+        (row2) => Schema76.decodeUnknownOption(Row)(row2)
+      ).pipe(Option35.flatten),
       (row2) => row2.expires_at > now2
     ).pipe(
-      Option34.map((row2) => ({
+      Option35.map((row2) => ({
         did: row2.did,
         expiresAt: row2.expires_at,
         generation: row2.generation,
@@ -82209,18 +82274,18 @@ var leaseBook = (storage) => {
 };
 
 // src/postbox-reader-failed.ts
-import { Cause as Cause4, Option as Option35, Schema as Schema75 } from "effect";
-var PostboxReaderFailed = class _PostboxReaderFailed extends Schema75.TaggedError()(
+import { Cause as Cause4, Option as Option36, Schema as Schema77 } from "effect";
+var PostboxReaderFailed = class _PostboxReaderFailed extends Schema77.TaggedError()(
   "PostboxReaderFailed",
   {
-    kind: Schema75.Literals(["DatabaseMissing", "Unavailable"]),
-    reason: Schema75.String
+    kind: Schema77.Literals(["DatabaseMissing", "Unavailable"]),
+    reason: Schema77.String
   }
 ) {
   static fromCause(cause) {
-    const reason = Option35.match(Cause4.findErrorOption(cause), {
+    const reason = Option36.match(Cause4.findErrorOption(cause), {
       onNone: () => Cause4.pretty(cause),
-      onSome: (error) => Schema75.is(PostboxFailed)(error) ? error.reason : Cause4.pretty(cause)
+      onSome: (error) => Schema77.is(PostboxFailed)(error) ? error.reason : Cause4.pretty(cause)
     });
     return new _PostboxReaderFailed({
       kind: reason.includes("no db for Postbox:") ? "DatabaseMissing" : "Unavailable",
@@ -82230,27 +82295,27 @@ var PostboxReaderFailed = class _PostboxReaderFailed extends Schema75.TaggedErro
 };
 
 // src/postbox-reader-watchdog.ts
-import { Effect as Effect53, Option as Option36 } from "effect";
+import { Effect as Effect54, Option as Option37 } from "effect";
 var postboxReaderWatchdog = (actor) => {
   const before = actor.getSnapshot();
   if (before.matches("consuming") || before.matches("wiring") || before.status === "done") {
-    return Option36.none();
+    return Option37.none();
   }
-  return Option36.some(
+  return Option37.some(
     send(actor, { type: "WATCHDOG" }).pipe(
-      Effect53.andThen(
+      Effect54.andThen(
         waitFor2(
           actor,
           (snapshot) => snapshot !== before && (snapshot.matches("dbMissing") || snapshot.matches("retrying") || snapshot.matches("stopped"))
         )
       ),
-      Effect53.asVoid
+      Effect54.asVoid
     )
   );
 };
 
 // src/postbox-reader.ts
-import { Context as Context29, Effect as Effect54 } from "effect";
+import { Context as Context29, Effect as Effect55 } from "effect";
 var PostboxReader = class extends Context29.Service()("@mischief/worker/PostboxReader") {
 };
 var wire = createEffectLogic({
@@ -82332,7 +82397,7 @@ var postboxReaderMachine = setupEffect({
     }
   }
 });
-var startPostboxReader = Effect54.fn("startPostboxReader")(
+var startPostboxReader = Effect55.fn("startPostboxReader")(
   function* startPostboxReader2() {
     const actor = yield* createEffectActor(postboxReaderMachine);
     yield* watchActor("postboxReaderMachine", actor);
@@ -82341,24 +82406,24 @@ var startPostboxReader = Effect54.fn("startPostboxReader")(
 );
 
 // src/think-tally.ts
-import { DateTime as DateTime3, Option as Option37, Schema as Schema76 } from "effect";
+import { DateTime as DateTime3, Option as Option38, Schema as Schema78 } from "effect";
 var DAY_WARN_FLOOR_TOKENS = 15e5;
 var DAY_WARN_HISTORY_DAYS = 7;
 var DAY_WARN_MEDIAN_MULTIPLE = 2;
 var RUN_WARN_TOKENS = 1e5;
 var DAYS2 = "CREATE TABLE IF NOT EXISTS mischief_think_days (day TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
 var RUNS = "CREATE TABLE IF NOT EXISTS mischief_think_runs (run_id TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
-var Totals = Schema76.Struct({ calls: Schema76.Finite, tokens: Schema76.Finite });
-var totalsOf = (rows) => Option37.getOrElse(
-  Option37.fromNullishOr(rows[0]).pipe(
-    Option37.flatMap(Schema76.decodeUnknownOption(Totals))
+var Totals = Schema78.Struct({ calls: Schema78.Finite, tokens: Schema78.Finite });
+var totalsOf = (rows) => Option38.getOrElse(
+  Option38.fromNullishOr(rows[0]).pipe(
+    Option38.flatMap(Schema78.decodeUnknownOption(Totals))
   ),
   () => ({ calls: 0, tokens: 0 })
 );
 var crossedAt = (before, after, line) => before < line && after >= line;
 var dayWarning = (storage, day) => {
   storage.sql.exec(DAYS2);
-  const history = Schema76.decodeUnknownSync(Schema76.Array(Totals))(
+  const history = Schema78.decodeUnknownSync(Schema78.Array(Totals))(
     storage.sql.exec(
       "SELECT calls, tokens FROM mischief_think_days WHERE day < ? ORDER BY day DESC LIMIT ?",
       day,
@@ -82464,18 +82529,12 @@ var warnText = (crossing, runId2, key, {
 var POSTBOX_NAME = "mischief/worker";
 var WATCHDOG_MS = 6e4;
 var NOT_WIRED = "Rat King mail is not wired on this host: set MISCHIEF_IDENTITY (the mischief/worker identity, from the host's 0600 bindings file), MISCHIEF_MAILBOX_URL and MISCHIEF_MAILBOX_DID, then redeploy";
-var Refusal = Schema77.fromJsonString(
-  Schema77.Struct({
-    _tag: Schema77.Literal("ReplyRefused"),
-    reason: Schema77.String
-  })
-);
 var posted2 = async (effect) => {
-  const exit = await Effect55.runPromiseExit(effect);
+  const exit = await Effect56.runPromiseExit(effect);
   return Exit5.match(exit, {
     onFailure: () => ({
       ok: false,
-      reason: Option38.match(Exit5.findErrorOption(exit), {
+      reason: Option39.match(Exit5.findErrorOption(exit), {
         onNone: () => "the Postbox failed unexpectedly; see the celld journal",
         onSome: ({ reason }) => reason
       })
@@ -82483,37 +82542,37 @@ var posted2 = async (effect) => {
     onSuccess: (value) => ({ ok: true, ...value })
   });
 };
-var now = () => Effect55.runSync(Clock9.currentTimeMillis);
+var now = () => Effect56.runSync(Clock9.currentTimeMillis);
 var Postbox = class extends DurableObject {
   box;
-  scope = Effect55.runSync(Scope2.make());
+  scope = Effect56.runSync(Scope2.make());
   reader;
   constructor(ctx, env) {
     super(ctx, env);
     this.box = postbox(ctx.storage);
-    this.reader = Effect55.runPromise(
+    this.reader = Effect56.runPromise(
       startPostboxReader().pipe(
-        Effect55.provideService(PostboxReader, {
-          consume: ({ consume: consume4, layer: layer2 }) => Effect55.suspend(
+        Effect56.provideService(PostboxReader, {
+          consume: ({ consume: consume4, layer: layer2 }) => Effect56.suspend(
             () => consume4(
-              (message, seq) => this.box.receive(message, seq).pipe(Effect55.provide(Layer28.merge(layer2, this.runs))),
+              (message, seq) => this.box.receive(message, seq).pipe(Effect56.provide(Layer28.merge(layer2, this.runs))),
               this.box.cursor()
             )
           ).pipe(
-            Effect55.catchCause(
-              (cause) => Effect55.logWarning(
+            Effect56.catchCause(
+              (cause) => Effect56.logWarning(
                 "the Postbox reader stopped; the watchdog restarts it",
                 cause
               ).pipe(
-                Effect55.andThen(
-                  Effect55.fail(PostboxReaderFailed.fromCause(cause))
+                Effect56.andThen(
+                  Effect56.fail(PostboxReaderFailed.fromCause(cause))
                 )
               )
             )
           ),
-          wire: Effect55.suspend(() => this.open()).pipe(
-            Effect55.catchCause(
-              (cause) => Effect55.fail(PostboxReaderFailed.fromCause(cause))
+          wire: Effect56.suspend(() => this.open()).pipe(
+            Effect56.catchCause(
+              (cause) => Effect56.fail(PostboxReaderFailed.fromCause(cause))
             )
           )
         }),
@@ -82522,15 +82581,15 @@ var Postbox = class extends DurableObject {
     );
   }
   wired() {
-    return Effect55.promise(async () => await this.reader).pipe(
-      Effect55.flatMap((actor) => {
+    return Effect56.promise(async () => await this.reader).pipe(
+      Effect56.flatMap((actor) => {
         const current = actor.getSnapshot().context;
         if (current.mailroom !== void 0) {
-          return Effect55.succeed(actor.getSnapshot());
+          return Effect56.succeed(actor.getSnapshot());
         }
         const previousFailure = current.failure;
         return send(actor, { type: "START" }).pipe(
-          Effect55.andThen(
+          Effect56.andThen(
             waitFor2(
               actor,
               (snapshot) => snapshot.context.mailroom !== void 0 || snapshot.context.failure !== void 0 && snapshot.context.failure !== previousFailure || snapshot.status === "done"
@@ -82538,24 +82597,24 @@ var Postbox = class extends DurableObject {
           )
         );
       }),
-      Effect55.orDie,
-      Effect55.flatMap(
-        ({ context }) => context.mailroom === void 0 ? Effect55.fail(
+      Effect56.orDie,
+      Effect56.flatMap(
+        ({ context }) => context.mailroom === void 0 ? Effect56.fail(
           new PostboxFailed({
             reason: context.failure?.reason ?? NOT_WIRED
           })
-        ) : Effect55.succeed(context.mailroom)
+        ) : Effect56.succeed(context.mailroom)
       )
     );
   }
   open() {
-    const identity = Schema77.decodeUnknownOption(
-      Schema77.fromJsonString(Identity2)
+    const identity = Schema79.decodeUnknownOption(
+      Schema79.fromJsonString(Identity2)
     )(this.env.MISCHIEF_IDENTITY ?? "");
     const endpoint = this.env.MISCHIEF_MAILBOX_URL ?? "";
     const serviceDid = this.env.MISCHIEF_MAILBOX_DID ?? "";
-    if (Option38.isNone(identity) || endpoint === "" || serviceDid === "") {
-      return Effect55.fail(new PostboxFailed({ reason: NOT_WIRED }));
+    if (Option39.isNone(identity) || endpoint === "" || serviceDid === "") {
+      return Effect56.fail(new PostboxFailed({ reason: NOT_WIRED }));
     }
     return openMailroom({
       endpoint,
@@ -82564,13 +82623,13 @@ var Postbox = class extends DurableObject {
       serviceDid
     }).pipe(
       Scope2.provide(this.scope),
-      Effect55.provide(Layer28.merge(FetchHttpClient.layer, webCrypto))
+      Effect56.provide(Layer28.merge(FetchHttpClient.layer, webCrypto))
     );
   }
   runs = Layer28.succeed(
     Runs3,
     Runs3.of({
-      deliver: (objectName, line) => Effect55.tryPromise({
+      deliver: (objectName, line) => Effect56.tryPromise({
         catch: () => new PostboxFailed({ reason: `run ${objectName} did not answer` }),
         try: async () => {
           const run2 = this.env.PLAN_RUN.get(
@@ -82586,23 +82645,8 @@ var Postbox = class extends DurableObject {
           return { body: await response.text(), status: response.status };
         }
       }).pipe(
-        Effect55.flatMap(
-          ({
-            body,
-            status
-          }) => {
-            if (status === 200) {
-              return Effect55.succeed(Delivered.cases.Journaled.make({}));
-            }
-            return Option38.match(Schema77.decodeUnknownOption(Refusal)(body), {
-              onNone: () => Effect55.fail(
-                new PostboxFailed({
-                  reason: `run ${objectName} answered HTTP ${status}`
-                })
-              ),
-              onSome: ({ reason }) => Effect55.succeed(Delivered.cases.Refused.make({ reason }))
-            });
-          }
+        Effect56.flatMap(
+          ({ body, status }) => decodeDelivery(objectName, status, body)
         )
       )
     })
@@ -82611,8 +82655,8 @@ var Postbox = class extends DurableObject {
     await this.start();
     return await posted2(
       this.wired().pipe(
-        Effect55.flatMap(
-          ({ layer: layer2 }) => this.box.seal(objectName, to, body).pipe(Effect55.provide(layer2))
+        Effect56.flatMap(
+          ({ layer: layer2 }) => this.box.seal(objectName, to, body).pipe(Effect56.provide(layer2))
         )
       )
     );
@@ -82621,13 +82665,13 @@ var Postbox = class extends DurableObject {
     this.box.markAborted(objectName, reason);
     await this.start();
     this.ctx.waitUntil(
-      Effect55.runPromise(
+      Effect56.runPromise(
         this.wired().pipe(
-          Effect55.flatMap(
-            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect55.provide(layer2))
+          Effect56.flatMap(
+            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect56.provide(layer2))
           ),
-          Effect55.catchCause(
-            (cause) => Effect55.logWarning("abort reply notices remain pending", cause)
+          Effect56.catchCause(
+            (cause) => Effect56.logWarning("abort reply notices remain pending", cause)
           )
         )
       )
@@ -82637,8 +82681,8 @@ var Postbox = class extends DurableObject {
   async send(envelope) {
     return await posted2(
       this.wired().pipe(
-        Effect55.flatMap(
-          ({ layer: layer2 }) => this.box.send(envelope).pipe(Effect55.provide(layer2), Effect55.as({}))
+        Effect56.flatMap(
+          ({ layer: layer2 }) => this.box.send(envelope).pipe(Effect56.provide(layer2), Effect56.as({}))
         )
       )
     );
@@ -82662,28 +82706,28 @@ var Postbox = class extends DurableObject {
   async alarm() {
     await this.ctx.storage.setAlarm(now() + WATCHDOG_MS);
     this.ctx.waitUntil(
-      Effect55.runPromise(
+      Effect56.runPromise(
         this.wired().pipe(
-          Effect55.flatMap(
-            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect55.provide(layer2))
+          Effect56.flatMap(
+            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect56.provide(layer2))
           ),
-          Effect55.catchCause(
-            (cause) => Effect55.logWarning("abort reply notices remain pending", cause)
+          Effect56.catchCause(
+            (cause) => Effect56.logWarning("abort reply notices remain pending", cause)
           )
         )
       )
     );
     const wake2 = postboxReaderWatchdog(await this.reader);
-    if (Option38.isNone(wake2)) {
+    if (Option39.isNone(wake2)) {
       return;
     }
-    this.ctx.waitUntil(Effect55.runPromise(wake2.value));
+    this.ctx.waitUntil(Effect56.runPromise(wake2.value));
   }
 };
 
 // src/plan-run-object.ts
 var TELEMETRY_DESK = "pi-durable/desk";
-var decodeHostJudge = Schema78.decodeUnknownOption(JudgeModeSchema);
+var decodeHostJudge = Schema80.decodeUnknownOption(JudgeModeSchema);
 var thinkerFor = (env, storageFor) => {
   if (env.MISCHIEF_MODEL === "faux") {
     return piThinker(fauxThinkerOptions(storageFor));
@@ -82704,8 +82748,8 @@ var thinkerFor = (env, storageFor) => {
 var judgeFor = (env, storage) => {
   const key = env.MISCHIEF_JEV_KEY ?? "";
   return judgeChosenPerCall({
-    fallback: Option39.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
-    jev: key === "" ? Option39.none() : Option39.some(
+    fallback: Option40.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
+    jev: key === "" ? Option40.none() : Option40.some(
       jevJudge({ apiKey: Redacted3.make(key) }).pipe(
         Layer29.provide(FetchHttpClient2.layer)
       )
@@ -82718,7 +82762,7 @@ var PlanRun = class extends DurableObject2 {
   constructor(ctx, env, callables = /* @__PURE__ */ new Map()) {
     super(ctx, env);
     let opened;
-    const storageFor = () => Effect56.tryPromise({
+    const storageFor = () => Effect57.tryPromise({
       catch: (cause) => new StepFailed({
         key: "__thinking",
         reason: `could not open the thinking store in this run's Durable Object: ${String(cause)}. Resume the run; if it fails again, check the object's SQLite storage is enabled`
@@ -82736,14 +82780,14 @@ var PlanRun = class extends DurableObject2 {
       storage: ctx.storage
     };
     const mailWired = env.MISCHIEF_IDENTITY !== void 0 && env.MISCHIEF_IDENTITY !== "";
-    const mailEscalation = mailWired ? escalate(mailPorts) : () => Effect56.void;
-    const mailDesk = mailWired ? mailOnce(mailPorts) : () => Effect56.void;
-    const thought2 = (runId2, key, receipt) => Effect56.gen(function* tallied() {
+    const mailEscalation = mailWired ? escalate(mailPorts) : () => Effect57.void;
+    const mailDesk = mailWired ? mailOnce(mailPorts) : () => Effect57.void;
+    const thought2 = (runId2, key, receipt) => Effect57.gen(function* tallied() {
       const today = utcDay(yield* Clock10.currentTimeMillis);
-      const totals = yield* Effect56.tryPromise(
+      const totals = yield* Effect57.tryPromise(
         async () => await postbox2().tallyThink(today, runId2, receipt.tokens.total)
       );
-      yield* Effect56.forEach(
+      yield* Effect57.forEach(
         totals.crossed,
         (crossing) => mailDesk(
           runId2,
@@ -82754,8 +82798,8 @@ var PlanRun = class extends DurableObject2 {
         { discard: true }
       );
     }).pipe(
-      Effect56.catchCause(
-        (cause) => Effect56.logWarning(
+      Effect57.catchCause(
+        (cause) => Effect57.logWarning(
           `${runId2} think telemetry for ${key} was not tallied: ${String(cause)}`
         )
       )
@@ -82764,24 +82808,24 @@ var PlanRun = class extends DurableObject2 {
     const operator = Layer29.succeed(
       Operator,
       Operator.of({
-        aborted: mailWired ? abortNotices(ctx.storage, postbox2) : () => Effect56.void,
-        failed: (runId2, failures, notice) => Effect56.logWarning(
+        aborted: mailWired ? abortNotices(ctx.storage, postbox2) : () => Effect57.void,
+        failed: (runId2, failures, notice) => Effect57.logWarning(
           `${runId2} failed at ${failures.map(({ key }) => key).join(", ")}`
         ).pipe(
-          Effect56.andThen(
+          Effect57.andThen(
             mailEscalation(runId2, notice, failedText(runId2, failures))
           )
         ),
-        held: (runId2, held, notice) => Effect56.logWarning(
+        held: (runId2, held, notice) => Effect57.logWarning(
           `${runId2} is held at ${held.key}: ${held.provider} ${held.cause}`
         ).pipe(
-          Effect56.andThen(mailEscalation(runId2, notice, heldText(runId2, held)))
+          Effect57.andThen(mailEscalation(runId2, notice, heldText(runId2, held)))
         ),
-        holdAlarm: mailWired ? alarmOnHolds(mailPorts, alarmTargets) : () => Effect56.void,
-        notify: (runId2, question, notice) => Effect56.logInfo(
+        holdAlarm: mailWired ? alarmOnHolds(mailPorts, alarmTargets) : () => Effect57.void,
+        notify: (runId2, question, notice) => Effect57.logInfo(
           `${runId2} waits on ${question.key}: ${question.question}`
         ).pipe(
-          Effect56.andThen(
+          Effect57.andThen(
             mailEscalation(runId2, notice, escalationText(runId2, question))
           )
         ),
@@ -82848,8 +82892,8 @@ var planRunClass = (callables) => {
 };
 
 // src/registered-callables.ts
-import { Schema as Schema79 } from "effect";
-var validName = Schema79.is(CapabilityName);
+import { Schema as Schema81 } from "effect";
+var validName = Schema81.is(CapabilityName);
 var registeredCallables = (entries2) => {
   const registry = /* @__PURE__ */ new Map();
   for (const [name, capability] of entries2) {
@@ -82870,12 +82914,12 @@ var registeredCallables = (entries2) => {
 
 // src/schedule-object.ts
 import { DurableObject as DurableObject3 } from "cloudflare:workers";
-import { Effect as Effect57, Option as Option40, Schema as Schema80 } from "effect";
+import { Effect as Effect58, Option as Option41, Schema as Schema83 } from "effect";
 var SUBMIT_WAIT_MS = 5e3;
 var ownerOf = (objectName) => objectName.slice(0, objectName.lastIndexOf("/"));
-var decodeReport = Schema80.decodeUnknownOption(RunReportSchema);
-var decodeRefused = Schema80.decodeUnknownOption(PlanRefused);
-var decodeUnknown = Schema80.decodeUnknownOption(UnknownRun);
+var decodeReport = Schema83.decodeUnknownOption(RunReportSchema);
+var decodeRefused = Schema83.decodeUnknownOption(PlanRefused);
+var decodeUnknown = Schema83.decodeUnknownOption(UnknownRun);
 var bodyOf = async (response) => {
   try {
     return await response.json();
@@ -82884,12 +82928,12 @@ var bodyOf = async (response) => {
   }
 };
 var wakeRuns = (env, storage, keepAlive) => {
-  const ownerFor = Effect57.suspend(
-    () => Option40.match(objectOf(storage), {
-      onNone: () => Effect57.die(
+  const ownerFor = Effect58.suspend(
+    () => Option41.match(objectOf(storage), {
+      onNone: () => Effect58.die(
         "this schedule never learned its owner's DID; create it again through the Mischief worker"
       ),
-      onSome: (name) => Effect57.succeed(ownerOf(name))
+      onSome: (name) => Effect58.succeed(ownerOf(name))
     })
   );
   const call = async (owner, runId2, capability, body) => {
@@ -82909,8 +82953,8 @@ var wakeRuns = (env, storage, keepAlive) => {
   };
   return {
     abort: (runId2, reason) => ownerFor.pipe(
-      Effect57.flatMap(
-        (owner) => Effect57.promise(
+      Effect58.flatMap(
+        (owner) => Effect58.promise(
           async () => await call(
             owner,
             runId2,
@@ -82919,30 +82963,30 @@ var wakeRuns = (env, storage, keepAlive) => {
           )
         )
       ),
-      Effect57.flatMap(
-        ({ body, status }) => status === 200 || Option40.isSome(decodeUnknown(body)) ? Effect57.void : Effect57.die(`abortRun ${runId2} answered ${String(status)}`)
+      Effect58.flatMap(
+        ({ body, status }) => status === 200 || Option41.isSome(decodeUnknown(body)) ? Effect58.void : Effect58.die(`abortRun ${runId2} answered ${String(status)}`)
       )
     ),
     inspect: (runId2) => ownerFor.pipe(
-      Effect57.flatMap(
-        (owner) => Effect57.promise(
+      Effect58.flatMap(
+        (owner) => Effect58.promise(
           async () => await call(owner, runId2, "inspectRun", { runId: runId2 })
         )
       ),
-      Effect57.flatMap(({ body, status }) => {
+      Effect58.flatMap(({ body, status }) => {
         if (status === 200) {
-          return Option40.match(decodeReport(body), {
-            onNone: () => Effect57.die(
+          return Option41.match(decodeReport(body), {
+            onNone: () => Effect58.die(
               `inspectRun ${runId2} answered 200 with no run report`
             ),
-            onSome: (report2) => Effect57.succeed(Option40.some(report2))
+            onSome: (report2) => Effect58.succeed(Option41.some(report2))
           });
         }
-        return Option40.isSome(decodeUnknown(body)) ? Effect57.succeedNone : Effect57.die(`inspectRun ${runId2} answered ${String(status)}`);
+        return Option41.isSome(decodeUnknown(body)) ? Effect58.succeedNone : Effect58.die(`inspectRun ${runId2} answered ${String(status)}`);
       })
     ),
     submit: (runId2, plan, docs, { escalateTo, judge }) => ownerFor.pipe(
-      Effect57.flatMap((owner) => {
+      Effect58.flatMap((owner) => {
         const input = Object.fromEntries(
           Object.entries({ docs, escalateTo, judge, plan, runId: runId2 }).filter(
             ([, value]) => value !== null
@@ -82950,20 +82994,20 @@ var wakeRuns = (env, storage, keepAlive) => {
         );
         const pending = call(owner, runId2, "submitPlan", input);
         keepAlive(pending);
-        return Effect57.promise(async () => await pending).pipe(
-          Effect57.timeoutOption(SUBMIT_WAIT_MS)
+        return Effect58.promise(async () => await pending).pipe(
+          Effect58.timeoutOption(SUBMIT_WAIT_MS)
         );
       }),
-      Effect57.flatMap(
-        Option40.match({
-          onNone: () => Effect57.void,
+      Effect58.flatMap(
+        Option41.match({
+          onNone: () => Effect58.void,
           onSome: ({ body, status }) => {
             if (status === 200) {
-              return Effect57.void;
+              return Effect58.void;
             }
-            return Option40.match(decodeRefused(body), {
-              onNone: () => Effect57.die(`submitPlan ${runId2} answered ${String(status)}`),
-              onSome: Effect57.fail
+            return Option41.match(decodeRefused(body), {
+              onNone: () => Effect58.die(`submitPlan ${runId2} answered ${String(status)}`),
+              onSome: Effect58.fail
             });
           }
         })
@@ -83047,8 +83091,8 @@ var ServiceTokenLedger = class extends DurableObject4 {
 
 // ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+9dbd61b5_48910ba0880a1f0e1711a026bc6eafdf/node_modules/@rat-king/mailbox-client/auth.js
 import { Effect as Effect211 } from "effect";
-import { Schema as Schema81 } from "effect";
-import { Effect as Effect58 } from "effect";
+import { Schema as Schema84 } from "effect";
+import { Effect as Effect59 } from "effect";
 import { Context as Context210, Effect as Effect311, Layer as Layer30, Schema as Schema311 } from "effect";
 import { Schema as Schema211 } from "effect";
 import { Context as Context30 } from "effect";
@@ -83063,12 +83107,12 @@ var concatenate2 = (...parts2) => {
   }
   return result;
 };
-var EnvelopeFailure2 = class extends Schema81.TaggedError()(
+var EnvelopeFailure2 = class extends Schema84.TaggedError()(
   "EnvelopeFailure",
-  { reason: Schema81.String }
+  { reason: Schema84.String }
 ) {
 };
-var cryptoOperation2 = (operation) => Effect58.tryPromise({
+var cryptoOperation2 = (operation) => Effect59.tryPromise({
   catch: () => new EnvelopeFailure2({ reason: "Cryptographic operation rejected" }),
   try: operation
 });
@@ -83273,19 +83317,19 @@ var serviceToken3 = Effect311.fn("ServiceAuth.sign")(
 );
 
 // src/worker-handler.ts
-import { Effect as Effect63, Layer as Layer34, Option as Option44, Result as Result10, Schema as Schema86 } from "effect";
+import { Effect as Effect64, Layer as Layer34, Option as Option45, Result as Result10, Schema as Schema88 } from "effect";
 
 // src/replay-ledger.ts
-import { Effect as Effect60, Layer as Layer31 } from "effect";
+import { Effect as Effect61, Layer as Layer31 } from "effect";
 
 // src/service-auth.ts
-import { Clock as Clock11, Effect as Effect59 } from "effect";
+import { Clock as Clock11, Effect as Effect60 } from "effect";
 
 // src/auth-refused.ts
-import { Schema as Schema83 } from "effect";
-var AuthRefused = class extends Schema83.TaggedError()(
+import { Schema as Schema85 } from "effect";
+var AuthRefused = class extends Schema85.TaggedError()(
   "AuthRefused",
-  { reason: Schema83.String }
+  { reason: Schema85.String }
 ) {
 };
 
@@ -83293,7 +83337,7 @@ var AuthRefused = class extends Schema83.TaggedError()(
 var NSID_PREFIX = "sh.mschf.mischief.";
 var SKEW_SECONDS = 5;
 var MINT = `Mint a fresh Rat King service token with serviceToken from @rat-king/mailbox-client/auth (ES256, signed with your DID's #atproto key): iss your DID, aud the host's audience, lxm ${NSID_PREFIX}<capability>, a unique jti of at least 16 characters, iat now and exp at most 60 seconds later. Send it as Authorization: Bearer <token>. A caller missing from the host's allowlist asks the Mischief desk (pi-durable/desk) to add its DID document`;
-var authenticate = Effect59.fn("Mischief.authenticate")(
+var authenticate = Effect60.fn("Mischief.authenticate")(
   function* authenticate2(request2) {
     const now2 = yield* Clock11.currentTimeMillis;
     const claims = yield* authenticateClaims3({
@@ -83303,9 +83347,9 @@ var authenticate = Effect59.fn("Mischief.authenticate")(
       nsid: request2.lxm,
       skewSeconds: SKEW_SECONDS
     }).pipe(
-      Effect59.catchTag(
+      Effect60.catchTag(
         "XrpcFailure",
-        (failure5) => Effect59.fail(
+        (failure5) => Effect60.fail(
           new AuthRefused({
             reason: `${failure5.message ?? failure5.error} (this request calls ${request2.lxm} on ${request2.audience}). ${MINT}`
           })
@@ -83328,7 +83372,7 @@ var READ_ONLY = new Set(
 var replayLedger = (ledgerFor, readOnly) => Layer31.succeed(
   ReplayAuthority2,
   ReplayAuthority2.of({
-    consume: (claims, now2) => Effect60.tryPromise({
+    consume: (claims, now2) => Effect61.tryPromise({
       catch: () => new ServiceAuthFailure2({
         error: "ReplayUnavailable",
         message: "the host could not record this token's jti, so it refuses it. Send a fresh token again shortly",
@@ -83342,8 +83386,8 @@ var replayLedger = (ledgerFor, readOnly) => Layer31.succeed(
         !readOnly.has(claims.lxm)
       )
     }).pipe(
-      Effect60.flatMap(
-        (fresh) => fresh ? Effect60.void : Effect60.fail(
+      Effect61.flatMap(
+        (fresh) => fresh ? Effect61.void : Effect61.fail(
           new ServiceAuthFailure2({
             error: "AuthRequired",
             message: `this token (jti ${claims.jti}) was already used. Every request needs a fresh jti`,
@@ -83357,43 +83401,43 @@ var replayLedger = (ledgerFor, readOnly) => Layer31.succeed(
 );
 
 // src/run-address.ts
-import { Option as Option41, Schema as Schema84 } from "effect";
-var decodeAddress = Schema84.decodeUnknownOption(
-  Schema84.fromJsonString(
-    Schema84.Struct({
-      replyTo: Schema84.optionalKey(Schema84.String),
-      runId: Schema84.optionalKey(Schema84.String)
+import { Option as Option43, Schema as Schema86 } from "effect";
+var decodeAddress = Schema86.decodeUnknownOption(
+  Schema86.fromJsonString(
+    Schema86.Struct({
+      replyTo: Schema86.optionalKey(Schema86.String),
+      runId: Schema86.optionalKey(Schema86.String)
     })
   )
 );
 var runIdOf = (body) => decodeAddress(body).pipe(
-  Option41.flatMap(
-    ({ replyTo, runId: runId2 }) => Option41.orElse(
-      Option41.fromUndefinedOr(runId2),
-      () => Option41.fromUndefinedOr(
+  Option43.flatMap(
+    ({ replyTo, runId: runId2 }) => Option43.orElse(
+      Option43.fromUndefinedOr(runId2),
+      () => Option43.fromUndefinedOr(
         replyTo?.includes("/") === true ? replyTo.split("/")[0] : void 0
       )
     )
   ),
-  Option41.filter((runId2) => runId2 !== "")
+  Option43.filter((runId2) => runId2 !== "")
 );
 var NO_RUN_ID = "this request names no run. Every run capability takes a JSON body with runId. deliverReply can find its run from replyTo only when replyTo is <runId>/<step>#<visit>; a Rat King message id (an ask sent as real mail, like 3mxoabjvtfwka) has no run in it, so add the run's runId (inspectRun shows the ask under awaiting). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 // src/schedule-address.ts
-import { Option as Option43, Schema as Schema85 } from "effect";
+import { Option as Option44, Schema as Schema87 } from "effect";
 var SCHEDULE_CAPABILITIES = /* @__PURE__ */ new Set([
   "createSchedule",
   "inspectSchedule",
   "completeSchedule"
 ]);
-var decodeAddress2 = Schema85.decodeUnknownOption(
-  Schema85.fromJsonString(
-    Schema85.Struct({ scheduleId: Schema85.optionalKey(Schema85.String) })
+var decodeAddress2 = Schema87.decodeUnknownOption(
+  Schema87.fromJsonString(
+    Schema87.Struct({ scheduleId: Schema87.optionalKey(Schema87.String) })
   )
 );
 var scheduleIdOf = (body) => decodeAddress2(body).pipe(
-  Option43.flatMap(({ scheduleId: scheduleId2 }) => Option43.fromUndefinedOr(scheduleId2)),
-  Option43.filter((scheduleId2) => scheduleId2 !== "")
+  Option44.flatMap(({ scheduleId: scheduleId2 }) => Option44.fromUndefinedOr(scheduleId2)),
+  Option44.filter((scheduleId2) => scheduleId2 !== "")
 );
 var NO_SCHEDULE_ID = "this request names no schedule. createSchedule, inspectSchedule and completeSchedule each take a JSON body with scheduleId; add it and send the request again. GET /openapi.json lists every capability";
 
@@ -83416,14 +83460,14 @@ var thinkStatusHttp = (telemetry) => HttpRouter3.toWebHandler(
 );
 
 // src/think-telemetry.ts
-import { Clock as Clock12, Effect as Effect61 } from "effect";
+import { Clock as Clock12, Effect as Effect63 } from "effect";
 var thinkTelemetry = ({
   cliproxyKey,
   cliproxyUrl,
   model: model2,
   readDay
 }) => ThinkTelemetry.of({
-  read: Effect61.gen(function* readThinkTelemetry() {
+  read: Effect63.gen(function* readThinkTelemetry() {
     const day = utcDay(yield* Clock12.currentTimeMillis);
     const today = yield* readDay(day);
     return {
@@ -83447,7 +83491,7 @@ var thinkTelemetry = ({
 
 // src/worker-handler.ts
 var NOT_CONFIGURED = "this Mischief host has no MISCHIEF_DID or no valid MISCHIEF_CALLERS (a JSON array of the allowed callers' DID documents), so it serves nobody. Ask the Mischief desk (pi-durable/desk) to deploy it with both";
-var CallersFromJson = Schema86.fromJsonString(Documents2);
+var CallersFromJson = Schema88.fromJsonString(Documents2);
 var servicesFor = (env, callers) => Layer34.merge(
   staticResolver2(callers),
   replayLedger((issuer) => env.SERVICE_TOKENS.getByName(issuer), READ_ONLY)
@@ -83462,20 +83506,20 @@ var worker_handler_default = {
         version: __BUNDLE_VERSION__
       });
     }
-    const callers = Schema86.decodeUnknownOption(CallersFromJson)(
+    const callers = Schema88.decodeUnknownOption(CallersFromJson)(
       env.MISCHIEF_CALLERS ?? ""
     );
-    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option44.isNone(callers)) {
+    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option45.isNone(callers)) {
       return Response.json({ error: NOT_CONFIGURED }, { status: 503 });
     }
     const { pathname } = new URL(request2.url);
     const capability = pathname === "/openapi.json" ? "openApi" : pathname.slice(1);
-    const caller = await Effect63.runPromise(
+    const caller = await Effect64.runPromise(
       authenticate({
         audience: `${env.MISCHIEF_DID}#mischief`,
         authorization: request2.headers.get("authorization"),
         lxm: `${NSID_PREFIX}${capability}`
-      }).pipe(Effect63.result, Effect63.provide(servicesFor(env, callers.value)))
+      }).pipe(Effect64.result, Effect64.provide(servicesFor(env, callers.value)))
     );
     if (Result10.isFailure(caller)) {
       return refused2(caller.failure);
@@ -83489,7 +83533,7 @@ var worker_handler_default = {
           cliproxyKey: env.MISCHIEF_CLIPROXY_KEY,
           cliproxyUrl: env.MISCHIEF_CLIPROXY_URL,
           model: env.MISCHIEF_MODEL,
-          readDay: (day) => Effect63.promise(
+          readDay: (day) => Effect64.promise(
             async () => await env.POSTBOX.get(
               env.POSTBOX.idFromName(POSTBOX_NAME)
             ).thinkDay(day)
@@ -83511,7 +83555,7 @@ var worker_handler_default = {
     const body = await request2.text();
     if (SCHEDULE_CAPABILITIES.has(capability)) {
       const scheduleId2 = scheduleIdOf(body);
-      if (Option44.isNone(scheduleId2)) {
+      if (Option45.isNone(scheduleId2)) {
         return Response.json({ error: NO_SCHEDULE_ID }, { status: 400 });
       }
       const name = `${caller.success.iss}/${scheduleId2.value}`;
@@ -83527,7 +83571,7 @@ var worker_handler_default = {
       );
     }
     const runId2 = runIdOf(body);
-    if (Option44.isNone(runId2)) {
+    if (Option45.isNone(runId2)) {
       return Response.json({ error: NO_RUN_ID }, { status: 400 });
     }
     const run2 = env.PLAN_RUN.get(

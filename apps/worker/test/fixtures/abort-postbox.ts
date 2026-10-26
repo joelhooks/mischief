@@ -1,11 +1,12 @@
 // @effect-diagnostics asyncFunction:off -- the fixture supplies Durable Object RPC methods and forwards a reply over fetch.
 import { DurableObject } from "cloudflare:workers";
-import { Effect, Layer, Option, Schema } from "effect";
+import { Effect, Exit, Layer, Option, Schema } from "effect";
 
+import { decodeDelivery } from "../../src/decode-delivery.js";
 import { Mailroom, SendVerdict } from "../../src/mailroom-port.js";
 import type { Env } from "../../src/plan-run-object.js";
 import { postbox } from "../../src/postbox.js";
-import { Delivered, Runs } from "../../src/runs-port.js";
+import { Runs } from "../../src/runs-port.js";
 
 const Reply = Schema.Struct({ ask: Schema.String, objectName: Schema.String });
 
@@ -112,18 +113,21 @@ export class Postbox extends DurableObject<Env> {
               })
             );
 
-            if (response.status !== 200) {
-              throw new Error(
-                `reply delivery answered ${response.status}: ${await response.text()}`
-              );
-            }
-
-            return Delivered.cases.Journaled.make({});
-          }),
+            return { body: await response.text(), status: response.status };
+          }).pipe(
+            Effect.flatMap(({ body, status }) =>
+              decodeDelivery(objectName, status, body)
+            ),
+            Effect.flatMap((outcome) =>
+              request.headers.has("x-test-crash-after-journal")
+                ? Effect.die("crash after run journal, before receipt")
+                : Effect.succeed(outcome)
+            )
+          ),
       })
     );
 
-    await Effect.runPromise(
+    const exit = await Effect.runPromiseExit(
       this.box
         .receive(
           {
@@ -137,6 +141,6 @@ export class Postbox extends DurableObject<Env> {
         .pipe(Effect.provide(Layer.merge(this.layer, runs)))
     );
 
-    return Response.json({ ok: true });
+    return Response.json({ ok: Exit.isSuccess(exit) });
   }
 }

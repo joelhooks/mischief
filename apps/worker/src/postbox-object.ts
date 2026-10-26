@@ -11,6 +11,7 @@ import type { Env } from "./plan-run-object.js";
 import { PostboxFailed } from "./postbox-failed.js";
 import { leaseBook } from "./postbox-lease.js";
 import { PostboxReaderFailed } from "./postbox-reader-failed.js";
+import { postboxReaderWatchdog } from "./postbox-reader-watchdog.js";
 import { PostboxReader, startPostboxReader } from "./postbox-reader.js";
 import type { OpenMailroom } from "./postbox-reader.js";
 import { postbox } from "./postbox.js";
@@ -247,25 +248,12 @@ export class Postbox extends DurableObject<Env> {
   override async alarm() {
     await this.ctx.storage.setAlarm(now() + WATCHDOG_MS);
 
-    const actor = await this.reader;
-    const before = actor.getSnapshot();
+    const wake = postboxReaderWatchdog(await this.reader);
 
-    this.ctx.waitUntil(
-      Effect.runPromise(
-        send(actor, { type: "WATCHDOG" }).pipe(
-          Effect.andThen(
-            waitFor(
-              actor,
-              (snapshot) =>
-                snapshot !== before &&
-                (snapshot.matches("dbMissing") ||
-                  snapshot.matches("retrying") ||
-                  snapshot.matches("stopped"))
-            )
-          ),
-          Effect.asVoid
-        )
-      )
-    );
+    if (Option.isNone(wake)) {
+      return;
+    }
+
+    this.ctx.waitUntil(Effect.runPromise(wake.value));
   }
 }

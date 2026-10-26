@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { EffectActor } from "@xstate/effect";
 import { createEffectActor, send, waitFor } from "@xstate/effect";
-import { Cause, Deferred, Effect, Layer, Schema } from "effect";
+import { Cause, Deferred, Effect, Layer, Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import type { SnapshotFrom } from "xstate";
 import { getPathsFromEvents, getShortestPaths } from "xstate/graph";
@@ -9,6 +9,7 @@ import { getPathsFromEvents, getShortestPaths } from "xstate/graph";
 import { Mailroom } from "../src/mailroom-port.js";
 import { PostboxFailed } from "../src/postbox-failed.js";
 import { PostboxReaderFailed } from "../src/postbox-reader-failed.js";
+import { postboxReaderWatchdog } from "../src/postbox-reader-watchdog.js";
 import { PostboxReader, postboxReaderMachine } from "../src/postbox-reader.js";
 import type { OpenMailroom } from "../src/postbox-reader.js";
 
@@ -392,6 +393,102 @@ const replayActor = Effect.fn("replayPostboxReader")(
 );
 
 describe("Postbox reader ownership", () => {
+  it.effect.prop(
+    "watchdog bursts keep one consumer and one original lifetime waiter",
+    {
+      burst: Arbitrary.array(Arbitrary.schema(Schema.Literal("WATCHDOG")), {
+        maxLength: 100,
+        minLength: 1,
+      }),
+    },
+    ({ burst }) =>
+      Effect.gen(function* watchdogBursts() {
+        const wired = yield* Deferred.make<OpenMailroom, PostboxReaderFailed>();
+        const wiringStarted = yield* Deferred.make<boolean>();
+        const consumingStarted = yield* Deferred.make<boolean>();
+        let consumers = 0;
+        let pendingWaiters = 0;
+        let wiringStarts = 0;
+
+        const actor = yield* createEffectActor(postboxReaderMachine).pipe(
+          Effect.provideService(PostboxReader, {
+            consume: () =>
+              Effect.acquireUseRelease(
+                Effect.sync(() => {
+                  consumers += 1;
+                }).pipe(
+                  Effect.andThen(Deferred.succeed(consumingStarted, true))
+                ),
+                () => Effect.never,
+                () =>
+                  Effect.sync(() => {
+                    consumers -= 1;
+                  })
+              ),
+            wire: Effect.sync(() => {
+              wiringStarts += 1;
+            }).pipe(
+              Effect.andThen(Deferred.succeed(wiringStarted, true)),
+              Effect.andThen(Deferred.await(wired))
+            ),
+          })
+        );
+
+        const tick = Effect.fn("registerPostboxWatchdog")(
+          function* registerPostboxWatchdog() {
+            const waiting = postboxReaderWatchdog(actor);
+
+            if (Option.isNone(waiting)) {
+              return;
+            }
+
+            pendingWaiters += 1;
+            yield* waiting.value.pipe(
+              Effect.ensuring(
+                Effect.sync(() => {
+                  pendingWaiters -= 1;
+                })
+              ),
+              Effect.forkScoped
+            );
+          }
+        );
+
+        yield* waitFor(actor, (snapshot) => snapshot.matches("idle"));
+        yield* tick();
+        yield* waitFor(actor, (snapshot) => snapshot.matches("wiring"));
+        yield* Deferred.await(wiringStarted);
+
+        for (const _event of burst) {
+          yield* tick();
+        }
+
+        expect(wiringStarts).toBe(1);
+        expect(consumers).toBe(0);
+        expect(pendingWaiters).toBe(1);
+
+        yield* Deferred.succeed(wired, mailroom);
+        yield* waitFor(actor, (snapshot) => snapshot.matches("consuming"));
+        yield* Deferred.await(consumingStarted);
+
+        for (const _event of burst) {
+          yield* tick();
+        }
+
+        expect(consumers).toBe(1);
+        expect(
+          pendingWaiters,
+          "active watchdogs must not register extra lifetime waiters"
+        ).toBe(1);
+        yield* send(actor, { type: "STOP" });
+        yield* waitFor(actor, (snapshot) => snapshot.matches("stopped"));
+        yield* Effect.yieldNow;
+        expect(consumers).toBe(0);
+        expect(pendingWaiters).toBe(0);
+      }).pipe(Effect.scoped),
+    { arbitrary: { runs: 200 } }
+  );
+
   it.prop(
     "typed mailroom failures preserve the caller's refusal reason",
     { reason: Schema.String },

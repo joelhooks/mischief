@@ -63135,7 +63135,7 @@ var piThinker = (options2) => Layer21.merge(thinkerOf(options2), Layer21.succeed
 
 // src/plan-run-object.ts
 import { DurableObject as DurableObject2 } from "cloudflare:workers";
-import { Clock as Clock10, Effect as Effect51, Layer as Layer28, Option as Option35, Redacted as Redacted3, Schema as Schema74 } from "effect";
+import { Clock as Clock10, Effect as Effect53, Layer as Layer28, Option as Option36, Redacted as Redacted3, Schema as Schema74 } from "effect";
 import { FetchHttpClient as FetchHttpClient2 } from "effect/http";
 
 // src/escalation.ts
@@ -78812,7 +78812,7 @@ var prepare2 = Effect192.fn("Mailbox.prepare")(function* prepare22(options2) {
 
 // src/postbox-object.ts
 import { DurableObject } from "cloudflare:workers";
-import { Clock as Clock9, Effect as Effect50, Exit as Exit4, Layer as Layer27, Option as Option34, Schema as Schema73, Scope as Scope2 } from "effect";
+import { Clock as Clock9, Effect as Effect51, Exit as Exit4, Layer as Layer27, Option as Option35, Schema as Schema73, Scope as Scope2 } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 // src/mailroom.ts
@@ -79324,8 +79324,28 @@ var PostboxReaderFailed = class _PostboxReaderFailed extends Schema70.TaggedErro
   }
 };
 
+// src/postbox-reader-watchdog.ts
+import { Effect as Effect49, Option as Option33 } from "effect";
+var postboxReaderWatchdog = (actor) => {
+  const before = actor.getSnapshot();
+  if (before.matches("consuming") || before.matches("wiring") || before.status === "done") {
+    return Option33.none();
+  }
+  return Option33.some(
+    send(actor, { type: "WATCHDOG" }).pipe(
+      Effect49.andThen(
+        waitFor2(
+          actor,
+          (snapshot) => snapshot !== before && (snapshot.matches("dbMissing") || snapshot.matches("retrying") || snapshot.matches("stopped"))
+        )
+      ),
+      Effect49.asVoid
+    )
+  );
+};
+
 // src/postbox-reader.ts
-import { Context as Context28, Effect as Effect49 } from "effect";
+import { Context as Context28, Effect as Effect50 } from "effect";
 var PostboxReader = class extends Context28.Service()("@mischief/worker/PostboxReader") {
 };
 var wire = fromEffect({
@@ -79407,7 +79427,7 @@ var postboxReaderMachine = setupEffect({
     }
   }
 });
-var startPostboxReader = Effect49.fn("startPostboxReader")(
+var startPostboxReader = Effect50.fn("startPostboxReader")(
   function* startPostboxReader2() {
     const actor = yield* createEffectActor(postboxReaderMachine);
     yield* watchActor("postboxReaderMachine", actor);
@@ -79416,15 +79436,15 @@ var startPostboxReader = Effect49.fn("startPostboxReader")(
 );
 
 // src/think-tally.ts
-import { DateTime as DateTime2, Option as Option33, Schema as Schema71 } from "effect";
+import { DateTime as DateTime2, Option as Option34, Schema as Schema71 } from "effect";
 var DAY_WARN_TOKENS = 15e5;
 var RUN_WARN_TOKENS = 1e5;
 var DAYS2 = "CREATE TABLE IF NOT EXISTS mischief_think_days (day TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
 var RUNS = "CREATE TABLE IF NOT EXISTS mischief_think_runs (run_id TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
 var Totals = Schema71.Struct({ calls: Schema71.Finite, tokens: Schema71.Finite });
-var totalsOf = (rows) => Option33.getOrElse(
-  Option33.fromNullishOr(rows[0]).pipe(
-    Option33.flatMap(Schema71.decodeUnknownOption(Totals))
+var totalsOf = (rows) => Option34.getOrElse(
+  Option34.fromNullishOr(rows[0]).pipe(
+    Option34.flatMap(Schema71.decodeUnknownOption(Totals))
   ),
   () => ({ calls: 0, tokens: 0 })
 );
@@ -79515,11 +79535,11 @@ var Refusal = Schema73.fromJsonString(
   })
 );
 var posted2 = async (effect) => {
-  const exit = await Effect50.runPromiseExit(effect);
+  const exit = await Effect51.runPromiseExit(effect);
   return Exit4.match(exit, {
     onFailure: () => ({
       ok: false,
-      reason: Option34.match(Exit4.findErrorOption(exit), {
+      reason: Option35.match(Exit4.findErrorOption(exit), {
         onNone: () => "the Postbox failed unexpectedly; see the celld journal",
         onSome: ({ reason }) => reason
       })
@@ -79527,37 +79547,37 @@ var posted2 = async (effect) => {
     onSuccess: (value) => ({ ok: true, ...value })
   });
 };
-var now = () => Effect50.runSync(Clock9.currentTimeMillis);
+var now = () => Effect51.runSync(Clock9.currentTimeMillis);
 var Postbox = class extends DurableObject {
   box;
-  scope = Effect50.runSync(Scope2.make());
+  scope = Effect51.runSync(Scope2.make());
   reader;
   constructor(ctx, env) {
     super(ctx, env);
     this.box = postbox(ctx.storage);
-    this.reader = Effect50.runPromise(
+    this.reader = Effect51.runPromise(
       startPostboxReader().pipe(
-        Effect50.provideService(PostboxReader, {
-          consume: ({ consume: consume4, layer: layer2 }) => Effect50.suspend(
+        Effect51.provideService(PostboxReader, {
+          consume: ({ consume: consume4, layer: layer2 }) => Effect51.suspend(
             () => consume4(
-              (message, seq) => this.box.receive(message, seq).pipe(Effect50.provide(Layer27.merge(layer2, this.runs))),
+              (message, seq) => this.box.receive(message, seq).pipe(Effect51.provide(Layer27.merge(layer2, this.runs))),
               this.box.cursor()
             )
           ).pipe(
-            Effect50.catchCause(
-              (cause) => Effect50.logWarning(
+            Effect51.catchCause(
+              (cause) => Effect51.logWarning(
                 "the Postbox reader stopped; the watchdog restarts it",
                 cause
               ).pipe(
-                Effect50.andThen(
-                  Effect50.fail(PostboxReaderFailed.fromCause(cause))
+                Effect51.andThen(
+                  Effect51.fail(PostboxReaderFailed.fromCause(cause))
                 )
               )
             )
           ),
-          wire: Effect50.suspend(() => this.open()).pipe(
-            Effect50.catchCause(
-              (cause) => Effect50.fail(PostboxReaderFailed.fromCause(cause))
+          wire: Effect51.suspend(() => this.open()).pipe(
+            Effect51.catchCause(
+              (cause) => Effect51.fail(PostboxReaderFailed.fromCause(cause))
             )
           )
         }),
@@ -79566,15 +79586,15 @@ var Postbox = class extends DurableObject {
     );
   }
   wired() {
-    return Effect50.promise(async () => await this.reader).pipe(
-      Effect50.flatMap((actor) => {
+    return Effect51.promise(async () => await this.reader).pipe(
+      Effect51.flatMap((actor) => {
         const current = actor.getSnapshot().context;
         if (current.mailroom !== void 0) {
-          return Effect50.succeed(actor.getSnapshot());
+          return Effect51.succeed(actor.getSnapshot());
         }
         const previousFailure = current.failure;
         return send(actor, { type: "START" }).pipe(
-          Effect50.andThen(
+          Effect51.andThen(
             waitFor2(
               actor,
               (snapshot) => snapshot.context.mailroom !== void 0 || snapshot.context.failure !== void 0 && snapshot.context.failure !== previousFailure || snapshot.status === "done"
@@ -79582,13 +79602,13 @@ var Postbox = class extends DurableObject {
           )
         );
       }),
-      Effect50.orDie,
-      Effect50.flatMap(
-        ({ context }) => context.mailroom === void 0 ? Effect50.fail(
+      Effect51.orDie,
+      Effect51.flatMap(
+        ({ context }) => context.mailroom === void 0 ? Effect51.fail(
           new PostboxFailed({
             reason: context.failure?.reason ?? NOT_WIRED
           })
-        ) : Effect50.succeed(context.mailroom)
+        ) : Effect51.succeed(context.mailroom)
       )
     );
   }
@@ -79598,8 +79618,8 @@ var Postbox = class extends DurableObject {
     )(this.env.MISCHIEF_IDENTITY ?? "");
     const endpoint = this.env.MISCHIEF_MAILBOX_URL ?? "";
     const serviceDid = this.env.MISCHIEF_MAILBOX_DID ?? "";
-    if (Option34.isNone(identity) || endpoint === "" || serviceDid === "") {
-      return Effect50.fail(new PostboxFailed({ reason: NOT_WIRED }));
+    if (Option35.isNone(identity) || endpoint === "" || serviceDid === "") {
+      return Effect51.fail(new PostboxFailed({ reason: NOT_WIRED }));
     }
     return openMailroom({
       endpoint,
@@ -79608,13 +79628,13 @@ var Postbox = class extends DurableObject {
       serviceDid
     }).pipe(
       Scope2.provide(this.scope),
-      Effect50.provide(Layer27.merge(FetchHttpClient.layer, webCrypto))
+      Effect51.provide(Layer27.merge(FetchHttpClient.layer, webCrypto))
     );
   }
   runs = Layer27.succeed(
     Runs3,
     Runs3.of({
-      deliver: (objectName, line) => Effect50.tryPromise({
+      deliver: (objectName, line) => Effect51.tryPromise({
         catch: () => new PostboxFailed({ reason: `run ${objectName} did not answer` }),
         try: async () => {
           const run2 = this.env.PLAN_RUN.get(
@@ -79630,21 +79650,21 @@ var Postbox = class extends DurableObject {
           return { body: await response.text(), status: response.status };
         }
       }).pipe(
-        Effect50.flatMap(
+        Effect51.flatMap(
           ({
             body,
             status
           }) => {
             if (status === 200) {
-              return Effect50.succeed(Delivered.cases.Journaled.make({}));
+              return Effect51.succeed(Delivered.cases.Journaled.make({}));
             }
-            return Option34.match(Schema73.decodeUnknownOption(Refusal)(body), {
-              onNone: () => Effect50.fail(
+            return Option35.match(Schema73.decodeUnknownOption(Refusal)(body), {
+              onNone: () => Effect51.fail(
                 new PostboxFailed({
                   reason: `run ${objectName} answered HTTP ${status}`
                 })
               ),
-              onSome: ({ reason }) => Effect50.succeed(Delivered.cases.Refused.make({ reason }))
+              onSome: ({ reason }) => Effect51.succeed(Delivered.cases.Refused.make({ reason }))
             });
           }
         )
@@ -79655,8 +79675,8 @@ var Postbox = class extends DurableObject {
     await this.start();
     return await posted2(
       this.wired().pipe(
-        Effect50.flatMap(
-          ({ layer: layer2 }) => this.box.seal(objectName, to, body).pipe(Effect50.provide(layer2))
+        Effect51.flatMap(
+          ({ layer: layer2 }) => this.box.seal(objectName, to, body).pipe(Effect51.provide(layer2))
         )
       )
     );
@@ -79664,8 +79684,8 @@ var Postbox = class extends DurableObject {
   async send(envelope) {
     return await posted2(
       this.wired().pipe(
-        Effect50.flatMap(
-          ({ layer: layer2 }) => this.box.send(envelope).pipe(Effect50.provide(layer2), Effect50.as({}))
+        Effect51.flatMap(
+          ({ layer: layer2 }) => this.box.send(envelope).pipe(Effect51.provide(layer2), Effect51.as({}))
         )
       )
     );
@@ -79685,21 +79705,11 @@ var Postbox = class extends DurableObject {
   }
   async alarm() {
     await this.ctx.storage.setAlarm(now() + WATCHDOG_MS);
-    const actor = await this.reader;
-    const before = actor.getSnapshot();
-    this.ctx.waitUntil(
-      Effect50.runPromise(
-        send(actor, { type: "WATCHDOG" }).pipe(
-          Effect50.andThen(
-            waitFor2(
-              actor,
-              (snapshot) => snapshot !== before && (snapshot.matches("dbMissing") || snapshot.matches("retrying") || snapshot.matches("stopped"))
-            )
-          ),
-          Effect50.asVoid
-        )
-      )
-    );
+    const wake2 = postboxReaderWatchdog(await this.reader);
+    if (Option35.isNone(wake2)) {
+      return;
+    }
+    this.ctx.waitUntil(Effect51.runPromise(wake2.value));
   }
 };
 
@@ -79722,8 +79732,8 @@ var thinkerFor = (env, storageFor) => {
 var judgeFor = (env, storage) => {
   const key = env.MISCHIEF_JEV_KEY ?? "";
   return judgeChosenPerCall({
-    fallback: Option35.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
-    jev: key === "" ? Option35.none() : Option35.some(
+    fallback: Option36.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
+    jev: key === "" ? Option36.none() : Option36.some(
       jevJudge({ apiKey: Redacted3.make(key) }).pipe(
         Layer28.provide(FetchHttpClient2.layer)
       )
@@ -79736,7 +79746,7 @@ var PlanRun = class extends DurableObject2 {
   constructor(ctx, env, callables = /* @__PURE__ */ new Map()) {
     super(ctx, env);
     let opened;
-    const storageFor = () => Effect51.tryPromise({
+    const storageFor = () => Effect53.tryPromise({
       catch: (cause) => new StepFailed({
         key: "__thinking",
         reason: `could not open the thinking store in this run's Durable Object: ${String(cause)}. Resume the run; if it fails again, check the object's SQLite storage is enabled`
@@ -79754,14 +79764,14 @@ var PlanRun = class extends DurableObject2 {
       storage: ctx.storage
     };
     const mailWired = env.MISCHIEF_IDENTITY !== void 0 && env.MISCHIEF_IDENTITY !== "";
-    const mailEscalation = mailWired ? escalate(mailPorts) : () => Effect51.void;
-    const mailDesk = mailWired ? mailOnce(mailPorts) : () => Effect51.void;
-    const thought2 = (runId2, key, receipt) => Effect51.gen(function* tallied() {
+    const mailEscalation = mailWired ? escalate(mailPorts) : () => Effect53.void;
+    const mailDesk = mailWired ? mailOnce(mailPorts) : () => Effect53.void;
+    const thought2 = (runId2, key, receipt) => Effect53.gen(function* tallied() {
       const today = utcDay(yield* Clock10.currentTimeMillis);
-      const totals = yield* Effect51.tryPromise(
+      const totals = yield* Effect53.tryPromise(
         async () => await postbox2().tallyThink(today, runId2, receipt.tokens.total)
       );
-      yield* Effect51.forEach(
+      yield* Effect53.forEach(
         totals.crossed,
         (crossing) => mailDesk(
           runId2,
@@ -79772,8 +79782,8 @@ var PlanRun = class extends DurableObject2 {
         { discard: true }
       );
     }).pipe(
-      Effect51.catchCause(
-        (cause) => Effect51.logWarning(
+      Effect53.catchCause(
+        (cause) => Effect53.logWarning(
           `${runId2} think telemetry for ${key} was not tallied: ${String(cause)}`
         )
       )
@@ -79782,23 +79792,23 @@ var PlanRun = class extends DurableObject2 {
     const operator = Layer28.succeed(
       Operator,
       Operator.of({
-        failed: (runId2, failures, notice) => Effect51.logWarning(
+        failed: (runId2, failures, notice) => Effect53.logWarning(
           `${runId2} failed at ${failures.map(({ key }) => key).join(", ")}`
         ).pipe(
-          Effect51.andThen(
+          Effect53.andThen(
             mailEscalation(runId2, notice, failedText(runId2, failures))
           )
         ),
-        held: (runId2, held, notice) => Effect51.logWarning(
+        held: (runId2, held, notice) => Effect53.logWarning(
           `${runId2} is held at ${held.key}: ${held.provider} ${held.cause}`
         ).pipe(
-          Effect51.andThen(mailEscalation(runId2, notice, heldText(runId2, held)))
+          Effect53.andThen(mailEscalation(runId2, notice, heldText(runId2, held)))
         ),
-        holdAlarm: mailWired ? alarmOnHolds(mailPorts, alarmTargets) : () => Effect51.void,
-        notify: (runId2, question, notice) => Effect51.logInfo(
+        holdAlarm: mailWired ? alarmOnHolds(mailPorts, alarmTargets) : () => Effect53.void,
+        notify: (runId2, question, notice) => Effect53.logInfo(
           `${runId2} waits on ${question.key}: ${question.question}`
         ).pipe(
-          Effect51.andThen(
+          Effect53.andThen(
             mailEscalation(runId2, notice, escalationText(runId2, question))
           )
         ),
@@ -79887,7 +79897,7 @@ var registeredCallables = (entries2) => {
 
 // src/schedule-object.ts
 import { DurableObject as DurableObject3 } from "cloudflare:workers";
-import { Effect as Effect53, Option as Option36, Schema as Schema76 } from "effect";
+import { Effect as Effect54, Option as Option37, Schema as Schema76 } from "effect";
 var SUBMIT_WAIT_MS = 5e3;
 var ownerOf = (objectName) => objectName.slice(0, objectName.lastIndexOf("/"));
 var decodeReport = Schema76.decodeUnknownOption(RunReportSchema);
@@ -79901,12 +79911,12 @@ var bodyOf = async (response) => {
   }
 };
 var wakeRuns = (env, storage, keepAlive) => {
-  const ownerFor = Effect53.suspend(
-    () => Option36.match(objectOf(storage), {
-      onNone: () => Effect53.die(
+  const ownerFor = Effect54.suspend(
+    () => Option37.match(objectOf(storage), {
+      onNone: () => Effect54.die(
         "this schedule never learned its owner's DID; create it again through the Mischief worker"
       ),
-      onSome: (name) => Effect53.succeed(ownerOf(name))
+      onSome: (name) => Effect54.succeed(ownerOf(name))
     })
   );
   const call = async (owner, runId2, capability, body) => {
@@ -79926,35 +79936,35 @@ var wakeRuns = (env, storage, keepAlive) => {
   };
   return {
     abort: (runId2) => ownerFor.pipe(
-      Effect53.flatMap(
-        (owner) => Effect53.promise(
+      Effect54.flatMap(
+        (owner) => Effect54.promise(
           async () => await call(owner, runId2, "abortRun", { runId: runId2 })
         )
       ),
-      Effect53.flatMap(
-        ({ body, status }) => status === 200 || Option36.isSome(decodeUnknown(body)) ? Effect53.void : Effect53.die(`abortRun ${runId2} answered ${String(status)}`)
+      Effect54.flatMap(
+        ({ body, status }) => status === 200 || Option37.isSome(decodeUnknown(body)) ? Effect54.void : Effect54.die(`abortRun ${runId2} answered ${String(status)}`)
       )
     ),
     inspect: (runId2) => ownerFor.pipe(
-      Effect53.flatMap(
-        (owner) => Effect53.promise(
+      Effect54.flatMap(
+        (owner) => Effect54.promise(
           async () => await call(owner, runId2, "inspectRun", { runId: runId2 })
         )
       ),
-      Effect53.flatMap(({ body, status }) => {
+      Effect54.flatMap(({ body, status }) => {
         if (status === 200) {
-          return Option36.match(decodeReport(body), {
-            onNone: () => Effect53.die(
+          return Option37.match(decodeReport(body), {
+            onNone: () => Effect54.die(
               `inspectRun ${runId2} answered 200 with no run report`
             ),
-            onSome: (report2) => Effect53.succeed(Option36.some(report2))
+            onSome: (report2) => Effect54.succeed(Option37.some(report2))
           });
         }
-        return Option36.isSome(decodeUnknown(body)) ? Effect53.succeedNone : Effect53.die(`inspectRun ${runId2} answered ${String(status)}`);
+        return Option37.isSome(decodeUnknown(body)) ? Effect54.succeedNone : Effect54.die(`inspectRun ${runId2} answered ${String(status)}`);
       })
     ),
     submit: (runId2, plan, docs, { escalateTo, judge }) => ownerFor.pipe(
-      Effect53.flatMap((owner) => {
+      Effect54.flatMap((owner) => {
         const input = Object.fromEntries(
           Object.entries({ docs, escalateTo, judge, plan, runId: runId2 }).filter(
             ([, value]) => value !== null
@@ -79962,20 +79972,20 @@ var wakeRuns = (env, storage, keepAlive) => {
         );
         const pending = call(owner, runId2, "submitPlan", input);
         keepAlive(pending);
-        return Effect53.promise(async () => await pending).pipe(
-          Effect53.timeoutOption(SUBMIT_WAIT_MS)
+        return Effect54.promise(async () => await pending).pipe(
+          Effect54.timeoutOption(SUBMIT_WAIT_MS)
         );
       }),
-      Effect53.flatMap(
-        Option36.match({
-          onNone: () => Effect53.void,
+      Effect54.flatMap(
+        Option37.match({
+          onNone: () => Effect54.void,
           onSome: ({ body, status }) => {
             if (status === 200) {
-              return Effect53.void;
+              return Effect54.void;
             }
-            return Option36.match(decodeRefused(body), {
-              onNone: () => Effect53.die(`submitPlan ${runId2} answered ${String(status)}`),
-              onSome: Effect53.fail
+            return Option37.match(decodeRefused(body), {
+              onNone: () => Effect54.die(`submitPlan ${runId2} answered ${String(status)}`),
+              onSome: Effect54.fail
             });
           }
         })
@@ -80060,7 +80070,7 @@ var ServiceTokenLedger = class extends DurableObject4 {
 // ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+f20dd1ba_e3ac534a69e1d33f8e16d30b94ca3b4a/node_modules/@rat-king/mailbox-client/auth.js
 import { Effect as Effect211 } from "effect";
 import { Schema as Schema77 } from "effect";
-import { Effect as Effect54 } from "effect";
+import { Effect as Effect55 } from "effect";
 import { Context as Context29, Effect as Effect311, Layer as Layer29, Schema as Schema311 } from "effect";
 import { Schema as Schema211 } from "effect";
 import { Context as Context30 } from "effect";
@@ -80080,7 +80090,7 @@ var EnvelopeFailure2 = class extends Schema77.TaggedError()(
   { reason: Schema77.String }
 ) {
 };
-var cryptoOperation2 = (operation) => Effect54.tryPromise({
+var cryptoOperation2 = (operation) => Effect55.tryPromise({
   catch: () => new EnvelopeFailure2({ reason: "Cryptographic operation rejected" }),
   try: operation
 });
@@ -80285,13 +80295,13 @@ var serviceToken3 = Effect311.fn("ServiceAuth.sign")(
 );
 
 // src/worker-handler.ts
-import { Clock as Clock12, Effect as Effect57, Layer as Layer31, Option as Option39, Result as Result10, Schema as Schema81 } from "effect";
+import { Clock as Clock12, Effect as Effect58, Layer as Layer31, Option as Option40, Result as Result10, Schema as Schema81 } from "effect";
 
 // src/replay-ledger.ts
-import { Effect as Effect56, Layer as Layer30 } from "effect";
+import { Effect as Effect57, Layer as Layer30 } from "effect";
 
 // src/service-auth.ts
-import { Clock as Clock11, Effect as Effect55 } from "effect";
+import { Clock as Clock11, Effect as Effect56 } from "effect";
 
 // src/auth-refused.ts
 import { Schema as Schema78 } from "effect";
@@ -80305,7 +80315,7 @@ var AuthRefused = class extends Schema78.TaggedError()(
 var NSID_PREFIX = "sh.mschf.mischief.";
 var SKEW_SECONDS = 5;
 var MINT = `Mint a fresh Rat King service token with serviceToken from @rat-king/mailbox-client/auth (ES256, signed with your DID's #atproto key): iss your DID, aud the host's audience, lxm ${NSID_PREFIX}<capability>, a unique jti of at least 16 characters, iat now and exp at most 60 seconds later. Send it as Authorization: Bearer <token>. A caller missing from the host's allowlist asks the Mischief desk (pi-durable/desk) to add its DID document`;
-var authenticate = Effect55.fn("Mischief.authenticate")(
+var authenticate = Effect56.fn("Mischief.authenticate")(
   function* authenticate2(request2) {
     const now2 = yield* Clock11.currentTimeMillis;
     const claims = yield* authenticateClaims3({
@@ -80315,9 +80325,9 @@ var authenticate = Effect55.fn("Mischief.authenticate")(
       nsid: request2.lxm,
       skewSeconds: SKEW_SECONDS
     }).pipe(
-      Effect55.catchTag(
+      Effect56.catchTag(
         "XrpcFailure",
-        (failure5) => Effect55.fail(
+        (failure5) => Effect56.fail(
           new AuthRefused({
             reason: `${failure5.message ?? failure5.error} (this request calls ${request2.lxm} on ${request2.audience}). ${MINT}`
           })
@@ -80340,7 +80350,7 @@ var READ_ONLY = new Set(
 var replayLedger = (ledgerFor, readOnly) => Layer30.succeed(
   ReplayAuthority2,
   ReplayAuthority2.of({
-    consume: (claims, now2) => Effect56.tryPromise({
+    consume: (claims, now2) => Effect57.tryPromise({
       catch: () => new ServiceAuthFailure2({
         error: "ReplayUnavailable",
         message: "the host could not record this token's jti, so it refuses it. Send a fresh token again shortly",
@@ -80354,8 +80364,8 @@ var replayLedger = (ledgerFor, readOnly) => Layer30.succeed(
         !readOnly.has(claims.lxm)
       )
     }).pipe(
-      Effect56.flatMap(
-        (fresh) => fresh ? Effect56.void : Effect56.fail(
+      Effect57.flatMap(
+        (fresh) => fresh ? Effect57.void : Effect57.fail(
           new ServiceAuthFailure2({
             error: "AuthRequired",
             message: `this token (jti ${claims.jti}) was already used. Every request needs a fresh jti`,
@@ -80369,7 +80379,7 @@ var replayLedger = (ledgerFor, readOnly) => Layer30.succeed(
 );
 
 // src/run-address.ts
-import { Option as Option37, Schema as Schema79 } from "effect";
+import { Option as Option38, Schema as Schema79 } from "effect";
 var decodeAddress = Schema79.decodeUnknownOption(
   Schema79.fromJsonString(
     Schema79.Struct({
@@ -80379,20 +80389,20 @@ var decodeAddress = Schema79.decodeUnknownOption(
   )
 );
 var runIdOf = (body) => decodeAddress(body).pipe(
-  Option37.flatMap(
-    ({ replyTo, runId: runId2 }) => Option37.orElse(
-      Option37.fromUndefinedOr(runId2),
-      () => Option37.fromUndefinedOr(
+  Option38.flatMap(
+    ({ replyTo, runId: runId2 }) => Option38.orElse(
+      Option38.fromUndefinedOr(runId2),
+      () => Option38.fromUndefinedOr(
         replyTo?.includes("/") === true ? replyTo.split("/")[0] : void 0
       )
     )
   ),
-  Option37.filter((runId2) => runId2 !== "")
+  Option38.filter((runId2) => runId2 !== "")
 );
 var NO_RUN_ID = "this request names no run. Every run capability takes a JSON body with runId. deliverReply can find its run from replyTo only when replyTo is <runId>/<step>#<visit>; a Rat King message id (an ask sent as real mail, like 3mxoabjvtfwka) has no run in it, so add the run's runId (inspectRun shows the ask under awaiting). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 // src/schedule-address.ts
-import { Option as Option38, Schema as Schema80 } from "effect";
+import { Option as Option39, Schema as Schema80 } from "effect";
 var SCHEDULE_CAPABILITIES = /* @__PURE__ */ new Set([
   "createSchedule",
   "inspectSchedule",
@@ -80404,8 +80414,8 @@ var decodeAddress2 = Schema80.decodeUnknownOption(
   )
 );
 var scheduleIdOf = (body) => decodeAddress2(body).pipe(
-  Option38.flatMap(({ scheduleId: scheduleId2 }) => Option38.fromUndefinedOr(scheduleId2)),
-  Option38.filter((scheduleId2) => scheduleId2 !== "")
+  Option39.flatMap(({ scheduleId: scheduleId2 }) => Option39.fromUndefinedOr(scheduleId2)),
+  Option39.filter((scheduleId2) => scheduleId2 !== "")
 );
 var NO_SCHEDULE_ID = "this request names no schedule. createSchedule, inspectSchedule and completeSchedule each take a JSON body with scheduleId; add it and send the request again. GET /openapi.json lists every capability";
 
@@ -80419,7 +80429,7 @@ var servicesFor = (env, callers) => Layer31.merge(
 var refused2 = (error) => Response.json({ error: error.reason }, { status: 401 });
 var VERSION_PATH = "/.well-known/rat-king/version";
 var thinkStatus = async (env) => {
-  const day = utcDay(Effect57.runSync(Clock12.currentTimeMillis));
+  const day = utcDay(Effect58.runSync(Clock12.currentTimeMillis));
   const today = await env.POSTBOX.get(
     env.POSTBOX.idFromName(POSTBOX_NAME)
   ).thinkDay(day);
@@ -80451,17 +80461,17 @@ var worker_handler_default = {
     const callers = Schema81.decodeUnknownOption(CallersFromJson)(
       env.MISCHIEF_CALLERS ?? ""
     );
-    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option39.isNone(callers)) {
+    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option40.isNone(callers)) {
       return Response.json({ error: NOT_CONFIGURED }, { status: 503 });
     }
     const { pathname } = new URL(request2.url);
     const capability = pathname === "/openapi.json" ? "openApi" : pathname.slice(1);
-    const caller = await Effect57.runPromise(
+    const caller = await Effect58.runPromise(
       authenticate({
         audience: `${env.MISCHIEF_DID}#mischief`,
         authorization: request2.headers.get("authorization"),
         lxm: `${NSID_PREFIX}${capability}`
-      }).pipe(Effect57.result, Effect57.provide(servicesFor(env, callers.value)))
+      }).pipe(Effect58.result, Effect58.provide(servicesFor(env, callers.value)))
     );
     if (Result10.isFailure(caller)) {
       return refused2(caller.failure);
@@ -80475,7 +80485,7 @@ var worker_handler_default = {
     const body = await request2.text();
     if (SCHEDULE_CAPABILITIES.has(capability)) {
       const scheduleId2 = scheduleIdOf(body);
-      if (Option39.isNone(scheduleId2)) {
+      if (Option40.isNone(scheduleId2)) {
         return Response.json({ error: NO_SCHEDULE_ID }, { status: 400 });
       }
       const name = `${caller.success.iss}/${scheduleId2.value}`;
@@ -80491,7 +80501,7 @@ var worker_handler_default = {
       );
     }
     const runId2 = runIdOf(body);
-    if (Option39.isNone(runId2)) {
+    if (Option40.isNone(runId2)) {
       return Response.json({ error: NO_RUN_ID }, { status: 400 });
     }
     const run2 = env.PLAN_RUN.get(

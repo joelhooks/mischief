@@ -58,7 +58,7 @@ it.effect(
 
       expect(unit.name).toBe("mischief-opus-bridge.service");
       expect(sections.Service).toMatchObject({
-        EnvironmentFile: '"/home/operator/.config/mischief/opus-bridge.env"',
+        EnvironmentFile: "/home/operator/.config/mischief/opus-bridge.env",
         ExecStart: `/usr/local/bin/node "${entry}"`,
         KillMode: "control-group",
         MemoryHigh: "3.5G",

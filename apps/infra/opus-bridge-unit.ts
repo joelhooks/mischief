@@ -14,10 +14,7 @@ export const opusBridgeUnit = (
     { lines: [["Description", "Mischief Opus review bridge"]], name: "Unit" },
     {
       lines: [
-        [
-          "EnvironmentFile",
-          quote(`${host.home}/.config/mischief/opus-bridge.env`),
-        ],
+        ["EnvironmentFile", `${host.home}/.config/mischief/opus-bridge.env`],
         ["ExecStart", `/usr/local/bin/node ${quote(entry)}`],
         ["KillMode", "control-group"],
         ["MemoryHigh", "3.5G"],

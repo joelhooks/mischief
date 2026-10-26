@@ -30,11 +30,13 @@
     },
     "test": {
       "dependsOn": ["build"],
-      "outputs": []
+      "outputs": [],
+      "passThroughEnv": ["VITEST_MAX_WORKERS"]
     },
     "@mischief/infra#test": {
       "dependsOn": ["build", "@mischief/worker#build"],
-      "outputs": []
+      "outputs": [],
+      "passThroughEnv": ["VITEST_MAX_WORKERS"]
     },
     "//#lint": {
       "dependsOn": ["@mischief/capability#build", "@mischief/thinking#build"],

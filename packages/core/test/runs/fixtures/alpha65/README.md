@@ -1,6 +1,6 @@
 # Alpha.65 persistence fixtures
 
-`runs.json` was captured before the dependency bump, on commit `7a986e399b807a6b99e66875cbddd767c29b5f5e`, with `xstate@6.0.0-alpha.65`, `@xstate/effect@0.1.0-alpha.7` and Effect `4.0.1`.
+`runs.json.gz` is the gzip of `runs.json` (8,748,281 bytes raw, 197,706 gzipped). It was captured before the dependency bump, on commit `7a986e399b807a6b99e66875cbddd767c29b5f5e`, with `xstate@6.0.0-alpha.65`, `@xstate/effect@0.1.0-alpha.7` and Effect `4.0.1`.
 
 The corpus contains 27 plans and 837 atomic `RunBackend.apply` captures. Each capture contains the persisted run state, documents, journal, fingerprints, message-owner index and pause flag. Each plan also carries its original submission body, normalized stored plan, compiled machine JSON, submission fingerprint, completed step fingerprints and the old engine's final value and documents.
 
@@ -14,6 +14,10 @@ The captures cover:
 - 27 completed runs.
 
 The generation seed is `650070`. `capture.ts` retains the generator and refuses manifests with different engine pins. To regenerate, use the source commit above, copy this generator and the migration test helpers into that checkout, and invoke `captureAlpha65` from a temporary `it.effect` test. Run Vitest with `--maxWorkers=4`. Never regenerate this corpus using the new engine.
+
+## Integrity
+
+The decompressed content is byte-identical to the former `runs.json`, whose sha256 was `5f59054a74dd1ac3d6793b4f4fd7408d39640e513347ccc47ef6bd0e28e7258d`. Check it with `gunzip -c runs.json.gz | sha256sum`. `migration-corpus.ts` decodes the file with `gunzipSync`; a corrupt archive fails with `CorpusDecodeError`. `capture.ts` writes gzip.
 
 ## Compatibility checks
 

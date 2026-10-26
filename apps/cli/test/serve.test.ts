@@ -13,6 +13,7 @@ import {
   RunHost,
   RunStore,
   Thinker,
+  ThinkTelemetry,
 } from "@mischief/core";
 import {
   ActorLog,
@@ -56,7 +57,8 @@ const AppLayer = HttpRouter.serve(routes, {
 }).pipe(
   Layer.provideMerge(NodeHttpServer.layerTest),
   Layer.provide(FileInspector.layer.pipe(Layer.provide(NodeServices.layer))),
-  Layer.provide(memoryRuns)
+  Layer.provide(memoryRuns),
+  Layer.provide(ThinkTelemetry.unavailable)
 );
 
 describe("serve routes", () => {
@@ -158,7 +160,8 @@ describe("serve routes", () => {
           Layer.provide(
             FileInspector.layer.pipe(Layer.provide(NodeServices.layer))
           ),
-          Layer.provide(memoryRuns)
+          Layer.provide(memoryRuns),
+          Layer.provide(ThinkTelemetry.unavailable)
         )
       )
     )

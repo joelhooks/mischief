@@ -93,7 +93,7 @@ Callers ask the service to inspect a path. Composition chooses the file-system i
 
 ### 4. Give the lifecycle named states
 
-A declared `fromEffect` actor calls `FileInspector`.
+A declared Effect actor calls `FileInspector`. The pinned historical source uses `fromEffect`; the current name is `createEffectLogic`.
 
 ```ts repo=rat-stack path=packages/core/src/inspect-machine.ts at=5c0f78e03d69ff9ea00f6b95d02cc36a3de91a0b lines=26-30 {26,28}
 

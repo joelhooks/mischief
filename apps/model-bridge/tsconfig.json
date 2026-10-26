@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "allowedUnstableApis": [
+          "@effect/platform-node/NodeHttpServer",
+          "@effect/platform-node/NodeRuntime",
+          "@effect/platform-node/NodeServices",
+          "@effect/vitest",
+          "effect/Arbitrary",
+          "effect/ByteSize",
+          "effect/FileSystem",
+          "effect/Path",
+          "effect/http/HttpBody",
+          "effect/http/HttpClient",
+          "effect/http/HttpIncomingMessage",
+          "effect/http/HttpRouter",
+          "effect/http/HttpServerRequest",
+          "effect/http/HttpServerResponse",
+          "effect/process/ChildProcess",
+          "effect/process/ChildProcessSpawner"
+        ]
+      }
+    ]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+}

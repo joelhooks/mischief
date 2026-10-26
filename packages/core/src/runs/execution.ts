@@ -1,10 +1,12 @@
 import { Effect, Option, Predicate, Schema } from "effect";
-import { createMachineFromConfig } from "xstate";
 import type { AnyEventObject, Snapshot } from "xstate";
 import { createDurable } from "xstate/durable";
 import type { DurableExecution, DurableExecutionAdapter } from "xstate/durable";
 
 import type { CompiledMachine } from "../plans/compile.js";
+import { hydratePlan } from "../plans/hydrate.js";
+import type { PlanSources } from "../plans/hydrate.js";
+import { restorePlanSnapshot } from "./restore-snapshot.js";
 import type { QueuedEvent } from "./schema.js";
 
 export type StateValue = string | StateValueMap;
@@ -36,22 +38,22 @@ const decodeView = Schema.decodeUnknownSync(ViewSchema);
 
 const StartSchema = Schema.Struct({
   descriptor: Schema.Struct({
-    actor: Schema.String,
+    actor: Schema.Struct({ $actor: Schema.String }),
     type: Schema.Literal("@xstate.start"),
   }),
 });
 
 const decodeStart = Schema.decodeUnknownOption(StartSchema);
 
-export type Sources = Parameters<typeof createMachineFromConfig>[1];
+export type Sources = PlanSources;
 
 export type Adapter = Omit<
-  DurableExecutionAdapter<ReturnType<typeof createMachineFromConfig>>,
+  DurableExecutionAdapter<ReturnType<typeof hydratePlan>>,
   "transitionIndex"
 >;
 
 type Step = ReturnType<
-  DurableExecution<ReturnType<typeof createMachineFromConfig>>["transition"]
+  DurableExecution<ReturnType<typeof hydratePlan>>["transition"]
 >;
 
 const typed = (step: Step) => {
@@ -89,7 +91,7 @@ export const openExecution = (
   adapter: Adapter,
   opening: Opening
 ) => {
-  const machine = createMachineFromConfig(compiled, sources);
+  const machine = hydratePlan(compiled, sources);
 
   const durable = createDurable(machine, {
     ...adapter,
@@ -99,7 +101,7 @@ export const openExecution = (
   const cursor = typed(
     Option.match(opening.persisted, {
       onNone: () => durable.initialTransition(),
-      onSome: (persisted) => durable.restore(persisted),
+      onSome: (persisted) => durable.restore(restorePlanSnapshot(persisted)),
     })
   );
 
@@ -107,7 +109,7 @@ export const openExecution = (
     cursor.effects.flatMap((effect) =>
       Option.match(decodeStart(effect), {
         onNone: () => [],
-        onSome: ({ descriptor }) => [descriptor.actor],
+        onSome: ({ descriptor }) => [descriptor.actor.$actor],
       })
     );
 

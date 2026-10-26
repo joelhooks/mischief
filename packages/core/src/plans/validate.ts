@@ -1,12 +1,13 @@
 import { Effect, Option, Schema } from "effect";
 import { absurd, constFalse, constVoid } from "effect/Function";
-import { createAsyncLogic, createMachineFromConfig } from "xstate";
+import { createAsyncLogic } from "xstate";
 
 import { CallRegistry } from "../steps/call-registry.js";
 import type { Callable } from "../steps/call-registry.js";
 import { branchLength, compilePlan, isCompound, isFinal } from "./compile.js";
 import { DeclaredThinking, undeclaredThinking } from "./declared-thinking.js";
 import { docRefErrors, stepsOf } from "./doc-refs.js";
+import { hydratePlan } from "./hydrate.js";
 import type {
   AgentConfig,
   AskStep,
@@ -624,7 +625,7 @@ const probeSources = {
 
 const hydrationErrors = (plan: Plan): readonly string[] => {
   try {
-    createMachineFromConfig(compilePlan(plan), probeSources);
+    hydratePlan(compilePlan(plan), probeSources);
 
     return [];
   } catch (error) {

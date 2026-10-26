@@ -10,13 +10,14 @@ export {
   gatewayStreamOptions,
   gatewayThinkerOptions,
   promptCacheKeyOf,
+  opusBridgeFrom,
 } from "./gateway.js";
 
 export { JEV_MODEL, JEV_URL, jevJudge } from "./jev.js";
 
 export type { JevConfig } from "./jev.js";
 
-export type { GatewayConfig } from "./gateway.js";
+export type { GatewayConfig, GatewayEndpoint } from "./gateway.js";
 
 export { piThinker } from "./pi-thinker.js";
 

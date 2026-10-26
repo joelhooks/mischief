@@ -56,6 +56,12 @@ it.layer(NodeServices.layer)("lockfile guard", (test) => {
 
         expect(installed).toBe(0);
 
+        yield* fileSystem.makeDirectory(path.join(directory, "scripts"));
+        yield* fileSystem.copyFile(
+          path.join(root, "scripts/lock-paths.ts"),
+          path.join(directory, "scripts/lock-paths.ts")
+        );
+
         const lockfile = path.join(directory, "pnpm-lock.yaml");
         const valid = yield* fileSystem.readFileString(lockfile);
 

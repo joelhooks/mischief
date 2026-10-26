@@ -307,8 +307,8 @@ importers:
         specifier: 4.0.5
         version: 4.0.5(effect@4.0.5)(redis@6.2.1)
       '@rat-king/alchemy-nest':
-        specifier: github:joelhooks/rat-king#9dbd61b5cb5d56a462c7a207ce8f14800089f49b&path:/packages/alchemy-nest
-        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/alchemy-nest(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1))(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
+        specifier: github:joelhooks/rat-king#b191804a7c358a35188e2faaacf3edbc39d9313d&path:/packages/alchemy-nest
+        version: https://codeload.github.com/joelhooks/rat-king/tar.gz/b191804a7c358a35188e2faaacf3edbc39d9313d#path:/packages/alchemy-nest(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(redis@6.2.1)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
       '@rat-king/mailbox-client':
         specifier: github:joelhooks/rat-king#9dbd61b5cb5d56a462c7a207ce8f14800089f49b&path:/packages/mailbox-client/bundle
         version: https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/mailbox-client/bundle
@@ -2043,8 +2043,8 @@ packages:
       yauzl:
         optional: true
 
-  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/alchemy-nest':
-    resolution: {gitHosted: true, path: /packages/alchemy-nest, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b}
+  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/b191804a7c358a35188e2faaacf3edbc39d9313d#path:/packages/alchemy-nest':
+    resolution: {gitHosted: true, integrity: sha512-npS11ltaQz7/XN4UUmzT/kKmfQmE+EPVG1p68VRB6EpZtBCdvNs0kwzqnJfDASPkuQbJq2ia+sREwJwOqEi7lw==, path: /packages/alchemy-nest, tarball: https://codeload.github.com/joelhooks/rat-king/tar.gz/b191804a7c358a35188e2faaacf3edbc39d9313d}
     version: 0.1.0
 
   '@rat-king/mailbox-client@https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/mailbox-client/bundle':
@@ -5152,8 +5152,9 @@ snapshots:
     optionalDependencies:
       yauzl: 3.4.0
 
-  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/9dbd61b5cb5d56a462c7a207ce8f14800089f49b#path:/packages/alchemy-nest(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1))(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)':
+  '@rat-king/alchemy-nest@https://codeload.github.com/joelhooks/rat-king/tar.gz/b191804a7c358a35188e2faaacf3edbc39d9313d#path:/packages/alchemy-nest(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(redis@6.2.1)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)':
     dependencies:
+      '@effect/platform-node': 4.0.5(effect@4.0.5)(redis@6.2.1)
       alchemy: 2.0.0-beta.83(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.2.1))(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(effect@4.0.5)(hono@4.11.4)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)
       effect: 4.0.5
       esbuild: 0.28.2
@@ -5162,7 +5163,6 @@ snapshots:
       - '@alchemy.run/frontend-frameworks'
       - '@aws/durable-execution-sdk-js'
       - '@effect/platform-bun'
-      - '@effect/platform-node'
       - '@effect/sql-libsql'
       - '@effect/sql-mysql2'
       - '@effect/sql-pg'
@@ -5181,6 +5181,7 @@ snapshots:
       - prisma
       - proxy-agent
       - react-devtools-core
+      - redis
       - typescript
       - utf-8-validate
       - vite

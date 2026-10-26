@@ -1,7 +1,11 @@
 import type { SqlStorage } from "@mischief/plan-run";
 import { DateTime, Option, Schema } from "effect";
 
-export const DAY_WARN_TOKENS = 1_500_000;
+export const DAY_WARN_FLOOR_TOKENS = 1_500_000;
+
+export const DAY_WARN_HISTORY_DAYS = 7;
+
+export const DAY_WARN_MEDIAN_MULTIPLE = 2;
 
 export const RUN_WARN_TOKENS = 100_000;
 
@@ -26,11 +30,46 @@ export type Crossing = "day" | "run";
 export interface Tallied {
   readonly crossed: readonly Crossing[];
   readonly day: { readonly calls: number; readonly tokens: number };
+  readonly dayWarning: ReturnType<typeof dayWarning>;
   readonly run: { readonly calls: number; readonly tokens: number };
 }
 
 const crossedAt = (before: number, after: number, line: number) =>
   before < line && after >= line;
+
+export const dayWarning = (storage: SqlStorage, day: string) => {
+  storage.sql.exec(DAYS);
+
+  const history = Schema.decodeUnknownSync(Schema.Array(Totals))(
+    storage.sql
+      .exec(
+        "SELECT calls, tokens FROM mischief_think_days WHERE day < ? ORDER BY day DESC LIMIT ?",
+        day,
+        DAY_WARN_HISTORY_DAYS
+      )
+      .toArray()
+  );
+
+  const ordered = history.map(({ tokens }) => tokens).toSorted((a, b) => a - b);
+  const middle = Math.floor(ordered.length / 2);
+
+  const median =
+    ordered.length === 0
+      ? null
+      : ((ordered[middle - (ordered.length % 2 === 0 ? 1 : 0)] ?? 0) +
+          (ordered[middle] ?? 0)) /
+        2;
+
+  return {
+    line: Math.max(
+      DAY_WARN_FLOOR_TOKENS,
+      DAY_WARN_MEDIAN_MULTIPLE * (median ?? 0)
+    ),
+    median,
+    multiple: DAY_WARN_MEDIAN_MULTIPLE,
+    sampleDays: history.length,
+  };
+};
 
 export const tally = (
   storage: SqlStorage,
@@ -41,6 +80,8 @@ export const tally = (
   storage.transactionSync(() => {
     storage.sql.exec(DAYS);
     storage.sql.exec(RUNS);
+
+    const warning = dayWarning(storage, day);
 
     const dayBefore = totalsOf(
       storage.sql
@@ -84,7 +125,7 @@ export const tally = (
 
     return {
       crossed: [
-        ...(crossedAt(dayBefore.tokens, dayAfter.tokens, DAY_WARN_TOKENS)
+        ...(dayBefore.tokens <= warning.line && dayAfter.tokens > warning.line
           ? ["day" as const]
           : []),
         ...(crossedAt(runBefore.tokens, runAfter.tokens, RUN_WARN_TOKENS)
@@ -92,6 +133,7 @@ export const tally = (
           : []),
       ],
       day: dayAfter,
+      dayWarning: warning,
       run: runAfter,
     };
   });
@@ -113,18 +155,23 @@ export const warnText = (
   crossing: Crossing,
   runId: string,
   key: string,
-  { day, run }: Pick<Tallied, "day" | "run">,
+  {
+    day,
+    dayWarning: warning,
+    run,
+  }: Pick<Tallied, "day" | "dayWarning" | "run">,
   today: string
 ) =>
   crossing === "day"
     ? [
-        `Mischief think telemetry: ${today} (UTC) has passed ${DAY_WARN_TOKENS.toLocaleString("en-US")} tokens: ${day.tokens.toLocaleString("en-US")} over ${day.calls} calls, last at ${runId} state ${key}.`,
+        `Mischief think telemetry: ${today} (UTC) has passed ${warning.line.toLocaleString("en-US")} tokens: ${day.tokens.toLocaleString("en-US")} over ${day.calls} calls, last at ${runId} state ${key}.`,
+        `Daily line: max(${DAY_WARN_FLOOR_TOKENS.toLocaleString("en-US")} floor, ${warning.multiple} × trailing median ${warning.median?.toLocaleString("en-US") ?? "unavailable (no history)"} tokens from ${warning.sampleDays} earlier days with data, up to ${DAY_WARN_HISTORY_DAYS}).`,
         "This is a warning only; no run is held.",
         "",
         JSON.stringify({
           calls: day.calls,
           day: today,
-          line: DAY_WARN_TOKENS,
+          ...warning,
           tokens: day.tokens,
         }),
         "",

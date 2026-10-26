@@ -79305,7 +79305,9 @@ var leaseBook = (storage) => {
 
 // src/think-tally.ts
 import { DateTime as DateTime2, Option as Option31, Schema as Schema70 } from "effect";
-var DAY_WARN_TOKENS = 15e5;
+var DAY_WARN_FLOOR_TOKENS = 15e5;
+var DAY_WARN_HISTORY_DAYS = 7;
+var DAY_WARN_MEDIAN_MULTIPLE = 2;
 var RUN_WARN_TOKENS = 1e5;
 var DAYS2 = "CREATE TABLE IF NOT EXISTS mischief_think_days (day TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
 var RUNS = "CREATE TABLE IF NOT EXISTS mischief_think_runs (run_id TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
@@ -79317,9 +79319,32 @@ var totalsOf = (rows) => Option31.getOrElse(
   () => ({ calls: 0, tokens: 0 })
 );
 var crossedAt = (before, after, line) => before < line && after >= line;
+var dayWarning = (storage, day) => {
+  storage.sql.exec(DAYS2);
+  const history = Schema70.decodeUnknownSync(Schema70.Array(Totals))(
+    storage.sql.exec(
+      "SELECT calls, tokens FROM mischief_think_days WHERE day < ? ORDER BY day DESC LIMIT ?",
+      day,
+      DAY_WARN_HISTORY_DAYS
+    ).toArray()
+  );
+  const ordered = history.map(({ tokens }) => tokens).toSorted((a, b) => a - b);
+  const middle = Math.floor(ordered.length / 2);
+  const median = ordered.length === 0 ? null : ((ordered[middle - (ordered.length % 2 === 0 ? 1 : 0)] ?? 0) + (ordered[middle] ?? 0)) / 2;
+  return {
+    line: Math.max(
+      DAY_WARN_FLOOR_TOKENS,
+      DAY_WARN_MEDIAN_MULTIPLE * (median ?? 0)
+    ),
+    median,
+    multiple: DAY_WARN_MEDIAN_MULTIPLE,
+    sampleDays: history.length
+  };
+};
 var tally = (storage, day, runId2, tokens) => storage.transactionSync(() => {
   storage.sql.exec(DAYS2);
   storage.sql.exec(RUNS);
+  const warning = dayWarning(storage, day);
   const dayBefore = totalsOf(
     storage.sql.exec(
       "SELECT calls, tokens FROM mischief_think_days WHERE day = ?",
@@ -79352,10 +79377,11 @@ var tally = (storage, day, runId2, tokens) => storage.transactionSync(() => {
   };
   return {
     crossed: [
-      ...crossedAt(dayBefore.tokens, dayAfter.tokens, DAY_WARN_TOKENS) ? ["day"] : [],
+      ...dayBefore.tokens <= warning.line && dayAfter.tokens > warning.line ? ["day"] : [],
       ...crossedAt(runBefore.tokens, runAfter.tokens, RUN_WARN_TOKENS) ? ["run"] : []
     ],
     day: dayAfter,
+    dayWarning: warning,
     run: runAfter
   };
 });
@@ -79366,14 +79392,19 @@ var dayTotals = (storage, day) => {
   );
 };
 var utcDay = (millis) => DateTime2.formatIsoDateUtc(DateTime2.makeUnsafe(millis));
-var warnText = (crossing, runId2, key, { day, run: run2 }, today) => crossing === "day" ? [
-  `Mischief think telemetry: ${today} (UTC) has passed ${DAY_WARN_TOKENS.toLocaleString("en-US")} tokens: ${day.tokens.toLocaleString("en-US")} over ${day.calls} calls, last at ${runId2} state ${key}.`,
+var warnText = (crossing, runId2, key, {
+  day,
+  dayWarning: warning,
+  run: run2
+}, today) => crossing === "day" ? [
+  `Mischief think telemetry: ${today} (UTC) has passed ${warning.line.toLocaleString("en-US")} tokens: ${day.tokens.toLocaleString("en-US")} over ${day.calls} calls, last at ${runId2} state ${key}.`,
+  `Daily line: max(${DAY_WARN_FLOOR_TOKENS.toLocaleString("en-US")} floor, ${warning.multiple} \xD7 trailing median ${warning.median?.toLocaleString("en-US") ?? "unavailable (no history)"} tokens from ${warning.sampleDays} earlier days with data, up to ${DAY_WARN_HISTORY_DAYS}).`,
   "This is a warning only; no run is held.",
   "",
   JSON.stringify({
     calls: day.calls,
     day: today,
-    line: DAY_WARN_TOKENS,
+    ...warning,
     tokens: day.tokens
   }),
   "",
@@ -79517,7 +79548,10 @@ var Postbox = class extends DurableObject {
   }
   // oxlint-disable-next-line require-await -- a Durable Object RPC method returns a Promise; the read is synchronous SQLite.
   async thinkDay(day) {
-    return dayTotals(this.ctx.storage, day);
+    return {
+      ...dayTotals(this.ctx.storage, day),
+      warning: dayWarning(this.ctx.storage, day)
+    };
   }
   async start() {
     if (await this.ctx.storage.getAlarm() === null) {
@@ -80291,7 +80325,7 @@ var thinkStatus = async (env) => {
     today: {
       ...today,
       day,
-      warnAt: { day: DAY_WARN_TOKENS, run: RUN_WARN_TOKENS }
+      warnAt: { day: today.warning.line, run: RUN_WARN_TOKENS }
     }
   };
 };

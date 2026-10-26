@@ -1,9 +1,8 @@
 // @effect-diagnostics asyncFunction:off -- the Worker's fetch handler is a Promise API.
 import { mischiefApiSpec } from "@mischief/plan-run";
-import { THINK_DEFAULT, THINK_DEFAULT_REVIEW } from "@mischief/thinking";
 import { Documents, staticResolver } from "@rat-king/mailbox-client/auth";
 import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
-import { Clock, Effect, Layer, Option, Result, Schema } from "effect";
+import { Effect, Layer, Option, Result, Schema } from "effect";
 
 import type { Env } from "./plan-run-object.js";
 import { OBJECT_HEADER } from "./postbox-mail.js";
@@ -17,7 +16,8 @@ import {
 } from "./schedule-address.js";
 import { authenticate, NSID_PREFIX } from "./service-auth.js";
 import type { AuthRefused } from "./service-auth.js";
-import { RUN_WARN_TOKENS, utcDay } from "./think-tally.js";
+import { thinkStatusHttp } from "./think-status-http.js";
+import { thinkTelemetry } from "./think-telemetry.js";
 
 const NOT_CONFIGURED =
   "this Mischief host has no MISCHIEF_DID or no valid MISCHIEF_CALLERS (a JSON array of the allowed callers' DID documents), so it serves nobody. Ask the Mischief desk (pi-durable/desk) to deploy it with both";
@@ -38,35 +38,6 @@ declare const __BUNDLE_COMMIT__: string;
 declare const __BUNDLE_VERSION__: string;
 
 const VERSION_PATH = "/.well-known/rat-king/version";
-
-const thinkStatus = async (env: Env) => {
-  const day = utcDay(Effect.runSync(Clock.currentTimeMillis));
-
-  const today = await env.POSTBOX.get(
-    env.POSTBOX.idFromName(POSTBOX_NAME)
-  ).thinkDay(day);
-
-  return {
-    default: {
-      ...THINK_DEFAULT,
-      review: THINK_DEFAULT_REVIEW,
-      source: "THINK_DEFAULT in @mischief/thinking; design ledger 2026-10-16",
-    },
-    host: {
-      model: env.MISCHIEF_MODEL,
-      wired:
-        env.MISCHIEF_MODEL === "faux" ||
-        (env.MISCHIEF_MODEL === "cliproxy" &&
-          (env.MISCHIEF_CLIPROXY_KEY ?? "") !== "" &&
-          (env.MISCHIEF_CLIPROXY_URL ?? "") !== ""),
-    },
-    today: {
-      ...today,
-      day,
-      warnAt: { day: today.warning.line, run: RUN_WARN_TOKENS },
-    },
-  };
-};
 
 export default {
   async fetch(request: Request, env: Env) {
@@ -114,7 +85,32 @@ export default {
     }
 
     if (capability === "thinkStatus") {
-      return Response.json(await thinkStatus(env));
+      const { dispose, handler } = thinkStatusHttp(
+        thinkTelemetry({
+          cliproxyKey: env.MISCHIEF_CLIPROXY_KEY,
+          cliproxyUrl: env.MISCHIEF_CLIPROXY_URL,
+          model: env.MISCHIEF_MODEL,
+          readDay: (day) =>
+            Effect.promise(
+              async () =>
+                await env.POSTBOX.get(
+                  env.POSTBOX.idFromName(POSTBOX_NAME)
+                ).thinkDay(day)
+            ),
+        })
+      );
+
+      try {
+        return await handler(
+          new Request(request.url, {
+            body: "{}",
+            headers: { "content-type": "application/json" },
+            method: "POST",
+          })
+        );
+      } finally {
+        await dispose();
+      }
     }
 
     const body = await request.text();

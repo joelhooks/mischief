@@ -2,7 +2,7 @@
 
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Approval } from "@mischief/capability";
-import { FileInspector } from "@mischief/core";
+import { FileInspector, ThinkTelemetry } from "@mischief/core";
 import { Console, Effect, Layer } from "effect";
 
 import { runCommand } from "./command.js";
@@ -17,7 +17,8 @@ const program = runCommand(process.argv.slice(2)).pipe(
     Layer.mergeAll(
       Layer.provideMerge(FileInspector.layer, NodeServices.layer),
       localRunLayer.pipe(Layer.provide(NodeServices.layer)),
-      Approval.denyAll
+      Approval.denyAll,
+      ThinkTelemetry.unavailable
     )
   )
 );

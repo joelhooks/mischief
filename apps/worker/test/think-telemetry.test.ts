@@ -1,5 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
+import { ThinkStatusSchema } from "@mischief/core";
 import { Effect, Layer, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 
@@ -46,17 +47,6 @@ const Report = Schema.Struct({
   }),
 });
 
-const Status = Schema.Struct({
-  default: Schema.Struct({
-    model: Schema.String,
-    review: Schema.String,
-    source: Schema.String,
-    thinking: Schema.String,
-  }),
-  host: Schema.Struct({ model: Schema.String, wired: Schema.Boolean }),
-  today: Schema.Struct({ calls: Schema.Finite, tokens: Schema.Finite }),
-});
-
 it.live(
   "every think call that ran is on its run's report and in the host's day total, and status names the default in force",
   () =>
@@ -78,7 +68,9 @@ it.live(
       }
 
       const status = yield* post(world, "thinkStatus", {}).pipe(
-        Effect.flatMap(({ body }) => Schema.decodeUnknownEffect(Status)(body))
+        Effect.flatMap(({ body }) =>
+          Schema.decodeUnknownEffect(ThinkStatusSchema)(body)
+        )
       );
 
       expect(status.default).toStrictEqual({
@@ -89,6 +81,10 @@ it.live(
       });
       expect(status.host).toStrictEqual({ model: "faux", wired: true });
       expect(status.today.calls).toBe(4);
+      expect(status.today.warnAt).toStrictEqual({
+        day: status.today.warning.line,
+        run: 100_000,
+      });
     }).pipe(Effect.scoped, Effect.provide(services)),
   60_000
 );

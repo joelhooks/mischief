@@ -154,12 +154,20 @@ describe("built CLI", () => {
     );
   });
 
+  it("names the host call when local think telemetry is unavailable", () => {
+    const result = runCli(["thinkStatus"]);
+
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}${result.stderr}`).toContain("POST /thinkStatus");
+  });
+
   it("prints the catalog as TypeScript declarations", () => {
     const result = runCli(["catalog", "--types"]);
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("declare const tools: {");
     expect(result.stdout).toContain("readonly inspectFile: (input:");
+    expect(result.stdout).toContain("readonly thinkStatus: (input:");
   });
 
   it("prints an OpenAPI document with one path per capability", () => {
@@ -168,6 +176,7 @@ describe("built CLI", () => {
     expect(result.status).toBe(0);
     const document = decodeOpenApi(result.stdout);
     expect(document.paths["/inspectFile"]?.post).toBeDefined();
+    expect(document.paths["/thinkStatus"]?.post).toBeDefined();
   });
 });
 

@@ -1,6 +1,7 @@
 // @effect-diagnostics asyncFunction:off -- a Durable Object's RPC methods and alarm handler are Promise APIs.
 import { webCrypto } from "@mischief/plan-run";
 import { Identity } from "@rat-king/mailbox-client";
+import { send, waitFor } from "@xstate/effect";
 import { DurableObject } from "cloudflare:workers";
 import { Clock, Effect, Exit, Layer, Option, Schema, Scope } from "effect";
 import { FetchHttpClient } from "effect/http";
@@ -9,6 +10,10 @@ import { openMailroom } from "./mailroom.js";
 import type { Env } from "./plan-run-object.js";
 import { PostboxFailed } from "./postbox-failed.js";
 import { leaseBook } from "./postbox-lease.js";
+import { PostboxReaderFailed } from "./postbox-reader-failed.js";
+import { postboxReaderWatchdog } from "./postbox-reader-watchdog.js";
+import { PostboxReader, startPostboxReader } from "./postbox-reader.js";
+import type { OpenMailroom } from "./postbox-reader.js";
 import { postbox } from "./postbox.js";
 import { Delivered, Runs } from "./runs-port.js";
 import type { DeliveredValue, ReplyLine } from "./runs-port.js";
@@ -32,8 +37,6 @@ const Refusal = Schema.fromJsonString(
   })
 );
 
-type OpenMailroom = Effect.Success<ReturnType<typeof openMailroom>>;
-
 const posted = async <A extends object>(
   effect: Effect.Effect<A, PostboxFailed>
 ): Promise<Posted<A>> => {
@@ -56,25 +59,90 @@ const now = () => Effect.runSync(Clock.currentTimeMillis);
 export class Postbox extends DurableObject<Env> {
   private readonly box;
   private readonly scope = Effect.runSync(Scope.make());
-  private mailroom: OpenMailroom | undefined;
-  private consuming = false;
+  private readonly reader;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.box = postbox(ctx.storage);
+    this.reader = Effect.runPromise(
+      startPostboxReader().pipe(
+        Effect.provideService(PostboxReader, {
+          consume: ({ consume, layer }) =>
+            Effect.suspend(() =>
+              consume(
+                (message, seq) =>
+                  this.box
+                    .receive(message, seq)
+                    .pipe(Effect.provide(Layer.merge(layer, this.runs))),
+                this.box.cursor()
+              )
+            ).pipe(
+              Effect.catchCause((cause) =>
+                Effect.logWarning(
+                  "the Postbox reader stopped; the watchdog restarts it",
+                  cause
+                ).pipe(
+                  Effect.andThen(
+                    Effect.fail(PostboxReaderFailed.fromCause(cause))
+                  )
+                )
+              )
+            ),
+          wire: Effect.suspend(() => this.open()).pipe(
+            Effect.catchCause((cause) =>
+              Effect.fail(PostboxReaderFailed.fromCause(cause))
+            )
+          ),
+        }),
+        Scope.provide(this.scope)
+      )
+    );
   }
 
   private wired(): Effect.Effect<OpenMailroom, PostboxFailed> {
+    return Effect.promise(async () => await this.reader).pipe(
+      Effect.flatMap((actor) => {
+        const current = actor.getSnapshot().context;
+
+        if (current.mailroom !== undefined) {
+          return Effect.succeed(actor.getSnapshot());
+        }
+
+        const previousFailure = current.failure;
+
+        return send(actor, { type: "START" }).pipe(
+          Effect.andThen(
+            waitFor(
+              actor,
+              (snapshot) =>
+                snapshot.context.mailroom !== undefined ||
+                (snapshot.context.failure !== undefined &&
+                  snapshot.context.failure !== previousFailure) ||
+                snapshot.status === "done"
+            )
+          )
+        );
+      }),
+      Effect.orDie,
+      Effect.flatMap(({ context }) =>
+        context.mailroom === undefined
+          ? Effect.fail(
+              new PostboxFailed({
+                reason: context.failure?.reason ?? NOT_WIRED,
+              })
+            )
+          : Effect.succeed(context.mailroom)
+      )
+    );
+  }
+
+  private open(): Effect.Effect<OpenMailroom, PostboxFailed> {
     const identity = Schema.decodeUnknownOption(
       Schema.fromJsonString(Identity)
     )(this.env.MISCHIEF_IDENTITY ?? "");
 
     const endpoint = this.env.MISCHIEF_MAILBOX_URL ?? "";
     const serviceDid = this.env.MISCHIEF_MAILBOX_DID ?? "";
-
-    if (this.mailroom !== undefined) {
-      return Effect.succeed(this.mailroom);
-    }
 
     if (Option.isNone(identity) || endpoint === "" || serviceDid === "") {
       return Effect.fail(new PostboxFailed({ reason: NOT_WIRED }));
@@ -87,12 +155,7 @@ export class Postbox extends DurableObject<Env> {
       serviceDid,
     }).pipe(
       Scope.provide(this.scope),
-      Effect.provide(Layer.merge(FetchHttpClient.layer, webCrypto)),
-      Effect.tap((opened) =>
-        Effect.sync(() => {
-          this.mailroom = opened;
-        })
-      )
+      Effect.provide(Layer.merge(FetchHttpClient.layer, webCrypto))
     );
   }
 
@@ -188,42 +251,12 @@ export class Postbox extends DurableObject<Env> {
   override async alarm() {
     await this.ctx.storage.setAlarm(now() + WATCHDOG_MS);
 
-    if (this.consuming) {
+    const wake = postboxReaderWatchdog(await this.reader);
+
+    if (Option.isNone(wake)) {
       return;
     }
 
-    const wired = await Effect.runPromiseExit(this.wired());
-
-    if (Exit.isFailure(wired)) {
-      return;
-    }
-
-    this.consuming = true;
-
-    const { consume, layer } = wired.value;
-
-    this.ctx.waitUntil(
-      Effect.runPromise(
-        consume(
-          (message, seq) =>
-            this.box
-              .receive(message, seq)
-              .pipe(Effect.provide(Layer.merge(layer, this.runs))),
-          this.box.cursor()
-        ).pipe(
-          Effect.catchCause((cause) =>
-            Effect.logWarning(
-              "the Postbox reader stopped; the watchdog restarts it",
-              cause
-            )
-          ),
-          Effect.ensuring(
-            Effect.sync(() => {
-              this.consuming = false;
-            })
-          )
-        )
-      )
-    );
+    this.ctx.waitUntil(Effect.runPromise(wake.value));
   }
 }

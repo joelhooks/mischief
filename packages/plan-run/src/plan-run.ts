@@ -232,8 +232,8 @@ export const makePlanRun = ({
     Effect.gen(function* leasedWrite() {
       yield* armGuard;
 
-      const holder = yield* Crypto.Crypto.use(
-        (crypto) => crypto.randomUUIDv4
+      const holder = yield* Crypto.Crypto.use((crypto) =>
+        crypto.randomUUIDv4()
       ).pipe(Effect.provide(webCrypto), Effect.orDie);
 
       const take = Clock.currentTimeMillis.pipe(

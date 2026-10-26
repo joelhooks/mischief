@@ -24,16 +24,22 @@ pnpm turbo run check test build
 pnpm cli stats README.md
 ```
 
+## Fast typechecking
+
+Run `pnpm typecheck:fast` for an opt-in tsrs check across the workspace and root scripts, or `pnpm --filter @mischief/core typecheck:fast` for one package. The exact tsrs pin is `0.18.0-ts7.1.0-dev.20260929`.
+
+Plain tsrs skips Effect diagnostics: a floating `Effect.log()` passes tsrs but fails patched `tsc` with TS377001. `typecheck`, `check`, build, hooks, and CI keep patched `tsc`; the fast check is not a gate.
+
 ## What is in the stack
 
 | Piece            | Pin                                                     |
 | ---------------- | ------------------------------------------------------- |
-| Effect           | `4.0.1`                                                 |
+| Effect           | `4.0.5`                                                 |
 | XState           | `6.0.0-alpha.70` (`xstate/durable` runs the plan graph) |
 | `@xstate/effect` | `1.0.0-alpha.9`                                         |
 | Alchemy          | `2.0.0-beta.83`                                         |
 | TypeScript       | `7.0.2`, patched by `@effect/tsgo`                      |
-| Vitest           | `5.0.3` with `@effect/vitest` `4.0.1`                   |
+| Vitest           | `5.0.3` with `@effect/vitest` `4.0.5`                   |
 
 ## Workspace
 

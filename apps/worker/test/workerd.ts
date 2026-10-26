@@ -22,6 +22,57 @@ export interface Workerd {
 
 const PortSchema = Schema.Struct({ port: Schema.Int });
 
+const decodeListening = Schema.decodeUnknownOption(
+  Schema.fromJsonString(
+    Schema.Struct({
+      event: Schema.Literal("listen"),
+      port: Schema.Int,
+      socket: Schema.Literal("http"),
+    })
+  )
+);
+
+const listening = (child: ChildProcess, port: number) =>
+  Effect.callback<number>((resume) => {
+    let pending = "";
+
+    const onData = (chunk: Buffer) => {
+      pending += chunk.toString();
+      const lines = pending.split("\n");
+      pending = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (
+          Option.exists(decodeListening(line), (event) => event.port === port)
+        ) {
+          resume(Effect.succeed(port));
+        }
+      }
+    };
+
+    const onError = (error: Error) => {
+      resume(Effect.die(error));
+    };
+
+    const onExit = (code: number | null, signal: string | null) => {
+      resume(
+        Effect.die(
+          `workerd exited before listening on ${port}: code=${code}, signal=${signal}; check the test worker bundle and config.capnp, then rerun the test`
+        )
+      );
+    };
+
+    child.stdout?.on("data", onData);
+    child.once("error", onError);
+    child.once("exit", onExit);
+
+    return Effect.sync(() => {
+      child.stdout?.off("data", onData);
+      child.off("error", onError);
+      child.off("exit", onExit);
+    });
+  }).pipe(Effect.timeout("5 seconds"));
+
 const freePort = Effect.callback<number>((resume) => {
   const server = createServer();
 
@@ -253,19 +304,18 @@ export const start = (world: Workerd) =>
       Effect.sync(() =>
         spawn(
           path.join(app, "node_modules", ".bin", "workerd"),
-          ["serve", "config.capnp"],
+          ["serve", "--control-fd=1", "config.capnp"],
           {
             cwd: world.dir,
-            stdio: ["ignore", "ignore", "ignore"],
+            stdio: ["ignore", "pipe", "ignore"],
           }
         )
       ),
       kill
     );
 
-    yield* post(world, "inspectRun", {}).pipe(
-      Effect.retry({ schedule: Schedule.spaced("50 millis"), times: 100 })
-    );
+    yield* listening(child, world.port);
+    yield* post(world, "inspectRun", {});
 
     return child;
   });

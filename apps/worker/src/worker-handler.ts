@@ -17,7 +17,7 @@ import {
 } from "./schedule-address.js";
 import { authenticate, NSID_PREFIX } from "./service-auth.js";
 import type { AuthRefused } from "./service-auth.js";
-import { DAY_WARN_TOKENS, RUN_WARN_TOKENS, utcDay } from "./think-tally.js";
+import { RUN_WARN_TOKENS, utcDay } from "./think-tally.js";
 
 const NOT_CONFIGURED =
   "this Mischief host has no MISCHIEF_DID or no valid MISCHIEF_CALLERS (a JSON array of the allowed callers' DID documents), so it serves nobody. Ask the Mischief desk (pi-durable/desk) to deploy it with both";
@@ -63,7 +63,7 @@ const thinkStatus = async (env: Env) => {
     today: {
       ...today,
       day,
-      warnAt: { day: DAY_WARN_TOKENS, run: RUN_WARN_TOKENS },
+      warnAt: { day: today.warning.line, run: RUN_WARN_TOKENS },
     },
   };
 };

@@ -7,6 +7,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:fast": "tsrs --noEmit -p tsconfig.json",
     "check": "pnpm run typecheck",
     "build": "esbuild src/worker.ts --bundle --format=esm --platform=neutral --main-fields=module,main --conditions=workerd,worker,browser,import --external:cloudflare:* --external:node:* --outfile=dist/worker.js --log-level=warning --define:__BUNDLE_COMMIT__='\"local\"' --define:__BUNDLE_VERSION__='\"local\"' && pnpm run --silent build:library",
     "build:library": "esbuild src/index.ts --bundle --format=esm --platform=neutral --main-fields=module,main --conditions=workerd,worker,browser,import --external:cloudflare:* --external:effect --external:effect/* --outfile=bundle/dist/index.js --log-level=warning && mkdir -p bundle/dist/types && cp ../../packages/core/dist/steps/call-registry.d.ts ../../packages/core/dist/steps/step-failed.d.ts bundle/dist/types/",
@@ -19,15 +20,15 @@
     "@mischief/core": "workspace:*",
     "@mischief/plan-run": "workspace:*",
     "@mischief/thinking": "workspace:*",
-    "@rat-king/mailbox-client": "github:joelhooks/rat-king#f20dd1bafceb2b6beb192027878f5303738525fe&path:/packages/mailbox-client/bundle",
+    "@rat-king/mailbox-client": "github:joelhooks/rat-king#9dbd61b5cb5d56a462c7a207ce8f14800089f49b&path:/packages/mailbox-client/bundle",
     "@xstate/effect": "1.0.0-alpha.9",
-    "effect": "4.0.1",
+    "effect": "4.0.5",
     "xstate": "6.0.0-alpha.70"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20261001.1",
-    "@effect/platform-node": "4.0.1",
-    "@effect/vitest": "4.0.1",
+    "@effect/platform-node": "4.0.5",
+    "@effect/vitest": "4.0.5",
     "@types/node": "24.13.6",
     "esbuild": "0.25.12",
     "typescript": "7.0.2",

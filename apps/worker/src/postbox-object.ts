@@ -17,7 +17,7 @@ import type { OpenMailroom } from "./postbox-reader.js";
 import { postbox } from "./postbox.js";
 import { Delivered, Runs } from "./runs-port.js";
 import type { DeliveredValue, ReplyLine } from "./runs-port.js";
-import { dayTotals, tally } from "./think-tally.js";
+import { dayTotals, dayWarning, tally } from "./think-tally.js";
 
 export const POSTBOX_NAME = "mischief/worker";
 
@@ -236,7 +236,10 @@ export class Postbox extends DurableObject<Env> {
 
   // oxlint-disable-next-line require-await -- a Durable Object RPC method returns a Promise; the read is synchronous SQLite.
   async thinkDay(day: string) {
-    return dayTotals(this.ctx.storage, day);
+    return {
+      ...dayTotals(this.ctx.storage, day),
+      warning: dayWarning(this.ctx.storage, day),
+    };
   }
 
   async start() {

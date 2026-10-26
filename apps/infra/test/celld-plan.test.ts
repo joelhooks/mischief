@@ -229,6 +229,8 @@ it.effect(
         "mischief-seaweedfs.service",
         "mischief-storage-retention.service",
         "mischief-storage-retention.timer",
+        "mischief-storage-grow.service",
+        "mischief-storage-grow.timer",
       ]);
 
       for (const [fqn, file] of [

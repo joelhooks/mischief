@@ -4,7 +4,7 @@ A `call` step invokes a named capability registered by the worker's owner. Plans
 
 ## Write a capability
 
-Use `callable` from `@mischief/worker` and the same pinned Effect version, `4.0.1`.
+Use `callable` from `@mischief/worker` and the same pinned Effect version, `4.0.5`.
 
 ```ts
 import { callable } from "@mischief/worker";
@@ -102,7 +102,7 @@ Pin a full commit sha from `main`, never a branch or floating tag.
 {
   "dependencies": {
     "@mischief/worker": "github:joelhooks/mischief#<commit>&path:/apps/worker/bundle",
-    "effect": "4.0.1"
+    "effect": "4.0.5"
   }
 }
 ```

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:fast": "tsrs --noEmit -p tsconfig.json",
     "check": "pnpm run typecheck",
     "plan": "turbo run build --filter=@mischief/worker... --output-logs=errors-only && jiti plan.ts plan",
     "test": "vitest run",
@@ -18,14 +19,14 @@
     "render-units": "jiti plan.ts render-units"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.1",
-    "@rat-king/alchemy-nest": "github:joelhooks/rat-king#13b437522b6f039af2e552ab0eb617a15171c3d5&path:/packages/alchemy-nest",
-    "@rat-king/mailbox-client": "github:joelhooks/rat-king#f20dd1bafceb2b6beb192027878f5303738525fe&path:/packages/mailbox-client/bundle",
+    "@effect/platform-node": "4.0.5",
+    "@rat-king/alchemy-nest": "github:joelhooks/rat-king#9dbd61b5cb5d56a462c7a207ce8f14800089f49b&path:/packages/alchemy-nest",
+    "@rat-king/mailbox-client": "github:joelhooks/rat-king#9dbd61b5cb5d56a462c7a207ce8f14800089f49b&path:/packages/mailbox-client/bundle",
     "alchemy": "2.0.0-beta.83",
-    "effect": "4.0.1"
+    "effect": "4.0.5"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.1",
+    "@effect/vitest": "4.0.5",
     "@types/node": "24.13.6",
     "jiti": "2.7.0",
     "typescript": "7.0.2",

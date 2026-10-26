@@ -30,6 +30,7 @@ export interface BuildInput {
   readonly entry?: string;
   readonly judge: "jev" | "shadow";
   readonly mailbox: { readonly did: string; readonly url: string };
+  readonly opusBridgeUrl?: string | undefined;
   readonly thinker: Thinker;
   readonly version: string;
 }
@@ -50,28 +51,34 @@ export const buildWorker = ({
   entry,
   judge,
   mailbox,
+  opusBridgeUrl,
   thinker,
   version,
 }: BuildInput) =>
   Effect.gen(function* buildMischiefWorker() {
     const path = yield* Path.Path;
 
+    const vars = {
+      MISCHIEF_CALLERS: callers,
+      MISCHIEF_DID: did,
+      MISCHIEF_GUARD_MS: "30000",
+      MISCHIEF_HOLD_ALARM_TO: "agent-graph/desk,switchboard",
+      MISCHIEF_JUDGE: judge,
+      MISCHIEF_MAILBOX_DID: mailbox.did,
+      MISCHIEF_MAILBOX_URL: mailbox.url,
+      MISCHIEF_THINK_CONCURRENCY: "16",
+      ...thinkerVars(thinker),
+    };
+
     return yield* prepareDeployment(
       entry ?? path.resolve(import.meta.dirname, "../worker/src/worker.ts"),
       declaration,
       {
         commit,
-        vars: {
-          MISCHIEF_CALLERS: callers,
-          MISCHIEF_DID: did,
-          MISCHIEF_GUARD_MS: "30000",
-          MISCHIEF_HOLD_ALARM_TO: "agent-graph/desk,switchboard",
-          MISCHIEF_JUDGE: judge,
-          MISCHIEF_MAILBOX_DID: mailbox.did,
-          MISCHIEF_MAILBOX_URL: mailbox.url,
-          MISCHIEF_THINK_CONCURRENCY: "16",
-          ...thinkerVars(thinker),
-        },
+        vars:
+          opusBridgeUrl === undefined || opusBridgeUrl.trim() === ""
+            ? vars
+            : { ...vars, MISCHIEF_OPUS_BRIDGE_URL: opusBridgeUrl },
         version,
       }
     );

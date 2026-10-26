@@ -4,7 +4,7 @@ description: Learn how XState owns a lifecycle while Effect owns its work, error
 plain: "XState owns the named states of a lifecycle, while declared Effect actors do its work and keep errors typed."
 diagram: |-
   reading
-    │ fromEffect actor
+    │ createEffectLogic actor
     │ runs the work
     ├ ok   → inspected
     └ fail → unreadable
@@ -31,10 +31,10 @@ Use an explicit result union when a known error should move the machine into a f
 
 ## 2. Put side effects in actors
 
-Define each side effect with `fromEffect` outside the machine:
+Define each side effect with `createEffectLogic` outside the machine:
 
 ```ts
-const performWork = fromEffect({
+const performWork = createEffectLogic({
   effect: ({ input }) => ThingService.use((service) => service.run(input.id)),
   schemas: { input: Schema.Struct({ id: Schema.String }) },
 });

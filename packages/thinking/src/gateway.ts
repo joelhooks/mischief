@@ -7,6 +7,7 @@ import type {
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
 import { createModels, createProvider } from "@earendil-works/pi-ai/models";
 import { createRegistry } from "@earendil-works/pi-durable";
+import type { ModelRef } from "@earendil-works/pi-durable";
 import { Hash, Redacted, Schema } from "effect";
 
 import { declaredThinkingOf } from "./declared.js";
@@ -116,15 +117,69 @@ const gatewayStreams = (
   };
 };
 
-export interface GatewayConfig {
+export interface GatewayEndpoint {
   readonly apiKey: Redacted.Redacted;
   readonly baseUrl: string;
   readonly fetch?: StreamOptions["fetch"];
 }
 
+export interface GatewayConfig extends GatewayEndpoint {
+  readonly opusBridge?: GatewayEndpoint | undefined;
+}
+
+export const opusBridgeFrom = (
+  url: string | undefined,
+  key: string | undefined
+): GatewayEndpoint | undefined =>
+  url === undefined ||
+  url.trim() === "" ||
+  key === undefined ||
+  key.trim() === ""
+    ? undefined
+    : { apiKey: Redacted.make(key), baseUrl: url };
+
+const opusProvider = ({ apiKey, baseUrl, fetch }: GatewayEndpoint) =>
+  createProvider({
+    api: gatewayStreams(openAIResponsesApi(), fetch),
+    auth: {
+      apiKey: {
+        name: "Mischief Opus bridge key",
+        resolve: async () =>
+          await Promise.resolve({
+            auth: {
+              apiKey: Redacted.value(apiKey),
+              headers: { Authorization: `Bearer ${Redacted.value(apiKey)}` },
+            },
+          }),
+      },
+    },
+    baseUrl,
+    id: "claude-bridge",
+    models: [
+      {
+        api: "openai-responses",
+        baseUrl,
+        contextWindow: 1_000_000,
+        cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
+        id: "claude-opus-5-5",
+        input: ["text"],
+        maxTokens: 128_000,
+        name: "Claude Opus 5.5 review bridge",
+        provider: "claude-bridge",
+        reasoning: true,
+        thinkingLevelMap: {
+          max: "max",
+          minimal: null,
+          off: null,
+          xhigh: "xhigh",
+        },
+      },
+    ],
+  });
+
 export const gatewayThinkerOptions = (
   storageFor: PiThinkerOptions["storageFor"],
-  { apiKey, baseUrl, fetch }: GatewayConfig
+  { apiKey, baseUrl, fetch, opusBridge }: GatewayConfig
 ): PiThinkerOptions => {
   const models = createModels();
 
@@ -161,15 +216,34 @@ export const gatewayThinkerOptions = (
     })
   );
 
-  const modelRefs = Object.fromEntries(
+  if (
+    opusBridge !== undefined &&
+    opusBridge.baseUrl.trim() !== "" &&
+    Redacted.value(opusBridge.apiKey).trim() !== ""
+  ) {
+    models.setProvider(opusProvider(opusBridge));
+  }
+
+  const opus = models.getModel("claude-bridge", "claude-opus-5-5");
+  const opusRef = { modelId: "claude-opus-5-5", provider: "claude-bridge" };
+
+  const modelRefs: Record<string, ModelRef> = Object.fromEntries(
     Object.entries(GATEWAY_MODELS).map(([name, modelId]) => [
       name,
       { modelId, provider: PROVIDER },
     ])
   );
 
+  if (opus !== undefined) {
+    modelRefs.opus = opusRef;
+    modelRefs["claude-opus-5-5"] = opusRef;
+  }
+
   return {
-    declared: declaredThinkingOf(models, modelRefs, THINK_DEFAULT.thinking),
+    declared: {
+      ...declaredThinkingOf(models, modelRefs, THINK_DEFAULT.thinking),
+      exhaustive: true,
+    },
     defaults: THINK_DEFAULT,
     modelRefs,
     models,

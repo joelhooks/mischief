@@ -37,9 +37,9 @@ var __toESM = (mod3, isNodeMode, target) => (target = mod3 != null ? __create(__
   mod3
 ));
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/createActor-b987e971.cjs.js
-var require_createActor_b987e971_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/createActor-b987e971.cjs.js"(exports) {
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/createActor-54296cf2.cjs.js
+var require_createActor_54296cf2_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/createActor-54296cf2.cjs.js"(exports) {
     "use strict";
     var Mailbox = class {
       constructor(_process) {
@@ -88,10 +88,11 @@ var require_createActor_b987e971_cjs = __commonJS({
     var NULL_EVENT = "";
     var STATE_IDENTIFIER = "#";
     var WILDCARD = "*";
-    var XSTATE_INIT2 = "@xstate.init";
+    var XSTATE_INIT2 = "xstate.init";
     var XSTATE_START = "@xstate.start";
     var XSTATE_SPAWN = "@xstate.spawn";
-    var XSTATE_STOP = "@xstate.stop";
+    var XSTATE_STOP = "xstate.stop";
+    var XSTATE_STOP_EFFECT = "@xstate.stop";
     var XSTATE_TERMINATE = "@xstate.terminate";
     var XSTATE_TIMER2 = "xstate.timer";
     var XSTATE_LOGIC_EFFECT_RESOLVE = "xstate.logic.effect.resolve";
@@ -104,17 +105,11 @@ var require_createActor_b987e971_cjs = __commonJS({
         stateId: id
       };
     }
-    function createAfterEventId(delayRef, id) {
-      return `xstate.after.${delayRef}.${id}`;
-    }
     function createTimeoutEvent(id) {
       return {
-        type: "xstate.timeout",
+        type: "xstate.timeout.state",
         stateId: id
       };
-    }
-    function createTimeoutEventId(id) {
-      return `xstate.timeout.${id}`;
     }
     function createInvokeTimeoutEvent(invokeId, sessionId) {
       return {
@@ -122,9 +117,6 @@ var require_createActor_b987e971_cjs = __commonJS({
         actorId: invokeId,
         sessionId
       };
-    }
-    function createInvokeTimeoutEventId(invokeId) {
-      return `xstate.timeout.actor.${invokeId}`;
     }
     function createDoneStateEvent(id, output) {
       return {
@@ -167,12 +159,137 @@ var require_createActor_b987e971_cjs = __commonJS({
       });
     }
     var symbolObservable2 = (() => typeof Symbol === "function" && Symbol.observable || "@@observable")();
+    var selectionFrames = [];
+    var transitionEffectSignal = new Error("Transition effect");
+    function protectSelectionRelay(target) {
+      let matched = false;
+      let abort = false;
+      for (const frame of selectionFrames) {
+        if (frame.parent === target) {
+          frame.requiresReevaluation = true;
+          matched = true;
+          abort ||= frame.mode === "abort";
+        }
+      }
+      if (abort) {
+        throw transitionEffectSignal;
+      }
+      return matched;
+    }
+    function beginTransitionSelection(parent, mode = "abort") {
+      const frame = {
+        mode,
+        parent,
+        requiresReevaluation: false
+      };
+      selectionFrames.push(frame);
+      return {
+        frame,
+        close() {
+          selectionFrames.pop();
+        }
+      };
+    }
+    function getBuiltInTimerIdentity(event) {
+      const {
+        stateId,
+        delay,
+        actorId: actorId2
+      } = event;
+      switch (event.type) {
+        case "xstate.after":
+          return {
+            type: event.type,
+            delay,
+            stateId
+          };
+        case "xstate.timeout.state":
+          return {
+            type: event.type,
+            stateId
+          };
+        case "xstate.timeout.actor":
+          return {
+            type: event.type,
+            actorId: actorId2
+          };
+      }
+      return void 0;
+    }
+    function getTimerKey(timer) {
+      if (timer.id !== void 0) {
+        return {
+          id: timer.id
+        };
+      }
+      if (timer.seq !== void 0) {
+        return {
+          seq: timer.seq
+        };
+      }
+      return {
+        event: getBuiltInTimerIdentity(timer.event) ?? timer.event
+      };
+    }
+    function readTimerKey(input) {
+      const value = input;
+      if (typeof value.id === "string") {
+        return {
+          id: value.id
+        };
+      }
+      if (typeof value.seq === "number") {
+        return {
+          seq: value.seq
+        };
+      }
+      if (value.event && typeof value.event === "object" && typeof value.event.type === "string") {
+        return {
+          event: value.event
+        };
+      }
+      return void 0;
+    }
+    function matchesTimerKey(timer, key) {
+      if ("id" in key) {
+        return timer.id === key.id;
+      }
+      if (timer.id !== void 0) {
+        return false;
+      }
+      if ("seq" in key) {
+        return timer.seq === key.seq;
+      }
+      if (timer.seq !== void 0) {
+        return false;
+      }
+      const event = timer.event;
+      const pattern = key.event;
+      for (const field in pattern) {
+        if (event[field] !== pattern[field]) {
+          return false;
+        }
+      }
+      return true;
+    }
+    function serializeTimerKey(key) {
+      if ("id" in key) {
+        return JSON.stringify(["id", key.id]);
+      }
+      if ("seq" in key) {
+        return JSON.stringify(["seq", key.seq]);
+      }
+      return JSON.stringify(["event", getBuiltInTimerIdentity(key.event) ?? key.event]);
+    }
+    function getScheduledTimerKey(actor, key) {
+      return `${actor.sessionId}|${serializeTimerKey(key)}`;
+    }
     var starts = /* @__PURE__ */ new WeakMap();
     function getTimerStart(timer) {
-      return starts.get(timer) ?? timer.startedAt;
+      return starts.get(timer) ?? timer.scheduledAt;
     }
-    function recordTimerStart(timer, startedAt) {
-      starts.set(timer, startedAt);
+    function recordTimerStart(timer, scheduledAt) {
+      starts.set(timer, scheduledAt);
     }
     function assertSendToEvent(event) {
       if (typeof event === "string") {
@@ -188,19 +305,27 @@ var require_createActor_b987e971_cjs = __commonJS({
       ["@xstate.start"]: (actor) => {
         return actor.system.startActor(actor);
       },
-      ["@xstate.raise"]: (actorScope, _event, options2) => {
-        return actorScope.system.scheduleTimer(actorScope.self, options2.id, options2?.delay ?? 0);
+      ["@xstate.raise"]: (actorScope, event, options2) => {
+        return actorScope.system.scheduleTimer(actorScope.self, getTimerKey({
+          id: options2.id,
+          seq: options2.seq,
+          event
+        }), options2?.delay ?? 0);
       },
       ["@xstate.sendTo"]: (actorScope, actor, event, options2) => {
         assertSendToEvent(event);
         if (options2?.delay !== void 0) {
-          return actorScope.system.scheduleTimer(actorScope.self, options2.id, options2?.delay ?? 0);
+          return actorScope.system.scheduleTimer(actorScope.self, getTimerKey({
+            id: options2.id,
+            seq: options2.seq,
+            event
+          }), options2?.delay ?? 0);
         } else {
           return actorScope.system._relay(actorScope.self, actor, event);
         }
       },
-      ["@xstate.cancel"]: (actorScope, sendId) => {
-        return actorScope.system.cancelTimer(actorScope.self, sendId);
+      ["@xstate.cancel"]: (actorScope, key) => {
+        return actorScope.system.cancelTimer(actorScope.self, key);
       },
       ["@xstate.stop"]: (actorScope, actor) => {
         return actorScope.system.stopActor(actor);
@@ -227,7 +352,7 @@ var require_createActor_b987e971_cjs = __commonJS({
     var systemLogicMetadata = Symbol("xstate.systemLogicMetadata");
     var subscriptions2 = /* @__PURE__ */ new WeakMap();
     function createAttachedLogic(attach, id) {
-      const initialTransition2 = (input, _) => [{
+      const initialTransition3 = (input, _) => [{
         status: "active",
         output: void 0,
         error: void 0,
@@ -285,8 +410,8 @@ var require_createActor_b987e971_cjs = __commonJS({
           }
           return [state3, []];
         },
-        initialTransition: initialTransition2,
-        getInitialSnapshot: (actorScope, input) => initialTransition2(input)[0],
+        initialTransition: initialTransition3,
+        getInitialSnapshot: (actorScope, input) => initialTransition3(input)[0],
         getPersistedSnapshot: (snapshot) => snapshot,
         restoreSnapshot: (snapshot) => snapshot
       };
@@ -303,7 +428,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       }
       system._relay(self, self._parent, getEvent());
     }
-    function createListenerLogic2() {
+    function createListenerLogic3() {
       return createAttachedLogic(({
         actor,
         eventType,
@@ -319,10 +444,10 @@ var require_createActor_b987e971_cjs = __commonJS({
           }
           relayMappedToParent(self, system, () => mapper(emittedEvent));
         });
-      }, "xstate.listener");
+      }, "@xstate.listener");
     }
-    var listenerLogic2 = /* @__PURE__ */ createListenerLogic2();
-    function createSubscriptionLogic2() {
+    var listenerLogic2 = /* @__PURE__ */ createListenerLogic3();
+    function createSubscriptionLogic3() {
       return createAttachedLogic(({
         actor,
         mappers
@@ -353,72 +478,150 @@ var require_createActor_b987e971_cjs = __commonJS({
           complete: () => {
           }
         });
-      }, "xstate.subscription");
+      }, "@xstate.subscription");
     }
-    var subscriptionLogic2 = /* @__PURE__ */ createSubscriptionLogic2();
-    var lazyActorScope = Symbol();
-    function isLazyActorScope(actorScope) {
-      return !!actorScope[lazyActorScope];
-    }
-    function getActorScopeParent(actorScope) {
-      return isLazyActorScope(actorScope) ? actorScope._parent : actorScope.self._parent;
-    }
-    function withActorSelf(args, actorScope) {
-      if (!isLazyActorScope(actorScope)) {
-        return Object.assign(args, {
-          self: actorScope.self
-        });
+    var subscriptionLogic2 = /* @__PURE__ */ createSubscriptionLogic3();
+    var emptySubscription = {
+      unsubscribe() {
       }
-      Object.defineProperty(args, "self", {
-        enumerable: true,
-        get: () => actorScope.self
-      });
-      return args;
+    };
+    var restoreHint = "or restore this snapshot with embedded children on the runtime that owns them.";
+    function isRemoteActorRef(actorRef) {
+      return actorRef._remote === true;
     }
-    function withActorSelfAndParent(args, actorScope) {
-      if (!isLazyActorScope(actorScope)) {
-        const self = actorScope.self;
-        return Object.assign(args, {
-          self,
-          parent: self._parent
-        });
+    function isSerializedActorRef(target) {
+      if (typeof target !== "object" || target === null || Array.isArray(target) || typeof target.$actor !== "string") {
+        return false;
       }
-      Object.defineProperties(args, {
-        self: {
-          enumerable: true,
-          get: () => actorScope.self
-        },
-        parent: {
-          enumerable: true,
-          get: () => getActorScopeParent(actorScope)
+      for (const key in target) {
+        if (key !== "$actor" && key !== "incarnation") {
+          return false;
         }
-      });
-      return args;
-    }
-    function withActorScope2(args, actorScope) {
-      if (!isLazyActorScope(actorScope)) {
-        const actorArgs = args;
-        const self = actorScope.self;
-        actorArgs.self = self;
-        actorArgs.system = actorScope.system;
-        actorArgs.parent = self._parent;
-        return actorArgs;
       }
-      Object.defineProperties(args, {
-        self: {
-          enumerable: true,
-          get: () => actorScope.self
+      const incarnation = target.incarnation;
+      return incarnation === void 0 || typeof incarnation === "string";
+    }
+    function getAddressId(address) {
+      const segment = address.slice(address.lastIndexOf("/") + 1);
+      return segment.includes("%") ? segment.replaceAll("%2F", "/").replaceAll("%25", "%") : segment;
+    }
+    function createMissingAddressError(target) {
+      return new Error(target.incarnation === void 0 ? `Unable to send event to actor '${target.$actor}': no live actor has that address` : `Unable to send event to actor '${target.$actor}' (incarnation '${target.incarnation}'): no live actor has that address and incarnation`);
+    }
+    function resolveSerializedActorRef(system, target) {
+      const live = system._getByAddress?.(target.$actor);
+      return live && (target.incarnation === void 0 || live.sessionId === target.incarnation) ? live : void 0;
+    }
+    var remoteSnapshot = Object.freeze({
+      status: "active",
+      output: void 0,
+      error: void 0
+    });
+    function createInertActorRef(options2) {
+      const {
+        id,
+        address
+      } = options2;
+      const handle2 = {
+        ref: void 0,
+        id,
+        address,
+        src: options2.src,
+        sessionId: void 0,
+        send() {
         },
-        system: {
-          enumerable: true,
-          get: () => actorScope.system
+        getSnapshot() {
+          return remoteSnapshot;
         },
-        parent: {
-          enumerable: true,
-          get: () => getActorScopeParent(actorScope)
+        subscribe() {
+          return emptySubscription;
+        },
+        on() {
+          return emptySubscription;
+        },
+        toJSON() {
+          if (address === void 0) {
+            throw new Error(`Cannot serialize actor ref '${id}': it was returned by a spawn during speculative transition evaluation, which creates no actor and has no parent address.`);
+          }
+          return {
+            $actor: address
+          };
         }
-      });
-      return args;
+      };
+      const ref = handle2;
+      handle2.ref = ref;
+      return ref;
+    }
+    function createRemoteActorRef(system, options2) {
+      const handle2 = {
+        _remote: true,
+        // Self-reference so context persistence recognizes the handle as an
+        // actor reference instead of recursing into it.
+        ref: void 0,
+        id: options2.id,
+        address: options2.address,
+        src: options2.src,
+        registryKey: options2.registryKey,
+        // The host-supplied incarnation token, when present: the owner's
+        // sessionId for this child, letting this side drop stale completions and
+        // journaled sends name the intended incarnation. Without one the handle
+        // does not know the child's incarnation and the owning runtime is the
+        // authority on staleness.
+        sessionId: options2.incarnation,
+        system,
+        _parent: options2.parent,
+        // Round-trips through persistence verbatim (undefined stays undefined,
+        // so re-persisting is byte-stable); a remote handle cannot act on it
+        // locally.
+        _syncSnapshot: options2.syncSnapshot,
+        send(event) {
+          void system.sendEvent(void 0, ref, event);
+        },
+        _send(event) {
+          throw new Error(`Remote actor '${options2.address}' has no local mailbox to receive "${event.type}". Its state lives with another runtime; install a runtime that can reach it (via \`createDurable\`'s adapter runtime operations, or \`system.runtime\`) before sending, ${restoreHint}`);
+        },
+        getSnapshot() {
+          return remoteSnapshot;
+        },
+        getPersistedSnapshot() {
+          throw new Error(`Cannot persist remote actor '${options2.address}' from here: its state lives with the runtime that owns it. Persist it there, ${restoreHint}`);
+        },
+        start() {
+        },
+        _stop() {
+        },
+        stop() {
+          throw new Error(`Cannot stop remote actor '${options2.address}' directly: stopping is a co-located operation. Stop it through the system runtime that owns it (\`system.stopActor(ref)\`), ${restoreHint}`);
+        },
+        select() {
+          throw new Error(`Cannot select from remote actor '${options2.address}': its snapshot is not synchronously readable because its state lives with another runtime. Read it on the runtime that owns it, ${restoreHint}`);
+        },
+        get trigger() {
+          throw new Error(`Remote actor '${options2.address}' has no \`trigger\` shorthand: it requires a co-located actor. Use \`send(...)\`, which routes through the system runtime.`);
+        },
+        // Observation is a co-location capability: a remote handle never emits,
+        // so subscriptions are inert rather than errors — generic observers may
+        // attach to any ref.
+        subscribe() {
+          return emptySubscription;
+        },
+        on() {
+          return emptySubscription;
+        },
+        _isRunning() {
+          return false;
+        },
+        // The same shape Actor.toJSON produces, so serialized snapshots carry
+        // one actor-reference shape whether a child is co-located or remote.
+        toJSON() {
+          return {
+            $actor: options2.address
+          };
+        }
+      };
+      const ref = handle2;
+      handle2.ref = ref;
+      return ref;
     }
     function execCustomEffect() {
       const result = this.action?.(...this.args);
@@ -507,54 +710,63 @@ var require_createActor_b987e971_cjs = __commonJS({
       return runtime.terminateActor(this.actor, termination);
     }
     function execRaiseEffect(runtime = this.source.system) {
-      return runtime.scheduleTimer(this.source, this.id, this.delay ?? 0);
+      return runtime.scheduleTimer(this.source, getTimerKey(this), this.delay ?? 0);
     }
     function execSendToEffect(runtime = this.source.system) {
       assertSendToEvent(this.event);
       if (this.delay !== void 0) {
-        return runtime.scheduleTimer(this.source, this.id, this.delay);
+        return runtime.scheduleTimer(this.source, getTimerKey(this), this.delay);
       }
       return runtime.sendEvent(this.source, this.target, this.event);
     }
     function execCancelEffect(runtime = this.source.system) {
-      return runtime.cancelTimer(this.source, this.id);
+      return runtime.cancelTimer(this.source, readTimerKey(this));
     }
     function updateLogicalTimers(snapshot, effect, actorScope) {
-      if (!isBuiltInExecutableAction2(effect)) {
+      if (!isBuiltInExecutableEffect2(effect)) {
         return snapshot;
       }
       if (effect.type === "@xstate.cancel") {
-        if (!snapshot.timers?.[effect.id]) {
+        const key2 = readTimerKey(effect);
+        if (!snapshot.timers?.some((timer2) => matchesTimerKey(timer2, key2))) {
           return snapshot;
         }
-        const timers = {
-          ...snapshot.timers
-        };
-        delete timers[effect.id];
         return {
           ...snapshot,
-          timers
+          timers: snapshot.timers.filter((timer2) => !matchesTimerKey(timer2, key2))
         };
       }
       if (effect.type !== "@xstate.raise" && effect.type !== "@xstate.sendTo" || effect.delay === void 0) {
         return snapshot;
       }
       let nextTimerId = snapshot._nextTimerId ?? 0;
-      const id = effect.id ?? `xstate.timer.auto.${nextTimerId++}`;
-      effect.id = id;
+      if (effect.id === void 0 && !getBuiltInTimerIdentity(effect.event)) {
+        effect.seq = nextTimerId++;
+        const args = effect.args;
+        args[args.length - 1] = {
+          ...args[args.length - 1],
+          seq: effect.seq
+        };
+      }
       const target = effect.type === "@xstate.raise" || effect.target === actorScope.self ? "self" : effect.target;
+      const timer = {
+        ...effect.id !== void 0 && {
+          id: effect.id
+        },
+        ...effect.seq !== void 0 && {
+          seq: effect.seq
+        },
+        delay: effect.delay,
+        type: effect.type,
+        event: effect.event,
+        target
+      };
+      const key = getTimerKey(timer);
+      const timers = snapshot.timers ?? [];
+      const index3 = timers.findIndex((pending) => matchesTimerKey(pending, key));
       return {
         ...snapshot,
-        timers: {
-          ...snapshot.timers,
-          [id]: {
-            id,
-            delay: effect.delay,
-            type: effect.type,
-            event: effect.event,
-            target
-          }
-        },
+        timers: index3 === -1 ? [...timers, timer] : timers.map((pending, i) => i === index3 ? timer : pending),
         _nextTimerId: nextTimerId
       };
     }
@@ -671,10 +883,18 @@ var require_createActor_b987e971_cjs = __commonJS({
     function nextChildIndex(actorScope, allocation, prefix) {
       return Math.max(allocation.counters.get(prefix) ?? 0, getWorkingSnapshotOf(actorScope)?._nextActorIds?.[prefix] ?? 0);
     }
+    function nextFreeChildIndex(actorScope, allocation, prefix) {
+      let next = nextChildIndex(actorScope, allocation, prefix);
+      const children = getWorkingSnapshotOf(actorScope)?.children;
+      while (allocation.explicitIds.has(`${prefix}:${next}`) || children?.[`${prefix}:${next}`]) {
+        next++;
+      }
+      return next;
+    }
     function allocateChildId(actorScope, src3, localAllocation) {
       const allocation = spawnAllocations.get(actorScope) ?? localAllocation ?? createSpawnAllocation();
       const prefix = getActorIdPrefix(src3);
-      const next = nextChildIndex(actorScope, allocation, prefix);
+      const next = nextFreeChildIndex(actorScope, allocation, prefix);
       allocation.counters.set(prefix, next + 1);
       return {
         id: `${prefix}:${next}`,
@@ -719,11 +939,19 @@ var require_createActor_b987e971_cjs = __commonJS({
       }
       return Object.fromEntries(counters);
     }
+    var detachedScopes = /* @__PURE__ */ new WeakSet();
+    function assertRaiseEvent(event) {
+      if (typeof event === "string") {
+        throw new Error(`Only event objects may be used with raise`);
+      }
+    }
     function createTransitionEnqueue(actorScope, actions, internalEvents, actorSubscriptions = false, createActors = true) {
       const localAllocation = spawnAllocations.get(actorScope) ?? createSpawnAllocation();
       const props = {
         cancel: (id) => {
-          pushBuiltInAction(actions, builtInActions["@xstate.cancel"], actorScope, id);
+          pushBuiltInAction(actions, builtInActions["@xstate.cancel"], actorScope, typeof id === "string" ? {
+            id
+          } : id);
         },
         emit: (emittedEvent) => {
           actions.push(emittedEvent);
@@ -732,9 +960,7 @@ var require_createActor_b987e971_cjs = __commonJS({
           pushBuiltInAction(actions, actorScope.logger, ...args);
         },
         raise: (raisedEvent, options2) => {
-          if (typeof raisedEvent === "string") {
-            throw new Error(`Only event objects may be used with raise`);
-          }
+          assertRaiseEvent(raisedEvent);
           if (options2?.delay !== void 0) {
             pushBuiltInAction(actions, builtInActions["@xstate.raise"], actorScope, raisedEvent, options2);
           } else {
@@ -747,9 +973,13 @@ var require_createActor_b987e971_cjs = __commonJS({
             src: src3
           } = resolveTransitionSpawnSource(actorScope, source);
           if (!createActors) {
-            return {
-              id: options2?.id ?? options2?.registryKey ?? src3 ?? logic.id
-            };
+            const prefix = getActorIdPrefix(src3 ?? logic);
+            const id2 = options2?.id ?? `${prefix}:${nextFreeChildIndex(actorScope, spawnAllocations.get(actorScope) ?? localAllocation, prefix)}`;
+            return createInertActorRef({
+              id: id2,
+              address: detachedScopes.has(actorScope) ? void 0 : `${actorScope.self.address}/${encodeAddressSegment(id2)}`,
+              src: src3
+            });
           }
           let id = options2?.id;
           let counters;
@@ -895,13 +1125,13 @@ var require_createActor_b987e971_cjs = __commonJS({
           };
         }
         case builtInActions["@xstate.cancel"]: {
-          const [, id] = args;
+          const [, key] = args;
           return {
             type: "@xstate.cancel",
             kind: "builtin",
             exec: execCancelEffect,
             source: args[0].self,
-            id
+            ...key
           };
         }
         case builtInActions["@xstate.stop"]: {
@@ -936,6 +1166,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       const source = actorScope.self;
       const options2 = {
         id: timer.id,
+        seq: timer.seq,
         delay
       };
       if (timer.type === "@xstate.raise") {
@@ -945,6 +1176,9 @@ var require_createActor_b987e971_cjs = __commonJS({
           source,
           event: timer.event,
           id: timer.id,
+          ...timer.seq !== void 0 && {
+            seq: timer.seq
+          },
           delay,
           params: void 0,
           args: [actorScope, timer.event, options2],
@@ -959,6 +1193,9 @@ var require_createActor_b987e971_cjs = __commonJS({
         target,
         event: timer.event,
         id: timer.id,
+        ...timer.seq !== void 0 && {
+          seq: timer.seq
+        },
         delay,
         params: void 0,
         args: [actorScope, target, timer.event, options2],
@@ -1032,7 +1269,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       const attachedStarts = [];
       const childStarts = [];
       for (const effect of effects) {
-        if (!isBuiltInExecutableAction2(effect) || effect.type !== XSTATE_SPAWN) {
+        if (!isBuiltInExecutableEffect2(effect) || effect.type !== XSTATE_SPAWN) {
           continue;
         }
         const {
@@ -1048,36 +1285,18 @@ var require_createActor_b987e971_cjs = __commonJS({
       }
       return [...attachedStarts, ...childStarts];
     }
-    function isBuiltInExecutableAction2(action) {
+    function isBuiltInExecutableEffect2(action) {
       return action.kind === "builtin";
     }
-    async function executeEffects2(effects, runtime) {
+    async function executeEffects3(effects, runtime) {
       for (const effect of effects) {
         await effect.exec(runtime);
       }
     }
-    function resolveActionsWithContext(currentSnapshot, event, actorScope, actions) {
+    function resolveActionsWithContext(currentSnapshot, _event, actorScope, actions) {
       let intermediateSnapshot = currentSnapshot;
       const executableActions = [];
       for (const action of actions) {
-        const actionArgs = isLazyActorScope(actorScope) ? withActorScope2({
-          context: intermediateSnapshot.context,
-          event,
-          output: getEventOutput(event),
-          children: intermediateSnapshot.children,
-          actions: currentSnapshot.machine.sources.actions,
-          actors: currentSnapshot.machine.sources.actors
-        }, actorScope) : {
-          context: intermediateSnapshot.context,
-          event,
-          output: getEventOutput(event),
-          self: actorScope.self,
-          system: actorScope.system,
-          parent: actorScope.self._parent,
-          children: intermediateSnapshot.children,
-          actions: currentSnapshot.machine.sources.actions,
-          actors: currentSnapshot.machine.sources.actors
-        };
         const isInline = typeof action === "function";
         const actionRecord = getTransitionActionRecord(action);
         let resolvedActionArgs = actionRecord?.args;
@@ -1103,30 +1322,6 @@ var require_createActor_b987e971_cjs = __commonJS({
         if (actionRecord?.childUpdate) {
           intermediateSnapshot = applyChildUpdate(intermediateSnapshot, actionRecord.childUpdate, actorScope);
         }
-        if (resolvedAction && "_special" in resolvedAction) {
-          executableActions.push({
-            kind: "action",
-            exec: execCustomEffect,
-            type: typeof action === "object" ? "action" in action && typeof action.action === "function" ? action.action.name ?? "(anonymous)" : action.type ?? "(anonymous)" : action.name || "(anonymous)",
-            params: actionParams,
-            args: [],
-            action: void 0
-          });
-          const specialAction = resolvedAction;
-          const res = specialAction(actionArgs, emptyEnqueueObject);
-          if (res && ("context" in res || "children" in res)) {
-            intermediateSnapshot = {
-              ...intermediateSnapshot,
-              ...res.context !== void 0 ? {
-                context: mergeContextPatch(intermediateSnapshot.context, res.context)
-              } : {},
-              ..."children" in res ? {
-                children: res.children
-              } : {}
-            };
-          }
-          continue;
-        }
         if (!resolvedAction || !("resolve" in resolvedAction)) {
           const builtInFields = typeof action === "object" && action !== null && "action" in action && typeof action.action === "function" ? getBuiltInActionFields(action.action, resolvedActionArgs) : void 0;
           const isEmittedEvent = typeof action === "object" && action !== null && !actionRecord;
@@ -1146,9 +1341,9 @@ var require_createActor_b987e971_cjs = __commonJS({
             } : {},
             ...builtInFields
           };
-          const typedExecutableAction = executableAction;
-          intermediateSnapshot = updateLogicalTimers(intermediateSnapshot, typedExecutableAction, actorScope);
-          executableActions.push(typedExecutableAction);
+          const typedExecutableEffect = executableAction;
+          intermediateSnapshot = updateLogicalTimers(intermediateSnapshot, typedExecutableEffect, actorScope);
+          executableActions.push(typedExecutableEffect);
           continue;
         }
       }
@@ -1175,7 +1370,6 @@ var require_createActor_b987e971_cjs = __commonJS({
     var noop2 = () => {
     };
     var emptyActor = () => ({});
-    var emptyEnqueueObject = createEnqueueObject({}, noop2);
     function parseDurationToMilliseconds(duration) {
       const normalizedDuration = duration.trim();
       const millisecondsMatch = normalizedDuration.match(/^(\d+)ms$/i);
@@ -1444,6 +1638,70 @@ var require_createActor_b987e971_cjs = __commonJS({
         }
       });
     }
+    var lazyActorScope = Symbol();
+    function isLazyActorScope(actorScope) {
+      return !!actorScope[lazyActorScope];
+    }
+    function getActorScopeParent(actorScope) {
+      return isLazyActorScope(actorScope) ? actorScope._parent : actorScope.self._parent;
+    }
+    function withActorSelf(args, actorScope) {
+      if (!isLazyActorScope(actorScope)) {
+        return Object.assign(args, {
+          self: actorScope.self
+        });
+      }
+      Object.defineProperty(args, "self", {
+        enumerable: true,
+        get: () => actorScope.self
+      });
+      return args;
+    }
+    function withActorSelfAndParent(args, actorScope) {
+      if (!isLazyActorScope(actorScope)) {
+        const self = actorScope.self;
+        return Object.assign(args, {
+          self,
+          parent: self._parent
+        });
+      }
+      Object.defineProperties(args, {
+        self: {
+          enumerable: true,
+          get: () => actorScope.self
+        },
+        parent: {
+          enumerable: true,
+          get: () => getActorScopeParent(actorScope)
+        }
+      });
+      return args;
+    }
+    function withActorScope2(args, actorScope) {
+      if (!isLazyActorScope(actorScope)) {
+        const actorArgs = args;
+        const self = actorScope.self;
+        actorArgs.self = self;
+        actorArgs.system = actorScope.system;
+        actorArgs.parent = self._parent;
+        return actorArgs;
+      }
+      Object.defineProperties(args, {
+        self: {
+          enumerable: true,
+          get: () => actorScope.self
+        },
+        system: {
+          enumerable: true,
+          get: () => actorScope.system
+        },
+        parent: {
+          enumerable: true,
+          get: () => getActorScopeParent(actorScope)
+        }
+      });
+      return args;
+    }
     function setInertActorScopeSnapshot(actorScope, snapshot, attachActorRef = true) {
       const lazyState = getLazyInertActorState(actorScope);
       if (lazyState) {
@@ -1530,7 +1788,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       const previousSelf = sourceSelf ?? snapshotRef?.actor;
       const baseSystem = previousSelf?.system;
       const system = previousSelf && baseSystem ? createSnapshotSystem(baseSystem, sourceChildren, sourceSelf ? void 0 : snapshotRef?.systemState) : void 0;
-      const self = createActor2(actorLogic, {
+      const self = createActor3(actorLogic, {
         _inert: true,
         ...previousSelf ? {
           id: previousSelf.id,
@@ -1571,7 +1829,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       const state3 = {
         snapshot,
         sourceRef,
-        sourceChildren: isMachineSnapshot2(snapshot) ? snapshot.children : {},
+        sourceChildren: isMachineSnapshot3(snapshot) ? snapshot.children : {},
         identityProvider: sourceState?.identityProvider ?? sourceRef,
         parent: sourceSelf?._parent ?? sourceState?.parent ?? eagerSourceRef?.actor._parent,
         parentKnown: !!sourceSelf || !!sourceState?.parentKnown || !!eagerSourceRef || !snapshot
@@ -1731,33 +1989,6 @@ var require_createActor_b987e971_cjs = __commonJS({
       return stateNode.type === "final";
     }
     var isStateId = (str) => str[0] === STATE_IDENTIFIER;
-    function getLegacyEventType(event) {
-      switch (event.type) {
-        case "xstate.done.actor":
-        case "xstate.error.actor":
-          return `${event.type}.${event.actorId}`;
-        case "xstate.snapshot.actor":
-          return `xstate.snapshot.${event.actorId}`;
-        case "xstate.done.state":
-          return `xstate.done.state.${event.stateId}`;
-        case "xstate.after":
-          return `xstate.after.${event.delay}.${event.stateId}`;
-        case "xstate.timeout":
-          return `xstate.timeout.${event.stateId}`;
-        case "xstate.timeout.actor":
-          return `xstate.timeout.actor.${event.actorId}`;
-        default:
-          return void 0;
-      }
-    }
-    function getEventTypeAliases(event) {
-      const legacyType = getLegacyEventType(event);
-      return legacyType ? [event.type, legacyType] : [event.type];
-    }
-    function getEventDescriptorKey(event) {
-      const legacyType = getLegacyEventType(event);
-      return legacyType ? `${event.type}|${legacyType}` : event.type;
-    }
     function matchesActorSession(event, snapshot, actorId2) {
       const child = snapshot.children[actorId2];
       if (!child || !("sessionId" in event)) {
@@ -1765,48 +1996,17 @@ var require_createActor_b987e971_cjs = __commonJS({
       }
       return child.sessionId === void 0 || child.sessionId === event.sessionId;
     }
-    function normalizeLegacyInternalEvent(event, machine) {
-      if (event.type === "xstate.done.actor" || event.type === "xstate.error.actor" || event.type === "xstate.snapshot.actor" || event.type === "xstate.done.state" || event.type === "xstate.after" || event.type === "xstate.timeout" || event.type === "xstate.timeout.actor") {
-        return event;
-      }
-      const normalizeWithId = (prefix, type, idKey) => event.type.startsWith(prefix) ? {
-        ...event,
-        type,
-        [idKey]: event[idKey] ?? event.type.slice(prefix.length)
-      } : void 0;
-      const normalized = normalizeWithId("xstate.done.actor.", "xstate.done.actor", "actorId") ?? normalizeWithId("xstate.error.actor.", "xstate.error.actor", "actorId") ?? normalizeWithId("xstate.snapshot.", "xstate.snapshot.actor", "actorId") ?? normalizeWithId("xstate.done.state.", "xstate.done.state", "stateId") ?? normalizeWithId("xstate.timeout.actor.", "xstate.timeout.actor", "actorId") ?? normalizeWithId("xstate.timeout.", "xstate.timeout", "stateId");
-      if (normalized) {
-        return normalized;
-      }
-      const afterPrefix = "xstate.after.";
-      if (!event.type.startsWith(afterPrefix)) {
-        return event;
-      }
-      const stateId = [...machine.idMap.keys()].sort((a, b) => b.length - a.length).find((id) => event.type.endsWith(`.${id}`));
-      if (!stateId) {
-        return event;
-      }
-      const delayText = event.type.slice(afterPrefix.length, -stateId.length - 1);
-      return {
-        ...event,
-        type: "xstate.after",
-        delay: Number.isNaN(+delayText) ? delayText : +delayText,
-        stateId
-      };
-    }
     function getCandidates(stateNode, event) {
-      const eventTypes = getEventTypeAliases(event);
-      const exactMatches = eventTypes.flatMap((eventType) => stateNode.transitions.get(eventType) ?? []);
-      const wildcardCandidates = [...stateNode.transitions.keys()].filter((eventDescriptor) => !eventTypes.includes(eventDescriptor) && eventTypes.some((eventType) => matchesEventDescriptor(eventType, eventDescriptor))).sort((a, b) => b.length - a.length).flatMap((key) => stateNode.transitions.get(key));
+      const exactMatches = stateNode.transitions.get(event.type) ?? [];
+      const wildcardCandidates = [...stateNode.transitions.keys()].filter((eventDescriptor) => eventDescriptor !== event.type && matchesEventDescriptor(event.type, eventDescriptor)).sort((a, b) => b.length - a.length).flatMap((key) => stateNode.transitions.get(key));
       return exactMatches.length ? [...exactMatches, ...wildcardCandidates] : wildcardCandidates;
     }
-    function scheduleDelayedEvent(stateNode, timerId, resolveEvent, resolveScheduledDelay) {
+    function scheduleDelayedEvent(stateNode, timerEvent, resolveEvent, resolveScheduledDelay) {
       const oldEntry = stateNode.entry;
       stateNode.entry = (x, enq) => {
         const result = typeof oldEntry === "function" ? oldEntry(x, enq) : void 0;
         const context = result?.context !== void 0 ? mergeContextPatch(x.context, result.context) : x.context;
         enq.raise(resolveEvent(x), {
-          id: timerId,
           delay: resolveScheduledDelay({
             context,
             event: x.event,
@@ -1818,7 +2018,9 @@ var require_createActor_b987e971_cjs = __commonJS({
       };
       const oldExit = stateNode.exit;
       stateNode.exit = (_, enq) => {
-        enq.cancel(timerId);
+        enq.cancel({
+          event: getBuiltInTimerIdentity(timerEvent)
+        });
         return typeof oldExit === "function" ? oldExit(_, enq) : void 0;
       };
     }
@@ -1836,46 +2038,46 @@ var require_createActor_b987e971_cjs = __commonJS({
           const delay = Number.isNaN(+key) ? key : +key;
           sources.push({
             event: createAfterEvent(delay, stateNode.id),
-            timerId: createAfterEventId(delay, stateNode.id),
             delay,
             transitions: afterConfig[key],
-            fromDelaysMap: true
+            fromDelaysMap: true,
+            name: `after.${key}`
           });
         }
       }
       if (timeoutConfig !== void 0 && onTimeoutConfig) {
         sources.push({
           event: createTimeoutEvent(stateNode.id),
-          timerId: createTimeoutEventId(stateNode.id),
           delay: timeoutConfig,
           transitions: onTimeoutConfig,
-          fromDelaysMap: true
+          fromDelaysMap: true,
+          name: "onTimeout"
         });
       }
       for (const invokeDef of invokeDefs) {
         sources.push({
           event: createInvokeTimeoutEvent(invokeDef.id),
-          timerId: createInvokeTimeoutEventId(invokeDef.id),
           resolveEvent: ({
             children
           }) => createInvokeTimeoutEvent(invokeDef.id, children[invokeDef.id]?.sessionId),
           eventMatcher: (event, snapshot) => matchesActorSession(event, snapshot, invokeDef.id),
           delay: invokeDef.timeout,
           transitions: invokeDef.onTimeout,
-          fromDelaysMap: false
+          fromDelaysMap: false,
+          name: "invoke.onTimeout"
         });
       }
       const delayedTransitions = [];
       for (const {
         event,
-        timerId,
         resolveEvent,
         eventMatcher,
         delay,
         transitions,
-        fromDelaysMap
+        fromDelaysMap,
+        name
       } of sources) {
-        scheduleDelayedEvent(stateNode, timerId, resolveEvent ?? (() => event), (x) => resolveDelay(delay, fromDelaysMap ? x.delays : {}, {
+        scheduleDelayedEvent(stateNode, event, resolveEvent ?? (() => event), (x) => resolveDelay(delay, fromDelaysMap ? x.delays : {}, {
           context: x.context,
           event: x.event,
           stateNode,
@@ -1885,11 +2087,11 @@ var require_createActor_b987e971_cjs = __commonJS({
           type: eventType,
           ...eventPattern
         } = event;
-        for (const transition2 of toTransitionConfigArray(transitions)) {
+        for (const transition3 of toTransitionConfigArray(transitions, name, stateNode.id)) {
           delayedTransitions.push({
-            ...transition2,
+            ...transition3,
             matches: {
-              ...transition2.matches,
+              ...transition3.matches,
               ...Object.fromEntries(Object.entries(eventPattern).filter(([, value]) => value !== void 0))
             },
             event: eventType,
@@ -1912,25 +2114,25 @@ var require_createActor_b987e971_cjs = __commonJS({
       const reenter = transitionConfig.reenter ?? false;
       const target = resolveTarget(stateNode, normalizedTarget);
       assertLegalTargetSet(stateNode, target);
-      const transition2 = {
+      const transition3 = {
         ...transitionConfig,
         target,
         source: stateNode,
         reenter,
         eventType: descriptor,
-        toJSON: () => transitionDefinitionToJSON(transition2)
+        toJSON: () => transitionDefinitionToJSON(transition3)
       };
-      return transition2;
+      return transition3;
     }
-    function transitionDefinitionToJSON(transition2) {
+    function transitionDefinitionToJSON(transition3) {
       const {
         definition: _,
         ...serializableTransition
-      } = transition2;
+      } = transition3;
       return {
         ...serializableTransition,
-        source: `#${transition2.source.id}`,
-        target: transition2.target?.map((target) => `#${target.id}`)
+        source: `#${transition3.source.id}`,
+        target: transition3.target?.map((target) => `#${target.id}`)
       };
     }
     function getRemovedTransitionKey(transitionConfig) {
@@ -2018,12 +2220,12 @@ var require_createActor_b987e971_cjs = __commonJS({
               guard: _guard,
               ...routeOptions
             } = routeConfig;
-            const transition2 = {
+            const transition3 = {
               ...routeOptions,
               guard: routeMatches,
               target: `#${routeId}`
             };
-            routeTransitions.push(formatTransition(rootStateNode, "xstate.route", transition2));
+            routeTransitions.push(formatTransition(rootStateNode, "xstate.route", transition3));
           }
           if (sn.states) {
             collectRoutes(sn.states);
@@ -2115,9 +2317,6 @@ var require_createActor_b987e971_cjs = __commonJS({
       return set;
     }
     function getStateNode(stateNode, stateKey) {
-      if (isStateId(stateKey)) {
-        return stateNode.machine.getStateNodeById(stateKey);
-      }
       const result = stateNode.states?.[stateKey];
       if (!result) {
         throw new Error(`Child state '${stateKey}' does not exist on '${stateNode.id}'`);
@@ -2126,10 +2325,7 @@ var require_createActor_b987e971_cjs = __commonJS({
     }
     function getStateNodeByPath(stateNode, statePath) {
       if (typeof statePath === "string" && isStateId(statePath)) {
-        try {
-          return stateNode.machine.getStateNodeById(statePath);
-        } catch {
-        }
+        return stateNode.machine.getStateNodeById(statePath);
       }
       const arrayStatePath = toStatePath(statePath).slice();
       let currentStateNode = stateNode;
@@ -2142,7 +2338,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       }
       return currentStateNode;
     }
-    function getStateNodes2(stateNode, stateValue) {
+    function getStateNodes3(stateNode, stateValue) {
       if (typeof stateValue === "string") {
         const childStateNode = stateNode.states[stateValue];
         if (!childStateNode) {
@@ -2159,7 +2355,7 @@ var require_createActor_b987e971_cjs = __commonJS({
         allStateNodes.push(subStateNode);
       }
       for (let i = 0; i < childStateKeys.length; i++) {
-        allStateNodes.push(...getStateNodes2(childStateNodes[i], stateValue[childStateKeys[i]]));
+        allStateNodes.push(...getStateNodes3(childStateNodes[i], stateValue[childStateKeys[i]]));
       }
       return allStateNodes;
     }
@@ -2231,11 +2427,11 @@ var require_createActor_b987e971_cjs = __commonJS({
     function removeConflictingTransitions(enabledTransitions, stateNodeSet, snapshot, resolveTransition) {
       const filteredTransitions = /* @__PURE__ */ new Set();
       const exitSets = /* @__PURE__ */ new Map();
-      const getExitSet = (transition2) => {
-        let exitSet = exitSets.get(transition2);
+      const getExitSet = (transition3) => {
+        let exitSet = exitSets.get(transition3);
         if (!exitSet) {
-          exitSet = computeExitSet([transition2], stateNodeSet, snapshot, resolveTransition);
-          exitSets.set(transition2, exitSet);
+          exitSet = computeExitSet([transition3], stateNodeSet, snapshot, resolveTransition);
+          exitSets.set(transition3, exitSet);
         }
         return exitSet;
       };
@@ -2263,33 +2459,33 @@ var require_createActor_b987e971_cjs = __commonJS({
     }
     function createTransitionResultResolver(snapshot, event, actorScope, resolveActions, selectionResults) {
       let cache3;
-      return (transition2, applied) => {
-        if (!transition2.to && !applied) {
+      return (transition3, applied) => {
+        if (!transition3.to && !applied) {
           return {
-            targets: transition2.target,
+            targets: transition3.target,
             context: void 0,
-            reenter: transition2.reenter,
+            reenter: transition3.reenter,
             actions: void 0,
             internalEvents: void 0,
             input: void 0
           };
         }
-        let result = cache3?.get(transition2);
+        let result = cache3?.get(transition3);
         if (!result) {
-          result = getTransitionResult(transition2, snapshot, event, actorScope, {
+          result = getTransitionResult(transition3, snapshot, event, actorScope, {
             resolveActions,
-            selectionResult: selectionResults?.get(transition2)
+            selectionResult: selectionResults?.get(transition3)
           });
-          (cache3 ??= /* @__PURE__ */ new Map()).set(transition2, result);
+          (cache3 ??= /* @__PURE__ */ new Map()).set(transition3, result);
         }
         return result;
       };
     }
-    function getEffectiveTargetStates(transition2, snapshot, resolveTransition) {
+    function getEffectiveTargetStates(transition3, snapshot, resolveTransition) {
       const historyValue = snapshot.historyValue;
       const {
         targets
-      } = resolveTransition(transition2);
+      } = resolveTransition(transition3);
       if (!targets) {
         return [];
       }
@@ -2322,17 +2518,17 @@ var require_createActor_b987e971_cjs = __commonJS({
       }
       return narrowed;
     }
-    function getTransitionDomain(transition2, snapshot, resolveTransition) {
-      const targetStates = getEffectiveTargetStates(transition2, snapshot, resolveTransition);
+    function getTransitionDomain(transition3, snapshot, resolveTransition) {
+      const targetStates = getEffectiveTargetStates(transition3, snapshot, resolveTransition);
       const {
         targets,
         reenter
-      } = resolveTransition(transition2);
-      if (transition2._transitionDomain) {
-        if (transition2._transitionDomain === "internal" && transition2.source.type === "compound" && targetStates.every((target) => isDescendant(target, transition2.source))) {
-          return transition2.source;
+      } = resolveTransition(transition3);
+      if (transition3._transitionDomain) {
+        if (transition3._transitionDomain === "internal" && transition3.source.type === "compound" && targetStates.every((target) => isDescendant(target, transition3.source))) {
+          return transition3.source;
         }
-        const [head2, ...tail2] = targetStates.concat(transition2.source);
+        const [head2, ...tail2] = targetStates.concat(transition3.source);
         for (const ancestor of getProperAncestors(head2, void 0)) {
           if (ancestor.type === "compound" && tail2.every((stateNode) => isDescendant(stateNode, ancestor))) {
             return ancestor;
@@ -2340,11 +2536,11 @@ var require_createActor_b987e971_cjs = __commonJS({
         }
         return;
       }
-      const restoresSourceViaHistory = targets?.some(isHistoryNode) && targetStates.some((target) => target === transition2.source);
-      if (!restoresSourceViaHistory && targetStates.every((target) => target === transition2.source || isDescendant(target, transition2.source))) {
-        return reenter ? transition2.source : narrowParallelDomain(transition2.source, targetStates);
+      const restoresSourceViaHistory = targets?.some(isHistoryNode) && targetStates.some((target) => target === transition3.source);
+      if (!restoresSourceViaHistory && targetStates.every((target) => target === transition3.source || isDescendant(target, transition3.source))) {
+        return reenter ? transition3.source : narrowParallelDomain(transition3.source, targetStates);
       }
-      const [head, ...tail] = targetStates.concat(transition2.source);
+      const [head, ...tail] = targetStates.concat(transition3.source);
       for (const ancestor of getProperAncestors(head, void 0)) {
         if (tail.every((sn) => isDescendant(sn, ancestor))) {
           return reenter ? ancestor : narrowParallelDomain(ancestor, targetStates);
@@ -2353,18 +2549,18 @@ var require_createActor_b987e971_cjs = __commonJS({
       if (reenter) {
         return;
       }
-      return narrowParallelDomain(transition2.source.machine.root, targetStates);
+      return narrowParallelDomain(transition3.source.machine.root, targetStates);
     }
     function computeExitSet(transitions, stateNodeSet, snapshot, resolveTransition) {
       const statesToExit = /* @__PURE__ */ new Set();
-      for (const transition2 of transitions) {
+      for (const transition3 of transitions) {
         const {
           targets,
           reenter
-        } = resolveTransition(transition2);
+        } = resolveTransition(transition3);
         if (targets?.length) {
-          const domain = getTransitionDomain(transition2, snapshot, resolveTransition);
-          if (reenter && transition2.source === domain) {
+          const domain = getTransitionDomain(transition3, snapshot, resolveTransition);
+          if (reenter && transition3.source === domain) {
             statesToExit.add(domain);
           }
           for (const stateNode of stateNodeSet) {
@@ -2417,81 +2613,55 @@ var require_createActor_b987e971_cjs = __commonJS({
         const originalContext = currentSnapshot.context;
         const filteredTransitions = transitions.length === 1 ? transitions : removeConflictingTransitions(transitions, mutStateNodeSet, currentSnapshot, createTransitionResultResolver(currentSnapshot, event, actorScope, false, selectionResults));
         const getCurrentTransitionResult = createTransitionResultResolver(currentSnapshot, event, actorScope, true, selectionResults);
-        const changesState = filteredTransitions.some((transition2) => {
+        const changesState = filteredTransitions.some((transition3) => {
           const {
             targets,
             reenter
-          } = getCurrentTransitionResult(transition2);
+          } = getCurrentTransitionResult(transition3);
           return !!targets?.length || !!reenter;
         });
         const getStateActionsAndContext = (transitionFn, context2, children, input, kind, stateNode) => {
-          if (transitionFn.length === 2) {
-            const actions = [];
-            const internalEvents3 = [];
-            let updatedContext;
-            const enqueue = createTransitionEnqueue(actorScope, actions, internalEvents3, true);
-            const args = isLazyActorScope(actorScope) ? withActorScope2({
-              context: context2,
-              event,
-              children,
-              actions: currentSnapshot.machine.sources.actions,
-              actors: currentSnapshot.machine.sources.actors,
-              guards: currentSnapshot.machine.sources.guards,
-              delays: currentSnapshot.machine.sources.delays,
-              input,
-              stateNode
-            }, actorScope) : {
-              context: context2,
-              event,
-              parent: actorScope.self._parent,
-              self: actorScope.self,
-              children,
-              system: actorScope.system,
-              actions: currentSnapshot.machine.sources.actions,
-              actors: currentSnapshot.machine.sources.actors,
-              guards: currentSnapshot.machine.sources.guards,
-              delays: currentSnapshot.machine.sources.delays,
-              input,
-              stateNode
-            };
-            let res;
-            try {
-              res = transitionFn(args, enqueue);
-            } finally {
-              closeTransitionEnqueue(enqueue);
-            }
-            assertSyncTransitionResult(res, event, stateNode.id, kind);
-            if (res?.context !== void 0) {
-              updatedContext = mergeContextPatch(context2, res.context);
-            }
-            return [actions, updatedContext, internalEvents3];
+          const actions = [];
+          const internalEvents3 = [];
+          let updatedContext;
+          const enqueue = createTransitionEnqueue(actorScope, actions, internalEvents3, true);
+          const args = isLazyActorScope(actorScope) ? withActorScope2({
+            context: context2,
+            event,
+            output: getEventOutput(event),
+            children,
+            actions: currentSnapshot.machine.sources.actions,
+            actors: currentSnapshot.machine.sources.actors,
+            guards: currentSnapshot.machine.sources.guards,
+            delays: currentSnapshot.machine.sources.delays,
+            input,
+            stateNode
+          }, actorScope) : {
+            context: context2,
+            event,
+            output: getEventOutput(event),
+            parent: actorScope.self._parent,
+            self: actorScope.self,
+            children,
+            system: actorScope.system,
+            actions: currentSnapshot.machine.sources.actions,
+            actors: currentSnapshot.machine.sources.actors,
+            guards: currentSnapshot.machine.sources.guards,
+            delays: currentSnapshot.machine.sources.delays,
+            input,
+            stateNode
+          };
+          let res;
+          try {
+            res = transitionFn(args, enqueue);
+          } finally {
+            closeTransitionEnqueue(enqueue);
           }
-          const wrappedAction = Object.assign((args, enqueue) => transitionFn(
-            isLazyActorScope(actorScope) ? withActorScope2({
-              context: args.context,
-              event: args.event,
-              output: args.output,
-              children: args.children,
-              actions: args.actions,
-              actors: args.actors,
-              guards: currentSnapshot.machine.sources.guards,
-              delays: currentSnapshot.machine.sources.delays,
-              input,
-              stateNode
-            }, actorScope) : {
-              ...args,
-              guards: currentSnapshot.machine.sources.guards,
-              delays: currentSnapshot.machine.sources.delays,
-              input,
-              stateNode
-            },
-            // This function runs during action resolution, where enqueued
-            // effects are no longer collected.
-            enqueue
-          ), "_special" in transitionFn ? {
-            _special: true
-          } : {});
-          return [[wrappedAction], void 0, void 0];
+          assertSyncTransitionResult(res, event, stateNode.id, kind);
+          if (res?.context !== void 0) {
+            updatedContext = mergeContextPatch(context2, res.context);
+          }
+          return [actions, updatedContext, internalEvents3, res?.children];
         };
         let nextState = currentSnapshot;
         const getInvokeStopActions = (stateNode, children) => {
@@ -2524,13 +2694,18 @@ var require_createActor_b987e971_cjs = __commonJS({
           }
           for (const exitStateNode of statesToExit) {
             const stateInput = getStateInput(currentSnapshot, exitStateNode.id);
-            const [exitActions, nextContext, internalEvents3] = exitStateNode.exit ? getStateActionsAndContext(exitStateNode.exit, nextState.context, nextState.children, stateInput, "exit", exitStateNode) : [[], void 0, void 0];
+            const [exitActions, nextContext, internalEvents3, nextChildren] = exitStateNode.exit ? getStateActionsAndContext(exitStateNode.exit, nextState.context, nextState.children, stateInput, "exit", exitStateNode) : [[], void 0, void 0, void 0];
             if (internalEvents3?.length) {
               internalQueue.push(...internalEvents3);
             }
-            if (nextContext) {
+            if (nextContext || nextChildren) {
               nextState = cloneMachineSnapshot(nextState, {
-                context: nextContext
+                ...nextContext ? {
+                  context: nextContext
+                } : {},
+                ...nextChildren ? {
+                  children: nextChildren
+                } : {}
               });
             }
             const [resolvedState, resolvedActions] = resolveActionsWithContext(nextState, event, actorScope, exitActions);
@@ -2674,32 +2849,32 @@ var require_createActor_b987e971_cjs = __commonJS({
             }
           };
           const enteredTargetsByTransition = /* @__PURE__ */ new Map();
-          for (const transition2 of filteredTransitions) {
-            const domain = getTransitionDomain(transition2, currentSnapshot, getCurrentTransitionResult);
+          for (const transition3 of filteredTransitions) {
+            const domain = getTransitionDomain(transition3, currentSnapshot, getCurrentTransitionResult);
             const {
               targets,
               reenter
-            } = getCurrentTransitionResult(transition2);
+            } = getCurrentTransitionResult(transition3);
             const enteredTargets = /* @__PURE__ */ new Set();
-            enteredTargetsByTransition.set(transition2, enteredTargets);
+            enteredTargetsByTransition.set(transition3, enteredTargets);
             for (const targetNode of targets ?? []) {
-              if (!isHistoryNode(targetNode) && (transition2.source !== targetNode || transition2.source !== domain || reenter)) {
+              if (!isHistoryNode(targetNode) && (transition3.source !== targetNode || transition3.source !== domain || reenter)) {
                 enteredTargets.add(targetNode);
                 statesToEnter.add(targetNode);
                 statesForDefaultEntry.add(targetNode);
               }
               addDescendantStatesToEnter(targetNode);
             }
-            const targetStates = getEffectiveTargetStates(transition2, currentSnapshot, getCurrentTransitionResult);
+            const targetStates = getEffectiveTargetStates(transition3, currentSnapshot, getCurrentTransitionResult);
             for (const s of targetStates) {
               const ancestors = getProperAncestors(s, domain);
               if (domain?.type === "parallel") {
                 ancestors.push(domain);
               }
-              addAncestorStatesToEnter(ancestors, !transition2.source.parent && reenter ? void 0 : domain);
+              addAncestorStatesToEnter(ancestors, !transition3.source.parent && reenter ? void 0 : domain);
             }
-            if (reenter && domain === transition2.source) {
-              statesToEnter.add(transition2.source);
+            if (reenter && domain === transition3.source) {
+              statesToEnter.add(transition3.source);
             }
           }
           if (isInitial) {
@@ -2707,17 +2882,23 @@ var require_createActor_b987e971_cjs = __commonJS({
               statesForDefaultEntry.add(stateNode);
             }
           }
-          const stateInputMap = {
-            ...currentSnapshot._stateInputs
-          };
+          const stateInputMap = {};
           let stateInputsChanged = false;
-          for (const transition2 of filteredTransitions) {
+          const activeIds = new Set([...mutStateNodeSet].map((sn) => sn.id));
+          for (const [id, input] of Object.entries(currentSnapshot._stateInputs ?? {})) {
+            if (activeIds.has(id)) {
+              stateInputMap[id] = input;
+            } else {
+              stateInputsChanged = true;
+            }
+          }
+          for (const transition3 of filteredTransitions) {
             const {
               targets,
               input
-            } = getCurrentTransitionResult(transition2, true);
+            } = getCurrentTransitionResult(transition3, true);
             if (input && targets) {
-              for (const targetNode of targets.filter((targetNode2) => enteredTargetsByTransition.get(transition2)?.has(targetNode2))) {
+              for (const targetNode of targets.filter((targetNode2) => enteredTargetsByTransition.get(transition3)?.has(targetNode2))) {
                 stateInputMap[targetNode.id] = input;
                 stateInputsChanged = true;
               }
@@ -2740,7 +2921,7 @@ var require_createActor_b987e971_cjs = __commonJS({
                   self: actorScope.self
                 });
               }
-              const logic = typeof src3 === "string" ? resolveReferencedActor(currentSnapshot.machine, src3) : src3;
+              const logic = typeof src3 === "string" ? currentSnapshot.machine.sources.actors[src3] : src3;
               if (!logic) {
                 throw new Error(`Actor logic '${typeof src3 === "string" ? src3 : "inline"}' not implemented`);
               }
@@ -2754,10 +2935,13 @@ var require_createActor_b987e971_cjs = __commonJS({
               assertChildIdFree(actorScope, invokeDef.id);
               const actor = actorScope.system.createActorRef(logic, {
                 ...invokeDef,
+                // A `src` function may return a registered key, which persists.
+                src: typeof src3 === "string" ? src3 : void 0,
                 input,
                 parent: actorScope.self,
                 syncSnapshot: !!invokeDef.onSnapshot
               });
+              actor._invoked = true;
               actions.push({
                 action: builtInActions["@xstate.spawn"],
                 args: [actor]
@@ -2778,7 +2962,7 @@ var require_createActor_b987e971_cjs = __commonJS({
             let contextChangedByEntry = false;
             const stateInput = stateInputMap[stateNodeToEnter.id];
             if (stateNodeToEnter.entry) {
-              const [resultActions, nextContext, nextInternalEvents] = getStateActionsAndContext(stateNodeToEnter.entry, context2, children, stateInput, "entry", stateNodeToEnter);
+              const [resultActions, nextContext, nextInternalEvents, nextChildren] = getStateActionsAndContext(stateNodeToEnter.entry, context2, children, stateInput, "entry", stateNodeToEnter);
               actions.push(...resultActions);
               if (nextInternalEvents?.length) {
                 internalQueue.push(...nextInternalEvents);
@@ -2786,6 +2970,11 @@ var require_createActor_b987e971_cjs = __commonJS({
               if (nextContext) {
                 context2 = nextContext;
                 contextChangedByEntry = true;
+              }
+              if (nextChildren) {
+                nextState = cloneMachineSnapshot(nextState, {
+                  children: nextChildren
+                });
               }
             }
             if (contextChangedByEntry) {
@@ -2864,9 +3053,9 @@ var require_createActor_b987e971_cjs = __commonJS({
             });
           }
         };
-        const [resolvedTransitionState, transitionExecutableActions] = resolveActionsWithContext(nextState, event, actorScope, transitionActions);
+        const [resolvedTransitionState, transitionExecutableEffects] = resolveActionsWithContext(nextState, event, actorScope, transitionActions);
         nextState = resolvedTransitionState;
-        executableActions.push(...transitionExecutableActions);
+        executableActions.push(...transitionExecutableEffects);
         if (context && context !== currentSnapshot.context) {
           nextState = cloneMachineSnapshot(nextState, {
             context
@@ -2882,10 +3071,15 @@ var require_createActor_b987e971_cjs = __commonJS({
           nextStateNodesToExit.forEach((stateNode) => {
             if (stateNode.exit) {
               const stateInput = getStateInput(nextState, stateNode.id);
-              const [exitActions, nextContext, nextInternalEvents] = getStateActionsAndContext(stateNode.exit, nextState.context, nextState.children, stateInput, "exit", stateNode);
-              if (nextContext) {
+              const [exitActions, nextContext, nextInternalEvents, nextChildren] = getStateActionsAndContext(stateNode.exit, nextState.context, nextState.children, stateInput, "exit", stateNode);
+              if (nextContext || nextChildren) {
                 nextState = cloneMachineSnapshot(nextState, {
-                  context: nextContext
+                  ...nextContext ? {
+                    context: nextContext
+                  } : {},
+                  ...nextChildren ? {
+                    children: nextChildren
+                  } : {}
                 });
               }
               allExitActions.push(...exitActions);
@@ -2916,7 +3110,7 @@ var require_createActor_b987e971_cjs = __commonJS({
         }), executableActions, resolvedTransitions];
       }
     }
-    function getTransitionResult(transition2, snapshot, event, actorScope, options2) {
+    function getTransitionResult(transition3, snapshot, event, actorScope, options2) {
       let transitionArgs;
       const getTransitionArgs = () => transitionArgs ??= isLazyActorScope(actorScope) ? withActorScope2({
         context: snapshot.context,
@@ -2928,7 +3122,7 @@ var require_createActor_b987e971_cjs = __commonJS({
         actors: snapshot.machine.sources.actors,
         guards: snapshot.machine.sources.guards,
         delays: snapshot.machine.sources.delays,
-        input: getStateInput(snapshot, transition2.source.id)
+        input: getStateInput(snapshot, transition3.source.id)
       }, actorScope) : {
         context: snapshot.context,
         event,
@@ -2942,26 +3136,38 @@ var require_createActor_b987e971_cjs = __commonJS({
         actors: snapshot.machine.sources.actors,
         guards: snapshot.machine.sources.guards,
         delays: snapshot.machine.sources.delays,
-        input: getStateInput(snapshot, transition2.source.id)
+        input: getStateInput(snapshot, transition3.source.id)
       };
-      if (transition2.to) {
+      if (transition3.to) {
         const actions = [];
         const internalEvents = [];
         let res;
-        if (options2?.selectionResult?.reusable) {
+        if (options2?.selectionResult?.reusable && (options2.resolveActions === false || options2.selectionResult.operations.length === 0)) {
           res = options2.selectionResult.result;
         } else {
           const enqueue = createTransitionEnqueue(actorScope, actions, internalEvents, true, options2?.resolveActions ?? true);
-          res = transition2.to(getTransitionArgs(), enqueue);
-          closeTransitionEnqueue(enqueue);
-          assertSyncTransitionResult(res, event, transition2.source.id);
+          const speculativeSelection = options2?.resolveActions === false ? beginTransitionSelection(getActorScopeParent(actorScope), "suppress") : void 0;
+          try {
+            if (options2?.selectionResult?.reusable) {
+              res = options2.selectionResult.result;
+              for (const operation of options2.selectionResult.operations) {
+                operation(enqueue);
+              }
+            } else {
+              res = transition3.to(getTransitionArgs(), enqueue);
+              assertSyncTransitionResult(res, event, transition3.source.id);
+            }
+          } finally {
+            speculativeSelection?.close();
+            closeTransitionEnqueue(enqueue);
+          }
         }
-        const targets = res?.target ? resolveTarget(transition2.source, toArray(res.target)) : void 0;
-        const resolvedInput2 = res?.input ?? (typeof transition2.input === "function" ? transition2.input({
+        const targets = res?.target ? resolveTarget(transition3.source, toArray(res.target)) : void 0;
+        const resolvedInput2 = res?.input ?? (typeof transition3.input === "function" ? transition3.input({
           context: snapshot.context,
           event,
           output: getEventOutput(event)
-        }) : transition2.input);
+        }) : transition3.input);
         return {
           targets,
           context: res?.context,
@@ -2971,23 +3177,23 @@ var require_createActor_b987e971_cjs = __commonJS({
           input: resolvedInput2
         };
       }
-      const resolvedInput = typeof transition2.input === "function" ? transition2.input({
+      const resolvedInput = typeof transition3.input === "function" ? transition3.input({
         context: snapshot.context,
         event,
         output: getEventOutput(event)
-      }) : transition2.input;
-      const resolvedContext = typeof transition2.context === "function" ? transition2.context(getTransitionArgs()) : transition2.context;
+      }) : transition3.input;
+      const resolvedContext = typeof transition3.context === "function" ? transition3.context(getTransitionArgs()) : transition3.context;
       return {
-        targets: transition2.target,
+        targets: transition3.target,
         context: resolvedContext,
-        reenter: transition2.reenter,
+        reenter: transition3.reenter,
         actions: void 0,
         internalEvents: void 0,
         input: resolvedInput
       };
     }
     var DEFAULT_MAX_ITERATIONS = 1e3;
-    var InfiniteTransitionError2 = class extends Error {
+    var InfiniteTransitionError3 = class extends Error {
       constructor(actorId2, event, maxIterations, states) {
         super(`Infinite loop detected in actor "${actorId2}" processing event "${event.type}": more than ${maxIterations} microsteps without reaching a stable state. Last states: ${states.map((value) => JSON.stringify(value)).join(" -> ")}. Check for a cycle of eventless transitions or raised events, or raise the bound with createMachine({ options: { maxIterations } }).`);
         this.actorId = void 0;
@@ -3087,16 +3293,15 @@ var require_createActor_b987e971_cjs = __commonJS({
         addMicrostep([nextSnapshot, [...stopEffects, ...cancelEffects]], []);
         return completeMacrostep();
       }
-      let nextEvent = normalizeLegacyInternalEvent(event, snapshot.machine);
+      let nextEvent = event;
       if (event.type === XSTATE_TIMER2) {
-        const timer = nextSnapshot.timers[event.id];
-        if (!timer) {
+        const key = readTimerKey(event);
+        const index3 = key ? nextSnapshot.timers.findIndex((timer2) => matchesTimerKey(timer2, key)) : -1;
+        if (index3 === -1) {
           return completeMacrostep();
         }
-        const timers = {
-          ...nextSnapshot.timers
-        };
-        delete timers[timer.id];
+        const timer = nextSnapshot.timers[index3];
+        const timers = nextSnapshot.timers.filter((_, i) => i !== index3);
         nextSnapshot = cloneMachineSnapshot(nextSnapshot, {
           timers
         });
@@ -3150,7 +3355,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       while (nextSnapshot.status === "active") {
         iterationCount++;
         if (iterationCount > maxIterations) {
-          throw new InfiniteTransitionError2(actorScope.self?.id, event, maxIterations, recentStates);
+          throw new InfiniteTransitionError3(actorScope.self?.id, event, maxIterations, recentStates);
         }
         recentStates.push(nextSnapshot.value);
         if (recentStates.length > 5) {
@@ -3180,22 +3385,15 @@ var require_createActor_b987e971_cjs = __commonJS({
       return completeMacrostep();
     }
     function resolveStateValue(rootNode, stateValue) {
-      const allStateNodes = getAllStateNodes(getStateNodes2(rootNode, stateValue));
+      const allStateNodes = getAllStateNodes(getStateNodes3(rootNode, stateValue));
       return getStateValue(rootNode, allStateNodes);
     }
-    function hasEffect(transition2, context, event, snapshot, actorScope) {
-      if (transition2.to) {
-        return evaluateTransitionFunction(transition2.to, context, event, snapshot, actorScope, snapshot.machine.sources, transition2.source.id).enabled;
+    function hasEffect(transition3, context, event, snapshot, actorScope) {
+      if (transition3.to) {
+        return evaluateTransitionFunction(transition3.to, context, event, snapshot, actorScope, snapshot.machine.sources, transition3.source.id).enabled;
       }
       return false;
     }
-    var selectionDepth = 0;
-    var triggerTransitionEffect = () => {
-      if (!selectionDepth) {
-        return lateEnqueueCall();
-      }
-      throw transitionEffectSignal;
-    };
     function assertSyncTransitionResult(res, event, sourceId, kind) {
       if (res && typeof res.then === "function") {
         void Promise.resolve(res).catch(() => {
@@ -3203,27 +3401,56 @@ var require_createActor_b987e971_cjs = __commonJS({
         throw new Error(kind ? `${kind === "entry" ? "Entry" : "Exit"} functions must be synchronous. The ${kind} function of state "${sourceId}" returned a promise (event "${event.type}"). Move async work into an invoked or spawned actor, or enq.effect.` : `Transition functions must be synchronous. Transition for event "${event.type}" in state "${sourceId}" returned a promise. Move async work into an invoked or spawned actor, or enq.effect.`);
       }
     }
-    var transitionEffectEnqueue;
-    function getTransitionEffectEnqueue() {
-      return transitionEffectEnqueue ??= createEnqueueObject({
-        emit: triggerTransitionEffect,
-        cancel: triggerTransitionEffect,
-        log: triggerTransitionEffect,
-        raise: triggerTransitionEffect,
-        spawn: triggerTransitionEffect,
-        sendTo: triggerTransitionEffect,
-        stop: triggerTransitionEffect,
-        listen: triggerTransitionEffect,
-        subscribeTo: triggerTransitionEffect
-      }, triggerTransitionEffect);
+    function createTransitionSelection(parent) {
+      const selection = beginTransitionSelection(parent);
+      const {
+        frame
+      } = selection;
+      const operations = [];
+      let closed = false;
+      const record = (operation) => {
+        if (closed) {
+          return lateEnqueueCall();
+        }
+        operations.push(operation);
+      };
+      const abortRefProducingCall = () => {
+        if (closed) {
+          return lateEnqueueCall();
+        }
+        frame.requiresReevaluation = true;
+        throw transitionEffectSignal;
+      };
+      const enqueue = createEnqueueObject({
+        cancel: (...args) => record((enq) => enq.cancel(...args)),
+        emit: (...args) => record((enq) => enq.emit(...args)),
+        log: (...args) => record((enq) => enq.log(...args)),
+        raise: (event, options2) => {
+          if (closed) {
+            return lateEnqueueCall();
+          }
+          assertRaiseEvent(event);
+          record((enq) => enq.raise(event, options2));
+        },
+        sendTo: (...args) => record((enq) => enq.sendTo(...args)),
+        stop: (...args) => record((enq) => enq.stop(...args)),
+        spawn: abortRefProducingCall,
+        listen: abortRefProducingCall,
+        subscribeTo: abortRefProducingCall
+      }, (...args) => record((enq) => enq(...args)));
+      return {
+        frame,
+        enqueue,
+        operations,
+        close() {
+          closed = true;
+          selection.close();
+        }
+      };
     }
     function evaluateTransitionFunction(transitionTo, context, event, snapshot, actorScope, sources, sourceId) {
       let res;
-      const parent = getActorScopeParent(actorScope);
-      if (parent) {
-        transitionEffectTargets.push(parent);
-      }
-      selectionDepth++;
+      const selection = createTransitionSelection(getActorScopeParent(actorScope));
       try {
         res = transitionTo(withActorScope2({
           context,
@@ -3236,7 +3463,7 @@ var require_createActor_b987e971_cjs = __commonJS({
           guards: sources.guards,
           delays: sources.delays,
           input: getStateInput(snapshot, sourceId)
-        }, actorScope), getTransitionEffectEnqueue());
+        }, actorScope), selection.enqueue);
       } catch (err) {
         if (err === transitionEffectSignal) {
           return {
@@ -3247,16 +3474,21 @@ var require_createActor_b987e971_cjs = __commonJS({
         }
         throw err;
       } finally {
-        selectionDepth--;
-        if (parent) {
-          transitionEffectTargets.pop();
-        }
+        selection.close();
       }
       assertSyncTransitionResult(res, event, sourceId);
+      if (selection.frame.requiresReevaluation) {
+        return {
+          enabled: true,
+          result: void 0,
+          reusable: false
+        };
+      }
       return {
-        enabled: res !== void 0,
+        enabled: res !== void 0 || selection.operations.length > 0,
         result: res,
-        reusable: true
+        reusable: true,
+        operations: selection.operations
       };
     }
     function stopChildren(snapshot, event, actorScope) {
@@ -3272,14 +3504,13 @@ var require_createActor_b987e971_cjs = __commonJS({
       return resolveActionsWithContext(snapshot, event, actorScope, actions);
     }
     function cancelTimers(snapshot, event, actorScope) {
-      const timerIds = Object.keys(snapshot.timers);
-      if (!timerIds.length) {
+      if (!snapshot.timers.length) {
         return [snapshot, []];
       }
       const actions = [];
       const enqueue = createTransitionEnqueue(actorScope, actions, []);
-      for (const id of timerIds) {
-        enqueue.cancel(id);
+      for (const timer of snapshot.timers) {
+        enqueue.cancel(getTimerKey(timer));
       }
       return resolveActionsWithContext(snapshot, event, actorScope, actions);
     }
@@ -3292,9 +3523,9 @@ var require_createActor_b987e971_cjs = __commonJS({
           if (!stateNode.always) {
             continue;
           }
-          for (const transition2 of stateNode.always) {
-            if (evaluateCandidate(transition2, event, snapshot, stateNode, actorScope)) {
-              enabledTransitionSet.add(transition2);
+          for (const transition3 of stateNode.always) {
+            if (evaluateCandidate(transition3, event, snapshot, stateNode, actorScope)) {
+              enabledTransitionSet.add(transition3);
               break loop;
             }
           }
@@ -3332,105 +3563,26 @@ var require_createActor_b987e971_cjs = __commonJS({
       }
       return true;
     }
-    var emptySubscription = {
-      unsubscribe() {
-      }
-    };
-    var restoreHint = "or restore this snapshot with embedded children on the runtime that owns them.";
-    function isRemoteActorRef(actorRef) {
-      return actorRef._remote === true;
-    }
-    var remoteSnapshot = Object.freeze({
-      status: "active",
-      output: void 0,
-      error: void 0
-    });
-    function createRemoteActorRef(system, options2) {
-      const handle2 = {
-        _remote: true,
-        // Self-reference so context persistence recognizes the handle as an
-        // actor reference instead of recursing into it.
-        ref: void 0,
-        id: options2.id,
-        address: options2.address,
-        src: options2.src,
-        registryKey: options2.registryKey,
-        // The host-supplied incarnation token, when present: the owner's
-        // sessionId for this child, letting this side drop stale completions and
-        // journaled sends name the intended incarnation. Without one the handle
-        // does not know the child's incarnation and the owning runtime is the
-        // authority on staleness.
-        sessionId: options2.incarnation,
-        system,
-        _parent: options2.parent,
-        // Round-trips through persistence verbatim (undefined stays undefined,
-        // so re-persisting is byte-stable); a remote handle cannot act on it
-        // locally.
-        _syncSnapshot: options2.syncSnapshot,
-        send(event) {
-          void system.sendEvent(void 0, ref, event);
-        },
-        _send(event) {
-          throw new Error(`Remote actor '${options2.address}' has no local mailbox to receive "${event.type}". Its state lives with another runtime; install a runtime that can reach it (via \`createDurable\`'s adapter runtime operations, or \`system.runtime\`) before sending, ${restoreHint}`);
-        },
-        getSnapshot() {
-          return remoteSnapshot;
-        },
-        getPersistedSnapshot() {
-          throw new Error(`Cannot persist remote actor '${options2.address}' from here: its state lives with the runtime that owns it. Persist it there, ${restoreHint}`);
-        },
-        start() {
-        },
-        _stop() {
-        },
-        stop() {
-          throw new Error(`Cannot stop remote actor '${options2.address}' directly: stopping is a co-located operation. Stop it through the system runtime that owns it (\`system.stopActor(ref)\`), ${restoreHint}`);
-        },
-        select() {
-          throw new Error(`Cannot select from remote actor '${options2.address}': its snapshot is not synchronously readable because its state lives with another runtime. Read it on the runtime that owns it, ${restoreHint}`);
-        },
-        get trigger() {
-          throw new Error(`Remote actor '${options2.address}' has no \`trigger\` shorthand: it requires a co-located actor. Use \`send(...)\`, which routes through the system runtime.`);
-        },
-        // Observation is a co-location capability: a remote handle never emits,
-        // so subscriptions are inert rather than errors — generic observers may
-        // attach to any ref.
-        subscribe() {
-          return emptySubscription;
-        },
-        on() {
-          return emptySubscription;
-        },
-        _isRunning() {
-          return false;
-        },
-        // The same shape Actor.toJSON produces, so serialized snapshots carry
-        // one actor-reference marker whether a child is co-located or remote.
-        toJSON() {
-          return {
-            xstate$type: ACTOR_REF_TYPE,
-            id: options2.id,
-            address: options2.address,
-            src: options2.src
-          };
-        }
-      };
-      const ref = handle2;
-      handle2.ref = ref;
-      return ref;
-    }
     var emptySnapshotRecord = Object.freeze({});
+    var emptyTimers = Object.freeze([]);
+    function compactTimers(timers) {
+      return timers?.length ? timers : emptyTimers;
+    }
     function compactSnapshotRecord(value) {
       if (value === emptySnapshotRecord) {
         return value;
       }
       return value && Object.keys(value).length ? value : emptySnapshotRecord;
     }
-    function isMachineSnapshot2(value) {
+    function isMachineSnapshot3(value) {
       return !!value && typeof value === "object" && "machine" in value && "value" in value;
     }
     var machineSnapshotMatches = function matches(testValue) {
-      return matchesState2(testValue, this.value);
+      if (typeof testValue === "string" && isStateId(testValue)) {
+        const stateNode = this.machine.getStateNodeById(testValue);
+        return this.nodes.includes(stateNode);
+      }
+      return matchesState3(testValue, this.value);
     };
     var machineSnapshotHasTag = function hasTag(tag) {
       return this.tags.has(tag);
@@ -3489,7 +3641,7 @@ var require_createActor_b987e971_cjs = __commonJS({
         value: config.value ?? getStateValue(machine.root, config._nodes),
         tags: collectTags(config._nodes),
         children: compactSnapshotRecord(config.children),
-        timers: compactSnapshotRecord(config.timers),
+        timers: compactTimers(config.timers),
         historyValue: compactSnapshotRecord(config.historyValue),
         _stateInputs: compactSnapshotRecord(config._stateInputs),
         _nextTimerId: config._nextTimerId ?? 0,
@@ -3522,7 +3674,7 @@ var require_createActor_b987e971_cjs = __commonJS({
           value: snapshot.value,
           tags: snapshot.tags,
           children: compactSnapshotRecord(configWithSnapshot.children),
-          timers: compactSnapshotRecord(configWithSnapshot.timers),
+          timers: compactTimers(configWithSnapshot.timers),
           historyValue: compactSnapshotRecord(configWithSnapshot.historyValue),
           _stateInputs: compactSnapshotRecord(configWithSnapshot._stateInputs),
           _nextTimerId: configWithSnapshot._nextTimerId ?? 0,
@@ -3574,15 +3726,17 @@ var require_createActor_b987e971_cjs = __commonJS({
         ...jsonValues
       } = snapshot;
       const childrenJson = {};
-      const timersJson = {};
+      const timersJson = [];
       const embedChildren = options2?.embedChildren !== false;
       for (const id in children) {
         const child = children[id];
-        if (typeof child.src !== "string" && (!options2 || !("__unsafeAllowInlineActors" in options2))) {
+        const sourceKey = typeof child.src === "string" ? child.src : void 0;
+        const invoked = sourceKey === void 0 && child._invoked === true && nodes.some((node) => node.invoke.some((def2) => def2.id === id));
+        if (sourceKey === void 0 && !invoked && (!options2 || !("__unsafeAllowInlineActors" in options2))) {
           throw new Error("An inline child actor cannot be persisted.");
         }
         const embed = embedChildren && !isRemoteActorRef(child);
-        if (!embed && typeof child.src !== "string") {
+        if (!embed && sourceKey === void 0) {
           throw new Error(`Unable to persist child '${id}' by address: it requires a registered source key.`);
         }
         childrenJson[id] = {
@@ -3600,15 +3754,16 @@ var require_createActor_b987e971_cjs = __commonJS({
             // persisted snapshots nondeterministic across replays.
             incarnation: isRemoteActorRef(child) ? child.sessionId : void 0
           },
-          src: child.src,
+          ...invoked ? {} : {
+            src: child.src
+          },
           registryKey: child.registryKey,
           syncSnapshot: child._syncSnapshot
         };
       }
       const snapshotActor = getSnapshotActorRef(snapshot)?.actor;
       const scheduledTimers = snapshotActor?.system?._clock?.now ? void 0 : snapshotActor?.system?._snapshot?._scheduledTimers;
-      for (const id in timers) {
-        const timer = timers[id];
+      for (const timer of timers) {
         let event = timer.event;
         if (event.type === "xstate.timeout.actor") {
           event = {
@@ -3619,6 +3774,10 @@ var require_createActor_b987e971_cjs = __commonJS({
         let target;
         if (timer.target === "self") {
           target = "self";
+        } else if (isSerializedActorRef(timer.target)) {
+          target = {
+            ...timer.target
+          };
         } else {
           const childId = Object.entries(children).find(([, child]) => child === timer.target)?.[0];
           if (childId) {
@@ -3628,21 +3787,26 @@ var require_createActor_b987e971_cjs = __commonJS({
               type: "parent"
             };
           } else {
-            throw new Error(`Unable to persist timer '${id}': target actor '${timer.target.id}' is no longer addressable from this snapshot.`);
+            throw new Error(`Unable to persist timer ${timer.id !== void 0 ? `'${timer.id}'` : `for event '${timer.event.type}'`}: target actor '${timer.target.id}' is no longer addressable from this snapshot.`);
           }
         }
-        const scheduled = scheduledTimers?.[`${snapshotActor.sessionId}.${id}`];
-        const startedAt = scheduled ? scheduled.dueAt - timer.delay : getTimerStart(timer);
-        timersJson[id] = {
-          id: timer.id,
+        const scheduled = scheduledTimers?.[getScheduledTimerKey(snapshotActor, getTimerKey(timer))];
+        const scheduledAt = scheduled ? scheduled.dueAt - timer.delay : getTimerStart(timer);
+        timersJson.push({
+          ...timer.id !== void 0 && {
+            id: timer.id
+          },
+          ...timer.seq !== void 0 && {
+            seq: timer.seq
+          },
           delay: timer.delay,
           type: timer.type,
           event,
           target,
-          ...startedAt !== void 0 && {
-            startedAt
+          ...scheduledAt !== void 0 && {
+            scheduledAt
           }
-        };
+        });
       }
       const persisted = {
         ...jsonValues,
@@ -3659,7 +3823,6 @@ var require_createActor_b987e971_cjs = __commonJS({
           id: machine.id,
           version: machine.version
         };
-        persisted.version = machine.version;
       }
       return persisted;
     }
@@ -3674,8 +3837,7 @@ var require_createActor_b987e971_cjs = __commonJS({
               ...contextPart
             };
             copy2[key] = {
-              xstate$type: ACTOR_REF_TYPE,
-              id: value.id
+              $actor: value.address
             };
           } else {
             const valuePath = Array.isArray(contextPart) ? `${path2}[${key}]` : `${path2}.${key}`;
@@ -3695,7 +3857,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       ancestors.pop();
       return copy2 ?? contextPart;
     }
-    function matchesState2(parentStateId, childStateId) {
+    function matchesState3(parentStateId, childStateId) {
       const parentStateValue = toStateValue(parentStateId);
       const childStateValue = toStateValue(childStateId);
       if (typeof childStateValue === "string") {
@@ -3711,15 +3873,23 @@ var require_createActor_b987e971_cjs = __commonJS({
         if (!(key in childStateValue)) {
           return false;
         }
-        return matchesState2(parentStateValue[key], childStateValue[key]);
+        return matchesState3(parentStateValue[key], childStateValue[key]);
       });
     }
-    function checkStateIn2(snapshot, stateValue) {
-      if (typeof stateValue === "string" && isStateId(stateValue)) {
-        const target = snapshot.machine.getStateNodeById(stateValue);
-        return snapshot.nodes.some((sn) => sn === target);
+    function assertUnreservedSourceName(kind, name) {
+      if (name.startsWith("xstate.") || name.startsWith("@xstate.")) {
+        throw new Error(`Invalid ${kind} name '${name}': the 'xstate.' and '@xstate.' prefixes are reserved for built-in names.`);
       }
-      return snapshot.matches(stateValue);
+    }
+    function hasUnescapedDot(key) {
+      for (let i = 0; i < key.length; i++) {
+        if (key[i] === "\\") {
+          i++;
+        } else if (key[i] === ".") {
+          return true;
+        }
+      }
+      return false;
     }
     function toStatePath(stateId) {
       if (isArray2(stateId)) {
@@ -3732,7 +3902,7 @@ var require_createActor_b987e971_cjs = __commonJS({
         switch (char) {
           // \
           case 92:
-            segment += stateId[i + 1];
+            segment += stateId[i + 1] === "." ? "\\." : stateId[i + 1];
             i++;
             continue;
           // .
@@ -3747,7 +3917,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       return result;
     }
     function toStateValue(stateValue) {
-      if (isMachineSnapshot2(stateValue)) {
+      if (isMachineSnapshot3(stateValue)) {
         return stateValue.value;
       }
       if (typeof stateValue !== "string") {
@@ -3834,11 +4004,15 @@ var require_createActor_b987e971_cjs = __commonJS({
     function isErrorEvent(event) {
       return event.type.startsWith("xstate.error.");
     }
-    function toTransitionConfigArray(configLike) {
+    function toTransitionConfigArray(configLike, name, stateId) {
       return toArrayStrict(configLike).map((transitionLike) => {
-        if (typeof transitionLike === "undefined" || typeof transitionLike === "string") {
+        const value = transitionLike;
+        if (typeof value === "string") {
+          throw new Error(`Transition for "${name}" in ${stateId ? `state "${stateId}"` : "the root state"} is the string "${value}". Use { target: '${value}' }. The @xstate/codemod string-targets transform rewrites these.`);
+        }
+        if (typeof transitionLike === "undefined") {
           return {
-            target: transitionLike
+            target: void 0
           };
         }
         if (typeof transitionLike === "function") {
@@ -3867,31 +4041,45 @@ var require_createActor_b987e971_cjs = __commonJS({
         } : {}
       };
     }
+    function describeMachine(id) {
+      return id ? `machine '${id}'` : "the machine";
+    }
     function createInvokeId(stateNodeId, index3) {
-      return `${index3}.${stateNodeId}`;
+      return `${stateNodeId}:${index3}`;
     }
     function isActorRefLike(value) {
       return "sessionId" in value && "send" in value && "ref" in value;
     }
-    function resolveReferencedActor(machine, src3) {
-      const match = src3.match(/^xstate\.invoke\.(\d+)\.(.*)/);
-      if (!match) {
-        return machine.sources.actors[src3];
+    function resolveInvokedActorLogic(machine, nodes, childId) {
+      const definitions = [];
+      for (const node of nodes) {
+        for (const definition of node.invoke) {
+          if (definition.id === childId) {
+            definitions.push(definition);
+          }
+        }
       }
-      const [, indexStr, nodeId] = match;
-      const node = machine.getStateNodeById(nodeId);
-      const invokeConfig = node.config.invoke;
-      const configSrc = (Array.isArray(invokeConfig) ? invokeConfig[indexStr] : invokeConfig).src;
-      return typeof configSrc === "string" ? machine.sources.actors[configSrc] : configSrc;
-    }
-    function getAllOwnEventDescriptors(snapshot) {
-      return [.../* @__PURE__ */ new Set([...snapshot.nodes.flatMap((sn) => sn.ownEvents)])];
+      if (definitions.length !== 1) {
+        throw new Error(`Unable to restore child actor '${childId}': it has no source key, and ${definitions.length ? "several active states" : "no active state"} of ${describeMachine(machine.id)} ${definitions.length ? "invoke" : "invokes"} it.`);
+      }
+      const logic = definitions[0].logic;
+      if (typeof logic === "string") {
+        const registered = machine.sources.actors[logic];
+        if (!registered) {
+          throw new Error(`Unable to restore child actor '${childId}': child source '${logic}' is not provided in ${describeMachine(machine.id)}.`);
+        }
+        return registered;
+      }
+      if (typeof logic === "function") {
+        throw new Error(`Unable to restore child actor '${childId}': its invoke resolves \`src\` with a function that returned inline logic. Register the logic in \`actors\` and return its key so the child persists by source key.`);
+      }
+      return logic;
     }
     function getAllOwnEvents(snapshot) {
-      const events = snapshot.nodes.flatMap((stateNode) => [...stateNode.transitions.values()].flatMap((transitions) => transitions.map((transition2) => {
+      const events = snapshot.nodes.flatMap((stateNode) => [...stateNode.transitions.values()].flatMap((transitions) => transitions.map((transition3) => {
         const event = {
-          type: transition2.eventType,
-          ...transition2.matches
+          type: transition3.eventType,
+          ...transition3.matches
         };
         if ("actorId" in event && (event.type === "xstate.done.actor" || event.type === "xstate.error.actor" || event.type === "xstate.snapshot.actor" || event.type === "xstate.timeout.actor")) {
           event.sessionId = snapshot.children[event.actorId]?.sessionId;
@@ -3936,7 +4124,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       return effects && Object.prototype.hasOwnProperty.call(effects, key) ? effects[key] : void 0;
     }
     var pendingSteps = /* @__PURE__ */ new WeakMap();
-    async function runStep2(actor, key, exec, sendSelf = (event) => void actor.system.sendEvent(actor, actor, event)) {
+    async function runStep3(actor, key, exec, sendSelf = (event) => void actor.system.sendEvent(actor, actor, event)) {
       const effect = getStepEffect(actor, key);
       if (effect?.status === "done") {
         return effect.output;
@@ -4004,13 +4192,29 @@ var require_createActor_b987e971_cjs = __commonJS({
       })().catch(reject);
       return promise;
     }
-    function deliverEvent2(source, target, event) {
+    function deliverEvent3(source, target, event) {
+      if (isSerializedActorRef(target)) {
+        const serialized = target;
+        const system = source?.system;
+        const live = system && resolveSerializedActorRef(system, serialized);
+        if (!live) {
+          const error = createMissingAddressError(serialized);
+          if (!system) {
+            throw error;
+          }
+          void system.deadLetter(source, void 0, event, "missingTarget", {
+            targetId: getAddressId(serialized.$actor),
+            error
+          });
+          return;
+        }
+        target = live;
+      }
       if (rejectUndeliverableEvent(source, target, event)) {
         return;
       }
       const runtimeTarget = target;
-      runtimeTarget._lastSourceRef = source;
-      runtimeTarget._send(event);
+      runtimeTarget._send(event, source);
     }
     function getEventBoundaryError(source, target, event) {
       const runtimeTarget = target;
@@ -4029,17 +4233,15 @@ var require_createActor_b987e971_cjs = __commonJS({
       }
       return false;
     }
-    function terminateActor2(actor, termination) {
+    function terminateActor3(actor, termination) {
       actor._terminate(termination);
     }
-    function stopActor2(actor) {
+    function stopActor3(actor) {
       actor._stop();
     }
-    var systemIdPrefix;
-    var nextSystemId = 0;
-    var transitionEffectSignal = new Error("Transition effect");
-    var transitionEffectTargets = [];
-    function createSystemIdPrefix() {
+    var executionIdPrefix;
+    var nextExecutionId = 0;
+    function createExecutionIdPrefix() {
       let crypto2;
       try {
         crypto2 = globalThis.crypto;
@@ -4061,9 +4263,9 @@ var require_createActor_b987e971_cjs = __commonJS({
       }
       return `xstate-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     }
-    function createSystemId() {
-      systemIdPrefix ??= createSystemIdPrefix();
-      return `${systemIdPrefix}:${(nextSystemId++).toString(36)}`;
+    function createExecutionId() {
+      executionIdPrefix ??= createExecutionIdPrefix();
+      return `${executionIdPrefix}:${(nextExecutionId++).toString(36)}`;
     }
     var ambientExecutionIdentity;
     function withExecutionIdentity(identity, fn) {
@@ -4083,7 +4285,7 @@ var require_createActor_b987e971_cjs = __commonJS({
         return src3;
       }
       const logicId = src3?.id;
-      return typeof logicId === "string" && logicId.length && logicId !== "(machine)" ? logicId : "x";
+      return typeof logicId === "string" && logicId.length ? logicId : "x";
     }
     function encodeAddressSegment(id) {
       return id.includes("/") || id.includes("%") ? id.replaceAll("%", "%25").replaceAll("/", "%2F") : id;
@@ -4134,7 +4336,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       return !options2?.parent && prefix !== "x" && counter === 0 ? prefix : `${prefix}:${counter}`;
     }
     function bookSessionId(system) {
-      return `${system._identity.systemId}:${system._identity.nextSessionId++}`;
+      return `${system._identity.executionId}:${system._identity.nextSessionId++}`;
     }
     var RUNTIME_OPERATIONS = [
       "spawnActor",
@@ -4152,8 +4354,11 @@ var require_createActor_b987e971_cjs = __commonJS({
       // batch.
     ];
     var emptyScheduledTimers = Object.freeze({});
-    function createScheduledTimerId(actor, id) {
-      return `${actor.sessionId}.${id}`;
+    function createScheduledTimerId(actor, key) {
+      return getScheduledTimerKey(actor, key);
+    }
+    function findLogicalTimer(source, key) {
+      return source.getSnapshot()?.timers?.find((timer) => matchesTimerKey(timer, key));
     }
     var RuntimeSystem = class {
       get children() {
@@ -4191,7 +4396,7 @@ var require_createActor_b987e971_cjs = __commonJS({
       constructor(_rootActor, options2) {
         this._rootActor = _rootActor;
         this._identity = ambientExecutionIdentity ?? {
-          systemId: createSystemId(),
+          executionId: createExecutionId(),
           nextSessionId: 0
         };
         this._snapshot = void 0;
@@ -4233,25 +4438,24 @@ var require_createActor_b987e971_cjs = __commonJS({
           id
         });
       }
-      schedule(source, id, delay) {
-        const existingId = createScheduledTimerId(source, id);
-        if (this._timerMap?.[existingId] !== void 0) {
-          this.cancel(source, id);
+      schedule(source, key, delay) {
+        const scheduledTimerId = createScheduledTimerId(source, key);
+        if (this._timerMap?.[scheduledTimerId] !== void 0) {
+          this.cancel(source, key);
         }
-        const timer = source.getSnapshot()?.timers?.[id];
+        const timer = findLogicalTimer(source, key);
         if (timer) {
           const target = timer.target === "self" ? source : timer.target;
-          this._recordSent(source, target, timer.event, delay, id);
+          this._recordSent(source, target, timer.event, delay, timer.id);
         }
         const scheduledAt = this._clock.now?.() ?? Date.now();
         const scheduledTimer = {
           source,
           delay,
-          id,
+          key,
           scheduledAt,
           dueAt: scheduledAt + delay
         };
-        const scheduledTimerId = createScheduledTimerId(source, id);
         if (this._snapshot._scheduledTimers === emptyScheduledTimers) {
           this._snapshot._scheduledTimers = {};
         }
@@ -4265,13 +4469,13 @@ var require_createActor_b987e971_cjs = __commonJS({
           markSystemSnapshotDirty(this);
           this._deliver(source, source, {
             type: XSTATE_TIMER2,
-            id
+            ...key
           });
         }, delay);
         (this._timerMap ??= {})[scheduledTimerId] = timeout;
       }
-      cancel(source, id) {
-        const scheduledTimerId = createScheduledTimerId(source, id);
+      cancel(source, key) {
+        const scheduledTimerId = createScheduledTimerId(source, key);
         const timeout = this._timerMap?.[scheduledTimerId];
         if (this._timerMap) {
           delete this._timerMap[scheduledTimerId];
@@ -4288,14 +4492,14 @@ var require_createActor_b987e971_cjs = __commonJS({
         for (const scheduledTimerId in this._snapshot._scheduledTimers) {
           const scheduledTimer = this._snapshot._scheduledTimers[scheduledTimerId];
           if (scheduledTimer.source === actor) {
-            this.cancel(actor, scheduledTimer.id);
+            this.cancel(actor, scheduledTimer.key);
           }
         }
       }
       // Delivers an event to the target actor. Used by both `_relay` (which also
       // records the send) and the scheduler's timer (which already recorded it).
       _deliver(source, target, event) {
-        deliverEvent2(source, target, event);
+        deliverEvent3(source, target, event);
       }
       _register(sessionId, actor) {
         if (actor === this._rootActor) {
@@ -4305,6 +4509,18 @@ var require_createActor_b987e971_cjs = __commonJS({
         }
         markSystemSnapshotDirty(this);
         return sessionId;
+      }
+      _getByAddress(address) {
+        const root = this._getRootActor();
+        if (root?.address === address) {
+          return root;
+        }
+        for (const actor of this._children?.values() ?? []) {
+          if (actor.address === address && actor._isRunning()) {
+            return actor;
+          }
+        }
+        return void 0;
       }
       _unregister(actor) {
         let changed;
@@ -4372,7 +4588,13 @@ var require_createActor_b987e971_cjs = __commonJS({
           ...event,
           rootId: this._rootActor.sessionId
         };
-        this._inspectionObservers.forEach((observer) => observer.next?.(resolvedInspectionEvent));
+        this._inspectionObservers.forEach((observer) => {
+          try {
+            observer.next?.(resolvedInspectionEvent);
+          } catch (err) {
+            reportUnhandledError(err);
+          }
+        });
       }
       // Unlike the other operations, spawn has no local work: local actors
       // register with the system when they are constructed, so this only
@@ -4392,16 +4614,31 @@ var require_createActor_b987e971_cjs = __commonJS({
         if (override) {
           return override(actor);
         }
-        stopActor2(actor);
+        stopActor3(actor);
       }
       terminateActor(actor, termination) {
         const override = this.runtime?.terminateActor;
         if (override) {
           return override(actor, termination);
         }
-        terminateActor2(actor, termination);
+        terminateActor3(actor, termination);
       }
       sendEvent(source, target, event) {
+        if (isSerializedActorRef(target)) {
+          const live = resolveSerializedActorRef(this, target);
+          if (live) {
+            target = live;
+          } else if (
+            // A live actor of another incarnation is stale locally; an
+            // address this system cannot see may belong to a host runtime.
+            this._getByAddress(target.$actor) || !this.runtime?.sendEvent
+          ) {
+            return this.deadLetter(source, void 0, event, "missingTarget", {
+              targetId: getAddressId(target.$actor),
+              error: createMissingAddressError(target)
+            });
+          }
+        }
         if (rejectUndeliverableEvent(source, target, event)) {
           return;
         }
@@ -4450,7 +4687,7 @@ var require_createActor_b987e971_cjs = __commonJS({
         if (override) {
           return override(actor, key, exec);
         }
-        return runStep2(actor, key, exec);
+        return runStep3(actor, key, exec);
       }
       runLogic(actor, exec) {
         const override = this.runtime?.runLogic;
@@ -4459,24 +4696,24 @@ var require_createActor_b987e971_cjs = __commonJS({
         }
         return exec();
       }
-      scheduleTimer(source, id, delay) {
+      scheduleTimer(source, key, delay) {
         const override = this.runtime?.scheduleTimer;
         if (override) {
-          const timer = source.getSnapshot()?.timers?.[id];
+          const timer = findLogicalTimer(source, key);
           if (timer) {
             const target = timer.target === "self" ? source : timer.target;
-            this._recordSent(source, target, timer.event, delay, id);
+            this._recordSent(source, target, timer.event, delay, timer.id);
           }
-          return override(source, id, delay);
+          return override(source, key, delay);
         }
-        this.schedule(source, id, delay);
+        this.schedule(source, key, delay);
       }
-      cancelTimer(source, id) {
+      cancelTimer(source, key) {
         const override = this.runtime?.cancelTimer;
         if (override) {
-          return override(source, id);
+          return override(source, key);
         }
-        this.cancel(source, id);
+        this.cancel(source, key);
       }
       cancelAllTimers(source) {
         const override = this.runtime?.cancelAllTimers;
@@ -4486,8 +4723,8 @@ var require_createActor_b987e971_cjs = __commonJS({
         this.cancelAll(source);
       }
       _relay(source, target, event) {
-        if (transitionEffectTargets.length && transitionEffectTargets.includes(target)) {
-          throw transitionEffectSignal;
+        if (protectSelectionRelay(target)) {
+          return;
         }
         return this.sendEvent(source, target, event);
       }
@@ -4509,9 +4746,9 @@ var require_createActor_b987e971_cjs = __commonJS({
           const {
             source,
             dueAt,
-            id
+            key
           } = scheduledTimers[scheduledId];
-          this.scheduleTimer(source, id, Math.max(0, dueAt - (this._clock.now?.() ?? Date.now())));
+          this.scheduleTimer(source, key, Math.max(0, dueAt - (this._clock.now?.() ?? Date.now())));
         }
       }
     };
@@ -4519,7 +4756,6 @@ var require_createActor_b987e971_cjs = __commonJS({
       return new RuntimeSystem(rootActor, options2);
     }
     var executingCustomAction = false;
-    var ACTOR_REF_TYPE = "actorRef";
     var emptyInspectionRecords = Object.freeze([]);
     var ProcessingStatus = /* @__PURE__ */ (function(ProcessingStatus2) {
       ProcessingStatus2[ProcessingStatus2["NotStarted"] = 0] = "NotStarted";
@@ -4554,9 +4790,9 @@ var require_createActor_b987e971_cjs = __commonJS({
       }
     }
     function createActorRef(logic, options2) {
-      return new Actor2(logic, options2);
+      return new Actor3(logic, options2);
     }
-    var Actor2 = class {
+    var Actor3 = class {
       /**
        * The deterministic logical address of this actor within its system: the
        * `/`-joined path of actor ids from the root. Stable across persistence and
@@ -4675,7 +4911,10 @@ var require_createActor_b987e971_cjs = __commonJS({
         const persistedState = options2?.snapshot;
         this._restored = persistedState !== void 0;
         try {
-          if (persistedState) {
+          if (persistedState !== void 0) {
+            if (!this.logic.restoreSnapshot && persistedState === null) {
+              throw new Error("Persisted snapshot must be an object.");
+            }
             this._setSnapshot(this.logic.restoreSnapshot ? this.logic.restoreSnapshot(persistedState, this._actorScope) : persistedState);
           } else if (options2?._inert) {
           } else {
@@ -4684,7 +4923,7 @@ var require_createActor_b987e971_cjs = __commonJS({
             this._initialEffects = effects.length ? effects : void 0;
           }
         } catch (err) {
-          const restoreErrorSnapshot = persistedState && this.logic._createRestoreErrorSnapshot?.(persistedState, err);
+          const restoreErrorSnapshot = persistedState === void 0 ? void 0 : this.logic._createRestoreErrorSnapshot?.(persistedState, err);
           this._setSnapshot(restoreErrorSnapshot ?? {
             status: "error",
             output: void 0,
@@ -5104,12 +5343,12 @@ var require_createActor_b987e971_cjs = __commonJS({
           this.update(this._snapshot, createInitEvent(this.options.input));
         }
         if (this._restored) {
-          const timers = this._snapshot.timers ?? {};
+          const timers = this._snapshot.timers ?? [];
           const wallClock = !this.system._clock.now;
           const now2 = Date.now();
-          for (const timer of Object.values(timers)) {
-            const delay = wallClock && timer.startedAt !== void 0 ? Math.min(timer.delay, Math.max(0, timer.startedAt + timer.delay - now2)) : timer.delay;
-            this.system.scheduleTimer(this, timer.id, delay);
+          for (const timer of timers) {
+            const delay = wallClock && timer.scheduledAt !== void 0 ? Math.min(timer.delay, Math.max(0, timer.scheduledAt + timer.delay - now2)) : timer.delay;
+            this.system.scheduleTimer(this, getTimerKey(timer), delay);
           }
           this._restored = false;
         }
@@ -5117,7 +5356,11 @@ var require_createActor_b987e971_cjs = __commonJS({
         this.mailbox?.start();
         return this;
       }
-      _process(event) {
+      _process({
+        event,
+        sourceRef
+      }) {
+        this._lastSourceRef = sourceRef;
         const previousSnapshot = this._snapshot;
         let nextState;
         let caughtError;
@@ -5304,9 +5547,9 @@ var require_createActor_b987e971_cjs = __commonJS({
         this.system._unregister(this);
       }
       /** @internal */
-      _send(event) {
+      _send(event, sourceRef) {
         if (this._processingStatus === ProcessingStatus.Stopped) {
-          this.system.deadLetter(this._lastSourceRef, this, event, "stopped");
+          this.system.deadLetter(sourceRef, this, event, "stopped");
           return;
         }
         let mailbox = this.mailbox;
@@ -5317,7 +5560,10 @@ var require_createActor_b987e971_cjs = __commonJS({
             mailbox.start();
           }
         }
-        mailbox.enqueue(event);
+        mailbox.enqueue({
+          event,
+          sourceRef
+        });
       }
       /**
        * Sends an event to the running Actor to trigger a transition.
@@ -5328,15 +5574,12 @@ var require_createActor_b987e971_cjs = __commonJS({
         this.system._relay(void 0, this, event);
       }
       /**
-       * Returns the actor's serializable logical identity: its `id`, `address`,
-       * and registered source key (when the actor was created from one).
+       * Returns the actor's serializable logical identity: `{ $actor: address }`.
+       * The result can be used as an `enq.sendTo(...)` target.
        */
       toJSON() {
         return {
-          xstate$type: ACTOR_REF_TYPE,
-          id: this.id,
-          address: this.address,
-          src: typeof this.src === "string" ? this.src : void 0
+          $actor: this.address
         };
       }
       /**
@@ -5382,12 +5625,11 @@ var require_createActor_b987e971_cjs = __commonJS({
         return this._snapshot;
       }
     };
-    function createActor2(logic, ...[options2]) {
-      return new Actor2(logic, options2);
+    function createActor3(logic, ...[options2]) {
+      return new Actor3(logic, options2);
     }
-    exports.ACTOR_REF_TYPE = ACTOR_REF_TYPE;
-    exports.Actor = Actor2;
-    exports.InfiniteTransitionError = InfiniteTransitionError2;
+    exports.Actor = Actor3;
+    exports.InfiniteTransitionError = InfiniteTransitionError3;
     exports.NULL_EVENT = NULL_EVENT;
     exports.ProcessingStatus = ProcessingStatus;
     exports.RUNTIME_OPERATIONS = RUNTIME_OPERATIONS;
@@ -5397,14 +5639,15 @@ var require_createActor_b987e971_cjs = __commonJS({
     exports.XSTATE_LOGIC_EFFECT_RESOLVE = XSTATE_LOGIC_EFFECT_RESOLVE;
     exports.XSTATE_LOGIC_EFFECT_START = XSTATE_LOGIC_EFFECT_START;
     exports.XSTATE_STOP = XSTATE_STOP;
+    exports.XSTATE_STOP_EFFECT = XSTATE_STOP_EFFECT;
     exports.XSTATE_TIMER = XSTATE_TIMER2;
     exports.allocateChildId = allocateChildId;
     exports.assertChildIdFree = assertChildIdFree;
+    exports.assertUnreservedSourceName = assertUnreservedSourceName;
     exports.attachSnapshotActorRef = attachSnapshotActorRef;
     exports.beginSpawnAllocation = beginSpawnAllocation;
-    exports.checkStateIn = checkStateIn2;
     exports.cloneMachineSnapshot = cloneMachineSnapshot;
-    exports.createActor = createActor2;
+    exports.createActor = createActor3;
     exports.createCustomEffect = createCustomEffect;
     exports.createDeadLetterEffect = createDeadLetterEffect;
     exports.createDoneActorEvent = createDoneActorEvent;
@@ -5415,47 +5658,48 @@ var require_createActor_b987e971_cjs = __commonJS({
     exports.createInitEvent = createInitEvent;
     exports.createInvokeId = createInvokeId;
     exports.createInvokeTimeoutEvent = createInvokeTimeoutEvent;
-    exports.createInvokeTimeoutEventId = createInvokeTimeoutEventId;
-    exports.createListenerLogic = createListenerLogic2;
+    exports.createListenerLogic = createListenerLogic3;
     exports.createMachineSnapshot = createMachineSnapshot;
     exports.createRemoteActorRef = createRemoteActorRef;
     exports.createSendToEffect = createSendToEffect;
     exports.createSpawnEffect = createSpawnEffect;
     exports.createStartEffect = createStartEffect;
-    exports.createSubscriptionLogic = createSubscriptionLogic2;
+    exports.createSubscriptionLogic = createSubscriptionLogic3;
     exports.createTimerEffect = createTimerEffect;
-    exports.deliverEvent = deliverEvent2;
+    exports.deliverEvent = deliverEvent3;
+    exports.describeMachine = describeMachine;
+    exports.detachedScopes = detachedScopes;
     exports.encodeAddressSegment = encodeAddressSegment;
     exports.evaluateCandidate = evaluateCandidate;
-    exports.executeEffects = executeEffects2;
+    exports.executeEffects = executeEffects3;
     exports.finalizeTransitionResult = finalizeTransitionResult;
     exports.formatRouteTransitions = formatRouteTransitions;
     exports.formatTransition = formatTransition;
     exports.getActorIdPrefix = getActorIdPrefix;
-    exports.getAllOwnEventDescriptors = getAllOwnEventDescriptors;
     exports.getAllOwnEvents = getAllOwnEvents;
     exports.getAllStateNodes = getAllStateNodes;
     exports.getCandidates = getCandidates;
     exports.getDelayedTransitions = getDelayedTransitions;
-    exports.getEventDescriptorKey = getEventDescriptorKey;
     exports.getPersistedSnapshot = getPersistedSnapshot;
     exports.getProperAncestors = getProperAncestors;
     exports.getRootActorId = getRootActorId;
     exports.getSnapshotActorRef = getSnapshotActorRef;
-    exports.getStateNodeByPath = getStateNodeByPath;
-    exports.getStateNodes = getStateNodes2;
+    exports.getStateNodes = getStateNodes3;
+    exports.getTimerKey = getTimerKey;
     exports.getTimerStart = getTimerStart;
     exports.getTransitionResult = getTransitionResult;
     exports.hasAmbientInspector = hasAmbientInspector;
     exports.hasEffect = hasEffect;
+    exports.hasUnescapedDot = hasUnescapedDot;
     exports.initialMicrostep = initialMicrostep;
     exports.isActorRefLike = isActorRefLike;
     exports.isAtomicStateNode = isAtomicStateNode;
-    exports.isBuiltInExecutableAction = isBuiltInExecutableAction2;
+    exports.isBuiltInExecutableEffect = isBuiltInExecutableEffect2;
     exports.isInFinalState = isInFinalState;
     exports.isInertActorScope = isInertActorScope;
-    exports.isMachineSnapshot = isMachineSnapshot2;
+    exports.isMachineSnapshot = isMachineSnapshot3;
     exports.isRemoteActorRef = isRemoteActorRef;
+    exports.isSerializedActorRef = isSerializedActorRef;
     exports.isStateId = isStateId;
     exports.listenerLogic = listenerLogic2;
     exports.macrostep = macrostep;
@@ -5463,25 +5707,27 @@ var require_createActor_b987e971_cjs = __commonJS({
     exports.matchesActorSession = matchesActorSession;
     exports.matchesEvent = matchesEvent;
     exports.matchesEventDescriptor = matchesEventDescriptor;
-    exports.matchesState = matchesState2;
+    exports.matchesState = matchesState3;
+    exports.matchesTimerKey = matchesTimerKey;
     exports.mergeActorIdCounters = mergeActorIdCounters;
     exports.parseDelayToMilliseconds = parseDelayToMilliseconds;
     exports.parseGeneratedActorId = parseGeneratedActorId;
-    exports.pathToStateValue = pathToStateValue2;
+    exports.readTimerKey = readTimerKey;
     exports.recordTimerStart = recordTimerStart;
     exports.reserveChildId = reserveChildId;
     exports.resolveActionsWithContext = resolveActionsWithContext;
-    exports.resolveReferencedActor = resolveReferencedActor;
+    exports.resolveInvokedActorLogic = resolveInvokedActorLogic;
     exports.resolveRegisteredActorSource = resolveRegisteredActorSource;
     exports.resolveStateValue = resolveStateValue;
-    exports.runStep = runStep2;
+    exports.runStep = runStep3;
+    exports.serializeTimerKey = serializeTimerKey;
     exports.setInertActorScopeSnapshot = setInertActorScopeSnapshot;
     exports.setSnapshotActorRef = setSnapshotActorRef;
-    exports.stopActor = stopActor2;
+    exports.stopActor = stopActor3;
     exports.subscriptionLogic = subscriptionLogic2;
     exports.systemLogicMetadata = systemLogicMetadata;
     exports.takeSpawnAllocationCounters = takeSpawnAllocationCounters;
-    exports.terminateActor = terminateActor2;
+    exports.terminateActor = terminateActor3;
     exports.toArray = toArray;
     exports.toObserver = toObserver3;
     exports.toStatePath = toStatePath;
@@ -5493,11 +5739,11 @@ var require_createActor_b987e971_cjs = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/index-f201d440.cjs.js
-var require_index_f201d440_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/index-f201d440.cjs.js"(exports) {
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/index-986372f2.cjs.js
+var require_index_986372f2_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/index-986372f2.cjs.js"(exports) {
     "use strict";
-    var createActor2 = require_createActor_b987e971_cjs();
+    var createActor3 = require_createActor_54296cf2_cjs();
     function assertValid(validator, request2) {
       const error = validator.check(request2);
       if (error) {
@@ -5548,19 +5794,19 @@ var require_index_f201d440_cjs = __commonJS({
         input
       }) : context;
     }
-    function createLogic2(config) {
+    function createStepLogic2(config) {
       const calculateTransition = (snapshot, event, actorScope) => {
         if (snapshot.status !== "active") {
           return [snapshot, []];
         }
-        if (event.type === createActor2.XSTATE_STOP) {
+        if (event.type === createActor3.XSTATE_STOP) {
           return [{
             ...snapshot,
             status: "stopped",
             input: void 0
-          }, [createActor2.createCustomEffect("xstate.logic.cleanup", () => cleanupLogicEffects(actorScope.self))]];
+          }, [createActor3.createCustomEffect("@xstate.cleanup", () => cleanupLogicEffects(actorScope.self))]];
         }
-        if (event.type === createActor2.XSTATE_LOGIC_EFFECT_START) {
+        if (event.type === createActor3.XSTATE_LOGIC_EFFECT_START) {
           return [{
             ...snapshot,
             effects: {
@@ -5571,7 +5817,7 @@ var require_index_f201d440_cjs = __commonJS({
             }
           }, []];
         }
-        if (event.type === createActor2.XSTATE_LOGIC_EFFECT_RESOLVE) {
+        if (event.type === createActor3.XSTATE_LOGIC_EFFECT_RESOLVE) {
           return [{
             ...snapshot,
             effects: {
@@ -5583,7 +5829,7 @@ var require_index_f201d440_cjs = __commonJS({
             }
           }, []];
         }
-        if (event.type === createActor2.XSTATE_LOGIC_EFFECT_REJECT) {
+        if (event.type === createActor3.XSTATE_LOGIC_EFFECT_REJECT) {
           return [{
             ...snapshot,
             effects: {
@@ -5599,10 +5845,10 @@ var require_index_f201d440_cjs = __commonJS({
         const trackedEffects = /* @__PURE__ */ Object.create(null);
         const enqueueEffect = (key, exec) => {
           const recorded = snapshot.effects && Object.prototype.hasOwnProperty.call(snapshot.effects, key) ? snapshot.effects[key] : void 0;
-          if (recorded && !(event.type === createActor2.XSTATE_INIT && recorded.status === "active")) {
+          if (recorded && !(event.type === createActor3.XSTATE_INIT && recorded.status === "active")) {
             return;
           }
-          effects.push(createActor2.createCustomEffect("xstate.logic.effect", (runtime = actorScope.self.system) => executeLogicEffect(actorScope.self, key, () => exec(runtime)), {
+          effects.push(createActor3.createCustomEffect("@xstate.effect", (runtime = actorScope.self.system) => executeLogicEffect(actorScope.self, key, () => exec(runtime)), {
             key
           }));
           trackedEffects[key] = {
@@ -5611,16 +5857,16 @@ var require_index_f201d440_cjs = __commonJS({
         };
         const enq = {
           emit: (emitted) => {
-            effects.push(createActor2.createEmitEffect(actorScope, emitted));
+            effects.push(createActor3.createEmitEffect(actorScope, emitted));
           },
           sendBack: (sentEvent) => {
             const parent = actorScope.self._parent;
             if (parent) {
-              effects.push(createActor2.createSendToEffect(actorScope, parent, sentEvent));
+              effects.push(createActor3.createSendToEffect(actorScope, parent, sentEvent));
             }
           },
           raise: (raisedEvent) => {
-            effects.push(createActor2.createSendToEffect(actorScope, actorScope.self, raisedEvent));
+            effects.push(createActor3.createSendToEffect(actorScope, actorScope.self, raisedEvent));
           },
           effect: (keyOrExec, maybeExec) => {
             if (typeof keyOrExec === "string") {
@@ -5628,7 +5874,7 @@ var require_index_f201d440_cjs = __commonJS({
               return;
             }
             const exec = keyOrExec;
-            effects.push(createActor2.createCustomEffect("xstate.logic.effect", (runtime = actorScope.self.system) => executeLogicEffect(actorScope.self, void 0, () => exec(runtime))));
+            effects.push(createActor3.createCustomEffect("@xstate.effect", (runtime = actorScope.self.system) => executeLogicEffect(actorScope.self, void 0, () => exec(runtime))));
           }
         };
         const patch = config.run({
@@ -5653,9 +5899,9 @@ var require_index_f201d440_cjs = __commonJS({
             ...trackedEffects
           };
         }
-        return createActor2.finalizeTransitionResult(actorScope, snapshot, [nextSnapshot, effects]);
+        return createActor3.finalizeTransitionResult(actorScope, snapshot, [nextSnapshot, effects]);
       };
-      const transition2 = (snapshot, event, actorScope) => {
+      const transition3 = (snapshot, event, actorScope) => {
         if (config.validator) {
           const sourceRef = actorScope.self._lastSourceRef;
           const eventOrigin = sourceRef ? "actor" : "external";
@@ -5666,7 +5912,7 @@ var require_index_f201d440_cjs = __commonJS({
             eventOrigin
           });
           if (error) {
-            return [snapshot, [createActor2.createDeadLetterEffect(actorScope, sourceRef, event, "invalidEvent", {
+            return [snapshot, [createActor3.createDeadLetterEffect(actorScope, sourceRef, event, "invalidEvent", {
               issues: error.issues,
               error
             })]];
@@ -5687,12 +5933,12 @@ var require_index_f201d440_cjs = __commonJS({
         id: config.id,
         config,
         validator: config.validator,
-        transition: transition2,
+        transition: transition3,
         start: (snapshot, actorScope, options2) => {
           if (!options2?.restored) {
             return;
           }
-          const [nextSnapshot, effects] = transition2(snapshot, createActor2.createInitEvent(snapshot.input), actorScope);
+          const [nextSnapshot, effects] = transition3(snapshot, createActor3.createInitEvent(snapshot.input), actorScope);
           Object.assign(snapshot, nextSnapshot);
           for (const effect of effects) {
             actorScope.actionExecutor(effect);
@@ -5716,9 +5962,9 @@ var require_index_f201d440_cjs = __commonJS({
           if (context !== void 0) {
             snapshot.context = context;
           }
-          return transition2({
+          return transition3({
             ...snapshot
-          }, createActor2.createInitEvent(input), actorScope);
+          }, createActor3.createInitEvent(input), actorScope);
         },
         getInitialSnapshot: (actorScope, input) => logic.initialTransition(input, actorScope)[0],
         getPersistedSnapshot: (snapshot) => snapshot,
@@ -5727,11 +5973,11 @@ var require_index_f201d440_cjs = __commonJS({
       return logic;
     }
     var instanceStates = /* @__PURE__ */ new WeakMap();
-    function createCallbackLogic2(callbackOrConfig) {
+    function createCallbackLogic3(callbackOrConfig) {
       const callback = typeof callbackOrConfig === "function" ? callbackOrConfig : callbackOrConfig.run;
       const schemas = typeof callbackOrConfig === "function" ? void 0 : callbackOrConfig.schemas;
       const validator = typeof callbackOrConfig === "function" ? void 0 : callbackOrConfig.validator;
-      return createLogic2({
+      return createStepLogic2({
         validator,
         schemas,
         context: void 0,
@@ -5782,11 +6028,11 @@ var require_index_f201d440_cjs = __commonJS({
     var XSTATE_OBSERVABLE_NEXT = "xstate.observable.next";
     var XSTATE_OBSERVABLE_ERROR = "xstate.observable.error";
     var XSTATE_OBSERVABLE_COMPLETE = "xstate.observable.complete";
-    function createObservableLogic2(observableCreatorOrConfig) {
+    function createObservableLogic3(observableCreatorOrConfig) {
       const observableCreator = typeof observableCreatorOrConfig === "function" ? observableCreatorOrConfig : observableCreatorOrConfig.run;
       const schemas = typeof observableCreatorOrConfig === "function" ? void 0 : observableCreatorOrConfig.schemas;
       const validator = typeof observableCreatorOrConfig === "function" ? void 0 : observableCreatorOrConfig.validator;
-      return createLogic2({
+      return createStepLogic2({
         validator,
         schemas,
         context: void 0,
@@ -5826,7 +6072,7 @@ var require_index_f201d440_cjs = __commonJS({
                 }
               };
           }
-          if (event.type !== createActor2.XSTATE_INIT) {
+          if (event.type !== createActor3.XSTATE_INIT) {
             return;
           }
           enq.effect((runtime = system) => {
@@ -5861,7 +6107,7 @@ var require_index_f201d440_cjs = __commonJS({
         }
       });
     }
-    function createEventObservableLogic2(lazyObservableOrConfig) {
+    function createEventObservableLogic3(lazyObservableOrConfig) {
       const lazyObservable = typeof lazyObservableOrConfig === "function" ? lazyObservableOrConfig : lazyObservableOrConfig.run;
       const validator = typeof lazyObservableOrConfig === "function" ? void 0 : lazyObservableOrConfig.validator;
       const logic = {
@@ -5873,7 +6119,7 @@ var require_index_f201d440_cjs = __commonJS({
           }
           switch (event.type) {
             case XSTATE_OBSERVABLE_ERROR:
-              return createActor2.finalizeTransitionResult(actorScope, state3, [{
+              return createActor3.finalizeTransitionResult(actorScope, state3, [{
                 ...state3,
                 status: "error",
                 error: event.data,
@@ -5881,13 +6127,13 @@ var require_index_f201d440_cjs = __commonJS({
                 _subscription: void 0
               }, []]);
             case XSTATE_OBSERVABLE_COMPLETE:
-              return createActor2.finalizeTransitionResult(actorScope, state3, [{
+              return createActor3.finalizeTransitionResult(actorScope, state3, [{
                 ...state3,
                 status: "done",
                 input: void 0,
                 _subscription: void 0
               }, []]);
-            case createActor2.XSTATE_STOP:
+            case createActor3.XSTATE_STOP:
               state3._subscription.unsubscribe();
               return [{
                 ...state3,
@@ -5965,15 +6211,15 @@ var require_index_f201d440_cjs = __commonJS({
     }
     var XSTATE_ASYNC_RESOLVE = "xstate.async.resolve";
     var XSTATE_ASYNC_REJECT = "xstate.async.reject";
-    var TimeoutError2 = class extends Error {
+    var TimeoutError3 = class extends Error {
       constructor(timeout) {
         super(`Async logic timed out after ${timeout}.`);
         this.name = "TimeoutError";
       }
     };
-    function createAsyncLogic2(asyncLogic) {
+    function createAsyncLogic3(asyncLogic) {
       const config = asyncLogic;
-      const logic = createLogic2({
+      const logic = createStepLogic2({
         id: config.id,
         validator: config.validator,
         schemas: config.schemas,
@@ -6014,7 +6260,7 @@ var require_index_f201d440_cjs = __commonJS({
               };
             }
           }
-          if (event.type !== createActor2.XSTATE_INIT) {
+          if (event.type !== createActor3.XSTATE_INIT) {
             return;
           }
           enq.effect((runtime = system) => {
@@ -6022,7 +6268,7 @@ var require_index_f201d440_cjs = __commonJS({
             const sendSelf = (event2) => void runtime.sendEvent(actorSelf, actorSelf, event2);
             const controller = new AbortController();
             const timeout = config.timeout;
-            const timeoutMs = createActor2.parseDelayToMilliseconds(timeout);
+            const timeoutMs = createActor3.parseDelayToMilliseconds(timeout);
             const timeoutId = timeoutMs === void 0 ? void 0 : system._clock.setTimeout(() => {
               if (self.getSnapshot().status !== "active") {
                 return;
@@ -6030,7 +6276,7 @@ var require_index_f201d440_cjs = __commonJS({
               controller.abort();
               sendSelf({
                 type: XSTATE_ASYNC_REJECT,
-                data: new TimeoutError2(timeout)
+                data: new TimeoutError3(timeout)
               });
             }, timeoutMs);
             const clearTimeout2 = () => {
@@ -6051,7 +6297,7 @@ var require_index_f201d440_cjs = __commonJS({
                   // implements `runStep` owns the step journal; otherwise the
                   // built-in behavior memoizes into this actor's own snapshot,
                   // self-sending through the same runtime as the other effects.
-                  step: (key, exec) => runtime.runStep ? Promise.resolve(runtime.runStep(actorSelf, key, exec)) : createActor2.runStep(actorSelf, key, exec, sendSelf)
+                  step: (key, exec) => runtime.runStep ? Promise.resolve(runtime.runStep(actorSelf, key, exec)) : createActor3.runStep(actorSelf, key, exec, sendSelf)
                 }));
               } catch (err) {
                 return Promise.reject(err);
@@ -6091,7 +6337,7 @@ var require_index_f201d440_cjs = __commonJS({
           };
         }
       });
-      Object.defineProperty(logic, createActor2.systemLogicMetadata, {
+      Object.defineProperty(logic, createActor3.systemLogicMetadata, {
         value: {
           kind: "async",
           timeout: config.timeout
@@ -6099,29 +6345,29 @@ var require_index_f201d440_cjs = __commonJS({
       });
       return logic;
     }
-    var emptyLogic = /* @__PURE__ */ createLogic2({
+    var emptyLogic = /* @__PURE__ */ createStepLogic2({
       context: void 0,
       run: () => void 0
     });
-    function createEmptyActor2() {
-      return createActor2.createActor(emptyLogic);
+    function createEmptyActor3() {
+      return createActor3.createActor(emptyLogic);
     }
-    exports.TimeoutError = TimeoutError2;
+    exports.TimeoutError = TimeoutError3;
     exports.assertValid = assertValid;
-    exports.createAsyncLogic = createAsyncLogic2;
-    exports.createCallbackLogic = createCallbackLogic2;
-    exports.createEmptyActor = createEmptyActor2;
-    exports.createEventObservableLogic = createEventObservableLogic2;
-    exports.createLogic = createLogic2;
-    exports.createObservableLogic = createObservableLogic2;
+    exports.createAsyncLogic = createAsyncLogic3;
+    exports.createCallbackLogic = createCallbackLogic3;
+    exports.createEmptyActor = createEmptyActor3;
+    exports.createEventObservableLogic = createEventObservableLogic3;
+    exports.createObservableLogic = createObservableLogic3;
+    exports.createStepLogic = createStepLogic2;
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/schema.types-15a68ddc.cjs.js
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/schema.types-15a68ddc.cjs.js
 var require_schema_types_15a68ddc_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/schema.types-15a68ddc.cjs.js"(exports) {
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/schema.types-15a68ddc.cjs.js"(exports) {
     "use strict";
-    function types2() {
+    function types3() {
       return {
         "~standard": {
           version: 1,
@@ -6132,59 +6378,59 @@ var require_schema_types_15a68ddc_cjs = __commonJS({
         }
       };
     }
-    function isTypeSchema2(value) {
+    function isTypeSchema3(value) {
       return !!value && typeof value === "object" && "~standard" in value && value["~standard"].vendor === "xstate.types";
     }
-    exports.isTypeSchema = isTypeSchema2;
-    exports.types = types2;
+    exports.isTypeSchema = isTypeSchema3;
+    exports.types = types3;
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/effectDescriptor-4cf24593.cjs.js
-var require_effectDescriptor_4cf24593_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/effectDescriptor-4cf24593.cjs.js"(exports) {
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/effectDescriptor-425644eb.cjs.js
+var require_effectDescriptor_425644eb_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/effectDescriptor-425644eb.cjs.js"(exports) {
     "use strict";
-    var createActor2 = require_createActor_b987e971_cjs();
+    var createActor3 = require_createActor_54296cf2_cjs();
     function attachMicrostepActorRefs(microsteps, actorScope, inputSnapshot) {
       const result = microsteps.map(([snapshot, actions, transitions]) => [snapshot, actions, transitions ?? []]);
       if (!result.length) {
         return result;
       }
       const finalSnapshot = result.at(-1)[0];
-      createActor2.setInertActorScopeSnapshot(actorScope, finalSnapshot, false);
+      createActor3.setInertActorScopeSnapshot(actorScope, finalSnapshot, false);
       if (finalSnapshot !== inputSnapshot) {
-        createActor2.attachSnapshotActorRef(actorScope, finalSnapshot);
+        createActor3.attachSnapshotActorRef(actorScope, finalSnapshot);
       }
       for (const [snapshot] of result) {
         if (snapshot !== inputSnapshot && snapshot !== finalSnapshot) {
-          const snapshotScope = createActor2.createInertActorScope(snapshot.machine, snapshot, void 0, actorScope);
-          createActor2.attachSnapshotActorRef(snapshotScope, snapshot);
+          const snapshotScope = createActor3.createInertActorScope(snapshot.machine, snapshot, void 0, actorScope);
+          createActor3.attachSnapshotActorRef(snapshotScope, snapshot);
         }
       }
       return result;
     }
-    function transition2(logic, snapshot, event) {
-      const actorScope = createActor2.createInertActorScope(logic, snapshot);
-      createActor2.setInertActorScopeSnapshot(actorScope, snapshot, false);
-      const [nextSnapshot, effects] = createActor2.finalizeTransitionResult(actorScope, snapshot, logic.transition(snapshot, event, actorScope));
-      createActor2.setInertActorScopeSnapshot(actorScope, nextSnapshot, false);
-      const returnedSnapshot = nextSnapshot === snapshot ? nextSnapshot : createActor2.attachSnapshotActorRef(actorScope, nextSnapshot);
+    function transition3(logic, snapshot, event) {
+      const actorScope = createActor3.createInertActorScope(logic, snapshot);
+      createActor3.setInertActorScopeSnapshot(actorScope, snapshot, false);
+      const [nextSnapshot, effects] = createActor3.finalizeTransitionResult(actorScope, snapshot, logic.transition(snapshot, event, actorScope));
+      createActor3.setInertActorScopeSnapshot(actorScope, nextSnapshot, false);
+      const returnedSnapshot = nextSnapshot === snapshot ? nextSnapshot : createActor3.attachSnapshotActorRef(actorScope, nextSnapshot);
       inspectPureTransition(actorScope, returnedSnapshot, event);
       return [returnedSnapshot, effects];
     }
-    function isUnhandled2(previousSnapshot, result) {
+    function isUnhandled3(previousSnapshot, result) {
       return result[0] === previousSnapshot && result[1].length === 0;
     }
-    function initialTransition2(logic, ...[input]) {
-      const actorScope = createActor2.createInertActorScope(logic);
-      const [nextSnapshot, executableActions] = createActor2.finalizeTransitionResult(actorScope, void 0, logic.initialTransition(input, actorScope));
-      createActor2.setInertActorScopeSnapshot(actorScope, nextSnapshot, false);
-      const returnedSnapshot = createActor2.attachSnapshotActorRef(actorScope, nextSnapshot);
-      inspectPureTransition(actorScope, returnedSnapshot, createActor2.createInitEvent(input));
+    function initialTransition3(logic, ...[input]) {
+      const actorScope = createActor3.createInertActorScope(logic);
+      const [nextSnapshot, executableActions] = createActor3.finalizeTransitionResult(actorScope, void 0, logic.initialTransition(input, actorScope));
+      createActor3.setInertActorScopeSnapshot(actorScope, nextSnapshot, false);
+      const returnedSnapshot = createActor3.attachSnapshotActorRef(actorScope, nextSnapshot);
+      inspectPureTransition(actorScope, returnedSnapshot, createActor3.createInitEvent(input));
       return [returnedSnapshot, executableActions];
     }
     function inspectPureTransition(actorScope, snapshot, event) {
-      if (!createActor2.hasAmbientInspector()) {
+      if (!createActor3.hasAmbientInspector()) {
         return;
       }
       const self = actorScope.self;
@@ -6192,36 +6438,36 @@ var require_effectDescriptor_4cf24593_cjs = __commonJS({
         self._inspectTransition(snapshot, event);
       }
     }
-    function getMicrosteps2(machine, snapshot, event) {
-      const actorScope = createActor2.createInertActorScope(machine, snapshot);
-      createActor2.beginSpawnAllocation(actorScope);
+    function getMicrosteps3(machine, snapshot, event) {
+      const actorScope = createActor3.createInertActorScope(machine, snapshot);
+      createActor3.beginSpawnAllocation(actorScope);
       const {
         microsteps
-      } = createActor2.macrostep(snapshot, event, actorScope, []);
+      } = createActor3.macrostep(snapshot, event, actorScope, []);
       return attachMicrostepActorRefs(microsteps, actorScope, snapshot);
     }
-    function getInitialMicrosteps2(machine, ...[input]) {
-      const actorScope = createActor2.createInertActorScope(machine);
-      createActor2.beginSpawnAllocation(actorScope);
-      const initEvent = createActor2.createInitEvent(input);
+    function getInitialMicrosteps3(machine, ...[input]) {
+      const actorScope = createActor3.createInertActorScope(machine);
+      createActor3.beginSpawnAllocation(actorScope);
+      const initEvent = createActor3.createInitEvent(input);
       const internalQueue = [];
       const preInitialSnapshot = machine._getPreInitialState(actorScope, initEvent);
-      const contextSpawnEffects = Object.values(preInitialSnapshot.children).filter(Boolean).map((actor) => createActor2.createSpawnEffect(actor));
-      const first = createActor2.initialMicrostep(machine.root, preInitialSnapshot, actorScope, initEvent, internalQueue);
+      const contextSpawnEffects = Object.values(preInitialSnapshot.children).filter(Boolean).map((actor) => createActor3.createSpawnEffect(actor));
+      const first = createActor3.initialMicrostep(machine.root, preInitialSnapshot, actorScope, initEvent, internalQueue);
       const {
         microsteps
-      } = createActor2.macrostep(first[0], initEvent, actorScope, internalQueue, [[first[0], [...contextSpawnEffects, ...first[1]], []]]);
+      } = createActor3.macrostep(first[0], initEvent, actorScope, internalQueue, [[first[0], [...contextSpawnEffects, ...first[1]], []]]);
       return attachMicrostepActorRefs(microsteps, actorScope);
     }
-    function getNextTransitions2(state3) {
+    function getNextTransitions3(state3) {
       if (state3.status !== "active") {
         return [];
       }
       const potentialTransitions = [];
-      const atomicStates = state3.nodes.filter(createActor2.isAtomicStateNode);
+      const atomicStates = state3.nodes.filter(createActor3.isAtomicStateNode);
       const visited2 = /* @__PURE__ */ new Set();
       for (const stateNode of atomicStates) {
-        for (const s of [stateNode].concat(createActor2.getProperAncestors(stateNode, void 0))) {
+        for (const s of [stateNode].concat(createActor3.getProperAncestors(stateNode, void 0))) {
           if (visited2.has(s.id)) {
             continue;
           }
@@ -6236,7 +6482,21 @@ var require_effectDescriptor_4cf24593_cjs = __commonJS({
       }
       return potentialTransitions;
     }
-    function getEffectDescriptor2(effect) {
+    function toRef(actor) {
+      if (createActor3.isSerializedActorRef(actor)) {
+        return {
+          ...actor
+        };
+      }
+      const incarnation = createActor3.isRemoteActorRef(actor) ? actor.sessionId : void 0;
+      return incarnation === void 0 ? {
+        $actor: actor.address
+      } : {
+        $actor: actor.address,
+        incarnation
+      };
+    }
+    function describeExecutableEffect2(effect) {
       if (effect.kind === "action") {
         return {
           kind: "action",
@@ -6248,7 +6508,7 @@ var require_effectDescriptor_4cf24593_cjs = __commonJS({
         return {
           kind: "emit",
           type: effect.type,
-          source: effect.source.address,
+          source: toRef(effect.source),
           event: effect.event
         };
       }
@@ -6257,64 +6517,69 @@ var require_effectDescriptor_4cf24593_cjs = __commonJS({
           return {
             kind: "builtin",
             type: "@xstate.spawn",
-            source: effect.source?.address,
-            actor: effect.actor.address,
+            source: effect.source && toRef(effect.source),
+            actor: toRef(effect.actor),
             id: effect.id,
             // `src` is only a unique key for registered sources; anonymous inline
             // logic collapses to its logic id or 'x'. The `actor` address is the
             // identity field.
-            src: createActor2.getActorIdPrefix(effect.src),
+            src: createActor3.getActorIdPrefix(effect.src),
             input: effect.input
           };
         case "@xstate.start":
           return {
             kind: "builtin",
             type: "@xstate.start",
-            source: effect.source?.address,
-            actor: effect.actor.address,
+            source: effect.source && toRef(effect.source),
+            actor: toRef(effect.actor),
             id: effect.id
           };
         case "@xstate.raise":
           return {
             kind: "builtin",
             type: "@xstate.raise",
-            source: effect.source.address,
+            source: toRef(effect.source),
             event: effect.event,
             id: effect.id,
+            ...effect.seq !== void 0 && {
+              seq: effect.seq
+            },
             delay: effect.delay
           };
         case "@xstate.sendTo":
           return {
             kind: "builtin",
             type: "@xstate.sendTo",
-            source: effect.source.address,
-            target: effect.target?.address,
-            incarnation: createActor2.isRemoteActorRef(effect.target) ? effect.target.sessionId : void 0,
+            source: toRef(effect.source),
+            target: effect.target && toRef(effect.target),
             event: effect.event,
             id: effect.id,
+            ...effect.seq !== void 0 && {
+              seq: effect.seq
+            },
             delay: effect.delay
           };
         case "@xstate.cancel":
           return {
             kind: "builtin",
             type: "@xstate.cancel",
-            source: effect.source.address,
-            id: effect.id
+            source: toRef(effect.source),
+            ...createActor3.readTimerKey(effect)
           };
         case "@xstate.stop":
           return {
             kind: "builtin",
             type: "@xstate.stop",
-            source: effect.source.address,
-            actor: effect.actor.address,
+            source: toRef(effect.source),
+            actor: toRef(effect.actor),
             id: effect.id
           };
         case "@xstate.terminate":
           return {
             kind: "builtin",
             type: "@xstate.terminate",
-            source: effect.source.address,
-            actor: effect.actor.address,
+            source: toRef(effect.source),
+            actor: toRef(effect.actor),
             id: effect.id,
             status: effect.status,
             output: effect.output,
@@ -6324,8 +6589,8 @@ var require_effectDescriptor_4cf24593_cjs = __commonJS({
           return {
             kind: "builtin",
             type: "@xstate.deadLetter",
-            source: effect.source?.address,
-            target: effect.target?.address,
+            source: effect.source && toRef(effect.source),
+            target: effect.target && toRef(effect.target),
             event: effect.event,
             reason: effect.reason,
             issues: effect.detail?.issues,
@@ -6333,41 +6598,41 @@ var require_effectDescriptor_4cf24593_cjs = __commonJS({
           };
       }
     }
-    exports.getEffectDescriptor = getEffectDescriptor2;
-    exports.getInitialMicrosteps = getInitialMicrosteps2;
-    exports.getMicrosteps = getMicrosteps2;
-    exports.getNextTransitions = getNextTransitions2;
-    exports.initialTransition = initialTransition2;
-    exports.isUnhandled = isUnhandled2;
-    exports.transition = transition2;
+    exports.describeExecutableEffect = describeExecutableEffect2;
+    exports.getInitialMicrosteps = getInitialMicrosteps3;
+    exports.getMicrosteps = getMicrosteps3;
+    exports.getNextTransitions = getNextTransitions3;
+    exports.initialTransition = initialTransition3;
+    exports.isUnhandled = isUnhandled3;
+    exports.transition = transition3;
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/xstate.cjs.js
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate.cjs.js
 var require_xstate_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/xstate.cjs.js"(exports) {
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate.cjs.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var dist_xstateActors = require_index_f201d440_cjs();
-    var createActor2 = require_createActor_b987e971_cjs();
+    var dist_xstateActors = require_index_986372f2_cjs();
+    var createActor3 = require_createActor_54296cf2_cjs();
     var schema_types = require_schema_types_15a68ddc_cjs();
-    var effectDescriptor = require_effectDescriptor_4cf24593_cjs();
-    function assertEvent2(event, type) {
-      const types2 = createActor2.toArray(type);
-      const matches = types2.some((descriptor) => createActor2.matchesEventDescriptor(event.type, descriptor));
+    var effectDescriptor = require_effectDescriptor_425644eb_cjs();
+    function assertEvent3(event, type) {
+      const types3 = createActor3.toArray(type);
+      const matches = types3.some((descriptor) => createActor3.matchesEventDescriptor(event.type, descriptor));
       if (!matches) {
-        const typesText = types2.length === 1 ? `type matching "${types2[0]}"` : `one of types matching "${types2.join('", "')}"`;
+        const typesText = types3.length === 1 ? `type matching "${types3[0]}"` : `one of types matching "${types3.join('", "')}"`;
         throw new Error(`Expected event ${JSON.stringify(event)} to have ${typesText}`);
       }
     }
     var historicalEventSchemas = /* @__PURE__ */ new WeakMap();
     function createSpawner(actorScope, actors, spawnedChildren) {
       return (src3, options2) => {
-        const referencedSrc = createActor2.resolveRegisteredActorSource(actors, src3);
-        const id = options2?.id ?? createActor2.allocateChildId(actorScope, referencedSrc ?? src3).id;
+        const referencedSrc = createActor3.resolveRegisteredActorSource(actors, src3);
+        const id = options2?.id ?? createActor3.allocateChildId(actorScope, referencedSrc ?? src3).id;
         if (options2?.id !== void 0) {
-          createActor2.assertChildIdFree(actorScope, options2.id);
-          createActor2.reserveChildId(actorScope, options2.id);
+          createActor3.assertChildIdFree(actorScope, options2.id);
+          createActor3.reserveChildId(actorScope, options2.id);
         }
         const actor = actorScope.system.createActorRef(src3, {
           id,
@@ -6395,7 +6660,7 @@ var require_xstate_cjs = __commonJS({
       return memoizedData[key];
     }
     var EMPTY_OBJECT = {};
-    var StateNode2 = class _StateNode {
+    var StateNode3 = class _StateNode {
       constructor(config, options2) {
         this.config = config;
         this.key = void 0;
@@ -6425,16 +6690,26 @@ var require_xstate_cjs = __commonJS({
         this.parent = options2._parent;
         this.key = options2._key;
         this.machine = options2._machine;
+        if (this.parent && createActor3.hasUnescapedDot(this.key)) {
+          throw new Error(
+            // The suggestion is written as a JS string literal.
+            `State key "${this.key}" contains "." \u2014 nest the states or escape it as "${this.key.replaceAll(/(?<!\\)\./g, "\\\\.")}".`
+          );
+        }
         this.path = this.parent ? this.parent.path.concat(this.key) : [];
         const firstStateKey = this.config.states ? Object.keys(this.config.states)[0] : void 0;
-        this.id = this.config.id || [this.machine.id, ...this.path].join(createActor2.STATE_DELIMITER);
+        this.id = this.config.id || (this.machine.id ? [this.machine.id, ...this.path] : this.path).join(createActor3.STATE_DELIMITER);
         this.type = this.config.type || (firstStateKey !== void 0 ? "compound" : this.config.history ? "history" : "atomic");
         this.description = this.config.description;
         this.schemas = this.config.schemas;
         validateStateNodeConfig(this);
+        const existing = this.machine.idMap.get(this.id);
+        if (existing) {
+          throw new Error(`Duplicate state id '${this.id}': the states at '${existing.path.join(createActor3.STATE_DELIMITER)}' and '${this.path.join(createActor3.STATE_DELIMITER)}' both have it. State ids must be unique; rename the explicit \`id\`.`);
+        }
         this.order = this.machine.idMap.size;
         this.machine.idMap.set(this.id, this);
-        this.states = this.config.states ? createActor2.mapValues(this.config.states, (stateConfig, key) => {
+        this.states = this.config.states ? createActor3.mapValues(this.config.states, (stateConfig, key) => {
           const stateNode = new _StateNode(stateConfig, {
             _parent: this,
             _key: key,
@@ -6448,26 +6723,21 @@ var require_xstate_cjs = __commonJS({
         this.history = this.config.history === true ? "shallow" : this.config.history || false;
         this.entry = this.config.entry;
         this.exit = this.config.exit;
-        if (this.entry) {
-          this.entry._special = true;
-        }
-        if (this.exit) {
-          this.exit._special = true;
-        }
         this.meta = this.config.meta;
         this.output = this.type === "final" || !this.parent ? this.config.output : void 0;
-        this.tags = createActor2.toArray(config.tags).slice();
-        this.invoke = createActor2.toArray(this.config.invoke).map((invokeConfig, i) => {
+        this.tags = createActor3.toArray(config.tags).slice();
+        this.invoke = createActor3.toArray(this.config.invoke).map((invokeConfig, i) => {
           const {
             src: src3,
             registryKey
           } = invokeConfig;
-          const invokeId = createActor2.createInvokeId(this.id, i);
+          const invokeId = createActor3.createInvokeId(this.id, i);
           const resolvedId = invokeConfig.id ?? invokeId;
-          const sourceName = typeof src3 === "string" ? src3 : `xstate.invoke.${invokeId}`;
           return {
             ...invokeConfig,
-            src: sourceName,
+            // Registered (string) sources persist by key; inline logic has no
+            // source key and restores through this invoke definition's id.
+            src: typeof src3 === "string" ? src3 : void 0,
             logic: src3,
             id: resolvedId,
             registryKey
@@ -6476,12 +6746,12 @@ var require_xstate_cjs = __commonJS({
       }
       /** @internal */
       _initialize() {
-        this.after = createActor2.getDelayedTransitions(this);
+        this.after = createActor3.getDelayedTransitions(this);
         this.transitions = formatTransitions(this);
         if (this.type === "choice") {
           this.always = formatChoiceTransitions(this);
         } else if (this.config.always) {
-          this.always = mapTransitionConfigs(this.config.always, (transition2) => createActor2.formatTransition(this, createActor2.NULL_EVENT, transition2));
+          this.always = mapTransitionConfigs(this, "always", this.config.always, (transition3) => createActor3.formatTransition(this, createActor3.NULL_EVENT, transition3));
         }
         for (const key of Object.keys(this.states)) {
           this.states[key]._initialize();
@@ -6494,7 +6764,7 @@ var require_xstate_cjs = __commonJS({
         const ownEvents = [];
         for (const [descriptor, transitions] of this.transitions) {
           on[descriptor] = transitions.slice();
-          if (transitions.some((transition2) => transition2.target || transition2.reenter || transition2.to)) {
+          if (transitions.some((transition3) => transition3.target || transition3.reenter || transition3.to)) {
             ownEvents.push(descriptor);
           }
         }
@@ -6516,14 +6786,13 @@ var require_xstate_cjs = __commonJS({
         if (this.type === "final") {
           return void 0;
         }
-        const descriptorKey = createActor2.getEventDescriptorKey(event);
-        let candidates = this._candidateCache?.get(descriptorKey);
+        let candidates = this._candidateCache?.get(event.type);
         if (!candidates) {
-          candidates = createActor2.getCandidates(this, event);
-          (this._candidateCache ??= /* @__PURE__ */ new Map()).set(descriptorKey, candidates);
+          candidates = createActor3.getCandidates(this, event);
+          (this._candidateCache ??= /* @__PURE__ */ new Map()).set(event.type, candidates);
         }
         for (const candidate of candidates) {
-          const guardPassed = createActor2.evaluateCandidate(candidate, event, snapshot, this, actorScope, selectionResults);
+          const guardPassed = createActor3.evaluateCandidate(candidate, event, snapshot, this, actorScope, selectionResults);
           if (guardPassed) {
             return [candidate];
           }
@@ -6551,12 +6820,12 @@ var require_xstate_cjs = __commonJS({
         }
         return result;
       };
-      return [createActor2.formatTransition(stateNode, createActor2.NULL_EVENT, {
+      return [createActor3.formatTransition(stateNode, createActor3.NULL_EVENT, {
         to: (args) => validateChoiceResult(choice(args))
       })];
     }
-    function mapTransitionConfigs(transitionsConfig, mapper) {
-      const transitionConfigs = createActor2.toTransitionConfigArray(transitionsConfig);
+    function mapTransitionConfigs(stateNode, name, transitionsConfig, mapper) {
+      const transitionConfigs = createActor3.toTransitionConfigArray(transitionsConfig, name, stateNode.id);
       const transitions = new Array(transitionConfigs.length);
       for (let i = 0; i < transitionConfigs.length; i++) {
         transitions[i] = mapper(transitionConfigs[i]);
@@ -6570,45 +6839,45 @@ var require_xstate_cjs = __commonJS({
       };
       if (stateNode.config.on) {
         for (const descriptor of Object.keys(stateNode.config.on)) {
-          if (descriptor === createActor2.NULL_EVENT) {
+          if (descriptor === createActor3.NULL_EVENT) {
             throw new Error("Null event transition key");
           }
           const transitionsConfig = stateNode.config.on[descriptor];
-          transitions.set(descriptor, mapTransitionConfigs(transitionsConfig, (transition2) => createActor2.formatTransition(stateNode, descriptor, transition2)));
+          transitions.set(descriptor, mapTransitionConfigs(stateNode, descriptor, transitionsConfig, (transition3) => createActor3.formatTransition(stateNode, descriptor, transition3)));
         }
       }
       if (stateNode.config.onDone) {
         const descriptor = "xstate.done.state";
-        addTransitions(descriptor, mapTransitionConfigs(stateNode.config.onDone, (transition2) => createActor2.formatTransition(stateNode, descriptor, {
-          ...transition2,
+        addTransitions(descriptor, mapTransitionConfigs(stateNode, "onDone", stateNode.config.onDone, (transition3) => createActor3.formatTransition(stateNode, descriptor, {
+          ...transition3,
           matches: {
-            ...transition2.matches,
+            ...transition3.matches,
             stateId: stateNode.id
           }
         })));
       }
       if (stateNode.config.onError) {
         const descriptor = "xstate.error.*";
-        transitions.set(descriptor, mapTransitionConfigs(stateNode.config.onError, (transition2) => createActor2.formatTransition(stateNode, descriptor, transition2)));
+        transitions.set(descriptor, mapTransitionConfigs(stateNode, "onError", stateNode.config.onError, (transition3) => createActor3.formatTransition(stateNode, descriptor, transition3)));
       }
-      const createCancelInvokeTimeoutTransition = (descriptor, timeoutEventId, actorId2) => createActor2.formatTransition(stateNode, descriptor, {
+      const createCancelInvokeTimeoutTransition = (descriptor, timeoutKey, actorId2) => createActor3.formatTransition(stateNode, descriptor, {
         matches: {
           actorId: actorId2
         },
-        _eventMatcher: (event, snapshot) => createActor2.matchesActorSession(event, snapshot, actorId2),
+        _eventMatcher: (event, snapshot) => createActor3.matchesActorSession(event, snapshot, actorId2),
         to: (_args, enq) => {
-          enq.cancel(timeoutEventId);
+          enq.cancel(timeoutKey);
           return {};
         }
       });
-      const formatInvokeCompletionTransition = (descriptor, transitionConfig, timeoutEventId) => {
+      const formatInvokeCompletionTransition = (descriptor, transitionConfig, timeoutKey) => {
         const {
           target,
           to,
           reenter,
           ...rest
         } = transitionConfig;
-        return createActor2.formatTransition(stateNode, descriptor, {
+        return createActor3.formatTransition(stateNode, descriptor, {
           ...rest,
           reenter,
           to: (args, enq) => {
@@ -6632,11 +6901,11 @@ var require_xstate_cjs = __commonJS({
               });
               const result = to(args, trackingEnqueue);
               if (result !== void 0 || didEnqueue) {
-                enq.cancel(timeoutEventId);
+                enq.cancel(timeoutKey);
               }
               return result;
             }
-            enq.cancel(timeoutEventId);
+            enq.cancel(timeoutKey);
             return {
               target,
               reenter
@@ -6645,39 +6914,44 @@ var require_xstate_cjs = __commonJS({
         });
       };
       for (const invokeDef of stateNode.invoke) {
-        const withInvokeMatch = (transition2) => ({
-          ...transition2,
+        const withInvokeMatch = (transition3) => ({
+          ...transition3,
           matches: {
-            ...transition2.matches,
+            ...transition3.matches,
             actorId: invokeDef.id
           },
-          _eventMatcher: (event, snapshot) => createActor2.matchesActorSession(event, snapshot, invokeDef.id)
+          _eventMatcher: (event, snapshot) => createActor3.matchesActorSession(event, snapshot, invokeDef.id)
         });
-        const invokeTimeoutEventId = invokeDef.timeout !== void 0 ? createActor2.createInvokeTimeoutEventId(invokeDef.id) : void 0;
+        const invokeTimeoutKey = invokeDef.timeout !== void 0 ? {
+          event: {
+            type: "xstate.timeout.actor",
+            actorId: invokeDef.id
+          }
+        } : void 0;
         if (invokeDef.onDone) {
           const descriptor = "xstate.done.actor";
-          const invokeDoneTransitions = mapTransitionConfigs(invokeDef.onDone, (rawTransition) => {
-            const transition2 = withInvokeMatch(rawTransition);
-            return invokeTimeoutEventId ? formatInvokeCompletionTransition(descriptor, transition2, invokeTimeoutEventId) : createActor2.formatTransition(stateNode, descriptor, transition2);
+          const invokeDoneTransitions = mapTransitionConfigs(stateNode, "invoke.onDone", invokeDef.onDone, (rawTransition) => {
+            const transition3 = withInvokeMatch(rawTransition);
+            return invokeTimeoutKey ? formatInvokeCompletionTransition(descriptor, transition3, invokeTimeoutKey) : createActor3.formatTransition(stateNode, descriptor, transition3);
           });
-          if (invokeTimeoutEventId) {
-            invokeDoneTransitions.push(createCancelInvokeTimeoutTransition(descriptor, invokeTimeoutEventId, invokeDef.id));
+          if (invokeTimeoutKey) {
+            invokeDoneTransitions.push(createCancelInvokeTimeoutTransition(descriptor, invokeTimeoutKey, invokeDef.id));
           }
           addTransitions(descriptor, invokeDoneTransitions);
-        } else if (invokeTimeoutEventId) {
+        } else if (invokeTimeoutKey) {
           const descriptor = "xstate.done.actor";
-          addTransitions(descriptor, [createCancelInvokeTimeoutTransition(descriptor, invokeTimeoutEventId, invokeDef.id)]);
+          addTransitions(descriptor, [createCancelInvokeTimeoutTransition(descriptor, invokeTimeoutKey, invokeDef.id)]);
         }
         if (invokeDef.onError) {
           const descriptor = "xstate.error.actor";
-          addTransitions(descriptor, mapTransitionConfigs(invokeDef.onError, (rawTransition) => {
-            const transition2 = withInvokeMatch(rawTransition);
-            return invokeTimeoutEventId ? formatInvokeCompletionTransition(descriptor, transition2, invokeTimeoutEventId) : createActor2.formatTransition(stateNode, descriptor, transition2);
+          addTransitions(descriptor, mapTransitionConfigs(stateNode, "invoke.onError", invokeDef.onError, (rawTransition) => {
+            const transition3 = withInvokeMatch(rawTransition);
+            return invokeTimeoutKey ? formatInvokeCompletionTransition(descriptor, transition3, invokeTimeoutKey) : createActor3.formatTransition(stateNode, descriptor, transition3);
           }));
         }
         if (invokeDef.onSnapshot) {
           const descriptor = "xstate.snapshot.actor";
-          addTransitions(descriptor, mapTransitionConfigs(invokeDef.onSnapshot, (transition2) => createActor2.formatTransition(stateNode, descriptor, withInvokeMatch(transition2))));
+          addTransitions(descriptor, mapTransitionConfigs(stateNode, "invoke.onSnapshot", invokeDef.onSnapshot, (transition3) => createActor3.formatTransition(stateNode, descriptor, withInvokeMatch(transition3))));
         }
       }
       for (const delayedTransition of stateNode.after) {
@@ -6701,7 +6975,7 @@ var require_xstate_cjs = __commonJS({
       if (resolvedTargets.some((target) => !target)) {
         throw new Error(`Initial state not found on "#${stateNode.id}"`);
       }
-      const transition2 = {
+      const transition3 = {
         source: stateNode,
         target: resolvedTargets.length ? resolvedTargets : void 0,
         input,
@@ -6709,7 +6983,7 @@ var require_xstate_cjs = __commonJS({
         meta,
         description
       };
-      return transition2;
+      return transition3;
     }
     var STATE_IDENTIFIER = "#";
     function findEventSchema(schemas, eventType) {
@@ -6719,13 +6993,13 @@ var require_xstate_cjs = __commonJS({
       if (Object.hasOwn(schemas, eventType)) {
         return schemas[eventType];
       }
-      const descriptor = Object.keys(schemas).find((key) => createActor2.matchesEventDescriptor(eventType, key));
+      const descriptor = Object.keys(schemas).find((key) => createActor3.matchesEventDescriptor(eventType, key));
       return descriptor === void 0 ? void 0 : schemas[descriptor];
     }
     var emptyCanActor;
     var emptyCanActorScope;
     function getEmptyCanActor() {
-      return emptyCanActor ??= createActor2.createActor({
+      return emptyCanActor ??= createActor3.createActor({
         transition: (snapshot) => [snapshot, []],
         initialTransition: () => [{
           status: "active",
@@ -6761,9 +7035,16 @@ var require_xstate_cjs = __commonJS({
         actionExecutor: () => {
         }
       };
+      createActor3.detachedScopes.add(emptyCanActorScope);
       return emptyCanActorScope;
     }
-    var StateMachine2 = class _StateMachine {
+    var InvalidSnapshotError2 = class extends Error {
+      constructor(message) {
+        super(message);
+        this.name = "InvalidSnapshotError";
+      }
+    };
+    var StateMachine3 = class _StateMachine {
       constructor(config, sources, validator) {
         this.config = config;
         this.validator = validator;
@@ -6788,7 +7069,10 @@ var require_xstate_cjs = __commonJS({
         this._hasEventlessTransitions = void 0;
         this._microstepHooks = void 0;
         this._json = void 0;
-        this.id = config.id || "(machine)";
+        if (config.version !== void 0 && !config.id) {
+          throw new Error(`Machine with version '${config.version}' must declare an id.`);
+        }
+        this.id = config.id ?? "";
         this.sources = {
           actors: config.actors ?? {},
           actions: config.actions ?? {},
@@ -6812,7 +7096,7 @@ var require_xstate_cjs = __commonJS({
               }
               const snapshot = {
                 historyValue: {},
-                timers: {},
+                timers: [],
                 ...value
               };
               const contextSchema = this.schemas?.context;
@@ -6844,7 +7128,7 @@ var require_xstate_cjs = __commonJS({
                   }]
                 };
               }
-              for (const key of ["children", "historyValue", "timers"]) {
+              for (const key of ["children", "historyValue"]) {
                 if (snapshot[key] === null || typeof snapshot[key] !== "object" || Array.isArray(snapshot[key])) {
                   return {
                     issues: [{
@@ -6852,6 +7136,13 @@ var require_xstate_cjs = __commonJS({
                     }]
                   };
                 }
+              }
+              if (!Array.isArray(snapshot.timers)) {
+                return {
+                  issues: [{
+                    message: "Persisted snapshot has invalid 'timers'."
+                  }]
+                };
               }
               try {
                 this.resolveState({
@@ -6972,12 +7263,12 @@ var require_xstate_cjs = __commonJS({
         this.getPersistedSnapshot = this.getPersistedSnapshot.bind(this);
         this.restoreSnapshot = this.restoreSnapshot.bind(this);
         this.start = this.start.bind(this);
-        this.root = new StateNode2(config, {
+        this.root = new StateNode3(config, {
           _key: this.id,
           _machine: this
         });
         this.root._initialize();
-        createActor2.formatRouteTransitions(this.root);
+        createActor3.formatRouteTransitions(this.root);
         this.root._refreshEventMetadata();
         this._hasEventlessTransitions = Array.from(this.idMap.values()).some((stateNode) => !!stateNode.always?.length);
         this.states = this.root.states;
@@ -7021,15 +7312,15 @@ var require_xstate_cjs = __commonJS({
         return provided;
       }
       resolveState(config) {
-        const resolvedStateValue = createActor2.resolveStateValue(this.root, config.value);
-        const nodeSet = createActor2.getAllStateNodes(createActor2.getStateNodes(this.root, resolvedStateValue));
+        const resolvedStateValue = createActor3.resolveStateValue(this.root, config.value);
+        const nodeSet = createActor3.getAllStateNodes(createActor3.getStateNodes(this.root, resolvedStateValue));
         const nodes = [...nodeSet];
-        return createActor2.createMachineSnapshot({
+        return createActor3.createMachineSnapshot({
           _nodes: nodes,
           value: resolvedStateValue,
           context: config.context || {},
           children: {},
-          status: createActor2.isInFinalState(nodeSet, this.root) ? "done" : config.status || "active",
+          status: createActor3.isInFinalState(nodeSet, this.root) ? "done" : config.status || "active",
           output: config.output,
           error: config.error,
           historyValue: config.historyValue
@@ -7044,9 +7335,9 @@ var require_xstate_cjs = __commonJS({
        */
       transition(snapshot, event, actorScope) {
         const usesInertScope = !actorScope;
-        const resolvedActorScope = actorScope ?? createActor2.createInertActorScope(this, snapshot);
+        const resolvedActorScope = actorScope ?? createActor3.createInertActorScope(this, snapshot);
         if (usesInertScope) {
-          createActor2.setInertActorScopeSnapshot(resolvedActorScope, snapshot, false);
+          createActor3.setInertActorScopeSnapshot(resolvedActorScope, snapshot, false);
         }
         if (this.validator) {
           const sourceRef = actorScope && actorScope.self._lastSourceRef;
@@ -7058,19 +7349,19 @@ var require_xstate_cjs = __commonJS({
             eventOrigin
           });
           if (error) {
-            return [snapshot, [createActor2.createDeadLetterEffect(resolvedActorScope, sourceRef, event, "invalidEvent", {
+            return [snapshot, [createActor3.createDeadLetterEffect(resolvedActorScope, sourceRef, event, "invalidEvent", {
               issues: error.issues,
               error
             })]];
           }
         }
-        createActor2.beginSpawnAllocation(resolvedActorScope);
+        createActor3.beginSpawnAllocation(resolvedActorScope);
         const fastSnapshot = this._transitionFast(snapshot, event, resolvedActorScope);
         if (fastSnapshot) {
           if (usesInertScope) {
-            createActor2.setInertActorScopeSnapshot(resolvedActorScope, fastSnapshot, false);
+            createActor3.setInertActorScopeSnapshot(resolvedActorScope, fastSnapshot, false);
           }
-          const returnedSnapshot2 = usesInertScope && fastSnapshot !== snapshot ? createActor2.attachSnapshotActorRef(resolvedActorScope, fastSnapshot) : this._attachPureActorRef(fastSnapshot, resolvedActorScope);
+          const returnedSnapshot2 = usesInertScope && fastSnapshot !== snapshot ? createActor3.attachSnapshotActorRef(resolvedActorScope, fastSnapshot) : this._attachPureActorRef(fastSnapshot, resolvedActorScope);
           if (this.validator) {
             dist_xstateActors.assertValid(this.validator, {
               kind: "result",
@@ -7084,11 +7375,11 @@ var require_xstate_cjs = __commonJS({
         const {
           snapshot: nextSnapshot,
           microsteps
-        } = createActor2.macrostep(snapshot, event, resolvedActorScope, []);
+        } = createActor3.macrostep(snapshot, event, resolvedActorScope, []);
         if (usesInertScope) {
-          createActor2.setInertActorScopeSnapshot(resolvedActorScope, nextSnapshot, false);
+          createActor3.setInertActorScopeSnapshot(resolvedActorScope, nextSnapshot, false);
         }
-        const returnedSnapshot = usesInertScope ? nextSnapshot === snapshot ? nextSnapshot : createActor2.attachSnapshotActorRef(resolvedActorScope, nextSnapshot) : this._attachPureActorRef(nextSnapshot, resolvedActorScope);
+        const returnedSnapshot = usesInertScope ? nextSnapshot === snapshot ? nextSnapshot : createActor3.attachSnapshotActorRef(resolvedActorScope, nextSnapshot) : this._attachPureActorRef(nextSnapshot, resolvedActorScope);
         const effects = this._collectEffects(microsteps);
         if (this.validator) {
           dist_xstateActors.assertValid(this.validator, {
@@ -7104,13 +7395,13 @@ var require_xstate_cjs = __commonJS({
         return microsteps.flatMap(([, actions]) => actions);
       }
       _attachPureActorRef(snapshot, actorScope, skipInitializingActor = false) {
-        if (createActor2.isInertActorScope(actorScope)) {
+        if (createActor3.isInertActorScope(actorScope)) {
           return snapshot;
         }
         if (skipInitializingActor && actorScope.self._actorScope === actorScope && actorScope.self._snapshot === void 0) {
           return snapshot;
         }
-        createActor2.setSnapshotActorRef(snapshot, actorScope.self, actorScope.system);
+        createActor3.setSnapshotActorRef(snapshot, actorScope.self, actorScope.system);
         return snapshot;
       }
       _transitionFast(snapshot, event, actorScope) {
@@ -7138,17 +7429,22 @@ var require_xstate_cjs = __commonJS({
           ...snapshot.context,
           ...selected.context
         } : snapshot.context;
-        if (!createActor2.isInertActorScope(actorScope) && (actorScope.system._hasInspectionObservers?.() ?? true)) {
+        if (!createActor3.isInertActorScope(actorScope) && (actorScope.system._hasInspectionObservers?.() ?? true)) {
           const collectedMicrosteps = actorScope.self._collectedMicrosteps || [];
           collectedMicrosteps.push(selected);
           actorScope.self._collectedMicrosteps = collectedMicrosteps;
         }
-        return createActor2.cloneMachineSnapshot(snapshot, {
+        const rootInput = snapshot._stateInputs[this.root.id];
+        return createActor3.cloneMachineSnapshot(snapshot, {
           ...context !== snapshot.context ? {
             context
           } : {},
           ...stateChanged ? {
-            _nodes: [this.root, targetNode]
+            _nodes: [this.root, targetNode],
+            // The source state exited, so only the root input remains.
+            _stateInputs: rootInput ? {
+              [this.root.id]: rootInput
+            } : {}
           } : {}
         });
       }
@@ -7162,7 +7458,7 @@ var require_xstate_cjs = __commonJS({
       microstep(snapshot, event, actorScope) {
         const {
           microsteps
-        } = createActor2.macrostep(snapshot, event, actorScope, []);
+        } = createActor3.macrostep(snapshot, event, actorScope, []);
         const snapshots = new Array(microsteps.length);
         for (let i = 0; i < microsteps.length; i++) {
           snapshots[i] = microsteps[i][0];
@@ -7171,14 +7467,14 @@ var require_xstate_cjs = __commonJS({
       }
       getTransitionData(snapshot, event, actorScope, selectionResults) {
         this._microstepHooks?.begin(actorScope.self);
-        return createActor2.transitionNode(this.root, snapshot.value, snapshot, event, actorScope, selectionResults) || [];
+        return createActor3.transitionNode(this.root, snapshot.value, snapshot, event, actorScope, selectionResults) || [];
       }
       isInternalEventType(eventType) {
-        if (eventType === createActor2.XSTATE_TIMER) {
+        if (eventType === createActor3.XSTATE_TIMER) {
           return true;
         }
         for (const descriptor of this.internalEventDescriptors) {
-          if (createActor2.matchesEventDescriptor(eventType, descriptor)) {
+          if (createActor3.matchesEventDescriptor(eventType, descriptor)) {
             return true;
           }
         }
@@ -7200,14 +7496,14 @@ var require_xstate_cjs = __commonJS({
         if (!transitionData?.length) {
           return false;
         }
-        for (const transition2 of transitionData) {
-          if (transition2.target !== void 0) {
+        for (const transition3 of transitionData) {
+          if (transition3.target !== void 0) {
             return true;
           }
-          const res = createActor2.getTransitionResult(transition2, snapshot, event, emptyActorScope, {
+          const res = createActor3.getTransitionResult(transition3, snapshot, event, emptyActorScope, {
             resolveActions: false
           });
-          if (res.targets?.length || res.context || createActor2.hasEffect(transition2, snapshot.context, event, snapshot, emptyActorScope)) {
+          if (res.targets?.length || res.context || createActor3.hasEffect(transition3, snapshot.context, event, snapshot, emptyActorScope)) {
             return true;
           }
         }
@@ -7223,7 +7519,7 @@ var require_xstate_cjs = __commonJS({
         if (snapshot?.status !== "active" || !snapshot.nodes?.some((stateNode) => stateNode.config.onError)) {
           return void 0;
         }
-        return createActor2.createErrorPlatformEvent("execution", error);
+        return createActor3.createErrorPlatformEvent("execution", error);
       }
       /**
        * The initial state _before_ evaluating any microsteps. This "pre-initial"
@@ -7235,7 +7531,7 @@ var require_xstate_cjs = __commonJS({
         const {
           context
         } = this.config;
-        const preInitial = createActor2.createMachineSnapshot({
+        const preInitial = createActor3.createMachineSnapshot({
           context: typeof context !== "function" && context ? context : {},
           _nodes: [this.root],
           children: {},
@@ -7244,12 +7540,12 @@ var require_xstate_cjs = __commonJS({
         if (typeof context === "function") {
           const children = {};
           const spawn = createSpawner(actorScope, this.sources.actors, children);
-          const resolvedContext = context(createActor2.withActorSelf({
+          const resolvedContext = context(createActor3.withActorSelf({
             spawn,
             input: initEvent.input,
             actors: this.sources.actors
           }, actorScope));
-          const [nextState] = createActor2.resolveActionsWithContext(preInitial, initEvent, actorScope, []);
+          const [nextState] = createActor3.resolveActionsWithContext(preInitial, initEvent, actorScope, []);
           if (resolvedContext) {
             nextState.context = resolvedContext;
           }
@@ -7258,9 +7554,9 @@ var require_xstate_cjs = __commonJS({
               ...nextState.children,
               ...children
             };
-            const counters = createActor2.takeSpawnAllocationCounters(actorScope);
+            const counters = createActor3.takeSpawnAllocationCounters(actorScope);
             if (counters) {
-              nextState._nextActorIds = createActor2.mergeActorIdCounters(nextState._nextActorIds, counters);
+              nextState._nextActorIds = createActor3.mergeActorIdCounters(nextState._nextActorIds, counters);
             }
           }
           return nextState;
@@ -7283,15 +7579,15 @@ var require_xstate_cjs = __commonJS({
           });
         }
         const usesInertScope = !actorScope;
-        const resolvedActorScope = actorScope ?? createActor2.createInertActorScope(this);
-        createActor2.beginSpawnAllocation(resolvedActorScope);
-        const initEvent = createActor2.createInitEvent(input);
+        const resolvedActorScope = actorScope ?? createActor3.createInertActorScope(this);
+        createActor3.beginSpawnAllocation(resolvedActorScope);
+        const initEvent = createActor3.createInitEvent(input);
         const internalQueue = [];
         const finalizeInitialResult = (macroState, microsteps) => {
           if (usesInertScope) {
-            createActor2.setInertActorScopeSnapshot(resolvedActorScope, macroState, false);
+            createActor3.setInertActorScopeSnapshot(resolvedActorScope, macroState, false);
           }
-          const returnedSnapshot = usesInertScope ? createActor2.attachSnapshotActorRef(resolvedActorScope, macroState) : this._attachPureActorRef(macroState, resolvedActorScope, true);
+          const returnedSnapshot = usesInertScope ? createActor3.attachSnapshotActorRef(resolvedActorScope, macroState) : this._attachPureActorRef(macroState, resolvedActorScope, true);
           const effects = this._collectEffects(microsteps);
           if (this.validator && macroState.status !== "error") {
             dist_xstateActors.assertValid(this.validator, {
@@ -7307,7 +7603,7 @@ var require_xstate_cjs = __commonJS({
         try {
           preInitialState = this._getPreInitialState(resolvedActorScope, initEvent);
         } catch (error) {
-          const errorSnapshot = createActor2.cloneMachineSnapshot(createActor2.createMachineSnapshot({
+          const errorSnapshot = createActor3.cloneMachineSnapshot(createActor3.createMachineSnapshot({
             context: typeof this.config.context !== "function" && this.config.context ? this.config.context : {},
             _nodes: [this.root],
             children: {},
@@ -7318,20 +7614,20 @@ var require_xstate_cjs = __commonJS({
           });
           return finalizeInitialResult(errorSnapshot, []);
         }
-        const contextSpawnEffects = Object.values(preInitialState.children).filter(Boolean).map((actor) => createActor2.createSpawnEffect(actor));
+        const contextSpawnEffects = Object.values(preInitialState.children).filter(Boolean).map((actor) => createActor3.createSpawnEffect(actor));
         try {
-          const [nextState, initialActions] = createActor2.initialMicrostep(this.root, preInitialState, resolvedActorScope, initEvent, internalQueue);
+          const [nextState, initialActions] = createActor3.initialMicrostep(this.root, preInitialState, resolvedActorScope, initEvent, internalQueue);
           const {
             snapshot: macroState,
             microsteps
-          } = createActor2.macrostep(nextState, initEvent, resolvedActorScope, internalQueue, [[nextState, [...contextSpawnEffects, ...initialActions]]]);
+          } = createActor3.macrostep(nextState, initEvent, resolvedActorScope, internalQueue, [[nextState, [...contextSpawnEffects, ...initialActions]]]);
           return finalizeInitialResult(macroState, microsteps);
         } catch (err) {
           if (!this.root.config.onError) {
             throw err;
           }
-          const errorEvent = createActor2.createErrorPlatformEvent("execution", err);
-          const errorMacrostep = createActor2.macrostep(preInitialState, errorEvent, resolvedActorScope, [], [[preInitialState, contextSpawnEffects]]);
+          const errorEvent = createActor3.createErrorPlatformEvent("execution", err);
+          const errorMacrostep = createActor3.macrostep(preInitialState, errorEvent, resolvedActorScope, [], [[preInitialState, contextSpawnEffects]]);
           return finalizeInitialResult(errorMacrostep.snapshot, errorMacrostep.microsteps);
         }
       }
@@ -7347,7 +7643,7 @@ var require_xstate_cjs = __commonJS({
           const child = children[childId];
           if (child._rehydrated && child.getSnapshot?.().status === "active") {
             if (actorScope) {
-              actorScope.actionExecutor(createActor2.createStartEffect(child));
+              actorScope.actionExecutor(createActor3.createStartEffect(child));
             } else {
               void child.system.startActor(child);
             }
@@ -7355,17 +7651,38 @@ var require_xstate_cjs = __commonJS({
         }
       }
       getStateNodeById(stateId) {
-        const fullPath = createActor2.toStatePath(stateId);
-        const relativePath = fullPath.slice(1);
-        const resolvedStateId = createActor2.isStateId(fullPath[0]) ? fullPath[0].slice(STATE_IDENTIFIER.length) : fullPath[0];
-        const stateNode = this.idMap.get(resolvedStateId);
-        if (!stateNode) {
-          throw new Error(`Child state node '#${resolvedStateId}' does not exist on machine '${this.id}'`);
+        const hasPrefix = createActor3.isStateId(stateId);
+        const id = hasPrefix ? stateId.slice(STATE_IDENTIFIER.length) : stateId;
+        if (id === "" && hasPrefix) {
+          throw new Error(this.id ? `State id '#' is empty. Target the root of ${createActor3.describeMachine(this.id)} with '#${this.id}'.` : "State id '#' is empty: the root of a machine without an `id` cannot be referenced by id. Give the machine an `id` to reference its root as '#<id>'.");
         }
-        return createActor2.getStateNodeByPath(stateNode, relativePath);
+        const stateNode = this.idMap.get(id);
+        if (stateNode) {
+          return stateNode;
+        }
+        throw new Error(this._describeUnknownStateId(id));
+      }
+      /**
+       * The error message for an id that matches no state. When a prefix of the
+       * id is a state id and the rest resolves beneath it as a relative path,
+       * suggests the target's own id.
+       */
+      _describeUnknownStateId(id) {
+        const message = `No state has id "${id}".`;
+        const segments = createActor3.toStatePath(id);
+        for (let i = segments.length - 1; i > 0; i--) {
+          let node = this.idMap.get(segments.slice(0, i).join(createActor3.STATE_DELIMITER));
+          for (let j = i; node && j < segments.length; j++) {
+            node = node.states?.[segments[j]];
+          }
+          if (node) {
+            return node.config.id ? `${message} Use "#${node.id}".` : `${message} Use "#${node.id}", or give that state an id.`;
+          }
+        }
+        return message;
       }
       getPersistedSnapshot(snapshot, options2) {
-        return createActor2.getPersistedSnapshot(snapshot, options2);
+        return createActor3.getPersistedSnapshot(snapshot, options2);
       }
       /**
        * @internal Builds a machine-shaped `'error'` snapshot (root configuration,
@@ -7374,7 +7691,7 @@ var require_xstate_cjs = __commonJS({
        */
       _createRestoreErrorSnapshot(persisted, error) {
         const context = persisted?.context;
-        return createActor2.cloneMachineSnapshot(createActor2.createMachineSnapshot({
+        return createActor3.cloneMachineSnapshot(createActor3.createMachineSnapshot({
           context: context && typeof context === "object" ? context : {},
           _nodes: [this.root],
           children: {},
@@ -7384,9 +7701,35 @@ var require_xstate_cjs = __commonJS({
           error
         });
       }
+      _validatePersistedStateValue(stateValue, node, path2) {
+        if (typeof stateValue === "string") {
+          if (!node.states[stateValue]) {
+            throw new InvalidSnapshotError2(`Persisted snapshot references state '${path2.concat(stateValue).join(".")}' which does not exist on ${createActor3.describeMachine(this.id)}.`);
+          }
+          return;
+        }
+        const invalidValue = (reason) => new InvalidSnapshotError2(`Persisted snapshot for ${createActor3.describeMachine(this.id)} has an invalid state value${path2.length ? ` at '${path2.join(".")}'` : ""}: ${reason}.`);
+        if (!stateValue || typeof stateValue !== "object" || Array.isArray(stateValue)) {
+          throw invalidValue("expected a state name or an object of state values");
+        }
+        const keys = Object.keys(stateValue);
+        if (keys.length > 1 && node.type !== "parallel") {
+          throw invalidValue(`state '${path2.length ? path2.join(".") : node.key}' is not parallel, so only one child state can be active`);
+        }
+        for (const key of keys) {
+          const childNode = node.states[key];
+          if (!childNode) {
+            throw new InvalidSnapshotError2(`Persisted snapshot references state '${path2.concat(key).join(".")}' which does not exist on ${createActor3.describeMachine(this.id)}.`);
+          }
+          this._validatePersistedStateValue(stateValue[key], childNode, path2.concat(key));
+        }
+      }
       restoreSnapshot(snapshot, actorScope) {
         const usesInertScope = !actorScope;
-        const resolvedActorScope = actorScope ?? createActor2.createInertActorScope(this);
+        const resolvedActorScope = actorScope ?? createActor3.createInertActorScope(this);
+        if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+          throw new InvalidSnapshotError2(`Persisted snapshot for ${createActor3.describeMachine(this.id)} must be an object.`);
+        }
         const snapshotMachine = snapshot.machine;
         const persistedMachine = snapshotMachine && typeof snapshotMachine === "object" && typeof snapshotMachine.transition === "function" && "root" in snapshotMachine ? void 0 : snapshotMachine;
         const legacyPersistedVersion = snapshot.version;
@@ -7405,6 +7748,14 @@ var require_xstate_cjs = __commonJS({
           snapshot = migrate(snapshot, persistedVersion);
         }
         const snapshotData2 = snapshot;
+        if (!snapshotData2 || typeof snapshotData2 !== "object") {
+          throw new InvalidSnapshotError2(`Persisted snapshot for ${createActor3.describeMachine(this.id)} must be an object.`);
+        }
+        if (snapshotData2.value === void 0) {
+          throw new InvalidSnapshotError2(`Persisted snapshot for ${createActor3.describeMachine(this.id)} has no state value.`);
+        }
+        this._validatePersistedStateValue(snapshotData2.value, this.root, []);
+        const nodes = Array.from(createActor3.getAllStateNodes(createActor3.getStateNodes(this.root, snapshotData2.value)));
         const children = {};
         const snapshotChildren = snapshotData2.children;
         for (const actorId2 of Object.keys(snapshotChildren)) {
@@ -7413,7 +7764,7 @@ var require_xstate_cjs = __commonJS({
             if (typeof actorData.src !== "string") {
               throw new Error(`Unable to restore remote child '${actorId2}': a child referenced by address requires a registered source key.`);
             }
-            const handle2 = createActor2.createRemoteActorRef(resolvedActorScope.system, {
+            const handle2 = createActor3.createRemoteActorRef(resolvedActorScope.system, {
               id: actorId2,
               address: actorData.address,
               src: actorData.src,
@@ -7430,10 +7781,9 @@ var require_xstate_cjs = __commonJS({
           }
           const childState = actorData.snapshot;
           const src3 = actorData.src;
-          const logic = typeof src3 === "string" ? createActor2.resolveReferencedActor(this, src3) : src3;
+          const logic = src3 === void 0 ? createActor3.resolveInvokedActorLogic(this, nodes, actorId2) : typeof src3 === "string" ? this.sources.actors[src3] : src3;
           if (!logic) {
-            const sourceId = typeof src3 === "string" ? src3 : "<unknown>";
-            throw new Error(`Unable to restore child actor '${actorId2}': child source '${sourceId}' is not provided in machine '${this.id}'.`);
+            throw new Error(`Unable to restore child actor '${actorId2}': child source '${typeof src3 === "string" ? src3 : "<inline>"}' is not provided in ${createActor3.describeMachine(this.id)}.`);
           }
           const actor = resolvedActorScope.system.createActorRef(logic, {
             id: actorId2,
@@ -7444,40 +7794,43 @@ var require_xstate_cjs = __commonJS({
             registryKey: actorData.registryKey
           });
           actor._rehydrated = true;
+          if (src3 === void 0) {
+            actor._invoked = true;
+          }
           children[actorId2] = actor;
         }
-        const timers = {};
-        const persistedTimers = snapshotData2.timers ?? {};
-        for (const [id, timer] of Object.entries(persistedTimers)) {
+        const timers = [];
+        const persistedTimers = snapshotData2.timers ?? [];
+        for (const timer of persistedTimers) {
           let event = timer.event;
           if (event.type === "xstate.timeout.actor") {
             const actorId2 = event.actorId;
             const child = children[actorId2];
             if (child) {
-              event = createActor2.createInvokeTimeoutEvent(actorId2, child.sessionId);
+              event = createActor3.createInvokeTimeoutEvent(actorId2, child.sessionId);
             }
           }
-          const target = typeof timer.target === "string" ? timer.target === "self" ? "self" : children[timer.target] : resolvedActorScope.self._parent;
+          const target = typeof timer.target === "string" ? timer.target === "self" ? "self" : children[timer.target] : createActor3.isSerializedActorRef(timer.target) ? timer.target : resolvedActorScope.self._parent;
           if (!target) {
             const targetDescription = typeof timer.target === "string" ? timer.target : timer.target.type;
-            throw new Error(`Unable to restore timer '${id}': target actor '${targetDescription}' is unavailable.`);
+            throw new Error(`Unable to restore timer ${timer.id !== void 0 ? `'${timer.id}'` : `for event '${timer.event.type}'`}: target actor '${targetDescription}' is unavailable.`);
           }
-          timers[id] = {
+          timers.push({
             ...timer,
             event,
             target
-          };
+          });
         }
         const reviveHistoryValue = (historyValue) => {
           if (!historyValue || typeof historyValue !== "object") {
             return {};
           }
-          const revived = {};
+          const revived2 = {};
           for (const key of Object.keys(historyValue)) {
             const arr = historyValue[key];
             for (const item of arr) {
               let resolved;
-              if (item instanceof StateNode2) {
+              if (item instanceof StateNode3) {
                 resolved = item;
               } else {
                 try {
@@ -7488,34 +7841,13 @@ var require_xstate_cjs = __commonJS({
               if (!resolved) {
                 continue;
               }
-              revived[key] ??= [];
-              revived[key].push(resolved);
+              revived2[key] ??= [];
+              revived2[key].push(resolved);
             }
           }
-          return revived;
+          return revived2;
         };
         const revivedHistoryValue = reviveHistoryValue(snapshotData2.historyValue);
-        const validateStateValue = (stateValue, node, path2) => {
-          const missingStateError = (statePath) => new Error(`Persisted snapshot references state '${statePath.join(".")}' which does not exist on machine '${this.id}'.`);
-          if (typeof stateValue === "string") {
-            if (!node.states[stateValue]) {
-              throw missingStateError(path2.concat(stateValue));
-            }
-            return;
-          }
-          if (!stateValue || typeof stateValue !== "object") {
-            return;
-          }
-          for (const key of Object.keys(stateValue)) {
-            const childNode = node.states[key];
-            if (!childNode) {
-              throw missingStateError(path2.concat(key));
-            }
-            validateStateValue(stateValue[key], childNode, path2.concat(key));
-          }
-        };
-        validateStateValue(snapshotData2.value, this.root, []);
-        const nodes = Array.from(createActor2.getAllStateNodes(createActor2.getStateNodes(this.root, snapshotData2.value)));
         const {
           version: _persistedSnapshotVersion,
           // The legacy system-wide counter: superseded by per-snapshot
@@ -7526,7 +7858,7 @@ var require_xstate_cjs = __commonJS({
         } = snapshot;
         let restoredCounters = persistedRest._nextActorIds;
         for (const childId of Object.keys(snapshotChildren)) {
-          const generated = createActor2.parseGeneratedActorId(childId);
+          const generated = createActor3.parseGeneratedActorId(childId);
           if (generated && (restoredCounters?.[generated.prefix] ?? 0) <= generated.index) {
             restoredCounters = {
               ...restoredCounters,
@@ -7534,53 +7866,69 @@ var require_xstate_cjs = __commonJS({
             };
           }
         }
-        const restoredSnapshot = createActor2.createMachineSnapshot({
+        const revived = /* @__PURE__ */ new Map();
+        function reviveContext(value, isRoot = false) {
+          if (!value || typeof value !== "object") {
+            return value;
+          }
+          if (!isRoot && createActor3.isSerializedActorRef(value)) {
+            if (value.incarnation !== void 0) {
+              return value;
+            }
+            return Object.values(children).find((child) => child.address === value.$actor) ?? value;
+          }
+          const proto = Object.getPrototypeOf(value);
+          if (!Array.isArray(value) && proto !== Object.prototype && proto !== null) {
+            return value;
+          }
+          let copy2 = revived.get(value);
+          if (!copy2) {
+            revived.set(value, copy2 = Array.isArray(value) ? [] : Object.create(proto));
+            for (const key of Object.keys(value)) {
+              Object.defineProperty(copy2, key, {
+                value: reviveContext(value[key]),
+                writable: true,
+                enumerable: true,
+                configurable: true
+              });
+            }
+          }
+          return copy2;
+        }
+        const restoredSnapshot = createActor3.createMachineSnapshot({
           ...persistedRest,
+          context: reviveContext(persistedRest.context, true),
           children,
           timers,
           _nextActorIds: restoredCounters,
           _nodes: nodes,
-          value: snapshotData2.value,
+          // Derived from the resolved configuration, so a partial value such as
+          // `{ active: {} }` is completed with initial states and agrees with
+          // `nodes`.
+          value: void 0,
           historyValue: revivedHistoryValue,
-          _stateInputs: snapshotData2.stateInputs ?? {}
+          // Inputs only belong to active states; drop any others.
+          _stateInputs: Object.fromEntries(Object.entries(snapshotData2.stateInputs ?? {}).filter(([id]) => nodes.some((node) => node.id === id)))
         }, this, resolvedActorScope.self);
-        const seen = /* @__PURE__ */ new WeakSet();
-        function reviveContext(contextPart) {
-          if (seen.has(contextPart)) {
-            return;
-          }
-          seen.add(contextPart);
-          for (const key of Object.keys(contextPart)) {
-            const value = contextPart[key];
-            if (value && typeof value === "object") {
-              if ("xstate$type" in value && value.xstate$type === createActor2.ACTOR_REF_TYPE) {
-                contextPart[key] = children[value.id];
-                continue;
-              }
-              reviveContext(value);
-            }
-          }
-        }
-        reviveContext(restoredSnapshot.context);
         if (usesInertScope) {
-          createActor2.setInertActorScopeSnapshot(resolvedActorScope, restoredSnapshot, false);
-          return createActor2.attachSnapshotActorRef(resolvedActorScope, restoredSnapshot);
+          createActor3.setInertActorScopeSnapshot(resolvedActorScope, restoredSnapshot, false);
+          return createActor3.attachSnapshotActorRef(resolvedActorScope, restoredSnapshot);
         }
         return this._attachPureActorRef(restoredSnapshot, resolvedActorScope);
       }
     };
-    function createMachine2(config) {
-      return new StateMachine2(config);
+    function createMachine3(config) {
+      return new StateMachine3(config);
     }
     function createMachineFromCompiledConfig(config, validator) {
-      return new StateMachine2(config, void 0, validator);
+      return new StateMachine3(config, void 0, validator);
     }
-    function createStateConfig2(config) {
+    function createStateConfig3(config) {
       return config;
     }
-    function serializeMachine2(machine) {
+    function machineToJSON2(machine) {
       const json3 = machine._json;
-      return json3 ? cloneJSON(json3) : machineConfigToJSON2(machine.config);
+      return json3 ? cloneJSON(json3) : machineConfigToJSON3(machine.config);
     }
     function cloneJSON(value) {
       if (Array.isArray(value)) {
@@ -7702,7 +8050,7 @@ var require_xstate_cjs = __commonJS({
       }
       return result;
     }
-    function machineConfigToJSON2(config) {
+    function machineConfigToJSON3(config) {
       const result = stateNodeConfigToJSON(config);
       const internalEvents = Object.keys(config.schemas?.internalEvents ?? {});
       delete result.internalEvents;
@@ -7737,7 +8085,7 @@ var require_xstate_cjs = __commonJS({
       return result;
     }
     function delayToMs(delay) {
-      const parsedDelay = createActor2.parseDelayToMilliseconds(delay);
+      const parsedDelay = createActor3.parseDelayToMilliseconds(delay);
       if (parsedDelay !== void 0) return parsedDelay;
       return typeof delay === "string" ? parseFloat(delay) || 0 : delay;
     }
@@ -7920,14 +8268,14 @@ var require_xstate_cjs = __commonJS({
           return;
         }
         const params2 = condition.params;
-        if (condition.type === "xstate.not") {
+        if (condition.type === "@xstate.not") {
           if (!params2?.guard) {
             throw new Error(`Missing guard at ${path2}.params.guard`);
           }
           assertCondition(params2.guard, `${path2}.params.guard`, stack);
           return;
         }
-        if (condition.type === "xstate.stateIn") {
+        if (condition.type === "@xstate.stateIn") {
           if (typeof params2?.stateId === "string") {
             stateIdRefs.push({
               stateId: params2.stateId,
@@ -7969,10 +8317,10 @@ var require_xstate_cjs = __commonJS({
       function assertActions(actions, path2) {
         toActionArray(actions).forEach((action, index3) => assertAction(action, `${path2}[${index3}]`));
       }
-      function assertTransition(transition2, path2) {
-        const transitions = Array.isArray(transition2) ? transition2 : transition2 ? [transition2] : [];
+      function assertTransition(transition3, path2) {
+        const transitions = Array.isArray(transition3) ? transition3 : transition3 ? [transition3] : [];
         transitions.forEach((t, index3) => {
-          const transitionPath = Array.isArray(transition2) ? `${path2}[${index3}]` : path2;
+          const transitionPath = Array.isArray(transition3) ? `${path2}[${index3}]` : path2;
           if (isResolvable(t)) {
             assertResolvable(t, transitionPath);
             return;
@@ -8038,7 +8386,7 @@ var require_xstate_cjs = __commonJS({
         }
         if (node.after) {
           for (const delay of Object.keys(node.after)) {
-            if (Number.isNaN(Number(delay)) && createActor2.parseDelayToMilliseconds(delay) === void 0 && !json3.delays?.[delay] && !resolvedSources.delays[delay]) {
+            if (Number.isNaN(Number(delay)) && createActor3.parseDelayToMilliseconds(delay) === void 0 && !json3.delays?.[delay] && !resolvedSources.delays[delay]) {
               throw new Error(`Missing delay source "${delay}"`);
             }
             assertTransition(node.after[delay], `${path2}.after.${delay}`);
@@ -8051,6 +8399,11 @@ var require_xstate_cjs = __commonJS({
           for (const key of Object.keys(node.states)) {
             assertStateNode(node.states[key], `${path2}.states.${key}`);
           }
+        }
+      }
+      for (const kind of ["actions", "guards", "delays"]) {
+        for (const key of Object.keys(json3[kind] ?? {})) {
+          createActor3.assertUnreservedSourceName(kind, key);
         }
       }
       if (json3.actions) {
@@ -8073,7 +8426,7 @@ var require_xstate_cjs = __commonJS({
       assertStateNode(json3, "$");
       return stateIdRefs;
     }
-    function createMachineFromConfig2(json3, sources = {}) {
+    function machineFromJSON2(json3, sources = {}) {
       json3 = cloneJSON(json3);
       const resolvedSources = mergeSources(json3, sources);
       const expressionResolver = createExpressionResolver(json3["@exprLang"], resolvedSources);
@@ -8088,9 +8441,16 @@ var require_xstate_cjs = __commonJS({
         if (isResolvable(condition)) {
           return (args) => !!evaluateResolvable(condition, slot, makeScope(args), path2);
         }
-        if (condition.type === "xstate.not" && !json3.guards?.[condition.type] && !resolvedSources.guards[condition.type]) {
+        if (condition.type === "@xstate.not") {
           const guard = resolveCondition(condition.params?.guard, slot, `${path2}.params.guard`);
           return (args) => !guard?.(args);
+        }
+        if (condition.type === "@xstate.stateIn") {
+          return (args) => {
+            const params2 = resolveValue2(condition.params, slot, makeScope(args), `${path2}.params`);
+            const stateId = params2?.stateId;
+            return typeof stateId === "string" && !!args._snapshot?.matches(`#${stateId.replace(/^#/, "")}`);
+          };
         }
         return (args) => {
           const params2 = resolveValue2(condition.params, slot, makeScope(args), `${path2}.params`);
@@ -8110,7 +8470,7 @@ var require_xstate_cjs = __commonJS({
         };
       }
       function getMissingGuardMessage(type, guards) {
-        return `Guard '${type}' is not implemented in machine '${json3.id ?? "(machine)"}'. Available guards: ${Object.keys(guards).map((key) => `'${key}'`).join(", ") || "(none)"}.`;
+        return `Guard '${type}' is not implemented in ${json3.id ? `machine '${json3.id}'` : "the machine"}. Available guards: ${Object.keys(guards).map((key) => `'${key}'`).join(", ") || "(none)"}.`;
       }
       function makeChoiceConfig(choice, path2) {
         if (!choice) return void 0;
@@ -8237,10 +8597,10 @@ var require_xstate_cjs = __commonJS({
         const actionArray = toActionArray(actions);
         return (x, enq) => executeActions(actionArray, x, enq, path2);
       }
-      function getTransitionConfig(transition2, path2) {
-        const transitions = Array.isArray(transition2) ? transition2 : [transition2];
+      function getTransitionConfig(transition3, path2) {
+        const transitions = Array.isArray(transition3) ? transition3 : [transition3];
         return transitions.map((item, index3) => {
-          const transitionPath = Array.isArray(transition2) ? `${path2}[${index3}]` : path2;
+          const transitionPath = Array.isArray(transition3) ? `${path2}[${index3}]` : path2;
           if (isResolvable(item)) {
             return (x, enq) => evaluateResolvable(item, "transition", makeScope(x, {
               enq
@@ -8363,20 +8723,7 @@ var require_xstate_cjs = __commonJS({
       const provided = machine.provide({
         actions: resolvedSources.actions,
         actors: resolvedSources.actors,
-        guards: {
-          "xstate.stateIn": (args, params2) => {
-            const stateId = params2?.stateId;
-            const snapshot = args._snapshot;
-            return !!stateId && !!snapshot?.nodes?.some((node) => node.id === stateId.replace(/^#/, ""));
-          },
-          "xstate.not": (args, params2) => {
-            const inner = params2?.guard;
-            const impl = inner && args.guards?.[inner.type];
-            if (!impl) throw new Error(`Guard '${inner?.type}' referenced by 'xstate.not' is not implemented.`);
-            return !impl(args, inner.params);
-          },
-          ...resolvedSources.guards
-        },
+        guards: resolvedSources.guards,
         delays: resolvedSources.delays
       });
       provided._json = json3;
@@ -8397,7 +8744,7 @@ var require_xstate_cjs = __commonJS({
     function isBuiltInActionJSON(action) {
       return !isResolvable(action) && action.type.startsWith("@xstate.");
     }
-    function mapState2(snapshot, mapper) {
+    function mapState3(snapshot, mapper) {
       const results = [];
       const findMapper = (currentMapper, nodePath) => {
         let mapper2 = currentMapper;
@@ -8414,7 +8761,7 @@ var require_xstate_cjs = __commonJS({
         return mapper2;
       };
       const visited2 = /* @__PURE__ */ new Set();
-      for (const atomicNode of snapshot.nodes.filter(createActor2.isAtomicStateNode)) {
+      for (const atomicNode of snapshot.nodes.filter(createActor3.isAtomicStateNode)) {
         let current = atomicNode;
         while (current && !visited2.has(current)) {
           visited2.add(current);
@@ -8442,7 +8789,7 @@ var require_xstate_cjs = __commonJS({
     function hasEventSchema(entry2) {
       return "eventSchema" in entry2 && entry2.eventSchema !== void 0;
     }
-    function getSnapshotSource(raw, defaultId) {
+    function getSnapshotSource(raw) {
       if (!isObject3(raw)) {
         return {};
       }
@@ -8452,10 +8799,7 @@ var require_xstate_cjs = __commonJS({
           version: typeof raw.machine.version === "string" ? raw.machine.version : void 0
         };
       }
-      return {
-        id: typeof raw.version === "string" ? defaultId : void 0,
-        version: typeof raw.version === "string" ? raw.version : void 0
-      };
+      return {};
     }
     async function validate4(schema2, value, description) {
       if (!schema2) {
@@ -8473,8 +8817,7 @@ var require_xstate_cjs = __commonJS({
         machine: {
           id: target.id,
           version: target.version
-        },
-        version: target.version
+        }
       }, `snapshot for machine '${target.id}' version '${target.version}'`);
     }
     async function validateEvents(events, source) {
@@ -8496,7 +8839,7 @@ var require_xstate_cjs = __commonJS({
         return validated;
       }));
     }
-    function machineVersions2(entries2, options2) {
+    function machineVersions3(entries2, options2) {
       const byIdentity = /* @__PURE__ */ new Map();
       const machinesByIdentity = /* @__PURE__ */ new Map();
       const machineId = entries2[0].id;
@@ -8648,7 +8991,7 @@ var require_xstate_cjs = __commonJS({
             }
             throw parseError;
           }
-          const snapshot = await wildcardMigration(raw, getSnapshotSource(raw, machineId));
+          const snapshot = await wildcardMigration(raw, getSnapshotSource(raw));
           return finalizeSnapshot(snapshot, target);
         }
       };
@@ -8656,13 +8999,13 @@ var require_xstate_cjs = __commonJS({
     function hotSwapActorLogic(actorRef, machine) {
       const actor = actorRef;
       const snapshot = actor.getSnapshot();
-      if (actor._processingStatus !== createActor2.ProcessingStatus.Running || snapshot.status !== "active" || snapshot.machine?.id !== machine.id) {
+      if (actor._processingStatus !== createActor3.ProcessingStatus.Running || snapshot.status !== "active" || snapshot.machine?.id !== machine.id) {
         return false;
       }
       let nodes;
       const historyValue = {};
       try {
-        nodes = [...createActor2.getAllStateNodes(createActor2.getStateNodes(machine.root, snapshot.value))];
+        nodes = [...createActor3.getAllStateNodes(createActor3.getStateNodes(machine.root, snapshot.value))];
         for (const [key, items] of Object.entries(snapshot.historyValue ?? {})) {
           if (machine.getStateNodeById(key).type !== "history") {
             return false;
@@ -8678,13 +9021,14 @@ var require_xstate_cjs = __commonJS({
         if (!child) {
           continue;
         }
-        if (typeof child.src !== "string") {
+        const invoked = typeof child.src !== "string" && child._invoked === true && snapshot.nodes.some((node) => node.invoke.some((definition) => definition.id === childId));
+        if (typeof child.src !== "string" && !invoked) {
           children[childId] = child;
           continue;
         }
         let logic;
         try {
-          logic = createActor2.resolveReferencedActor(machine, child.src);
+          logic = typeof child.src === "string" ? machine.sources.actors[child.src] : createActor3.resolveInvokedActorLogic(machine, nodes, childId);
         } catch {
         }
         if (!logic || typeof logic === "function") {
@@ -8697,10 +9041,10 @@ var require_xstate_cjs = __commonJS({
         }
       }
       const restarting = new Set(restarts.map(([, child]) => child));
-      if (restarting.size && (Object.values(snapshot.timers ?? {}).some((timer) => restarting.has(timer.target)) || holdsActorRef(snapshot.context, restarting))) {
+      if (restarting.size && ((snapshot.timers ?? []).some((timer) => restarting.has(timer.target)) || holdsActorRef(snapshot.context, restarting))) {
         return false;
       }
-      const buildSnapshot = () => createActor2.createMachineSnapshot({
+      const buildSnapshot = () => createActor3.createMachineSnapshot({
         ...snapshot,
         _nodes: nodes,
         value: void 0,
@@ -8721,10 +9065,11 @@ var require_xstate_cjs = __commonJS({
           id: childId,
           parent: actor,
           syncSnapshot: child._syncSnapshot,
-          src: child.src,
+          src: typeof child.src === "string" ? child.src : void 0,
           registryKey: child.registryKey,
           input: child.options?.input
         });
+        children[childId]._invoked = child._invoked;
       }
       if (actor.src === actor.logic) {
         actor.src = machine;
@@ -8743,14 +9088,14 @@ var require_xstate_cjs = __commonJS({
         return false;
       }
       visited2.add(value);
-      if (createActor2.isActorRefLike(value)) {
+      if (createActor3.isActorRefLike(value)) {
         return refs.has(value);
       }
       const proto = Object.getPrototypeOf(value);
       const items = value instanceof Map || value instanceof Set ? [...value.values()] : Array.isArray(value) || proto === Object.prototype || proto === null ? Object.values(value) : [];
       return items.some((item) => holdsActorRef(item, refs, visited2));
     }
-    var setup2 = function setupImplementation(config = {}) {
+    var setup3 = function setupImplementation(config = {}) {
       const {
         validator,
         states = {},
@@ -8762,7 +9107,7 @@ var require_xstate_cjs = __commonJS({
       } = config;
       return {
         extend(extension) {
-          return setup2(mergeSetupConfigs(config, extension));
+          return setup3(mergeSetupConfigs(config, extension));
         },
         createMachine(machineConfig) {
           const configSchemas = machineConfig.schemas;
@@ -8793,7 +9138,7 @@ var require_xstate_cjs = __commonJS({
               delays: mergedDelays
             } : void 0
           };
-          return new StateMachine2(config2, void 0, validator);
+          return new StateMachine3(config2, void 0, validator);
         },
         createInvoke(invokeConfig, ..._check) {
           return typeof invokeConfig.src === "function" ? {
@@ -8811,7 +9156,7 @@ var require_xstate_cjs = __commonJS({
         schemas: schemas ?? {}
       };
     };
-    function createSystem2(_config = {}) {
+    function createSystem3(_config = {}) {
       const runtimeRef = {};
       const pending = [];
       const flushObservers = () => {
@@ -8844,7 +9189,7 @@ var require_xstate_cjs = __commonJS({
       };
       return {
         createActor(logic, ...[options2]) {
-          const actor = createActor2.createActor(logic, {
+          const actor = createActor3.createActor(logic, {
             ...options2,
             _systemRef: runtimeRef
           });
@@ -8863,7 +9208,7 @@ var require_xstate_cjs = __commonJS({
         onRejectedEvent(listener) {
           return subscribeToSystem((system) => system.onRejectedEvent(listener));
         },
-        setup: setup2
+        setup: setup3
       };
     }
     function mergeMaps(left, right) {
@@ -9011,7 +9356,7 @@ var require_xstate_cjs = __commonJS({
         this.indices.set(entry2, index3);
       }
     };
-    var SimulatedClock2 = class {
+    var SimulatedClock3 = class {
       constructor() {
         this.timeouts = /* @__PURE__ */ new Map();
         this.deadlines = new IndexedHeap((a, b) => {
@@ -9076,11 +9421,15 @@ var require_xstate_cjs = __commonJS({
         this.set(this._now + ms);
       }
     };
-    function timerKey(source, id) {
-      return JSON.stringify([source.$actor, source.incarnation, id]);
+    function systemTimerKey(source, event) {
+      const key = event.type === "xstate.timer" ? createActor3.readTimerKey(event) : void 0;
+      return JSON.stringify([source.$actor, source.incarnation, key ? createActor3.serializeTimerKey(key) : event.type]);
+    }
+    function isLogicalTimerPending(snapshot, key) {
+      return (snapshot.timers ?? []).some((timer) => createActor3.matchesTimerKey(timer, key));
     }
     function isReference(value) {
-      return !!value && typeof value.$actor === "string" && Number.isSafeInteger(value.incarnation);
+      return !!value && typeof value.$actor === "string" && typeof value.incarnation === "string";
     }
     function isHandle(value) {
       return !!value && typeof value.address === "string" && typeof value.getSnapshot === "function";
@@ -9096,7 +9445,7 @@ var require_xstate_cjs = __commonJS({
         if (!value[systemActorHandle]) throw new Error("Live actors cannot be stored in a pure system snapshot.");
         return {
           $actor: value.address,
-          incarnation: Number(value.sessionId)
+          incarnation: value.sessionId
         };
       }
       if (!value || typeof value !== "object") {
@@ -9127,7 +9476,7 @@ var require_xstate_cjs = __commonJS({
       return result;
     }
     function snapshotData(snapshot, mappers) {
-      if (!createActor2.isMachineSnapshot(snapshot)) return encode8(snapshot, /* @__PURE__ */ new Set(), mappers);
+      if (!createActor3.isMachineSnapshot(snapshot)) return encode8(snapshot, /* @__PURE__ */ new Set(), mappers);
       const {
         machine,
         nodes,
@@ -9154,20 +9503,20 @@ var require_xstate_cjs = __commonJS({
         visited2.add(logic);
         const machine = logic;
         for (const [name, child] of Object.entries(machine.sources?.actors ?? {})) {
-          add2(`${key}/actors/${createActor2.encodeAddressSegment(name)}`, child);
+          add2(`${key}/actors/${createActor3.encodeAddressSegment(name)}`, child);
         }
         function visit(node) {
           for (const invoke of node.invoke ?? []) {
-            if (typeof invoke.logic === "object") add2(`${key}/invoke/${createActor2.encodeAddressSegment(node.id)}/${createActor2.encodeAddressSegment(invoke.id)}`, invoke.logic);
+            if (typeof invoke.logic === "object") add2(`${key}/invoke/${createActor3.encodeAddressSegment(node.id)}/${createActor3.encodeAddressSegment(invoke.id)}`, invoke.logic);
           }
           for (const child of Object.values(node.states ?? {})) visit(child);
         }
         if (machine.root) visit(machine.root);
       }
       add2("root", systemLogic.root);
-      for (const [key, logic] of Object.entries(systemLogic.actors ?? {})) add2(`actors/${createActor2.encodeAddressSegment(key)}`, logic);
-      add2("xstate.listener", createActor2.listenerLogic);
-      add2("xstate.subscription", createActor2.subscriptionLogic);
+      for (const [key, logic] of Object.entries(systemLogic.actors ?? {})) add2(`actors/${createActor3.encodeAddressSegment(key)}`, logic);
+      add2("@xstate.listener", createActor3.listenerLogic);
+      add2("@xstate.subscription", createActor3.subscriptionLogic);
       return result;
     }
     var SystemReduction = class {
@@ -9180,7 +9529,7 @@ var require_xstate_cjs = __commonJS({
         this.initialEffects = /* @__PURE__ */ new Map();
         this.stopping = /* @__PURE__ */ new Set();
         this.deadlines = new IndexedHeap((a, b) => a.dueAt < b.dueAt || a.dueAt === b.dueAt && a.sequence < b.sequence);
-        this.effectNames = /* @__PURE__ */ new Map([[systemLogger, "xstate.log"]]);
+        this.effectNames = /* @__PURE__ */ new Map([[systemLogger, "@xstate.log"]]);
         this.mapperNames = void 0;
         this.mappers = void 0;
         this.remaining = void 0;
@@ -9191,7 +9540,7 @@ var require_xstate_cjs = __commonJS({
         for (const [key, implementation] of Object.entries(logic.effects ?? {})) this.effectNames.set(implementation, key);
         for (const [key, definition] of this.logic) {
           for (const [name, implementation] of Object.entries(definition.sources?.actions ?? {})) {
-            if (typeof implementation === "function" && !this.effectNames.has(implementation)) this.effectNames.set(implementation, `${key}/actions/${createActor2.encodeAddressSegment(name)}`);
+            if (typeof implementation === "function" && !this.effectNames.has(implementation)) this.effectNames.set(implementation, `${key}/actions/${createActor3.encodeAddressSegment(name)}`);
           }
         }
         this.snapshot = {
@@ -9199,9 +9548,7 @@ var require_xstate_cjs = __commonJS({
           actors: Object.assign(/* @__PURE__ */ Object.create(null), snapshot.actors),
           registry: Object.assign(/* @__PURE__ */ Object.create(null), snapshot.registry),
           messages: [...snapshot.messages],
-          timers: {
-            ...snapshot.timers
-          },
+          timers: Object.fromEntries(snapshot.timers.map((timer) => [systemTimerKey(timer.source, timer.event), timer])),
           externalEffects: {
             ...snapshot.externalEffects
           },
@@ -9210,7 +9557,7 @@ var require_xstate_cjs = __commonJS({
           }
         };
         this.remaining = maxSteps;
-        for (const timer of Object.values(snapshot.timers)) this.deadlines.push(timer);
+        for (const timer of snapshot.timers) this.deadlines.push(timer);
       }
       step() {
         if (--this.remaining < 0) throw new Error("System transition exceeded maxSteps; the input snapshot is unchanged.");
@@ -9218,7 +9565,7 @@ var require_xstate_cjs = __commonJS({
       reference(actor) {
         return {
           $actor: actor.address,
-          incarnation: Number(actor.sessionId)
+          incarnation: actor.sessionId
         };
       }
       current(ref) {
@@ -9247,18 +9594,18 @@ var require_xstate_cjs = __commonJS({
         return encode8(value, /* @__PURE__ */ new Set(), this.mapperNames);
       }
       attachedKind(actor) {
-        return this.logic.get(actor.logic)?.[createActor2.systemLogicMetadata]?.kind;
+        return this.logic.get(actor.src)?.[createActor3.systemLogicMetadata]?.kind;
       }
       relayAttachments(source, emitted) {
         for (const actor of Object.values(this.snapshot.actors)) {
           const kind = this.attachedKind(actor);
-          if (!actor.started || actor.snapshot.status !== "active" || kind !== "xstate.listener" && kind !== "xstate.subscription") continue;
+          if (!actor.started || actor.snapshot.status !== "active" || kind !== "@xstate.listener" && kind !== "@xstate.subscription") continue;
           const target = actor.input.actor;
           if (!target || target.$actor !== source.$actor || target.incarnation !== source.incarnation || !actor.parent || this.current(actor.parent)?.snapshot.status !== "active") continue;
           const input = this.decode(actor.input);
           let event;
-          if (kind === "xstate.listener") {
-            if (emitted && createActor2.matchesEventDescriptor(emitted.type, input.eventType)) event = input.mapper(this.decode(this.encode(emitted)));
+          if (kind === "@xstate.listener") {
+            if (emitted && createActor3.matchesEventDescriptor(emitted.type, input.eventType)) event = input.mapper(this.decode(this.encode(emitted)));
           } else if (!emitted) {
             const snapshot = this.hydrate(source);
             const mapper = input.mappers[snapshot.status === "active" ? "snapshot" : snapshot.status === "done" ? "done" : snapshot.status === "error" ? "error" : ""];
@@ -9273,7 +9620,7 @@ var require_xstate_cjs = __commonJS({
       stopAttachments(parent) {
         for (const actor of Object.values(this.snapshot.actors)) {
           const kind = this.attachedKind(actor);
-          if ((kind === "xstate.listener" || kind === "xstate.subscription") && actor.parent?.$actor === parent.$actor && actor.parent.incarnation === parent.incarnation) this.stop({
+          if ((kind === "@xstate.listener" || kind === "@xstate.subscription") && actor.parent?.$actor === parent.$actor && actor.parent.incarnation === parent.incarnation) this.stop({
             $actor: actor.address,
             incarnation: actor.incarnation
           });
@@ -9288,10 +9635,10 @@ var require_xstate_cjs = __commonJS({
           output: void 0,
           error: void 0
         };
-        const logic = this.logic.get(actor.logic);
+        const logic = this.logic.get(actor.src);
         if (!logic || logic.version !== actor.logicVersion) throw new Error(`Actor definition/version mismatch for '${actor.address}'.`);
         const data = this.decode(actor.snapshot, logic);
-        const snapshot = typeof logic.getStateNodeById === "function" && data.nodeIds ? createActor2.createMachineSnapshot({
+        const snapshot = typeof logic.getStateNodeById === "function" && data.nodeIds ? createActor3.createMachineSnapshot({
           ...data,
           _nodes: data.nodeIds.map((id) => logic.getStateNodeById(id))
         }, logic) : data;
@@ -9304,7 +9651,7 @@ var require_xstate_cjs = __commonJS({
         if (existing) return existing;
         const actor = this.current(ref);
         const getState = () => this.current(ref) ?? actor;
-        const getLogic = () => this.logic.get(getState()?.logic ?? "");
+        const getLogic = () => this.logic.get(getState()?.src ?? "");
         const getParent = () => {
           const parent = getState()?.parent;
           return parent && this.handle(parent);
@@ -9317,7 +9664,7 @@ var require_xstate_cjs = __commonJS({
           [systemActorHandle]: true,
           id: actor?.id ?? ref.$actor.split("/").at(-1),
           address: ref.$actor,
-          sessionId: String(ref.incarnation),
+          sessionId: ref.incarnation,
           options: {
             _inert: true,
             input: actor?.input
@@ -9326,7 +9673,7 @@ var require_xstate_cjs = __commonJS({
             return getLogic();
           },
           get src() {
-            return getState()?.logic;
+            return getState()?.src;
           },
           get registryKey() {
             return getState()?.registryKey;
@@ -9355,8 +9702,15 @@ var require_xstate_cjs = __commonJS({
           _unregister: (actor) => {
             this.stopping.add(JSON.stringify(this.reference(actor)));
             for (const [key, ref] of Object.entries(this.snapshot.registry)) {
-              if (ref.$actor === actor.address && String(ref.incarnation) === actor.sessionId) delete this.snapshot.registry[key];
+              if (ref.$actor === actor.address && ref.incarnation === actor.sessionId) delete this.snapshot.registry[key];
             }
+          },
+          _getByAddress: (address) => {
+            const actor = this.snapshot.actors[address];
+            return actor?.snapshot.status === "active" ? this.handle({
+              $actor: address,
+              incarnation: actor.incarnation
+            }) : void 0;
           },
           get: (key) => this.snapshot.registry[key] && this.handle(this.snapshot.registry[key]),
           getAll: () => Object.fromEntries(Object.entries(this.snapshot.registry).map(([key, ref]) => [key, this.handle(ref)])),
@@ -9401,8 +9755,8 @@ var require_xstate_cjs = __commonJS({
         const definition = [...this.logic].find(([, value]) => value === logic);
         if (!definition) throw new Error("Register dynamically spawned logic in systemLogic.actors.");
         const parent = options2.parent && this.reference(options2.parent);
-        const id = options2.id ?? `${createActor2.getActorIdPrefix(options2.src ?? logic)}:${this.snapshot.counters.actor}`;
-        const address = `${parent ? parent.$actor + "/" : ""}${createActor2.encodeAddressSegment(id)}`;
+        const id = options2.id ?? `${createActor3.getActorIdPrefix(options2.src ?? logic)}:${this.snapshot.counters.actor}`;
+        const address = `${parent ? parent.$actor + "/" : ""}${createActor3.encodeAddressSegment(id)}`;
         const occupied = this.snapshot.actors[address];
         if (occupied?.snapshot.status === "active") {
           const previous2 = {
@@ -9412,7 +9766,7 @@ var require_xstate_cjs = __commonJS({
           if (!this.stopping.has(JSON.stringify(previous2))) throw new Error(`Actor address '${address}' is already occupied.`);
           this.stop(previous2);
         }
-        const incarnation = this.snapshot.counters.actor++;
+        const incarnation = String(this.snapshot.counters.actor++);
         const ref = {
           $actor: address,
           incarnation
@@ -9421,7 +9775,7 @@ var require_xstate_cjs = __commonJS({
           id,
           address,
           incarnation,
-          logic: definition[0],
+          src: definition[0],
           ...logic.version !== void 0 && {
             logicVersion: logic.version
           },
@@ -9443,7 +9797,7 @@ var require_xstate_cjs = __commonJS({
         }
         const scope = this.scope(ref);
         const result = logic.initialTransition(this.decode(state3.input), scope);
-        const [snapshot, effects] = createActor2.finalizeTransitionResult(scope, void 0, result);
+        const [snapshot, effects] = createActor3.finalizeTransitionResult(scope, void 0, result);
         this.store(ref, snapshot);
         this.initialEffects.set(JSON.stringify(ref), effects);
         return this.handle(ref);
@@ -9460,7 +9814,7 @@ var require_xstate_cjs = __commonJS({
       external(ref, effect) {
         const value = effect;
         if (value.kind === "action" && value.action === void 0) return;
-        const type = value.kind === "action" && !value.type.startsWith("xstate.logic.") ? this.effectNames.get(value.action) : value.type;
+        const type = value.kind === "action" && value.type !== "@xstate.effect" && value.type !== "@xstate.cleanup" ? this.effectNames.get(value.action) : value.type;
         if (type === void 0) throw new Error("Register callable external actions in systemLogic.effects or the machine action sources.");
         const id = `${this.snapshot.executionId}:${this.snapshot.counters.effect++}`;
         const params2 = typeof value.params?.action === "function" ? Object.fromEntries(Object.entries(value.params).filter(([key]) => key !== "action" && key !== "args")) : value.params;
@@ -9468,7 +9822,7 @@ var require_xstate_cjs = __commonJS({
           id,
           source: ref,
           type,
-          kind: value.kind === "emit" ? "emit" : value.type === "@xstate.deadLetter" ? "deadLetter" : "action",
+          kind: value.kind === "emit" ? "emit" : value.type === "@xstate.deadLetter" ? "builtin" : "action",
           ...params2 !== void 0 && {
             params: this.encode(params2)
           },
@@ -9495,9 +9849,13 @@ var require_xstate_cjs = __commonJS({
           }
         });
       }
-      cancel(ref, id) {
-        for (const [key, timer] of Object.entries(this.snapshot.timers)) {
-          if (timer.source.$actor === ref.$actor && timer.source.incarnation === ref.incarnation && (id === void 0 || timer.id === id)) delete this.snapshot.timers[key];
+      cancel(ref, key) {
+        const cancelled = key && systemTimerKey(ref, {
+          type: "xstate.timer",
+          ...key
+        });
+        for (const [timerKey, timer] of Object.entries(this.snapshot.timers)) {
+          if (timer.source.$actor === ref.$actor && timer.source.incarnation === ref.incarnation && (cancelled === void 0 || timerKey === cancelled)) delete this.snapshot.timers[timerKey];
         }
       }
       effectsFor(ref, effects) {
@@ -9514,19 +9872,36 @@ var require_xstate_cjs = __commonJS({
             case "@xstate.start":
               this.start(this.reference(value.actor));
               break;
-            case "@xstate.stop":
+            case createActor3.XSTATE_STOP_EFFECT:
               this.stop(this.reference(value.actor));
               break;
             case "@xstate.cancel":
-              this.cancel(ref, value.id);
+              this.cancel(ref, createActor3.readTimerKey(value));
               break;
             case "@xstate.raise":
             case "@xstate.sendTo": {
               if (value.delay !== void 0) {
                 if (!Number.isFinite(value.delay) || value.delay < 0) throw new Error("System timer delays must be finite and nonnegative.");
-                const timer = this.current(ref)?.snapshot.timers?.[value.id];
-                if (!timer) break;
-                this.schedule(ref, value.id, value.delay);
+                const key = createActor3.getTimerKey(value);
+                const actor = this.current(ref);
+                if (!actor || !isLogicalTimerPending(actor.snapshot, key)) break;
+                this.schedule(ref, value.delay, {
+                  type: "xstate.timer",
+                  ...key
+                });
+              } else if (createActor3.isSerializedActorRef(value.target)) {
+                const target = this.snapshot.actors[value.target.$actor];
+                if (target?.snapshot.status === "active" && (value.target.incarnation === void 0 || value.target.incarnation === target.incarnation)) this.enqueue(ref, {
+                  $actor: target.address,
+                  incarnation: target.incarnation
+                }, value.event);
+                else this.external(ref, {
+                  kind: "builtin",
+                  type: "@xstate.deadLetter",
+                  event: value.event,
+                  reason: "missingTarget",
+                  args: []
+                });
               } else if (value.target) this.enqueue(ref, this.reference(value.target), value.event);
               break;
             }
@@ -9538,21 +9913,20 @@ var require_xstate_cjs = __commonJS({
           }
         }
       }
-      schedule(ref, id, delay, event) {
+      schedule(ref, delay, event) {
         const dueAt = this.snapshot.now + delay;
         if (!Number.isFinite(delay) || delay < 0 || !Number.isFinite(dueAt)) throw new Error("System timer deadlines must be finite and delays nonnegative.");
         const timer = {
           source: ref,
-          id,
           occurrence: this.snapshot.counters.timer++,
           scheduledAt: this.snapshot.now,
           dueAt,
           sequence: this.snapshot.counters.sequence++,
-          ...event && {
-            event: this.encode(event)
-          }
+          event: this.encode(event)
         };
-        this.snapshot.timers[timerKey(ref, id)] = timer;
+        const key = systemTimerKey(ref, event);
+        delete this.snapshot.timers[key];
+        this.snapshot.timers[key] = timer;
         this.deadlines.push(timer);
       }
       start(ref) {
@@ -9564,7 +9938,7 @@ var require_xstate_cjs = __commonJS({
         };
         this.effectsFor(ref, this.initialEffects.get(JSON.stringify(ref)) ?? []);
         this.initialEffects.delete(JSON.stringify(ref));
-        if (this.attachedKind(actor) === "xstate.subscription") {
+        if (this.attachedKind(actor) === "@xstate.subscription") {
           const input = this.decode(actor.input);
           const target = this.reference(input.actor);
           const observed = this.current(target);
@@ -9573,11 +9947,11 @@ var require_xstate_cjs = __commonJS({
           }
         }
         if (this.current(ref)?.snapshot.status === "active") this.relayAttachments(ref);
-        const metadata = this.logic.get(actor.logic)[createActor2.systemLogicMetadata];
+        const metadata = this.logic.get(actor.src)[createActor3.systemLogicMetadata];
         if (metadata?.timeout !== void 0 && this.current(ref)?.snapshot.status === "active") {
-          const delay = createActor2.parseDelayToMilliseconds(metadata.timeout);
+          const delay = createActor3.parseDelayToMilliseconds(metadata.timeout);
           if (delay === void 0) throw new Error("Unable to resolve async actor timeout.");
-          this.schedule(ref, "xstate.async.timeout", delay, {
+          this.schedule(ref, delay, {
             type: "xstate.async.reject",
             data: new dist_xstateActors.TimeoutError(metadata.timeout)
           });
@@ -9590,7 +9964,7 @@ var require_xstate_cjs = __commonJS({
           source: ref,
           target: ref,
           event: {
-            type: "@xstate.stop"
+            type: createActor3.XSTATE_STOP
           },
           sequence: this.snapshot.counters.sequence++
         });
@@ -9602,13 +9976,13 @@ var require_xstate_cjs = __commonJS({
       }
       cancelExternal(ref) {
         for (const [id, effect] of Object.entries(this.snapshot.externalEffects)) {
-          if (effect.kind !== "action" || effect.type === "xstate.system.cancelEffect" || effect.type === "xstate.logic.cleanup" || effect.source.$actor !== ref.$actor || effect.source.incarnation !== ref.incarnation) continue;
+          if (effect.kind !== "action" || effect.type === "@xstate.cancelEffect" || effect.type === "@xstate.cleanup" || effect.source.$actor !== ref.$actor || effect.source.incarnation !== ref.incarnation) continue;
           delete this.snapshot.externalEffects[id];
           const cancellation = {
             id: `${this.snapshot.executionId}:${this.snapshot.counters.effect++}`,
             source: ref,
             kind: "action",
-            type: "xstate.system.cancelEffect",
+            type: "@xstate.cancelEffect",
             params: {
               effectId: id
             }
@@ -9625,7 +9999,7 @@ var require_xstate_cjs = __commonJS({
         this.cancelExternal(ref);
         this.stopAttachments(ref);
         if (actor.parent) {
-          const event = actor.snapshot.status === "done" ? createActor2.createDoneActorEvent(actor.id, this.decode(actor.snapshot.output), String(actor.incarnation)) : createActor2.createErrorActorEvent(actor.id, this.decode(actor.snapshot.error), String(actor.incarnation));
+          const event = actor.snapshot.status === "done" ? createActor3.createDoneActorEvent(actor.id, this.decode(actor.snapshot.output), actor.incarnation) : createActor3.createErrorActorEvent(actor.id, this.decode(actor.snapshot.error), actor.incarnation);
           this.enqueue(ref, actor.parent, event);
         }
       }
@@ -9636,15 +10010,15 @@ var require_xstate_cjs = __commonJS({
         if (message.event.type === "xstate.timer" && message.timerOccurrence === void 0) {
           throw new Error("Only the system scheduler may deliver a timer occurrence.");
         }
-        const logic = this.logic.get(actor.logic);
-        if (!logic) throw new Error(`Missing actor definition '${actor.logic}'.`);
+        const logic = this.logic.get(actor.src);
+        if (!logic) throw new Error(`Missing actor definition '${actor.src}'.`);
         if (logic.isInternalEventType?.(message.event.type) && (!message.source || message.source.$actor !== actor.address || message.source.incarnation !== actor.incarnation)) {
           throw new Error(`Internal event '${message.event.type}' cannot be injected into a pure system.`);
         }
         if (!message.source && /^(xstate\.after(?:\.|$)|xstate\.timeout(?:\.|$))/.test(message.event.type)) throw new Error("Select a pending timer instead of injecting its internal event.");
         const scope = this.scope(message.target, message.source);
         const previous2 = this.hydrate(message.target);
-        const [snapshot, effects] = createActor2.finalizeTransitionResult(scope, previous2, logic.transition(previous2, this.decode(message.event), scope));
+        const [snapshot, effects] = createActor3.finalizeTransitionResult(scope, previous2, logic.transition(previous2, this.decode(message.event), scope));
         this.store(message.target, snapshot);
         this.effectsFor(message.target, effects);
         if (snapshot.status === "active") this.relayAttachments(message.target);
@@ -9652,10 +10026,16 @@ var require_xstate_cjs = __commonJS({
           this.enqueue(message.target, actor.parent, {
             type: "xstate.snapshot.actor",
             actorId: actor.id,
-            sessionId: String(actor.incarnation),
+            sessionId: actor.incarnation,
             snapshot: snapshotData(snapshot, this.mapperNames)
           });
         }
+      }
+      result() {
+        return {
+          ...this.snapshot,
+          timers: Object.values(this.snapshot.timers)
+        };
       }
       settle() {
         while (this.snapshot.messages.length) {
@@ -9668,21 +10048,19 @@ var require_xstate_cjs = __commonJS({
         this.settle();
         while (true) {
           const timer = this.deadlines.peek();
-          if (timer && this.snapshot.timers[timerKey(timer.source, timer.id)] !== timer) {
+          if (timer && this.snapshot.timers[systemTimerKey(timer.source, timer.event)] !== timer) {
             this.deadlines.pop();
             continue;
           }
           if (!timer || timer.dueAt > time) break;
           this.step();
           this.deadlines.pop();
-          delete this.snapshot.timers[timerKey(timer.source, timer.id)];
+          delete this.snapshot.timers[systemTimerKey(timer.source, timer.event)];
           this.snapshot.now = Math.max(this.snapshot.now, timer.dueAt);
           const actor = this.current(timer.source);
-          if (!actor || actor.snapshot.status !== "active" || !timer.event && !actor.snapshot.timers?.[timer.id]) continue;
-          this.enqueue(timer.source, timer.source, timer.event ?? {
-            type: "xstate.timer",
-            id: timer.id
-          }, timer.occurrence);
+          const key = timer.event.type === "xstate.timer" ? createActor3.readTimerKey(timer.event) : void 0;
+          if (!actor || actor.snapshot.status !== "active" || key && !isLogicalTimerPending(actor.snapshot, key)) continue;
+          this.enqueue(timer.source, timer.source, timer.event, timer.occurrence);
           this.settle();
         }
         this.snapshot.now = time;
@@ -9691,11 +10069,8 @@ var require_xstate_cjs = __commonJS({
         if (event.type === "xstate.timer") {
           const actor2 = this.snapshot.actors[path2];
           if (!actor2) throw new Error(`Unknown actor address '${path2}'.`);
-          const timer = this.snapshot.timers[timerKey({
-            $actor: path2,
-            incarnation: actor2.incarnation
-          }, event.id)];
-          if (!timer || event.occurrence !== timer.occurrence) throw new Error("Select a current timer occurrence.");
+          const timer = Object.values(this.snapshot.timers).find((pending) => pending.source.$actor === path2 && pending.source.incarnation === actor2.incarnation && pending.occurrence === event.occurrence);
+          if (!timer) throw new Error("Select a current timer occurrence.");
           this.advance(timer.dueAt);
           return;
         }
@@ -9708,7 +10083,7 @@ var require_xstate_cjs = __commonJS({
         };
         if (event.type === "xstate.system.effect.result") {
           const effect = this.snapshot.externalEffects[event.effectId];
-          if (!effect || effect.source.$actor !== path2 || event.event && (effect.source.incarnation !== actor.incarnation || actor.snapshot.status !== "active" || effect.type === "xstate.system.cancelEffect" || effect.type === "xstate.logic.cleanup")) throw new Error("External effect result does not match its owner or is stale.");
+          if (!effect || effect.source.$actor !== path2 || event.event && (effect.source.incarnation !== actor.incarnation || actor.snapshot.status !== "active" || effect.type === "@xstate.cancelEffect" || effect.type === "@xstate.cleanup")) throw new Error("External effect result does not match its owner or is stale.");
           delete this.snapshot.externalEffects[event.effectId];
           if (event.event) {
             this.enqueue(ref, ref, event.event);
@@ -9716,7 +10091,7 @@ var require_xstate_cjs = __commonJS({
           }
           return;
         }
-        if (event.type === "@xstate.stop") {
+        if (event.type === createActor3.XSTATE_STOP) {
           this.stop(ref);
           this.settle();
           return;
@@ -9736,7 +10111,7 @@ var require_xstate_cjs = __commonJS({
         this.settle();
       }
     };
-    function initialSystemTransition2(systemLogic, options2 = {}) {
+    function initialSystemTransition3(systemLogic, options2 = {}) {
       const now2 = options2.time ?? 0;
       if (!Number.isFinite(now2) || now2 < 0) throw new Error("Initial system time must be finite and nonnegative.");
       const reduction = new SystemReduction(systemLogic, {
@@ -9746,7 +10121,7 @@ var require_xstate_cjs = __commonJS({
         actors: {},
         registry: {},
         messages: [],
-        timers: {},
+        timers: [],
         externalEffects: {},
         counters: {
           actor: 0,
@@ -9756,19 +10131,19 @@ var require_xstate_cjs = __commonJS({
         }
       }, options2.maxSteps);
       reduction.initialize(options2.input, options2.id ?? systemLogic.root.id ?? "root", options2.registryKey);
-      return [reduction.snapshot, reduction.effects];
+      return [reduction.result(), reduction.effects];
     }
-    function systemTransition2(systemLogic, snapshot, actorPath, event) {
+    function systemTransition3(systemLogic, snapshot, actorPath, event) {
       const reduction = new SystemReduction(systemLogic, snapshot);
       reduction.send(actorPath, event);
-      return [reduction.snapshot, reduction.effects];
+      return [reduction.result(), reduction.effects];
     }
-    function advanceSystemTime2(systemLogic, snapshot, options2) {
+    function advanceSystemTime3(systemLogic, snapshot, options2) {
       const reduction = new SystemReduction(systemLogic, snapshot, options2.maxSteps);
       reduction.advance(options2.time);
-      return [reduction.snapshot, reduction.effects];
+      return [reduction.result(), reduction.effects];
     }
-    function toPromise2(actor) {
+    function toPromise3(actor) {
       return new Promise((resolve2, reject) => {
         actor.subscribe({
           complete: () => {
@@ -9778,15 +10153,11 @@ var require_xstate_cjs = __commonJS({
         });
       });
     }
-    var SpecialTargets2 = /* @__PURE__ */ (function(SpecialTargets3) {
-      SpecialTargets3["Internal"] = "#_internal";
-      return SpecialTargets3;
-    })({});
     var defaultWaitForOptions = {
       timeout: Infinity
       // much more than 10 seconds
     };
-    function waitFor3(actorRef, predicate, options2) {
+    function waitFor4(actorRef, predicate, options2) {
       const resolvedOptions = {
         ...defaultWaitForOptions,
         ...options2
@@ -9852,69 +10223,64 @@ var require_xstate_cjs = __commonJS({
     exports.createCallbackLogic = dist_xstateActors.createCallbackLogic;
     exports.createEmptyActor = dist_xstateActors.createEmptyActor;
     exports.createEventObservableLogic = dist_xstateActors.createEventObservableLogic;
-    exports.createLogic = dist_xstateActors.createLogic;
     exports.createObservableLogic = dist_xstateActors.createObservableLogic;
-    exports.Actor = createActor2.Actor;
-    exports.InfiniteTransitionError = createActor2.InfiniteTransitionError;
-    exports.__unsafe_getAllOwnEventDescriptors = createActor2.getAllOwnEventDescriptors;
-    exports._parseDelayToMilliseconds = createActor2.parseDelayToMilliseconds;
-    exports.checkStateIn = createActor2.checkStateIn;
-    exports.createActor = createActor2.createActor;
-    exports.createListenerLogic = createActor2.createListenerLogic;
-    exports.createSubscriptionLogic = createActor2.createSubscriptionLogic;
-    exports.deliverEvent = createActor2.deliverEvent;
-    exports.executeEffects = createActor2.executeEffects;
-    exports.getStateNodes = createActor2.getStateNodes;
-    exports.isBuiltInExecutableAction = createActor2.isBuiltInExecutableAction;
-    exports.isMachineSnapshot = createActor2.isMachineSnapshot;
-    exports.listenerLogic = createActor2.listenerLogic;
-    exports.matchesState = createActor2.matchesState;
-    exports.pathToStateValue = createActor2.pathToStateValue;
-    exports.runStep = createActor2.runStep;
-    exports.stopActor = createActor2.stopActor;
-    exports.subscriptionLogic = createActor2.subscriptionLogic;
-    exports.terminateActor = createActor2.terminateActor;
-    exports.toObserver = createActor2.toObserver;
+    exports.createStepLogic = dist_xstateActors.createStepLogic;
+    exports.Actor = createActor3.Actor;
+    exports.InfiniteTransitionError = createActor3.InfiniteTransitionError;
+    exports._parseDelayToMilliseconds = createActor3.parseDelayToMilliseconds;
+    exports._toObserver = createActor3.toObserver;
+    exports.createActor = createActor3.createActor;
+    exports.createListenerLogic = createActor3.createListenerLogic;
+    exports.createSubscriptionLogic = createActor3.createSubscriptionLogic;
+    exports.deliverEvent = createActor3.deliverEvent;
+    exports.executeEffects = createActor3.executeEffects;
+    exports.getStateNodes = createActor3.getStateNodes;
+    exports.isBuiltInExecutableEffect = createActor3.isBuiltInExecutableEffect;
+    exports.isMachineSnapshot = createActor3.isMachineSnapshot;
+    exports.matchesState = createActor3.matchesState;
+    exports.runStep = createActor3.runStep;
+    exports.stopActor = createActor3.stopActor;
+    exports.terminateActor = createActor3.terminateActor;
     exports.isTypeSchema = schema_types.isTypeSchema;
     exports.types = schema_types.types;
-    exports.getEffectDescriptor = effectDescriptor.getEffectDescriptor;
+    exports.describeExecutableEffect = effectDescriptor.describeExecutableEffect;
     exports.getInitialMicrosteps = effectDescriptor.getInitialMicrosteps;
     exports.getMicrosteps = effectDescriptor.getMicrosteps;
     exports.getNextTransitions = effectDescriptor.getNextTransitions;
     exports.initialTransition = effectDescriptor.initialTransition;
     exports.isUnhandled = effectDescriptor.isUnhandled;
     exports.transition = effectDescriptor.transition;
-    exports.SimulatedClock = SimulatedClock2;
-    exports.SpecialTargets = SpecialTargets2;
-    exports.StateMachine = StateMachine2;
-    exports.StateNode = StateNode2;
+    exports.InvalidSnapshotError = InvalidSnapshotError2;
+    exports.SimulatedClock = SimulatedClock3;
+    exports.StateMachine = StateMachine3;
+    exports.StateNode = StateNode3;
     exports._createMachineFromCompiledConfig = createMachineFromCompiledConfig;
     exports._hotSwapActorLogic = hotSwapActorLogic;
-    exports.advanceSystemTime = advanceSystemTime2;
-    exports.assertEvent = assertEvent2;
-    exports.createMachine = createMachine2;
-    exports.createMachineFromConfig = createMachineFromConfig2;
-    exports.createStateConfig = createStateConfig2;
-    exports.createSystem = createSystem2;
-    exports.initialSystemTransition = initialSystemTransition2;
-    exports.machineConfigToJSON = machineConfigToJSON2;
-    exports.machineVersions = machineVersions2;
-    exports.mapState = mapState2;
-    exports.serializeMachine = serializeMachine2;
-    exports.setup = setup2;
-    exports.systemTransition = systemTransition2;
-    exports.toPromise = toPromise2;
-    exports.waitFor = waitFor3;
+    exports.advanceSystemTime = advanceSystemTime3;
+    exports.assertEvent = assertEvent3;
+    exports.createMachine = createMachine3;
+    exports.createStateConfig = createStateConfig3;
+    exports.createSystem = createSystem3;
+    exports.initialSystemTransition = initialSystemTransition3;
+    exports.machineConfigToJSON = machineConfigToJSON3;
+    exports.machineFromJSON = machineFromJSON2;
+    exports.machineToJSON = machineToJSON2;
+    exports.machineVersions = machineVersions3;
+    exports.mapState = mapState3;
+    exports.setup = setup3;
+    exports.systemTransition = systemTransition3;
+    exports.toPromise = toPromise3;
+    exports.waitFor = waitFor4;
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/xstate-durable.cjs.js
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate-durable.cjs.js
 var require_xstate_durable_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/xstate-durable.cjs.js"(exports) {
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate-durable.cjs.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var createActor2 = require_createActor_b987e971_cjs();
-    var effectDescriptor = require_effectDescriptor_4cf24593_cjs();
+    var createActor3 = require_createActor_54296cf2_cjs();
+    var effectDescriptor = require_effectDescriptor_425644eb_cjs();
     var DurableExecutionCancelledError2 = class extends Error {
       constructor() {
         super("Durable execution was stopped");
@@ -9951,20 +10317,20 @@ var require_xstate_durable_cjs = __commonJS({
           let descriptor;
           Object.defineProperty(tagged, "descriptor", {
             enumerable: true,
-            get: () => descriptor ??= effectDescriptor.getEffectDescriptor(effect)
+            get: () => descriptor ??= effectDescriptor.describeExecutableEffect(effect)
           });
           return tagged;
         });
       };
-      const rootAddress = createActor2.encodeAddressSegment(createActor2.getRootActorId(logic));
+      const rootAddress = createActor3.encodeAddressSegment(createActor3.getRootActorId(logic));
       const machineId = logic.id ?? rootAddress;
       const machineVersion = logic.version;
       const executionIdentity = adapter.executionId ? {
-        systemId: adapter.executionId,
+        executionId: adapter.executionId,
         nextSessionId: 0
       } : void 0;
       const systemRuntime = {};
-      for (const operation of [...createActor2.RUNTIME_OPERATIONS, "sendEvent", "runStep", "runLogic"]) {
+      for (const operation of [...createActor3.RUNTIME_OPERATIONS, "sendEvent", "runStep", "runLogic"]) {
         const impl = adapter[operation];
         if (impl) {
           systemRuntime[operation] = impl.bind(adapter);
@@ -10001,7 +10367,7 @@ var require_xstate_durable_cjs = __commonJS({
       };
       function wrapRuntime(runtime, localDeliveryFallback, fallbackToActorSystem = false, timerDeadline) {
         const wrapped = {};
-        for (const operation of createActor2.RUNTIME_OPERATIONS) {
+        for (const operation of createActor3.RUNTIME_OPERATIONS) {
           const impl = runtime[operation] ?? (fallbackToActorSystem ? (...args) => {
             const owner = operation === "spawnActor" ? args[1] : args[0];
             return owner.system[operation](...args);
@@ -10013,19 +10379,20 @@ var require_xstate_durable_cjs = __commonJS({
               }
               if (operation === "scheduleTimer") {
                 const source = args[0];
-                const timer = source.getSnapshot()?.timers?.[args[1]];
+                const key = args[1];
+                const timer = source.getSnapshot()?.timers?.find((pending) => createActor3.matchesTimerKey(pending, key));
                 if (timer) {
-                  const previousStart = createActor2.getTimerStart(timer);
+                  const previousStart = createActor3.getTimerStart(timer);
                   if (previousStart !== void 0 && !timerDeadline) {
                     args[2] = Math.min(timer.delay, Math.max(0, previousStart + timer.delay - now2()));
                   }
                   const result = impl(...args);
                   if (result) {
                     return Promise.resolve(result).then(() => {
-                      createActor2.recordTimerStart(timer, previousStart ?? now2());
+                      createActor3.recordTimerStart(timer, previousStart ?? now2());
                     });
                   }
-                  createActor2.recordTimerStart(timer, previousStart ?? now2());
+                  createActor3.recordTimerStart(timer, previousStart ?? now2());
                   return;
                 }
               }
@@ -10058,7 +10425,7 @@ var require_xstate_durable_cjs = __commonJS({
             return dispatch(() => impl(source, target, event));
           }
           if (localDeliveryFallback) {
-            return dispatch(() => createActor2.deliverEvent(source, target, event));
+            return dispatch(() => createActor3.deliverEvent(source, target, event));
           }
           throw new TypeError(`The durable runtime does not support the sendEvent operation (target '${target.address}')`);
         };
@@ -10089,7 +10456,7 @@ var require_xstate_durable_cjs = __commonJS({
       }
       function installSystemRuntime(snapshot, recursive = false) {
         if (snapshot.status === "error") {
-          const root = createActor2.getSnapshotActorRef(snapshot)?.actor;
+          const root = createActor3.getSnapshotActorRef(snapshot)?.actor;
           if (root && !observedRoots.has(root)) {
             root.subscribe({
               error() {
@@ -10099,7 +10466,7 @@ var require_xstate_durable_cjs = __commonJS({
           }
         }
         if (wrappedSystemRuntime || inspect) {
-          const ref = createActor2.getSnapshotActorRef(snapshot)?.actor;
+          const ref = createActor3.getSnapshotActorRef(snapshot)?.actor;
           const systems = /* @__PURE__ */ new Set();
           const visit = (actor) => {
             if (!systems.has(actor.system)) {
@@ -10146,12 +10513,12 @@ var require_xstate_durable_cjs = __commonJS({
           const {
             snapshot,
             scope
-          } = createActor2.withSystemInspector(inspect, () => createActor2.withExecutionIdentity(executionIdentity, () => {
-            const scope2 = createActor2.createInertActorScope(logic);
+          } = createActor3.withSystemInspector(inspect, () => createActor3.withExecutionIdentity(executionIdentity, () => {
+            const scope2 = createActor3.createInertActorScope(logic);
             const snapshot2 = logic.restoreSnapshot ? logic.restoreSnapshot(persistedSnapshot, scope2) : persistedSnapshot;
-            createActor2.setInertActorScopeSnapshot(scope2, snapshot2, false);
+            createActor3.setInertActorScopeSnapshot(scope2, snapshot2, false);
             return {
-              snapshot: installSystemRuntime(createActor2.attachSnapshotActorRef(scope2, snapshot2), true),
+              snapshot: installSystemRuntime(createActor3.attachSnapshotActorRef(scope2, snapshot2), true),
               scope: scope2
             };
           }));
@@ -10162,15 +10529,15 @@ var require_xstate_durable_cjs = __commonJS({
               timers
             } = snapshot;
             for (const child of Object.values(children ?? {})) {
-              if (child && !createActor2.isRemoteActorRef(child) && child.getSnapshot().status === "active") {
-                effects.push(createActor2.createStartEffect(child));
+              if (child && !createActor3.isRemoteActorRef(child) && child.getSnapshot().status === "active") {
+                effects.push(createActor3.createStartEffect(child));
               }
             }
-            for (const timer of Object.values(timers ?? {})) {
-              const effect = createActor2.createTimerEffect(scope, timer, timer.delay);
-              if (timer.startedAt !== void 0) {
+            for (const timer of timers ?? []) {
+              const effect = createActor3.createTimerEffect(scope, timer, timer.delay);
+              if (timer.scheduledAt !== void 0) {
                 restoredTimerDeadlines.set(effect, {
-                  deadline: timer.startedAt + timer.delay,
+                  deadline: timer.scheduledAt + timer.delay,
                   delay: timer.delay
                 });
               }
@@ -10184,15 +10551,15 @@ var require_xstate_durable_cjs = __commonJS({
           if (restored) {
             throw new Error("initialTransition() cannot initialize a restored execution");
           }
-          const [snapshot, effects] = createActor2.withSystemInspector(inspect, () => createActor2.withExecutionIdentity(executionIdentity, () => effectDescriptor.initialTransition(logic, ...args)));
+          const [snapshot, effects] = createActor3.withSystemInspector(inspect, () => createActor3.withExecutionIdentity(executionIdentity, () => effectDescriptor.initialTransition(logic, ...args)));
           return [installSystemRuntime(snapshot), tagEffects(effects)];
         },
         transition(snapshot, event) {
-          const [nextSnapshot, effects] = createActor2.withSystemInspector(inspect, () => createActor2.withExecutionIdentity(executionIdentity, () => effectDescriptor.transition(logic, snapshot, event)));
+          const [nextSnapshot, effects] = createActor3.withSystemInspector(inspect, () => createActor3.withExecutionIdentity(executionIdentity, () => effectDescriptor.transition(logic, snapshot, event)));
           return [installSystemRuntime(nextSnapshot), tagEffects(effects)];
         },
         getActorRef(snapshot, address) {
-          const root = createActor2.getSnapshotActorRef(snapshot)?.actor;
+          const root = createActor3.getSnapshotActorRef(snapshot)?.actor;
           if (!root || address === void 0) {
             return root;
           }
@@ -10437,7 +10804,7 @@ async function forwardStream(target, source, observer, observeResult) {
   target.end(result);
   observeResult(result);
 }
-function lazyStream(model2, setup2, observer) {
+function lazyStream(model2, setup3, observer) {
   const startedAt = Date.now();
   const outer = new AssistantMessageEventStream();
   let observedResult = false;
@@ -10447,7 +10814,7 @@ function lazyStream(model2, setup2, observer) {
     observedResult = true;
     observer?.onResult?.(result);
   };
-  setup2().then((inner) => forwardStream(outer, inner, observer, observeResult)).catch((error) => {
+  setup3().then((inner) => forwardStream(outer, inner, observer, observeResult)).catch((error) => {
     const message = createSetupErrorMessage(model2, error, startedAt);
     const event = { type: "error", reason: "error", error: message };
     outer.push(event);
@@ -16346,11 +16713,11 @@ function captureNativeProxyDetector() {
     if (typeof util2 !== "object" || util2 === null) {
       return void 0;
     }
-    const types2 = Object.getOwnPropertyDescriptor(util2, "types");
-    if (!types2 || !("value" in types2) || typeof types2.value !== "object" || types2.value === null) {
+    const types3 = Object.getOwnPropertyDescriptor(util2, "types");
+    if (!types3 || !("value" in types3) || typeof types3.value !== "object" || types3.value === null) {
       return void 0;
     }
-    const detector = Object.getOwnPropertyDescriptor(types2.value, "isProxy");
+    const detector = Object.getOwnPropertyDescriptor(types3.value, "isProxy");
     if (!detector || !("value" in detector) || typeof detector.value !== "function") {
       return void 0;
     }
@@ -32385,8 +32752,8 @@ function isJsonSchemaObject(value) {
 function isStructuredSchema(schema2) {
   if (!isJsonSchemaObject(schema2))
     return false;
-  const types2 = typeof schema2.type === "string" ? [schema2.type] : Array.isArray(schema2.type) ? schema2.type : [];
-  return types2.includes("object") || types2.includes("array") || schema2.properties !== void 0 || schema2.items !== void 0;
+  const types3 = typeof schema2.type === "string" ? [schema2.type] : Array.isArray(schema2.type) ? schema2.type : [];
+  return types3.includes("object") || types3.includes("array") || schema2.properties !== void 0 || schema2.items !== void 0;
 }
 function schemaAllowsNull(schema2) {
   if (!isJsonSchemaObject(schema2))
@@ -34248,6 +34615,9877 @@ var require_dist2 = __commonJS({
       for (var d in t) u[d] = t[d];
       t.__esModule && Object.defineProperty(u, "__esModule", { value: true });
     })();
+  }
+});
+
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/createActor-b987e971.cjs.js
+var require_createActor_b987e971_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/createActor-b987e971.cjs.js"(exports) {
+    "use strict";
+    var Mailbox = class {
+      constructor(_process) {
+        this._process = _process;
+        this._active = false;
+        this._current = null;
+        this._last = null;
+      }
+      start() {
+        this._active = true;
+        this.flush();
+      }
+      clear() {
+        if (this._current) {
+          this._current.next = null;
+          this._last = this._current;
+        }
+      }
+      enqueue(event) {
+        const enqueued = {
+          value: event,
+          next: null
+        };
+        if (this._current) {
+          this._last.next = enqueued;
+          this._last = enqueued;
+          return;
+        }
+        this._current = enqueued;
+        this._last = enqueued;
+        if (this._active) {
+          this.flush();
+        }
+      }
+      flush() {
+        while (this._current) {
+          const consumed = this._current;
+          this._process(consumed.value);
+          this._current = consumed.next;
+        }
+        this._last = null;
+      }
+    };
+    var STATE_DELIMITER = ".";
+    var TARGETLESS_KEY = "";
+    var NULL_EVENT = "";
+    var STATE_IDENTIFIER = "#";
+    var WILDCARD = "*";
+    var XSTATE_INIT2 = "@xstate.init";
+    var XSTATE_START = "@xstate.start";
+    var XSTATE_SPAWN = "@xstate.spawn";
+    var XSTATE_STOP = "@xstate.stop";
+    var XSTATE_TERMINATE = "@xstate.terminate";
+    var XSTATE_TIMER2 = "xstate.timer";
+    var XSTATE_LOGIC_EFFECT_RESOLVE = "xstate.logic.effect.resolve";
+    var XSTATE_LOGIC_EFFECT_REJECT = "xstate.logic.effect.reject";
+    var XSTATE_LOGIC_EFFECT_START = "xstate.logic.effect.start";
+    function createAfterEvent(delayRef, id) {
+      return {
+        type: "xstate.after",
+        delay: delayRef,
+        stateId: id
+      };
+    }
+    function createAfterEventId(delayRef, id) {
+      return `xstate.after.${delayRef}.${id}`;
+    }
+    function createTimeoutEvent(id) {
+      return {
+        type: "xstate.timeout",
+        stateId: id
+      };
+    }
+    function createTimeoutEventId(id) {
+      return `xstate.timeout.${id}`;
+    }
+    function createInvokeTimeoutEvent(invokeId, sessionId) {
+      return {
+        type: "xstate.timeout.actor",
+        actorId: invokeId,
+        sessionId
+      };
+    }
+    function createInvokeTimeoutEventId(invokeId) {
+      return `xstate.timeout.actor.${invokeId}`;
+    }
+    function createDoneStateEvent(id, output) {
+      return {
+        type: "xstate.done.state",
+        stateId: id,
+        output
+      };
+    }
+    function createDoneActorEvent(invokeId, output, sessionId) {
+      return {
+        type: "xstate.done.actor",
+        output,
+        actorId: invokeId,
+        sessionId
+      };
+    }
+    function createErrorActorEvent(id, error, sessionId) {
+      return {
+        type: "xstate.error.actor",
+        error,
+        actorId: id,
+        sessionId
+      };
+    }
+    function createErrorPlatformEvent(kind, error) {
+      return {
+        type: `xstate.error.${kind}`,
+        error
+      };
+    }
+    function createInitEvent(input) {
+      return {
+        type: XSTATE_INIT2,
+        input
+      };
+    }
+    function reportUnhandledError(err) {
+      setTimeout(() => {
+        throw err;
+      });
+    }
+    var symbolObservable2 = (() => typeof Symbol === "function" && Symbol.observable || "@@observable")();
+    var starts = /* @__PURE__ */ new WeakMap();
+    function getTimerStart(timer) {
+      return starts.get(timer) ?? timer.startedAt;
+    }
+    function recordTimerStart(timer, startedAt) {
+      starts.set(timer, startedAt);
+    }
+    function assertSendToEvent(event) {
+      if (typeof event === "string") {
+        throw new Error(`Only event objects may be used with sendTo`);
+      }
+    }
+    var builtInActions = {
+      // Actor refs are created while resolving the next snapshot. Starting is a
+      // separate deferred effect so the returned list remains execution-complete.
+      ["@xstate.spawn"]: (actor) => {
+        return actor.system.spawnActor(actor._parent, actor);
+      },
+      ["@xstate.start"]: (actor) => {
+        return actor.system.startActor(actor);
+      },
+      ["@xstate.raise"]: (actorScope, _event, options2) => {
+        return actorScope.system.scheduleTimer(actorScope.self, options2.id, options2?.delay ?? 0);
+      },
+      ["@xstate.sendTo"]: (actorScope, actor, event, options2) => {
+        assertSendToEvent(event);
+        if (options2?.delay !== void 0) {
+          return actorScope.system.scheduleTimer(actorScope.self, options2.id, options2?.delay ?? 0);
+        } else {
+          return actorScope.system._relay(actorScope.self, actor, event);
+        }
+      },
+      ["@xstate.cancel"]: (actorScope, sendId) => {
+        return actorScope.system.cancelTimer(actorScope.self, sendId);
+      },
+      ["@xstate.stop"]: (actorScope, actor) => {
+        return actorScope.system.stopActor(actor);
+      },
+      ["@xstate.terminate"]: (actor, termination) => {
+        return actor.system.terminateActor(actor, termination);
+      }
+    };
+    var sourceKeyCaches = /* @__PURE__ */ new WeakMap();
+    function resolveRegisteredActorSource(actors, logic) {
+      let cache3 = sourceKeyCaches.get(actors);
+      if (!cache3) {
+        cache3 = /* @__PURE__ */ new Map();
+        for (const key of Object.keys(actors)) {
+          const registeredLogic = actors[key];
+          if (!cache3.has(registeredLogic)) {
+            cache3.set(registeredLogic, key);
+          }
+        }
+        sourceKeyCaches.set(actors, cache3);
+      }
+      return cache3.get(logic);
+    }
+    var systemLogicMetadata = Symbol("xstate.systemLogicMetadata");
+    var subscriptions2 = /* @__PURE__ */ new WeakMap();
+    function createAttachedLogic(attach, id) {
+      const initialTransition3 = (input, _) => [{
+        status: "active",
+        output: void 0,
+        error: void 0,
+        input
+      }, []];
+      const logic = {
+        id,
+        start: (state3, {
+          self,
+          system
+        }) => {
+          const target = state3.input.actor;
+          if (!target || target.getSnapshot().status === "stopped") {
+            return;
+          }
+          const subscription = attach(state3.input, {
+            self,
+            system
+          });
+          if (!subscription) {
+            return;
+          }
+          let parentSubscription;
+          let torndown = false;
+          const teardown = () => {
+            if (torndown) {
+              return;
+            }
+            torndown = true;
+            subscription.unsubscribe();
+            parentSubscription?.unsubscribe();
+          };
+          const parent = self._parent;
+          if (parent) {
+            parentSubscription = parent.subscribe({
+              complete: teardown,
+              error: teardown
+            });
+          }
+          subscriptions2.set(self, {
+            unsubscribe: teardown
+          });
+        },
+        transition: (state3, event, {
+          self
+        }) => {
+          if (event.type === XSTATE_STOP) {
+            subscriptions2.get(self)?.unsubscribe();
+            subscriptions2.delete(self);
+            return [{
+              ...state3,
+              status: "stopped",
+              error: void 0
+            }, []];
+          }
+          return [state3, []];
+        },
+        initialTransition: initialTransition3,
+        getInitialSnapshot: (actorScope, input) => initialTransition3(input)[0],
+        getPersistedSnapshot: (snapshot) => snapshot,
+        restoreSnapshot: (snapshot) => snapshot
+      };
+      Object.defineProperty(logic, systemLogicMetadata, {
+        value: {
+          kind: id
+        }
+      });
+      return logic;
+    }
+    function relayMappedToParent(self, system, getEvent) {
+      if (self.getSnapshot().status === "stopped" || !self._parent) {
+        return;
+      }
+      system._relay(self, self._parent, getEvent());
+    }
+    function createListenerLogic3() {
+      return createAttachedLogic(({
+        actor,
+        eventType,
+        mapper
+      }, {
+        self,
+        system
+      }) => {
+        const isPartialWildcard = eventType !== "*" && eventType.endsWith(".*");
+        return actor.on(isPartialWildcard ? "*" : eventType, (emittedEvent) => {
+          if (isPartialWildcard && !matchesEventDescriptor(emittedEvent.type, eventType)) {
+            return;
+          }
+          relayMappedToParent(self, system, () => mapper(emittedEvent));
+        });
+      }, "xstate.listener");
+    }
+    var listenerLogic2 = /* @__PURE__ */ createListenerLogic3();
+    function createSubscriptionLogic3() {
+      return createAttachedLogic(({
+        actor,
+        mappers
+      }, {
+        self,
+        system
+      }) => {
+        const {
+          done,
+          error,
+          snapshot: onSnapshot
+        } = mappers;
+        return actor.subscribe({
+          next: (snapshot) => {
+            if (snapshot.status === "done" && done) {
+              relayMappedToParent(self, system, () => done(snapshot.output));
+            } else if (snapshot.status === "error" && error) {
+              relayMappedToParent(self, system, () => error(snapshot.error));
+            } else if (snapshot.status === "active" && onSnapshot) {
+              relayMappedToParent(self, system, () => onSnapshot(snapshot));
+            }
+          },
+          error: (err) => {
+            if (error) {
+              relayMappedToParent(self, system, () => error(err));
+            }
+          },
+          complete: () => {
+          }
+        });
+      }, "xstate.subscription");
+    }
+    var subscriptionLogic2 = /* @__PURE__ */ createSubscriptionLogic3();
+    var lazyActorScope = Symbol();
+    function isLazyActorScope(actorScope) {
+      return !!actorScope[lazyActorScope];
+    }
+    function getActorScopeParent(actorScope) {
+      return isLazyActorScope(actorScope) ? actorScope._parent : actorScope.self._parent;
+    }
+    function withActorSelf(args, actorScope) {
+      if (!isLazyActorScope(actorScope)) {
+        return Object.assign(args, {
+          self: actorScope.self
+        });
+      }
+      Object.defineProperty(args, "self", {
+        enumerable: true,
+        get: () => actorScope.self
+      });
+      return args;
+    }
+    function withActorSelfAndParent(args, actorScope) {
+      if (!isLazyActorScope(actorScope)) {
+        const self = actorScope.self;
+        return Object.assign(args, {
+          self,
+          parent: self._parent
+        });
+      }
+      Object.defineProperties(args, {
+        self: {
+          enumerable: true,
+          get: () => actorScope.self
+        },
+        parent: {
+          enumerable: true,
+          get: () => getActorScopeParent(actorScope)
+        }
+      });
+      return args;
+    }
+    function withActorScope2(args, actorScope) {
+      if (!isLazyActorScope(actorScope)) {
+        const actorArgs = args;
+        const self = actorScope.self;
+        actorArgs.self = self;
+        actorArgs.system = actorScope.system;
+        actorArgs.parent = self._parent;
+        return actorArgs;
+      }
+      Object.defineProperties(args, {
+        self: {
+          enumerable: true,
+          get: () => actorScope.self
+        },
+        system: {
+          enumerable: true,
+          get: () => actorScope.system
+        },
+        parent: {
+          enumerable: true,
+          get: () => getActorScopeParent(actorScope)
+        }
+      });
+      return args;
+    }
+    function execCustomEffect() {
+      const result = this.action?.(...this.args);
+      return result;
+    }
+    function execEmitEffect(runtime = this.source.system) {
+      return runtime.emitEvent(this.source, this.event);
+    }
+    function createEmitEffect(actorScope, event) {
+      return {
+        kind: "emit",
+        exec: execEmitEffect,
+        type: event.type,
+        source: actorScope.self,
+        event,
+        params: void 0,
+        args: []
+      };
+    }
+    function execDeadLetterEffect(runtime = (this.target ?? this.source).system) {
+      return runtime.deadLetter(this.source, this.target, this.event, this.reason, this.detail);
+    }
+    function createDeadLetterEffect(actorScope, source, event, reason, detail) {
+      return {
+        kind: "builtin",
+        type: "@xstate.deadLetter",
+        exec: execDeadLetterEffect,
+        source,
+        target: actorScope.self,
+        event,
+        reason,
+        detail,
+        params: void 0,
+        args: []
+      };
+    }
+    function createMissingTargetEffect(actorScope, event, targetId) {
+      return {
+        kind: "builtin",
+        type: "@xstate.deadLetter",
+        exec: execDeadLetterEffect,
+        source: actorScope.self,
+        target: void 0,
+        event,
+        reason: "missingTarget",
+        detail: {
+          targetId,
+          error: new Error(targetId !== void 0 ? `Unable to send event to unknown child '${targetId}'` : "Unable to send event to an undefined actor")
+        },
+        params: void 0,
+        args: []
+      };
+    }
+    function createCustomEffect(type, action, params2) {
+      return {
+        kind: "action",
+        exec: action,
+        type,
+        action,
+        params: params2,
+        args: []
+      };
+    }
+    function execSpawnEffect(runtime = this.actor.system) {
+      return runtime.spawnActor(this.source, this.actor);
+    }
+    function execStartEffect(runtime = this.actor.system) {
+      if (this.actor._processingStatus === 2) {
+        return;
+      }
+      return runtime.startActor(this.actor);
+    }
+    function execStopEffect(runtime = this.source.system) {
+      return runtime.stopActor(this.actor);
+    }
+    function execTerminateEffect(runtime = this.actor.system) {
+      const termination = this.status === "done" ? {
+        status: "done",
+        output: this.output,
+        error: void 0
+      } : {
+        status: "error",
+        output: void 0,
+        error: this.error
+      };
+      return runtime.terminateActor(this.actor, termination);
+    }
+    function execRaiseEffect(runtime = this.source.system) {
+      return runtime.scheduleTimer(this.source, this.id, this.delay ?? 0);
+    }
+    function execSendToEffect(runtime = this.source.system) {
+      assertSendToEvent(this.event);
+      if (this.delay !== void 0) {
+        return runtime.scheduleTimer(this.source, this.id, this.delay);
+      }
+      return runtime.sendEvent(this.source, this.target, this.event);
+    }
+    function execCancelEffect(runtime = this.source.system) {
+      return runtime.cancelTimer(this.source, this.id);
+    }
+    function updateLogicalTimers(snapshot, effect, actorScope) {
+      if (!isBuiltInExecutableAction2(effect)) {
+        return snapshot;
+      }
+      if (effect.type === "@xstate.cancel") {
+        if (!snapshot.timers?.[effect.id]) {
+          return snapshot;
+        }
+        const timers = {
+          ...snapshot.timers
+        };
+        delete timers[effect.id];
+        return {
+          ...snapshot,
+          timers
+        };
+      }
+      if (effect.type !== "@xstate.raise" && effect.type !== "@xstate.sendTo" || effect.delay === void 0) {
+        return snapshot;
+      }
+      let nextTimerId = snapshot._nextTimerId ?? 0;
+      const id = effect.id ?? `xstate.timer.auto.${nextTimerId++}`;
+      effect.id = id;
+      const target = effect.type === "@xstate.raise" || effect.target === actorScope.self ? "self" : effect.target;
+      return {
+        ...snapshot,
+        timers: {
+          ...snapshot.timers,
+          [id]: {
+            id,
+            delay: effect.delay,
+            type: effect.type,
+            event: effect.event,
+            target
+          }
+        },
+        _nextTimerId: nextTimerId
+      };
+    }
+    function mergeContextPatch(context, patch) {
+      return {
+        ...context,
+        ...patch
+      };
+    }
+    function pushBuiltInAction(actions, action, ...args) {
+      const actionRecord = {
+        action,
+        args
+      };
+      actions.push(actionRecord);
+      return actionRecord;
+    }
+    function mergeActorIdCounters(current, update) {
+      const merged = {
+        ...current
+      };
+      for (const key of Object.keys(update)) {
+        merged[key] = Math.max(merged[key] ?? 0, update[key]);
+      }
+      return merged;
+    }
+    function applyChildUpdate(snapshot, update, actorScope) {
+      if (update.type === "add") {
+        return {
+          ...snapshot,
+          children: {
+            ...snapshot.children,
+            [update.id]: update.actor
+          },
+          ...update.counters && {
+            _nextActorIds: mergeActorIdCounters(snapshot._nextActorIds, update.counters)
+          }
+        };
+      }
+      const children = {
+        ...snapshot.children
+      };
+      let owned = update.actor._parent === actorScope.self;
+      for (const key of Object.keys(children)) {
+        if (children[key] === update.actor) {
+          owned = true;
+          delete children[key];
+        }
+      }
+      if (!owned) {
+        throw new Error(`Cannot stop non-child actor ${update.actor.id}`);
+      }
+      actorScope.system._unregister(update.actor);
+      return {
+        ...snapshot,
+        children
+      };
+    }
+    function getTransitionActionRecord(action) {
+      if (typeof action === "object" && action !== null && "action" in action && typeof action.action === "function") {
+        return action;
+      }
+      return void 0;
+    }
+    function pushSpawnedChild(actions, actor, id, counters) {
+      const action = pushBuiltInAction(actions, builtInActions["@xstate.spawn"], actor);
+      action.childUpdate = {
+        type: "add",
+        actor,
+        id,
+        counters
+      };
+    }
+    var spawnAllocations = /* @__PURE__ */ new WeakMap();
+    var createSpawnAllocation = () => ({
+      counters: /* @__PURE__ */ new Map(),
+      explicitIds: /* @__PURE__ */ new Set(),
+      stoppedIds: /* @__PURE__ */ new Set()
+    });
+    function beginSpawnAllocation(actorScope) {
+      spawnAllocations.set(actorScope, createSpawnAllocation());
+    }
+    function getWorkingSnapshotOf(actorScope) {
+      return actorScope.self._snapshot;
+    }
+    function getRegisteredActors(actorScope) {
+      return actorScope.self.logic?.sources?.actors;
+    }
+    function resolveTransitionSpawnSource(actorScope, source) {
+      const registeredActors = getRegisteredActors(actorScope);
+      if (typeof source === "string") {
+        const logic = registeredActors?.[source];
+        if (!logic) {
+          throw new Error(`Actor source '${source}' is not provided`);
+        }
+        return {
+          logic,
+          src: source
+        };
+      }
+      if (!registeredActors) {
+        return {
+          logic: source,
+          src: void 0
+        };
+      }
+      return {
+        logic: source,
+        src: resolveRegisteredActorSource(registeredActors, source)
+      };
+    }
+    function assertUnreservedPrefix(prefix) {
+    }
+    function nextChildIndex(actorScope, allocation, prefix) {
+      return Math.max(allocation.counters.get(prefix) ?? 0, getWorkingSnapshotOf(actorScope)?._nextActorIds?.[prefix] ?? 0);
+    }
+    function allocateChildId(actorScope, src3, localAllocation) {
+      const allocation = spawnAllocations.get(actorScope) ?? localAllocation ?? createSpawnAllocation();
+      const prefix = getActorIdPrefix(src3);
+      const next = nextChildIndex(actorScope, allocation, prefix);
+      allocation.counters.set(prefix, next + 1);
+      return {
+        id: `${prefix}:${next}`,
+        counters: {
+          [prefix]: next + 1
+        }
+      };
+    }
+    function assertChildIdFree(actorScope, id, localAllocation) {
+      const allocation = spawnAllocations.get(actorScope) ?? localAllocation ?? createSpawnAllocation();
+      const existing = getWorkingSnapshotOf(actorScope)?.children?.[id];
+      const occupied = existing !== void 0 && !allocation.stoppedIds.has(id) && existing.getSnapshot().status === "active";
+      if (allocation.explicitIds.has(id) || occupied) {
+        throw new Error(`Child actor id '${id}' is already in use`);
+      }
+      allocation.explicitIds.add(id);
+    }
+    function recordStoppedChild(actorScope, actor) {
+      const allocation = spawnAllocations.get(actorScope);
+      if (allocation) {
+        allocation.stoppedIds.add(actor.id);
+        allocation.explicitIds.delete(actor.id);
+      }
+    }
+    function reserveChildId(actorScope, id, localAllocation) {
+      const generated = parseGeneratedActorId(id);
+      if (!generated) {
+        return void 0;
+      }
+      assertUnreservedPrefix(generated.prefix);
+      const allocation = spawnAllocations.get(actorScope) ?? localAllocation ?? createSpawnAllocation();
+      const next = Math.max(nextChildIndex(actorScope, allocation, generated.prefix), generated.index + 1);
+      allocation.counters.set(generated.prefix, next);
+      return {
+        [generated.prefix]: next
+      };
+    }
+    function takeSpawnAllocationCounters(actorScope) {
+      const counters = spawnAllocations.get(actorScope)?.counters;
+      if (!counters?.size) {
+        return void 0;
+      }
+      return Object.fromEntries(counters);
+    }
+    function createTransitionEnqueue(actorScope, actions, internalEvents, actorSubscriptions = false, createActors = true) {
+      const localAllocation = spawnAllocations.get(actorScope) ?? createSpawnAllocation();
+      const props = {
+        cancel: (id) => {
+          pushBuiltInAction(actions, builtInActions["@xstate.cancel"], actorScope, id);
+        },
+        emit: (emittedEvent) => {
+          actions.push(emittedEvent);
+        },
+        log: (...args) => {
+          pushBuiltInAction(actions, actorScope.logger, ...args);
+        },
+        raise: (raisedEvent, options2) => {
+          if (typeof raisedEvent === "string") {
+            throw new Error(`Only event objects may be used with raise`);
+          }
+          if (options2?.delay !== void 0) {
+            pushBuiltInAction(actions, builtInActions["@xstate.raise"], actorScope, raisedEvent, options2);
+          } else {
+            internalEvents.push(raisedEvent);
+          }
+        },
+        spawn: (source, options2) => {
+          const {
+            logic,
+            src: src3
+          } = resolveTransitionSpawnSource(actorScope, source);
+          if (!createActors) {
+            return {
+              id: options2?.id ?? options2?.registryKey ?? src3 ?? logic.id
+            };
+          }
+          let id = options2?.id;
+          let counters;
+          if (id === void 0) {
+            ({
+              id,
+              counters
+            } = allocateChildId(actorScope, src3 ?? logic, localAllocation));
+          } else {
+            assertChildIdFree(actorScope, id, localAllocation);
+            counters = reserveChildId(actorScope, id, localAllocation);
+          }
+          const actor = actorScope.system.createActorRef(logic, {
+            ...options2,
+            ...src3 !== void 0 && {
+              src: src3
+            },
+            id,
+            parent: actorScope.self
+          });
+          pushSpawnedChild(actions, actor, id, counters);
+          return actor;
+        },
+        sendTo: (actor, event, options2) => {
+          pushBuiltInAction(actions, builtInActions["@xstate.sendTo"], actorScope, actor, event, options2);
+        },
+        stop: (actor) => {
+          if (actor) {
+            const actorInstance = actor;
+            const action = pushBuiltInAction(actions, builtInActions["@xstate.stop"], actorScope, actorInstance);
+            action.childUpdate = {
+              type: "remove",
+              actor: actorInstance
+            };
+            recordStoppedChild(actorScope, actorInstance);
+          }
+        }
+      };
+      if (actorSubscriptions) {
+        Object.assign(props, {
+          listen: (actor, eventType, mapper) => {
+            if (!createActors) {
+              return {
+                id: void 0
+              };
+            }
+            const input = {
+              actor,
+              eventType,
+              mapper
+            };
+            const listenerActor = actorScope.system.createActorRef(listenerLogic2, {
+              input,
+              parent: actorScope.self
+            });
+            pushBuiltInAction(actions, builtInActions["@xstate.spawn"], listenerActor);
+            return listenerActor;
+          },
+          subscribeTo: (actor, mappers) => {
+            if (!createActors) {
+              return {
+                id: void 0
+              };
+            }
+            const normalizedMappers = typeof mappers === "function" ? {
+              snapshot: mappers
+            } : mappers;
+            const input = {
+              actor,
+              mappers: normalizedMappers
+            };
+            const subscriptionActor = actorScope.system.createActorRef(subscriptionLogic2, {
+              input,
+              parent: actorScope.self
+            });
+            pushBuiltInAction(actions, builtInActions["@xstate.spawn"], subscriptionActor);
+            return subscriptionActor;
+          }
+        });
+      }
+      let closed = false;
+      const guard = (fn) => (...args) => closed ? lateEnqueueCall() : fn(...args);
+      for (const key of Object.keys(props)) {
+        props[key] = guard(props[key]);
+      }
+      const enqueue = createEnqueueObject(props, guard((action, ...args) => {
+        if (typeof action !== "function") {
+          return;
+        }
+        pushBuiltInAction(actions, action, ...args);
+      }));
+      enqueueClosers.set(enqueue, () => {
+        closed = true;
+      });
+      return enqueue;
+    }
+    var enqueueClosers = /* @__PURE__ */ new WeakMap();
+    function closeTransitionEnqueue(enqueue) {
+      enqueueClosers.get(enqueue)?.();
+    }
+    function lateEnqueueCall() {
+      return void 0;
+    }
+    function getBuiltInActionFields(action, args) {
+      switch (action) {
+        case builtInActions["@xstate.spawn"]: {
+          const [actor] = args;
+          return {
+            type: "@xstate.spawn",
+            kind: "builtin",
+            exec: execSpawnEffect,
+            source: actor._parent,
+            actor,
+            id: actor.id,
+            logic: actor.logic,
+            src: actor.src,
+            input: actor.options?.input
+          };
+        }
+        case builtInActions["@xstate.raise"]: {
+          const [, event, options2] = args;
+          return {
+            type: "@xstate.raise",
+            kind: "builtin",
+            exec: execRaiseEffect,
+            source: args[0].self,
+            event,
+            id: options2?.id,
+            delay: options2?.delay
+          };
+        }
+        case builtInActions["@xstate.sendTo"]: {
+          const [, target, event, options2] = args;
+          return {
+            type: "@xstate.sendTo",
+            kind: "builtin",
+            exec: execSendToEffect,
+            source: args[0].self,
+            target,
+            event,
+            id: options2?.id,
+            delay: options2?.delay
+          };
+        }
+        case builtInActions["@xstate.cancel"]: {
+          const [, id] = args;
+          return {
+            type: "@xstate.cancel",
+            kind: "builtin",
+            exec: execCancelEffect,
+            source: args[0].self,
+            id
+          };
+        }
+        case builtInActions["@xstate.stop"]: {
+          const [, actor] = args;
+          return {
+            type: "@xstate.stop",
+            kind: "builtin",
+            exec: execStopEffect,
+            source: args[0].self,
+            actor,
+            id: actor.id
+          };
+        }
+        default:
+          return void 0;
+      }
+    }
+    function createStartEffect(actor) {
+      const args = [actor];
+      return {
+        kind: "builtin",
+        exec: execStartEffect,
+        type: XSTATE_START,
+        source: actor._parent,
+        params: void 0,
+        args,
+        actor,
+        id: actor.id
+      };
+    }
+    function createTimerEffect(actorScope, timer, delay) {
+      const source = actorScope.self;
+      const options2 = {
+        id: timer.id,
+        delay
+      };
+      if (timer.type === "@xstate.raise") {
+        return {
+          kind: "builtin",
+          type: timer.type,
+          source,
+          event: timer.event,
+          id: timer.id,
+          delay,
+          params: void 0,
+          args: [actorScope, timer.event, options2],
+          exec: execRaiseEffect
+        };
+      }
+      const target = timer.target === "self" ? source : timer.target;
+      return {
+        kind: "builtin",
+        type: timer.type,
+        source,
+        target,
+        event: timer.event,
+        id: timer.id,
+        delay,
+        params: void 0,
+        args: [actorScope, target, timer.event, options2],
+        exec: execSendToEffect
+      };
+    }
+    function createSpawnEffect(actor) {
+      const args = [actor];
+      return {
+        kind: "builtin",
+        exec: execSpawnEffect,
+        type: XSTATE_SPAWN,
+        source: actor._parent,
+        params: void 0,
+        args,
+        actor,
+        id: actor.id,
+        logic: actor.logic,
+        src: actor.src,
+        input: actor.options?.input
+      };
+    }
+    function createSendToEffect(actorScope, target, event) {
+      const args = [actorScope, target, event, {}];
+      return {
+        kind: "builtin",
+        exec: execSendToEffect,
+        type: "@xstate.sendTo",
+        source: actorScope.self,
+        target,
+        event,
+        id: void 0,
+        delay: void 0,
+        params: void 0,
+        args
+      };
+    }
+    function createTerminationEffect(actorScope, snapshot) {
+      if (snapshot.status !== "done" && snapshot.status !== "error") {
+        throw new Error("Cannot terminate an active or stopped actor");
+      }
+      const termination = snapshot.status === "done" ? {
+        status: "done",
+        output: snapshot.output,
+        error: void 0
+      } : {
+        status: "error",
+        output: void 0,
+        error: snapshot.error
+      };
+      const args = [actorScope.self, termination];
+      return {
+        kind: "builtin",
+        exec: execTerminateEffect,
+        type: XSTATE_TERMINATE,
+        source: actorScope.self,
+        actor: actorScope.self,
+        id: actorScope.self.id,
+        ...termination,
+        params: void 0,
+        args
+      };
+    }
+    function finalizeTransitionResult(actorScope, previousSnapshot, [nextSnapshot, effects]) {
+      const becameTerminal = nextSnapshot.status === "done" || nextSnapshot.status === "error";
+      const wasTerminal = previousSnapshot?.status === "done" || previousSnapshot?.status === "error";
+      const hasTerminationEffect = effects.some((effect) => typeof effect === "object" && effect !== null && "type" in effect && effect.type === XSTATE_TERMINATE);
+      return becameTerminal && !wasTerminal && !hasTerminationEffect ? [nextSnapshot, [...effects, createTerminationEffect(actorScope, nextSnapshot)]] : [nextSnapshot, effects];
+    }
+    function deriveDeferredStarts(effects) {
+      const attachedStarts = [];
+      const childStarts = [];
+      for (const effect of effects) {
+        if (!isBuiltInExecutableAction2(effect) || effect.type !== XSTATE_SPAWN) {
+          continue;
+        }
+        const {
+          actor,
+          logic
+        } = effect;
+        const start = createStartEffect(actor);
+        if (logic === listenerLogic2 || logic === subscriptionLogic2) {
+          attachedStarts.push(start);
+        } else {
+          childStarts.push(start);
+        }
+      }
+      return [...attachedStarts, ...childStarts];
+    }
+    function isBuiltInExecutableAction2(action) {
+      return action.kind === "builtin";
+    }
+    async function executeEffects3(effects, runtime) {
+      for (const effect of effects) {
+        await effect.exec(runtime);
+      }
+    }
+    function resolveActionsWithContext(currentSnapshot, event, actorScope, actions) {
+      let intermediateSnapshot = currentSnapshot;
+      const executableActions = [];
+      for (const action of actions) {
+        const actionArgs = isLazyActorScope(actorScope) ? withActorScope2({
+          context: intermediateSnapshot.context,
+          event,
+          output: getEventOutput(event),
+          children: intermediateSnapshot.children,
+          actions: currentSnapshot.machine.sources.actions,
+          actors: currentSnapshot.machine.sources.actors
+        }, actorScope) : {
+          context: intermediateSnapshot.context,
+          event,
+          output: getEventOutput(event),
+          self: actorScope.self,
+          system: actorScope.system,
+          parent: actorScope.self._parent,
+          children: intermediateSnapshot.children,
+          actions: currentSnapshot.machine.sources.actions,
+          actors: currentSnapshot.machine.sources.actors
+        };
+        const isInline = typeof action === "function";
+        const actionRecord = getTransitionActionRecord(action);
+        let resolvedActionArgs = actionRecord?.args;
+        if (actionRecord?.action === builtInActions["@xstate.sendTo"] && (actionRecord.args[1] === void 0 || typeof actionRecord.args[1] === "string")) {
+          const childId = actionRecord.args[1];
+          const target = childId !== void 0 && Object.hasOwn(intermediateSnapshot.children, childId) ? intermediateSnapshot.children[childId] : void 0;
+          if (!target) {
+            executableActions.push(createMissingTargetEffect(actorScope, actionRecord.args[2], childId));
+            continue;
+          }
+          resolvedActionArgs = [actionRecord.args[0], target, ...actionRecord.args.slice(2)];
+        }
+        const resolvedAction = isInline ? action : actionRecord ? actionRecord.action.bind(null, ...resolvedActionArgs) : false;
+        let actionParams = void 0;
+        if (typeof action === "object" && action !== null) {
+          const {
+            type: _,
+            childUpdate: _childUpdate,
+            ...emittedEventParams
+          } = action;
+          actionParams = emittedEventParams;
+        }
+        if (actionRecord?.childUpdate) {
+          intermediateSnapshot = applyChildUpdate(intermediateSnapshot, actionRecord.childUpdate, actorScope);
+        }
+        if (resolvedAction && "_special" in resolvedAction) {
+          executableActions.push({
+            kind: "action",
+            exec: execCustomEffect,
+            type: typeof action === "object" ? "action" in action && typeof action.action === "function" ? action.action.name ?? "(anonymous)" : action.type ?? "(anonymous)" : action.name || "(anonymous)",
+            params: actionParams,
+            args: [],
+            action: void 0
+          });
+          const specialAction = resolvedAction;
+          const res = specialAction(actionArgs, emptyEnqueueObject);
+          if (res && ("context" in res || "children" in res)) {
+            intermediateSnapshot = {
+              ...intermediateSnapshot,
+              ...res.context !== void 0 ? {
+                context: mergeContextPatch(intermediateSnapshot.context, res.context)
+              } : {},
+              ..."children" in res ? {
+                children: res.children
+              } : {}
+            };
+          }
+          continue;
+        }
+        if (!resolvedAction || !("resolve" in resolvedAction)) {
+          const builtInFields = typeof action === "object" && action !== null && "action" in action && typeof action.action === "function" ? getBuiltInActionFields(action.action, resolvedActionArgs) : void 0;
+          const isEmittedEvent = typeof action === "object" && action !== null && !actionRecord;
+          const executableAction = {
+            kind: builtInFields ? "builtin" : isEmittedEvent ? "emit" : "action",
+            type: typeof action === "object" ? "action" in action && typeof action.action === "function" ? action.action.name ?? "(anonymous)" : action.type : action.name || "(anonymous)",
+            params: builtInFields ? void 0 : actionParams,
+            args: typeof action === "object" && "action" in action ? resolvedActionArgs : [],
+            ...builtInFields ? {} : isEmittedEvent ? {
+              source: actorScope.self,
+              event: action
+            } : {
+              action: actionRecord?.action ?? (isInline ? action : void 0)
+            },
+            ...!builtInFields ? {
+              exec: isEmittedEvent ? execEmitEffect : execCustomEffect
+            } : {},
+            ...builtInFields
+          };
+          const typedExecutableAction = executableAction;
+          intermediateSnapshot = updateLogicalTimers(intermediateSnapshot, typedExecutableAction, actorScope);
+          executableActions.push(typedExecutableAction);
+          continue;
+        }
+      }
+      return [intermediateSnapshot, executableActions];
+    }
+    function createEnqueueObject(props, action) {
+      const enqueueFn = (fn, ...args) => {
+        action(fn, ...args);
+      };
+      Object.assign(enqueueFn, {
+        cancel: noop2,
+        emit: noop2,
+        log: noop2,
+        raise: noop2,
+        spawn: emptyActor,
+        sendTo: noop2,
+        stop: noop2,
+        listen: emptyActor,
+        subscribeTo: emptyActor,
+        ...props
+      });
+      return enqueueFn;
+    }
+    var noop2 = () => {
+    };
+    var emptyActor = () => ({});
+    var emptyEnqueueObject = createEnqueueObject({}, noop2);
+    function parseDurationToMilliseconds(duration) {
+      const normalizedDuration = duration.trim();
+      const millisecondsMatch = normalizedDuration.match(/^(\d+)ms$/i);
+      if (millisecondsMatch) {
+        return parseInt(millisecondsMatch[1], 10);
+      }
+      const secondsMatch = normalizedDuration.match(/^(\d*)(\.?)(\d*)s$/i);
+      if (secondsMatch) {
+        const wholePart = secondsMatch[1] ? parseInt(secondsMatch[1], 10) : 0;
+        const hasDecimal = !!secondsMatch[2];
+        const fracPart = secondsMatch[3] ? parseInt(secondsMatch[3].padEnd(3, "0").slice(0, 3), 10) : 0;
+        return wholePart * 1e3 + (hasDecimal ? fracPart : 0);
+      }
+      const iso8601DurationMatch = normalizedDuration.match(/^P(?:(?<weeks>\d+(?:[.,]\d+)?)W)?(?:(?<days>\d+(?:[.,]\d+)?)D)?(?:T(?:(?<hours>\d+(?:[.,]\d+)?)H)?(?:(?<minutes>\d+(?:[.,]\d+)?)M)?(?:(?<seconds>\d+(?:[.,]\d+)?)S)?)?$/i);
+      if (!iso8601DurationMatch?.groups) {
+        return void 0;
+      }
+      const {
+        weeks,
+        days,
+        hours,
+        minutes: minutes2,
+        seconds
+      } = iso8601DurationMatch.groups;
+      if (!weeks && !days && !hours && !minutes2 && !seconds) {
+        return void 0;
+      }
+      const toNumber = (value) => value ? Number(value.replace(",", ".")) : 0;
+      return toNumber(weeks) * 7 * 24 * 60 * 60 * 1e3 + toNumber(days) * 24 * 60 * 60 * 1e3 + toNumber(hours) * 60 * 60 * 1e3 + toNumber(minutes2) * 60 * 1e3 + toNumber(seconds) * 1e3;
+    }
+    function parseDelayToMilliseconds(delay) {
+      if (delay === void 0) {
+        return void 0;
+      }
+      if (typeof delay === "number") {
+        return delay;
+      }
+      return parseDurationToMilliseconds(delay);
+    }
+    var ambientInspector;
+    function hasAmbientInspector() {
+      return ambientInspector !== void 0;
+    }
+    function getAmbientInspector() {
+      return ambientInspector;
+    }
+    function withSystemInspector(inspect, fn) {
+      if (!inspect) {
+        return fn();
+      }
+      const previous2 = ambientInspector;
+      ambientInspector = inspect;
+      try {
+        return fn();
+      } finally {
+        ambientInspector = previous2;
+      }
+    }
+    var snapshotActorRefs = /* @__PURE__ */ new WeakMap();
+    var lazySnapshotActorRefs = /* @__PURE__ */ new WeakMap();
+    var emptyKeyedActors = /* @__PURE__ */ new Map();
+    function copyRegisteredActors(system, state3) {
+      if (state3) {
+        const children = new Map(state3.children);
+        if (state3.root?.sessionId) {
+          children.set(state3.root.sessionId, state3.root);
+        }
+        return children;
+      }
+      return new Map(system.children);
+    }
+    function captureRegisteredActors(system) {
+      const root = system._getRootActor?.();
+      const peekedChildren = system._peekChildren?.();
+      if (!root && !peekedChildren) {
+        if (system._getRootActor && system._peekChildren) {
+          return {};
+        }
+        const children = new Map(system.children);
+        return children.size ? {
+          children
+        } : {};
+      }
+      if (!peekedChildren?.size) {
+        return root ? {
+          root
+        } : {};
+      }
+      return {
+        children: new Map(system.children)
+      };
+    }
+    function getKeyedActors(system) {
+      const peek = system._peekKeyedActors;
+      if (peek) {
+        return peek.call(system) ?? emptyKeyedActors;
+      }
+      return system.keyedActors;
+    }
+    function markSystemSnapshotDirty(system) {
+      system._snapshotVersion++;
+    }
+    function getSystemSnapshotVersion(system) {
+      return system._snapshotVersion;
+    }
+    function getSnapshotChildren(snapshot) {
+      return "children" in snapshot && snapshot.children ? snapshot.children : {};
+    }
+    function createSnapshotSystem(baseSystem, children, baseState) {
+      const forwardInspection = hasAmbientInspector();
+      const registeredActors = copyRegisteredActors(baseSystem, baseState);
+      const keyedActors = new Map(baseState?.keyedActors ?? getKeyedActors(baseSystem));
+      const reverseKeyedActors = /* @__PURE__ */ new WeakMap();
+      const system = Object.assign(Object.create(baseSystem), {
+        children: registeredActors,
+        keyedActors,
+        reverseKeyedActors,
+        _snapshot: {
+          ...baseState?.snapshot ?? baseSystem._snapshot
+        },
+        _snapshotVersion: baseState?.sourceVersion ?? baseSystem._snapshotVersion,
+        _register: (sessionId, actor) => {
+          registeredActors.set(sessionId, actor);
+          markSystemSnapshotDirty(system);
+          return sessionId;
+        },
+        _unregister: (actor) => {
+          if (actor.sessionId) {
+            registeredActors.delete(actor.sessionId);
+          }
+          const registryKey = reverseKeyedActors.get(actor);
+          if (registryKey !== void 0 && keyedActors.get(registryKey) === actor) {
+            keyedActors.delete(registryKey);
+          }
+          reverseKeyedActors.delete(actor);
+          markSystemSnapshotDirty(system);
+        },
+        _set: (registryKey, actor) => {
+          const existing = keyedActors.get(registryKey);
+          if (existing && existing !== actor) {
+            throw new Error(`Actor with registry key '${String(registryKey)}' already exists.`);
+          }
+          keyedActors.set(registryKey, actor);
+          reverseKeyedActors.set(actor, registryKey);
+          markSystemSnapshotDirty(system);
+        },
+        get: (registryKey) => keyedActors.get(registryKey),
+        getAll: () => Object.fromEntries(keyedActors),
+        // Pure transition resolution must not leak topology inspection events
+        // into a live runtime system — planning branches stay silent. The one
+        // exception is a durable execution's own transitions (marked by the
+        // ambient inspector at creation time): there the pure path IS the
+        // execution, so inspection forwards to the base system's observers.
+        _hasInspectionObservers: forwardInspection ? () => baseSystem._hasInspectionObservers?.() ?? false : () => false,
+        _sendInspectionEvent: forwardInspection ? (event) => baseSystem._sendInspectionEvent(event) : () => {
+        }
+      });
+      for (const [registryKey, actor] of keyedActors) {
+        if (!actor) {
+          continue;
+        }
+        reverseKeyedActors.set(actor, registryKey);
+      }
+      for (const actor of Object.values(children)) {
+        if (!actor) {
+          continue;
+        }
+        if (actor.sessionId) {
+          registeredActors.set(actor.sessionId, actor);
+        }
+        const registryKey = actor.registryKey;
+        if (registryKey) {
+          keyedActors.set(registryKey, actor);
+          reverseKeyedActors.set(actor, registryKey);
+        }
+      }
+      return system;
+    }
+    function getSnapshotActorRef(snapshot) {
+      const existing = snapshotActorRefs.get(snapshot);
+      if (existing) {
+        return existing;
+      }
+      const create4 = lazySnapshotActorRefs.get(snapshot);
+      if (!create4) {
+        return void 0;
+      }
+      const created = create4();
+      snapshotActorRefs.set(snapshot, created);
+      lazySnapshotActorRefs.delete(snapshot);
+      return created;
+    }
+    function peekSnapshotActorRef(snapshot) {
+      return snapshotActorRefs.get(snapshot);
+    }
+    function getSnapshotActorRefProvider(snapshot) {
+      const existing = snapshotActorRefs.get(snapshot);
+      return existing ? () => existing : lazySnapshotActorRefs.get(snapshot);
+    }
+    function setLazySnapshotActorRef(snapshot, create4) {
+      snapshotActorRefs.delete(snapshot);
+      lazySnapshotActorRefs.set(snapshot, create4);
+    }
+    function copySnapshotActorRef(source, target) {
+      const ref = snapshotActorRefs.get(source);
+      if (ref) {
+        snapshotActorRefs.set(target, ref);
+        return true;
+      }
+      const create4 = lazySnapshotActorRefs.get(source);
+      if (create4) {
+        lazySnapshotActorRefs.set(target, create4);
+        return true;
+      }
+      return false;
+    }
+    function refreshSnapshotActorRefRoot(snapshot, actor, system) {
+      const ref = snapshotActorRefs.get(snapshot);
+      const sourceVersion = getSystemSnapshotVersion(system);
+      if (ref?.actor !== actor || ref.systemState.sourceSystem !== system || ref.systemState.sourceVersion + 1 !== sourceVersion || system._getRootActor?.() !== actor || system._peekChildren?.()) {
+        return false;
+      }
+      ref.systemState.root = actor;
+      ref.systemState.sourceVersion = sourceVersion;
+      return true;
+    }
+    function setSnapshotActorRef(snapshot, actor, baseSystem = actor.system, previousSnapshot) {
+      lazySnapshotActorRefs.delete(snapshot);
+      const sourceVersion = getSystemSnapshotVersion(baseSystem);
+      const previousRef = previousSnapshot ? getSnapshotActorRef(previousSnapshot) : void 0;
+      const reusableRef = previousRef?.actor === actor ? previousRef : getSnapshotActorRef(snapshot);
+      if (reusableRef?.actor === actor && reusableRef.systemState.sourceSystem === baseSystem && reusableRef.systemState.sourceVersion === sourceVersion) {
+        snapshotActorRefs.set(snapshot, reusableRef);
+        return;
+      }
+      const capturedActors = captureRegisteredActors(baseSystem);
+      let children = capturedActors.children;
+      const baseKeyedActors = getKeyedActors(baseSystem);
+      let keyedActors = baseKeyedActors.size ? new Map(baseKeyedActors) : emptyKeyedActors;
+      for (const child of Object.values(getSnapshotChildren(snapshot))) {
+        if (!child) {
+          continue;
+        }
+        if (child.sessionId) {
+          (children ??= /* @__PURE__ */ new Map()).set(child.sessionId, child);
+        }
+        const registryKey = child.registryKey;
+        if (registryKey) {
+          if (keyedActors === emptyKeyedActors) {
+            keyedActors = /* @__PURE__ */ new Map();
+          }
+          keyedActors.set(registryKey, child);
+        }
+      }
+      snapshotActorRefs.set(snapshot, {
+        actor,
+        systemState: {
+          ...capturedActors,
+          children,
+          keyedActors,
+          snapshot: {
+            ...baseSystem._snapshot
+          },
+          sourceSystem: baseSystem,
+          sourceVersion
+        }
+      });
+    }
+    function setInertActorScopeSnapshot(actorScope, snapshot, attachActorRef = true) {
+      const lazyState = getLazyInertActorState(actorScope);
+      if (lazyState) {
+        lazyState.snapshot = snapshot;
+        if (lazyState.materialized) {
+          lazyState.materialized.self._snapshot = snapshot;
+        }
+      } else {
+        actorScope.self._snapshot = snapshot;
+      }
+      if (attachActorRef && snapshot && typeof snapshot === "object") {
+        setSnapshotActorRef(snapshot, actorScope.self);
+      }
+      return snapshot;
+    }
+    function isInertActorScope(actorScope) {
+      return !!getLazyInertActorState(actorScope) || !!actorScope.self.options?._inert;
+    }
+    function attachSnapshotActorRef(actorScope, snapshot) {
+      setInertActorScopeSnapshot(actorScope, snapshot, false);
+      const lazyState = getLazyInertActorState(actorScope);
+      snapshotActorScopes.set(snapshot, actorScope);
+      const create4 = () => {
+        setSnapshotActorRef(snapshot, actorScope.self, actorScope.system);
+        return getSnapshotActorRef(snapshot);
+      };
+      if (lazyState) {
+        if (lazyState.materialized) {
+          lazyState.identityProvider = create4;
+        } else {
+          lazyState.identityProvider ??= create4;
+        }
+      }
+      setLazySnapshotActorRef(snapshot, create4);
+      return snapshot;
+    }
+    var lazyInertActorState = Symbol();
+    var snapshotActorScopes = /* @__PURE__ */ new WeakMap();
+    var inertActorMaterializationObserver;
+    function getLazyInertActorState(actorScope) {
+      return actorScope[lazyInertActorState];
+    }
+    function materializeInertActorScope(actorScope) {
+      return getLazyInertActorState(actorScope).materialize();
+    }
+    var lazyInertActorScopePrototype = {
+      [lazyActorScope]: true,
+      get _parent() {
+        const actorScope = this;
+        const state3 = getLazyInertActorState(actorScope);
+        return state3.parentKnown ? state3.parent : materializeInertActorScope(actorScope).self._parent;
+      },
+      get self() {
+        return materializeInertActorScope(this).self;
+      },
+      get defer() {
+        return materializeInertActorScope(this).defer;
+      },
+      get id() {
+        return materializeInertActorScope(this).id;
+      },
+      get logger() {
+        return materializeInertActorScope(this).logger;
+      },
+      get sessionId() {
+        return materializeInertActorScope(this).sessionId;
+      },
+      get stopChild() {
+        return materializeInertActorScope(this).stopChild;
+      },
+      get system() {
+        return materializeInertActorScope(this).system;
+      },
+      get emit() {
+        return materializeInertActorScope(this).emit;
+      },
+      get actionExecutor() {
+        return materializeInertActorScope(this).actionExecutor;
+      }
+    };
+    function createMaterializedInertActorScope(actorLogic, sourceRef, sourceChildren, currentSnapshot, sourceSelf) {
+      inertActorMaterializationObserver?.();
+      const snapshotRef = sourceRef?.();
+      const previousSelf = sourceSelf ?? snapshotRef?.actor;
+      const baseSystem = previousSelf?.system;
+      const system = previousSelf && baseSystem ? createSnapshotSystem(baseSystem, sourceChildren, sourceSelf ? void 0 : snapshotRef?.systemState) : void 0;
+      const self = createActor3(actorLogic, {
+        _inert: true,
+        ...previousSelf ? {
+          id: previousSelf.id,
+          _sessionId: previousSelf.sessionId
+        } : {},
+        ...system ? {
+          _systemRef: {
+            current: system
+          }
+        } : {}
+      });
+      if (previousSelf?._parent) {
+        self._parent = previousSelf._parent;
+        self._address = void 0;
+      }
+      if (currentSnapshot) {
+        self._snapshot = currentSnapshot;
+      }
+      return Object.create(self._actorScope, {
+        defer: {
+          value: () => {
+          }
+        },
+        stopChild: {
+          value: (child) => child._stop()
+        },
+        actionExecutor: {
+          value: () => {
+          }
+        }
+      });
+    }
+    function createInertActorScope(actorLogic, snapshot, sourceSelf, sourceActorScope) {
+      const sourceScope = sourceActorScope ?? (snapshot && typeof snapshot === "object" ? snapshotActorScopes.get(snapshot) : void 0);
+      const sourceState = sourceScope ? getLazyInertActorState(sourceScope) : void 0;
+      const eagerSourceRef = snapshot && typeof snapshot === "object" ? peekSnapshotActorRef(snapshot) : void 0;
+      const sourceRef = sourceState?.identityProvider ?? (snapshot && typeof snapshot === "object" ? getSnapshotActorRefProvider(snapshot) : void 0);
+      const state3 = {
+        snapshot,
+        sourceRef,
+        sourceChildren: isMachineSnapshot3(snapshot) ? snapshot.children : {},
+        identityProvider: sourceState?.identityProvider ?? sourceRef,
+        parent: sourceSelf?._parent ?? sourceState?.parent ?? eagerSourceRef?.actor._parent,
+        parentKnown: !!sourceSelf || !!sourceState?.parentKnown || !!eagerSourceRef || !snapshot
+      };
+      state3.materialize = () => state3.materialized ??= createMaterializedInertActorScope(actorLogic, state3.sourceRef, state3.sourceChildren, state3.snapshot, sourceSelf);
+      if (!state3.identityProvider && !snapshot) {
+        const identitySnapshot = {};
+        const identitySourceRef = state3.sourceRef;
+        const identitySourceChildren = state3.sourceChildren;
+        let identityScope;
+        let identityRef;
+        const getIdentityScope = () => identityScope ??= createMaterializedInertActorScope(actorLogic, identitySourceRef, identitySourceChildren, void 0, sourceSelf);
+        state3.materialize = () => {
+          const scope = getIdentityScope();
+          if (state3.snapshot !== void 0) {
+            scope.self._snapshot = state3.snapshot;
+          }
+          return state3.materialized = scope;
+        };
+        state3.identityProvider = () => {
+          if (identityRef) {
+            return identityRef;
+          }
+          const scope = getIdentityScope();
+          setSnapshotActorRef(identitySnapshot, scope.self, scope.system);
+          return identityRef = getSnapshotActorRef(identitySnapshot);
+        };
+      }
+      const actorScope = Object.create(lazyInertActorScopePrototype);
+      actorScope[lazyInertActorState] = state3;
+      return actorScope;
+    }
+    function getConfiguredDelayValue(delay, delaySource) {
+      if (typeof delay !== "string") {
+        return delay;
+      }
+      const referencedDelay = delaySource[delay];
+      if (referencedDelay !== void 0) {
+        return referencedDelay;
+      }
+      const parsedDelay = parseDurationToMilliseconds(delay);
+      if (parsedDelay === void 0) {
+        throw new Error(`Invalid delay "${delay}": not a configured delay name or a valid duration string (e.g. "500ms", "1.5s", "PT1M30S").`);
+      }
+      return parsedDelay;
+    }
+    function resolveDelay(delay, delaySource, args) {
+      if (typeof delay === "function") {
+        return delay(args);
+      }
+      const configuredDelay = getConfiguredDelayValue(delay, delaySource);
+      if (typeof configuredDelay === "function") {
+        return configuredDelay(args);
+      }
+      return configuredDelay;
+    }
+    function getStateInput(snapshot, stateNodeId) {
+      return snapshot._stateInputs?.[stateNodeId];
+    }
+    function isAtomicStateNode(stateNode) {
+      return stateNode.type === "atomic" || stateNode.type === "final" || stateNode.type === "choice";
+    }
+    function getChildren(stateNode) {
+      return Object.values(stateNode.states).filter((sn) => sn.type !== "history");
+    }
+    function getProperAncestors(stateNode, toStateNode) {
+      const ancestors = [];
+      if (toStateNode === stateNode) {
+        return ancestors;
+      }
+      let m = stateNode.parent;
+      while (m && m !== toStateNode) {
+        ancestors.push(m);
+        m = m.parent;
+      }
+      return ancestors;
+    }
+    function getAllStateNodes(stateNodes) {
+      const nodeSet = new Set(stateNodes);
+      const activeParentSet = /* @__PURE__ */ new Set();
+      for (const stateNode of nodeSet) {
+        if (stateNode.parent) {
+          activeParentSet.add(stateNode.parent);
+        }
+      }
+      for (const s of nodeSet) {
+        if (s.type === "compound" && !activeParentSet.has(s)) {
+          for (const sn of getInitialStateNodes(s)) {
+            nodeSet.add(sn);
+          }
+          continue;
+        }
+        if (s.type === "parallel") {
+          for (const child of getChildren(s)) {
+            if (!nodeSet.has(child)) {
+              const initialStates = getInitialStateNodes(child);
+              for (const initialStateNode of initialStates) {
+                nodeSet.add(initialStateNode);
+              }
+            }
+          }
+        }
+      }
+      for (const s of nodeSet) {
+        let m = s.parent;
+        while (m && !nodeSet.has(m)) {
+          nodeSet.add(m);
+          m = m.parent;
+        }
+      }
+      return nodeSet;
+    }
+    function getStateValue(rootNode, stateNodes) {
+      const config = getAllStateNodes(stateNodes);
+      const adjList = /* @__PURE__ */ new Map();
+      for (const s of config) {
+        if (!adjList.has(s)) {
+          adjList.set(s, []);
+        }
+        if (!s.parent) {
+          continue;
+        }
+        if (!adjList.has(s.parent)) {
+          adjList.set(s.parent, []);
+        }
+        adjList.get(s.parent).push(s);
+      }
+      const getValueFromAdj = (baseNode) => {
+        const childStateNodes = adjList.get(baseNode);
+        if (!childStateNodes) {
+          return {};
+        }
+        if (baseNode.type === "compound") {
+          const childStateNode = childStateNodes[0];
+          if (!childStateNode) {
+            return {};
+          }
+          if (isAtomicStateNode(childStateNode)) {
+            return childStateNode.key;
+          }
+        }
+        const stateValue = {};
+        for (const childStateNode of childStateNodes) {
+          stateValue[childStateNode.key] = getValueFromAdj(childStateNode);
+        }
+        return stateValue;
+      };
+      return getValueFromAdj(rootNode);
+    }
+    function isInFinalState(stateNodeSet, stateNode) {
+      if (stateNode.type === "compound") {
+        return getChildren(stateNode).some((s) => s.type === "final" && stateNodeSet.has(s));
+      }
+      if (stateNode.type === "parallel") {
+        return getChildren(stateNode).every((sn) => isInFinalState(stateNodeSet, sn));
+      }
+      return stateNode.type === "final";
+    }
+    var isStateId = (str) => str[0] === STATE_IDENTIFIER;
+    function getLegacyEventType(event) {
+      switch (event.type) {
+        case "xstate.done.actor":
+        case "xstate.error.actor":
+          return `${event.type}.${event.actorId}`;
+        case "xstate.snapshot.actor":
+          return `xstate.snapshot.${event.actorId}`;
+        case "xstate.done.state":
+          return `xstate.done.state.${event.stateId}`;
+        case "xstate.after":
+          return `xstate.after.${event.delay}.${event.stateId}`;
+        case "xstate.timeout":
+          return `xstate.timeout.${event.stateId}`;
+        case "xstate.timeout.actor":
+          return `xstate.timeout.actor.${event.actorId}`;
+        default:
+          return void 0;
+      }
+    }
+    function getEventTypeAliases(event) {
+      const legacyType = getLegacyEventType(event);
+      return legacyType ? [event.type, legacyType] : [event.type];
+    }
+    function getEventDescriptorKey(event) {
+      const legacyType = getLegacyEventType(event);
+      return legacyType ? `${event.type}|${legacyType}` : event.type;
+    }
+    function matchesActorSession(event, snapshot, actorId2) {
+      const child = snapshot.children[actorId2];
+      if (!child || !("sessionId" in event)) {
+        return true;
+      }
+      return child.sessionId === void 0 || child.sessionId === event.sessionId;
+    }
+    function normalizeLegacyInternalEvent(event, machine) {
+      if (event.type === "xstate.done.actor" || event.type === "xstate.error.actor" || event.type === "xstate.snapshot.actor" || event.type === "xstate.done.state" || event.type === "xstate.after" || event.type === "xstate.timeout" || event.type === "xstate.timeout.actor") {
+        return event;
+      }
+      const normalizeWithId = (prefix, type, idKey) => event.type.startsWith(prefix) ? {
+        ...event,
+        type,
+        [idKey]: event[idKey] ?? event.type.slice(prefix.length)
+      } : void 0;
+      const normalized = normalizeWithId("xstate.done.actor.", "xstate.done.actor", "actorId") ?? normalizeWithId("xstate.error.actor.", "xstate.error.actor", "actorId") ?? normalizeWithId("xstate.snapshot.", "xstate.snapshot.actor", "actorId") ?? normalizeWithId("xstate.done.state.", "xstate.done.state", "stateId") ?? normalizeWithId("xstate.timeout.actor.", "xstate.timeout.actor", "actorId") ?? normalizeWithId("xstate.timeout.", "xstate.timeout", "stateId");
+      if (normalized) {
+        return normalized;
+      }
+      const afterPrefix = "xstate.after.";
+      if (!event.type.startsWith(afterPrefix)) {
+        return event;
+      }
+      const stateId = [...machine.idMap.keys()].sort((a, b) => b.length - a.length).find((id) => event.type.endsWith(`.${id}`));
+      if (!stateId) {
+        return event;
+      }
+      const delayText = event.type.slice(afterPrefix.length, -stateId.length - 1);
+      return {
+        ...event,
+        type: "xstate.after",
+        delay: Number.isNaN(+delayText) ? delayText : +delayText,
+        stateId
+      };
+    }
+    function getCandidates(stateNode, event) {
+      const eventTypes = getEventTypeAliases(event);
+      const exactMatches = eventTypes.flatMap((eventType) => stateNode.transitions.get(eventType) ?? []);
+      const wildcardCandidates = [...stateNode.transitions.keys()].filter((eventDescriptor) => !eventTypes.includes(eventDescriptor) && eventTypes.some((eventType) => matchesEventDescriptor(eventType, eventDescriptor))).sort((a, b) => b.length - a.length).flatMap((key) => stateNode.transitions.get(key));
+      return exactMatches.length ? [...exactMatches, ...wildcardCandidates] : wildcardCandidates;
+    }
+    function scheduleDelayedEvent(stateNode, timerId, resolveEvent, resolveScheduledDelay) {
+      const oldEntry = stateNode.entry;
+      stateNode.entry = (x, enq) => {
+        const result = typeof oldEntry === "function" ? oldEntry(x, enq) : void 0;
+        const context = result?.context !== void 0 ? mergeContextPatch(x.context, result.context) : x.context;
+        enq.raise(resolveEvent(x), {
+          id: timerId,
+          delay: resolveScheduledDelay({
+            context,
+            event: x.event,
+            delays: x.delays,
+            input: x.input
+          })
+        });
+        return result;
+      };
+      const oldExit = stateNode.exit;
+      stateNode.exit = (_, enq) => {
+        enq.cancel(timerId);
+        return typeof oldExit === "function" ? oldExit(_, enq) : void 0;
+      };
+    }
+    function getDelayedTransitions(stateNode) {
+      const afterConfig = stateNode.config.after;
+      const timeoutConfig = stateNode.config.timeout;
+      const onTimeoutConfig = stateNode.config.onTimeout;
+      const invokeDefs = stateNode.invoke.filter((invokeDef) => invokeDef.timeout !== void 0);
+      if (!afterConfig && timeoutConfig === void 0 && invokeDefs.length === 0) {
+        return [];
+      }
+      const sources = [];
+      if (afterConfig) {
+        for (const key of Object.keys(afterConfig)) {
+          const delay = Number.isNaN(+key) ? key : +key;
+          sources.push({
+            event: createAfterEvent(delay, stateNode.id),
+            timerId: createAfterEventId(delay, stateNode.id),
+            delay,
+            transitions: afterConfig[key],
+            fromDelaysMap: true
+          });
+        }
+      }
+      if (timeoutConfig !== void 0 && onTimeoutConfig) {
+        sources.push({
+          event: createTimeoutEvent(stateNode.id),
+          timerId: createTimeoutEventId(stateNode.id),
+          delay: timeoutConfig,
+          transitions: onTimeoutConfig,
+          fromDelaysMap: true
+        });
+      }
+      for (const invokeDef of invokeDefs) {
+        sources.push({
+          event: createInvokeTimeoutEvent(invokeDef.id),
+          timerId: createInvokeTimeoutEventId(invokeDef.id),
+          resolveEvent: ({
+            children
+          }) => createInvokeTimeoutEvent(invokeDef.id, children[invokeDef.id]?.sessionId),
+          eventMatcher: (event, snapshot) => matchesActorSession(event, snapshot, invokeDef.id),
+          delay: invokeDef.timeout,
+          transitions: invokeDef.onTimeout,
+          fromDelaysMap: false
+        });
+      }
+      const delayedTransitions = [];
+      for (const {
+        event,
+        timerId,
+        resolveEvent,
+        eventMatcher,
+        delay,
+        transitions,
+        fromDelaysMap
+      } of sources) {
+        scheduleDelayedEvent(stateNode, timerId, resolveEvent ?? (() => event), (x) => resolveDelay(delay, fromDelaysMap ? x.delays : {}, {
+          context: x.context,
+          event: x.event,
+          stateNode,
+          input: x.input
+        }));
+        const {
+          type: eventType,
+          ...eventPattern
+        } = event;
+        for (const transition3 of toTransitionConfigArray(transitions)) {
+          delayedTransitions.push({
+            ...transition3,
+            matches: {
+              ...transition3.matches,
+              ...Object.fromEntries(Object.entries(eventPattern).filter(([, value]) => value !== void 0))
+            },
+            event: eventType,
+            delay,
+            _eventMatcher: eventMatcher
+          });
+        }
+      }
+      return delayedTransitions.map((delayedTransition) => ({
+        ...formatTransition(stateNode, delayedTransition.event, delayedTransition),
+        delay: delayedTransition.delay
+      }));
+    }
+    function formatTransition(stateNode, descriptor, transitionConfig) {
+      const removedKey = getRemovedTransitionKey(transitionConfig);
+      if (removedKey) {
+        throw new Error(`Transition "${descriptor || "always"}" in state "${stateNode.id}" uses ${removedKey}, which was removed in v6. Use a transition function.`);
+      }
+      const normalizedTarget = normalizeTarget(transitionConfig.target);
+      const reenter = transitionConfig.reenter ?? false;
+      const target = resolveTarget(stateNode, normalizedTarget);
+      assertLegalTargetSet(stateNode, target);
+      const transition3 = {
+        ...transitionConfig,
+        target,
+        source: stateNode,
+        reenter,
+        eventType: descriptor,
+        toJSON: () => transitionDefinitionToJSON(transition3)
+      };
+      return transition3;
+    }
+    function transitionDefinitionToJSON(transition3) {
+      const {
+        definition: _,
+        ...serializableTransition
+      } = transition3;
+      return {
+        ...serializableTransition,
+        source: `#${transition3.source.id}`,
+        target: transition3.target?.map((target) => `#${target.id}`)
+      };
+    }
+    function getRemovedTransitionKey(transitionConfig) {
+      const {
+        cond,
+        actions,
+        guard
+      } = transitionConfig;
+      if (cond !== void 0) {
+        return '"cond"';
+      }
+      if (actions !== void 0) {
+        return '"actions"';
+      }
+      if (guard !== void 0 && typeof guard !== "function") {
+        return 'an object-form "guard"';
+      }
+      return void 0;
+    }
+    function isStateNodeDescendantOf(stateNode, ancestor) {
+      for (let current = stateNode.parent; current; current = current.parent) {
+        if (current === ancestor) {
+          return true;
+        }
+      }
+      return false;
+    }
+    function getLeastCommonStateNodeAncestor(left, right) {
+      const leftAncestors = /* @__PURE__ */ new Set();
+      for (let current = left; current; current = current.parent) {
+        leftAncestors.add(current);
+      }
+      for (let current = right; current; current = current.parent) {
+        if (leftAncestors.has(current)) {
+          return current;
+        }
+      }
+      return void 0;
+    }
+    function assertLegalTargetSet(source, targets) {
+      if (!targets || targets.length < 2) {
+        return;
+      }
+      for (let leftIndex = 0; leftIndex < targets.length; leftIndex++) {
+        for (let rightIndex = leftIndex + 1; rightIndex < targets.length; rightIndex++) {
+          const left = targets[leftIndex];
+          const right = targets[rightIndex];
+          const commonAncestor = getLeastCommonStateNodeAncestor(left, right);
+          if (left === right || isStateNodeDescendantOf(left, right) || isStateNodeDescendantOf(right, left) || commonAncestor?.type !== "parallel") {
+            throw new Error(`Invalid target set for '${source.id}'`);
+          }
+        }
+      }
+    }
+    function formatRouteTransitions(rootStateNode) {
+      const routeTransitions = [];
+      const collectRoutes = (states) => {
+        Object.values(states).forEach((sn) => {
+          if (sn.config.route && sn.config.id) {
+            const routeId = sn.config.id;
+            const routeConfig = sn.config.route;
+            const routeMatches = ({
+              event
+            }) => event.to === `#${routeId}`;
+            if (typeof routeConfig === "function") {
+              routeTransitions.push(formatTransition(rootStateNode, "xstate.route", {
+                guard: routeMatches,
+                to: (args) => {
+                  const result = routeConfig(args);
+                  if (!result) {
+                    return void 0;
+                  }
+                  return {
+                    ...result === true ? {} : result,
+                    target: `#${routeId}`
+                  };
+                }
+              }));
+              if (sn.states) {
+                collectRoutes(sn.states);
+              }
+              return;
+            }
+            const {
+              guard: _guard,
+              ...routeOptions
+            } = routeConfig;
+            const transition3 = {
+              ...routeOptions,
+              guard: routeMatches,
+              target: `#${routeId}`
+            };
+            routeTransitions.push(formatTransition(rootStateNode, "xstate.route", transition3));
+          }
+          if (sn.states) {
+            collectRoutes(sn.states);
+          }
+        });
+      };
+      collectRoutes(rootStateNode.states);
+      if (routeTransitions.length > 0) {
+        rootStateNode.transitions.set("xstate.route", routeTransitions);
+      }
+    }
+    function resolveTarget(stateNode, targets) {
+      if (targets === void 0) {
+        return void 0;
+      }
+      return targets.map((target) => {
+        if (typeof target !== "string") {
+          return target;
+        }
+        if (isStateId(target)) {
+          return stateNode.machine.getStateNodeById(target);
+        }
+        const isInternalTarget = target[0] === STATE_DELIMITER;
+        if (isInternalTarget && !stateNode.parent) {
+          return getStateNodeByPath(stateNode, target.slice(1));
+        }
+        const resolvedTarget = isInternalTarget ? stateNode.key + target : target;
+        if (stateNode.parent) {
+          try {
+            const targetStateNode = getStateNodeByPath(stateNode.parent, resolvedTarget);
+            return targetStateNode;
+          } catch (err) {
+            throw new Error(`Invalid transition for '${stateNode.id}': ${err.message}`);
+          }
+        } else {
+          throw new Error(`Invalid target: "${target}"`);
+        }
+      });
+    }
+    function resolveHistoryDefaultTransition(stateNode) {
+      const normalizedTarget = normalizeTarget(stateNode.config.target);
+      if (!normalizedTarget) {
+        if (stateNode.parent.type === "parallel") {
+          return {
+            target: [stateNode.parent],
+            source: stateNode,
+            reenter: false,
+            eventType: ""
+          };
+        }
+        return stateNode.parent.initial;
+      }
+      const target = normalizedTarget.map((t) => typeof t === "string" ? getStateNodeByPath(stateNode.parent, t) : t);
+      assertLegalTargetSet(stateNode, target);
+      return {
+        target,
+        source: stateNode,
+        reenter: false,
+        eventType: "",
+        to: stateNode.config._historyDefaultTransition
+      };
+    }
+    function isHistoryNode(stateNode) {
+      return stateNode.type === "history";
+    }
+    function getInitialStateNodes(stateNode) {
+      const set = /* @__PURE__ */ new Set();
+      function iter(descStateNode) {
+        if (set.has(descStateNode)) {
+          return;
+        }
+        set.add(descStateNode);
+        if (descStateNode.type === "compound") {
+          for (const target of descStateNode.initial.target ?? []) {
+            iter(target);
+          }
+        } else if (descStateNode.type === "parallel") {
+          for (const child of getChildren(descStateNode)) {
+            iter(child);
+          }
+        }
+      }
+      iter(stateNode);
+      for (const initialState of set) {
+        for (const ancestor of getProperAncestors(initialState, stateNode)) {
+          set.add(ancestor);
+        }
+      }
+      return set;
+    }
+    function getStateNode(stateNode, stateKey) {
+      if (isStateId(stateKey)) {
+        return stateNode.machine.getStateNodeById(stateKey);
+      }
+      const result = stateNode.states?.[stateKey];
+      if (!result) {
+        throw new Error(`Child state '${stateKey}' does not exist on '${stateNode.id}'`);
+      }
+      return result;
+    }
+    function getStateNodeByPath(stateNode, statePath) {
+      if (typeof statePath === "string" && isStateId(statePath)) {
+        try {
+          return stateNode.machine.getStateNodeById(statePath);
+        } catch {
+        }
+      }
+      const arrayStatePath = toStatePath(statePath).slice();
+      let currentStateNode = stateNode;
+      while (arrayStatePath.length) {
+        const key = arrayStatePath.shift();
+        if (!key.length) {
+          break;
+        }
+        currentStateNode = getStateNode(currentStateNode, key);
+      }
+      return currentStateNode;
+    }
+    function getStateNodes3(stateNode, stateValue) {
+      if (typeof stateValue === "string") {
+        const childStateNode = stateNode.states[stateValue];
+        if (!childStateNode) {
+          throw new Error(`State '${stateValue}' does not exist on '${stateNode.id}'`);
+        }
+        return [stateNode, childStateNode];
+      }
+      const childStateKeys = Object.keys(stateValue);
+      const childStateNodes = new Array(childStateKeys.length);
+      const allStateNodes = [stateNode.machine.root, stateNode];
+      for (let i = 0; i < childStateKeys.length; i++) {
+        const subStateNode = getStateNode(stateNode, childStateKeys[i]);
+        childStateNodes[i] = subStateNode;
+        allStateNodes.push(subStateNode);
+      }
+      for (let i = 0; i < childStateKeys.length; i++) {
+        allStateNodes.push(...getStateNodes3(childStateNodes[i], stateValue[childStateKeys[i]]));
+      }
+      return allStateNodes;
+    }
+    function transitionNode(stateNode, stateValue, snapshot, event, actorScope, selectionResults) {
+      if (typeof stateValue === "string") {
+        const childStateNode = getStateNode(stateNode, stateValue);
+        const next = childStateNode.next(snapshot, event, actorScope, selectionResults);
+        if (!next || !next.length) {
+          return stateNode.next(snapshot, event, actorScope, selectionResults);
+        }
+        return next;
+      }
+      const subStateKeys = Object.keys(stateValue);
+      const subStateKey = subStateKeys[0];
+      if (subStateKeys.length === 1) {
+        const childStateNode = getStateNode(stateNode, subStateKey);
+        const next = transitionNode(childStateNode, stateValue[subStateKey], snapshot, event, actorScope, selectionResults);
+        if (!next || !next.length) {
+          return stateNode.next(snapshot, event, actorScope, selectionResults);
+        }
+        return next;
+      }
+      const allInnerTransitions = [];
+      for (const subStateKey2 of subStateKeys) {
+        const subStateValue = stateValue[subStateKey2];
+        if (!subStateValue) {
+          continue;
+        }
+        const subStateNode = getStateNode(stateNode, subStateKey2);
+        const innerTransitions = transitionNode(subStateNode, subStateValue, snapshot, event, actorScope, selectionResults);
+        if (innerTransitions) {
+          allInnerTransitions.push(...innerTransitions);
+        }
+      }
+      if (!allInnerTransitions.length) {
+        return stateNode.next(snapshot, event, actorScope, selectionResults);
+      }
+      return allInnerTransitions;
+    }
+    function isDescendant(childStateNode, parentStateNode) {
+      let marker = childStateNode;
+      while (marker.parent && marker.parent !== parentStateNode) {
+        marker = marker.parent;
+      }
+      return marker.parent === parentStateNode;
+    }
+    function hasDescendantState(stateNodes, parentStateNode) {
+      for (const stateNode of stateNodes) {
+        if (isDescendant(stateNode, parentStateNode)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    function hasIntersection(s1, s2) {
+      const s1Size = s1 instanceof Set ? s1.size : Array.isArray(s1) ? s1.length : void 0;
+      const s2Size = s2 instanceof Set ? s2.size : Array.isArray(s2) ? s2.length : void 0;
+      if (s1Size !== void 0 && s2Size !== void 0 && s2Size < s1Size) {
+        [s1, s2] = [s2, s1];
+      }
+      const set1 = s1 instanceof Set ? s1 : new Set(s1);
+      for (const item of s2) {
+        if (set1.has(item)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    function removeConflictingTransitions(enabledTransitions, stateNodeSet, snapshot, resolveTransition) {
+      const filteredTransitions = /* @__PURE__ */ new Set();
+      const exitSets = /* @__PURE__ */ new Map();
+      const getExitSet = (transition3) => {
+        let exitSet = exitSets.get(transition3);
+        if (!exitSet) {
+          exitSet = computeExitSet([transition3], stateNodeSet, snapshot, resolveTransition);
+          exitSets.set(transition3, exitSet);
+        }
+        return exitSet;
+      };
+      for (const t1 of enabledTransitions) {
+        let t1Preempted = false;
+        const transitionsToRemove = /* @__PURE__ */ new Set();
+        for (const t2 of filteredTransitions) {
+          if (hasIntersection(getExitSet(t1), getExitSet(t2))) {
+            if (isDescendant(t1.source, t2.source)) {
+              transitionsToRemove.add(t2);
+            } else {
+              t1Preempted = true;
+              break;
+            }
+          }
+        }
+        if (!t1Preempted) {
+          for (const t3 of transitionsToRemove) {
+            filteredTransitions.delete(t3);
+          }
+          filteredTransitions.add(t1);
+        }
+      }
+      return Array.from(filteredTransitions);
+    }
+    function createTransitionResultResolver(snapshot, event, actorScope, resolveActions, selectionResults) {
+      let cache3;
+      return (transition3, applied) => {
+        if (!transition3.to && !applied) {
+          return {
+            targets: transition3.target,
+            context: void 0,
+            reenter: transition3.reenter,
+            actions: void 0,
+            internalEvents: void 0,
+            input: void 0
+          };
+        }
+        let result = cache3?.get(transition3);
+        if (!result) {
+          result = getTransitionResult(transition3, snapshot, event, actorScope, {
+            resolveActions,
+            selectionResult: selectionResults?.get(transition3)
+          });
+          (cache3 ??= /* @__PURE__ */ new Map()).set(transition3, result);
+        }
+        return result;
+      };
+    }
+    function getEffectiveTargetStates(transition3, snapshot, resolveTransition) {
+      const historyValue = snapshot.historyValue;
+      const {
+        targets
+      } = resolveTransition(transition3);
+      if (!targets) {
+        return [];
+      }
+      const targetSet = /* @__PURE__ */ new Set();
+      for (const targetNode of targets) {
+        if (isHistoryNode(targetNode)) {
+          if (historyValue[targetNode.id]) {
+            for (const node of historyValue[targetNode.id]) {
+              targetSet.add(node);
+            }
+          } else {
+            for (const node of getEffectiveTargetStates(resolveHistoryDefaultTransition(targetNode), snapshot, resolveTransition)) {
+              targetSet.add(node);
+            }
+          }
+        } else {
+          targetSet.add(targetNode);
+        }
+      }
+      return [...targetSet];
+    }
+    function narrowParallelDomain(domain, targetStates) {
+      let narrowed = domain;
+      while (narrowed.type === "parallel") {
+        const region = getChildren(narrowed).find((child) => targetStates.every((target) => target === child || isDescendant(target, child)));
+        if (!region) {
+          break;
+        }
+        narrowed = region;
+      }
+      return narrowed;
+    }
+    function getTransitionDomain(transition3, snapshot, resolveTransition) {
+      const targetStates = getEffectiveTargetStates(transition3, snapshot, resolveTransition);
+      const {
+        targets,
+        reenter
+      } = resolveTransition(transition3);
+      if (transition3._transitionDomain) {
+        if (transition3._transitionDomain === "internal" && transition3.source.type === "compound" && targetStates.every((target) => isDescendant(target, transition3.source))) {
+          return transition3.source;
+        }
+        const [head2, ...tail2] = targetStates.concat(transition3.source);
+        for (const ancestor of getProperAncestors(head2, void 0)) {
+          if (ancestor.type === "compound" && tail2.every((stateNode) => isDescendant(stateNode, ancestor))) {
+            return ancestor;
+          }
+        }
+        return;
+      }
+      const restoresSourceViaHistory = targets?.some(isHistoryNode) && targetStates.some((target) => target === transition3.source);
+      if (!restoresSourceViaHistory && targetStates.every((target) => target === transition3.source || isDescendant(target, transition3.source))) {
+        return reenter ? transition3.source : narrowParallelDomain(transition3.source, targetStates);
+      }
+      const [head, ...tail] = targetStates.concat(transition3.source);
+      for (const ancestor of getProperAncestors(head, void 0)) {
+        if (tail.every((sn) => isDescendant(sn, ancestor))) {
+          return reenter ? ancestor : narrowParallelDomain(ancestor, targetStates);
+        }
+      }
+      if (reenter) {
+        return;
+      }
+      return narrowParallelDomain(transition3.source.machine.root, targetStates);
+    }
+    function computeExitSet(transitions, stateNodeSet, snapshot, resolveTransition) {
+      const statesToExit = /* @__PURE__ */ new Set();
+      for (const transition3 of transitions) {
+        const {
+          targets,
+          reenter
+        } = resolveTransition(transition3);
+        if (targets?.length) {
+          const domain = getTransitionDomain(transition3, snapshot, resolveTransition);
+          if (reenter && transition3.source === domain) {
+            statesToExit.add(domain);
+          }
+          for (const stateNode of stateNodeSet) {
+            if (isDescendant(stateNode, domain)) {
+              statesToExit.add(stateNode);
+            }
+          }
+        }
+      }
+      return [...statesToExit];
+    }
+    function initialMicrostep(root, preInitialState, actorScope, initEvent, internalQueue) {
+      root.machine._microstepHooks?.begin(actorScope.self);
+      const initialStateNodes = [...getInitialStateNodes(root)];
+      const statesForDefaultEntry = /* @__PURE__ */ new Set();
+      const collectDefaultEntryStates = (stateNode) => {
+        if (stateNode.type === "compound") {
+          statesForDefaultEntry.add(stateNode);
+          for (const target of stateNode.initial.target ?? []) {
+            collectDefaultEntryStates(target);
+          }
+        } else if (stateNode.type === "parallel") {
+          for (const child of getChildren(stateNode)) {
+            collectDefaultEntryStates(child);
+          }
+        }
+      };
+      collectDefaultEntryStates(root);
+      return microstep([{
+        target: initialStateNodes.filter((stateNode) => !initialStateNodes.some((other) => other !== stateNode && isDescendant(other, stateNode))),
+        source: root,
+        reenter: true,
+        eventType: null,
+        toJSON: null,
+        _statesForDefaultEntry: [...statesForDefaultEntry]
+      }], preInitialState, actorScope, initEvent, true, internalQueue);
+    }
+    function microstep(transitions, currentSnapshot, actorScope, event, isInitial, internalQueue, selectionResults) {
+      const executableActions = [];
+      const internalEvents = currentSnapshot.machine._microstepHooks?.drain(actorScope.self);
+      if (internalEvents?.length) {
+        internalQueue.push(...internalEvents);
+      }
+      if (!transitions.length) {
+        return [currentSnapshot, executableActions];
+      }
+      {
+        const mutStateNodeSet = new Set(currentSnapshot.nodes);
+        let historyValue = currentSnapshot.historyValue;
+        const originalContext = currentSnapshot.context;
+        const filteredTransitions = transitions.length === 1 ? transitions : removeConflictingTransitions(transitions, mutStateNodeSet, currentSnapshot, createTransitionResultResolver(currentSnapshot, event, actorScope, false, selectionResults));
+        const getCurrentTransitionResult = createTransitionResultResolver(currentSnapshot, event, actorScope, true, selectionResults);
+        const changesState = filteredTransitions.some((transition3) => {
+          const {
+            targets,
+            reenter
+          } = getCurrentTransitionResult(transition3);
+          return !!targets?.length || !!reenter;
+        });
+        const getStateActionsAndContext = (transitionFn, context2, children, input, kind, stateNode) => {
+          if (transitionFn.length === 2) {
+            const actions = [];
+            const internalEvents3 = [];
+            let updatedContext;
+            const enqueue = createTransitionEnqueue(actorScope, actions, internalEvents3, true);
+            const args = isLazyActorScope(actorScope) ? withActorScope2({
+              context: context2,
+              event,
+              children,
+              actions: currentSnapshot.machine.sources.actions,
+              actors: currentSnapshot.machine.sources.actors,
+              guards: currentSnapshot.machine.sources.guards,
+              delays: currentSnapshot.machine.sources.delays,
+              input,
+              stateNode
+            }, actorScope) : {
+              context: context2,
+              event,
+              parent: actorScope.self._parent,
+              self: actorScope.self,
+              children,
+              system: actorScope.system,
+              actions: currentSnapshot.machine.sources.actions,
+              actors: currentSnapshot.machine.sources.actors,
+              guards: currentSnapshot.machine.sources.guards,
+              delays: currentSnapshot.machine.sources.delays,
+              input,
+              stateNode
+            };
+            let res;
+            try {
+              res = transitionFn(args, enqueue);
+            } finally {
+              closeTransitionEnqueue(enqueue);
+            }
+            assertSyncTransitionResult(res, event, stateNode.id, kind);
+            if (res?.context !== void 0) {
+              updatedContext = mergeContextPatch(context2, res.context);
+            }
+            return [actions, updatedContext, internalEvents3];
+          }
+          const wrappedAction = Object.assign((args, enqueue) => transitionFn(
+            isLazyActorScope(actorScope) ? withActorScope2({
+              context: args.context,
+              event: args.event,
+              output: args.output,
+              children: args.children,
+              actions: args.actions,
+              actors: args.actors,
+              guards: currentSnapshot.machine.sources.guards,
+              delays: currentSnapshot.machine.sources.delays,
+              input,
+              stateNode
+            }, actorScope) : {
+              ...args,
+              guards: currentSnapshot.machine.sources.guards,
+              delays: currentSnapshot.machine.sources.delays,
+              input,
+              stateNode
+            },
+            // This function runs during action resolution, where enqueued
+            // effects are no longer collected.
+            enqueue
+          ), "_special" in transitionFn ? {
+            _special: true
+          } : {});
+          return [[wrappedAction], void 0, void 0];
+        };
+        let nextState = currentSnapshot;
+        const getInvokeStopActions = (stateNode, children) => {
+          const actions = [];
+          const enqueue = createTransitionEnqueue(actorScope, actions, []);
+          for (const invokeDef of stateNode.invoke) {
+            const child = children[invokeDef.id];
+            if (child) {
+              enqueue.stop(child);
+            }
+          }
+          return actions;
+        };
+        const exitStates = () => {
+          const statesToExit = computeExitSet(filteredTransitions, mutStateNodeSet, currentSnapshot, getCurrentTransitionResult);
+          statesToExit.sort((a, b) => b.order - a.order);
+          let changedHistory;
+          const currentStateNodes = [...mutStateNodeSet];
+          for (const exitStateNode of statesToExit) {
+            for (const historyNode of Object.values(exitStateNode.states)) {
+              if (historyNode.type !== "history") {
+                continue;
+              }
+              const predicate = historyNode.history === "deep" ? (sn) => isAtomicStateNode(sn) && isDescendant(sn, exitStateNode) : (sn) => sn.parent === exitStateNode;
+              changedHistory ??= {
+                ...historyValue
+              };
+              changedHistory[historyNode.id] = currentStateNodes.filter(predicate);
+            }
+          }
+          for (const exitStateNode of statesToExit) {
+            const stateInput = getStateInput(currentSnapshot, exitStateNode.id);
+            const [exitActions, nextContext, internalEvents3] = exitStateNode.exit ? getStateActionsAndContext(exitStateNode.exit, nextState.context, nextState.children, stateInput, "exit", exitStateNode) : [[], void 0, void 0];
+            if (internalEvents3?.length) {
+              internalQueue.push(...internalEvents3);
+            }
+            if (nextContext) {
+              nextState = cloneMachineSnapshot(nextState, {
+                context: nextContext
+              });
+            }
+            const [resolvedState, resolvedActions] = resolveActionsWithContext(nextState, event, actorScope, exitActions);
+            nextState = resolvedState;
+            executableActions.push(...resolvedActions);
+            const invokeStopActions = getInvokeStopActions(exitStateNode, nextState.children);
+            if (invokeStopActions.length) {
+              const [stoppedState, stopEffects] = resolveActionsWithContext(nextState, event, actorScope, invokeStopActions);
+              nextState = stoppedState;
+              executableActions.push(...stopEffects);
+            }
+            mutStateNodeSet.delete(exitStateNode);
+          }
+          historyValue = changedHistory || historyValue;
+        };
+        if (!isInitial && changesState) {
+          exitStates();
+        }
+        let context = nextState.context;
+        const transitionActions = [];
+        const internalEvents2 = [];
+        const resolvedTransitions = [];
+        for (const t of filteredTransitions) {
+          const res = getCurrentTransitionResult(t, true);
+          if (t.to) {
+            const resolvedTransition = {
+              ...t,
+              target: res.targets,
+              definition: t
+            };
+            resolvedTransition.toJSON = () => transitionDefinitionToJSON(resolvedTransition);
+            resolvedTransitions.push(resolvedTransition);
+          } else {
+            resolvedTransitions.push(t);
+          }
+          if (res.context !== void 0) {
+            context = mergeContextPatch(context, res.context);
+          }
+          if (res.actions) {
+            transitionActions.push(...res.actions);
+          }
+          if (res.internalEvents) {
+            internalEvents2.push(...res.internalEvents);
+          }
+        }
+        if (internalEvents2.length) {
+          internalQueue.push(...internalEvents2);
+        }
+        const enterStates = () => {
+          const getMachineOutput = (rootCompletionNode) => {
+            const rootNode = nextState.machine.root;
+            let completionOutput;
+            if (rootCompletionNode.output !== void 0 && rootCompletionNode.parent) {
+              const rootDoneEvent = internalQueue.find((e) => e.type === "xstate.done.state" && e.stateId === rootNode.id);
+              completionOutput = rootDoneEvent && rootCompletionNode.parent === rootNode ? rootDoneEvent.output : resolveOutput(rootCompletionNode.output, nextState.context, event, actorScope.self, stateInputMap[rootCompletionNode.id]);
+            } else if (rootCompletionNode.type === "parallel") {
+              const parallelDoneEvent = internalQueue.find((e) => e.type === "xstate.done.state" && e.stateId === rootCompletionNode.id);
+              completionOutput = parallelDoneEvent?.output;
+            }
+            if (rootNode.output === void 0) {
+              return rootCompletionNode.parent === rootNode ? completionOutput : void 0;
+            }
+            return resolveOutput(rootNode.output, nextState.context, createDoneStateEvent(rootCompletionNode.id, completionOutput), actorScope.self);
+          };
+          const statesToEnter = /* @__PURE__ */ new Set();
+          const statesForDefaultEntry = /* @__PURE__ */ new Set();
+          const historyDefaultsByParent = /* @__PURE__ */ new Map();
+          const addAncestorStatesToEnter = (ancestors, reentrancyDomain) => {
+            for (const anc of ancestors) {
+              if (!reentrancyDomain || isDescendant(anc, reentrancyDomain)) {
+                statesToEnter.add(anc);
+              }
+              if (anc.type === "parallel") {
+                for (const child of getChildren(anc)) {
+                  if (!hasDescendantState(statesToEnter, child)) {
+                    statesToEnter.add(child);
+                    addDescendantStatesToEnter(child);
+                  }
+                }
+              }
+            }
+          };
+          const addDescendantStatesToEnter = (stateNode) => {
+            if (isHistoryNode(stateNode)) {
+              if (historyValue[stateNode.id]) {
+                const historyStateNodes = historyValue[stateNode.id];
+                for (const s of historyStateNodes) {
+                  statesToEnter.add(s);
+                  addDescendantStatesToEnter(s);
+                }
+                for (const s of historyStateNodes) {
+                  addAncestorStatesToEnter(getProperAncestors(s, stateNode.parent), void 0);
+                }
+              } else {
+                const historyDefaultTransition = resolveHistoryDefaultTransition(stateNode);
+                const historyParent = stateNode.parent;
+                statesForDefaultEntry.add(historyParent);
+                const defaults2 = historyDefaultsByParent.get(historyParent) ?? [];
+                defaults2.push(historyDefaultTransition);
+                historyDefaultsByParent.set(historyParent, defaults2);
+                const {
+                  targets
+                } = getCurrentTransitionResult(historyDefaultTransition);
+                for (const s of targets ?? []) {
+                  statesToEnter.add(s);
+                  if (historyDefaultTransition === stateNode.parent?.initial) {
+                    statesForDefaultEntry.add(stateNode.parent);
+                  }
+                  addDescendantStatesToEnter(s);
+                }
+                for (const s of targets ?? []) {
+                  addAncestorStatesToEnter(getProperAncestors(s, stateNode.parent), void 0);
+                }
+              }
+              return;
+            }
+            if (stateNode.type === "compound") {
+              const initialStates = getCurrentTransitionResult(stateNode.initial).targets ?? [];
+              for (const initialState of initialStates) {
+                if (!isHistoryNode(initialState)) {
+                  statesToEnter.add(initialState);
+                }
+              }
+              statesForDefaultEntry.add(stateNode);
+              for (const initialState of initialStates) {
+                addDescendantStatesToEnter(initialState);
+              }
+              for (const initialState of initialStates) {
+                addAncestorStatesToEnter(getProperAncestors(initialState, stateNode), void 0);
+              }
+              return;
+            }
+            if (stateNode.type === "parallel") {
+              for (const child of getChildren(stateNode)) {
+                if (!hasDescendantState(statesToEnter, child)) {
+                  statesToEnter.add(child);
+                  statesForDefaultEntry.add(child);
+                  addDescendantStatesToEnter(child);
+                }
+              }
+            }
+          };
+          const enteredTargetsByTransition = /* @__PURE__ */ new Map();
+          for (const transition3 of filteredTransitions) {
+            const domain = getTransitionDomain(transition3, currentSnapshot, getCurrentTransitionResult);
+            const {
+              targets,
+              reenter
+            } = getCurrentTransitionResult(transition3);
+            const enteredTargets = /* @__PURE__ */ new Set();
+            enteredTargetsByTransition.set(transition3, enteredTargets);
+            for (const targetNode of targets ?? []) {
+              if (!isHistoryNode(targetNode) && (transition3.source !== targetNode || transition3.source !== domain || reenter)) {
+                enteredTargets.add(targetNode);
+                statesToEnter.add(targetNode);
+                statesForDefaultEntry.add(targetNode);
+              }
+              addDescendantStatesToEnter(targetNode);
+            }
+            const targetStates = getEffectiveTargetStates(transition3, currentSnapshot, getCurrentTransitionResult);
+            for (const s of targetStates) {
+              const ancestors = getProperAncestors(s, domain);
+              if (domain?.type === "parallel") {
+                ancestors.push(domain);
+              }
+              addAncestorStatesToEnter(ancestors, !transition3.source.parent && reenter ? void 0 : domain);
+            }
+            if (reenter && domain === transition3.source) {
+              statesToEnter.add(transition3.source);
+            }
+          }
+          if (isInitial) {
+            for (const stateNode of filteredTransitions[0]._statesForDefaultEntry ?? [currentSnapshot.machine.root]) {
+              statesForDefaultEntry.add(stateNode);
+            }
+          }
+          const stateInputMap = {
+            ...currentSnapshot._stateInputs
+          };
+          let stateInputsChanged = false;
+          for (const transition3 of filteredTransitions) {
+            const {
+              targets,
+              input
+            } = getCurrentTransitionResult(transition3, true);
+            if (input && targets) {
+              for (const targetNode of targets.filter((targetNode2) => enteredTargetsByTransition.get(transition3)?.has(targetNode2))) {
+                stateInputMap[targetNode.id] = input;
+                stateInputsChanged = true;
+              }
+            }
+          }
+          const completedNodes = /* @__PURE__ */ new Set();
+          for (const stateNodeToEnter of [...statesToEnter].sort((a, b) => a.order - b.order)) {
+            mutStateNodeSet.add(stateNodeToEnter);
+            const actions = [];
+            let children = nextState.children;
+            let invoked = false;
+            for (const invokeDef of stateNodeToEnter.type === "final" ? [] : stateNodeToEnter.invoke) {
+              invoked = true;
+              let src3 = invokeDef.logic;
+              if (typeof src3 === "function") {
+                src3 = src3({
+                  actors: currentSnapshot.machine.sources.actors,
+                  context: nextState.context,
+                  event,
+                  self: actorScope.self
+                });
+              }
+              const logic = typeof src3 === "string" ? resolveReferencedActor(currentSnapshot.machine, src3) : src3;
+              if (!logic) {
+                throw new Error(`Actor logic '${typeof src3 === "string" ? src3 : "inline"}' not implemented`);
+              }
+              const input = typeof invokeDef.input === "function" ? invokeDef.input({
+                self: actorScope.self,
+                context: nextState.context,
+                event,
+                input: stateInputMap[stateNodeToEnter.id],
+                output: getEventOutput(event)
+              }) : invokeDef.input;
+              assertChildIdFree(actorScope, invokeDef.id);
+              const actor = actorScope.system.createActorRef(logic, {
+                ...invokeDef,
+                input,
+                parent: actorScope.self,
+                syncSnapshot: !!invokeDef.onSnapshot
+              });
+              actions.push({
+                action: builtInActions["@xstate.spawn"],
+                args: [actor]
+              });
+              if (invokeDef.id) {
+                children = {
+                  ...children,
+                  [invokeDef.id]: actor
+                };
+              }
+            }
+            if (invoked) {
+              nextState = cloneMachineSnapshot(nextState, {
+                children
+              });
+            }
+            let context2 = nextState.context;
+            let contextChangedByEntry = false;
+            const stateInput = stateInputMap[stateNodeToEnter.id];
+            if (stateNodeToEnter.entry) {
+              const [resultActions, nextContext, nextInternalEvents] = getStateActionsAndContext(stateNodeToEnter.entry, context2, children, stateInput, "entry", stateNodeToEnter);
+              actions.push(...resultActions);
+              if (nextInternalEvents?.length) {
+                internalQueue.push(...nextInternalEvents);
+              }
+              if (nextContext) {
+                context2 = nextContext;
+                contextChangedByEntry = true;
+              }
+            }
+            if (contextChangedByEntry) {
+              nextState.context = context2;
+            }
+            if (statesForDefaultEntry.has(stateNodeToEnter)) {
+              const defaultTransitions = [stateNodeToEnter.initial, ...historyDefaultsByParent.get(stateNodeToEnter) ?? []].filter(Boolean);
+              for (const defaultTransition of defaultTransitions) {
+                const {
+                  actions: initialActions,
+                  context: initialContext,
+                  input: initialInput,
+                  internalEvents: initialInternalEvents
+                } = getTransitionResult(defaultTransition, nextState, event, actorScope);
+                if (initialActions) {
+                  actions.push(...initialActions);
+                }
+                if (initialInternalEvents?.length) {
+                  internalQueue.push(...initialInternalEvents);
+                }
+                if (initialContext !== void 0) {
+                  nextState.context = mergeContextPatch(nextState.context, initialContext);
+                }
+                if (initialInput && defaultTransition.target) {
+                  for (const targetNode of defaultTransition.target) {
+                    stateInputMap[targetNode.id] = initialInput;
+                    stateInputsChanged = true;
+                  }
+                }
+              }
+            }
+            const [resolvedState, resolvedActions] = resolveActionsWithContext(nextState, event, actorScope, actions);
+            nextState = resolvedState;
+            actions.length = 0;
+            executableActions.push(...resolvedActions);
+            if (stateNodeToEnter.type !== "final") {
+              continue;
+            }
+            const parent = stateNodeToEnter.parent;
+            let ancestorMarker = parent?.type === "parallel" ? parent : parent?.parent;
+            let rootCompletionNode = ancestorMarker || stateNodeToEnter;
+            if (parent?.type === "compound") {
+              internalQueue.push(createDoneStateEvent(parent.id, stateNodeToEnter.output !== void 0 ? resolveOutput(stateNodeToEnter.output, nextState.context, event, actorScope.self, stateInput) : void 0));
+            }
+            while (ancestorMarker?.type === "parallel" && !completedNodes.has(ancestorMarker) && isInFinalState(mutStateNodeSet, ancestorMarker)) {
+              completedNodes.add(ancestorMarker);
+              const regionOutput = {};
+              for (const region of getChildren(ancestorMarker)) {
+                if (region.type === "final") {
+                  regionOutput[region.key] = region.output !== void 0 ? resolveOutput(region.output, nextState.context, event, actorScope.self, stateInputMap[region.id]) : void 0;
+                  continue;
+                }
+                if (region.type === "parallel") {
+                  const regionDoneEvent = internalQueue.find((e) => e.type === "xstate.done.state" && e.stateId === region.id);
+                  regionOutput[region.key] = regionDoneEvent?.output;
+                  continue;
+                }
+                const finalChild = getChildren(region).find((s) => s.type === "final" && mutStateNodeSet.has(s));
+                regionOutput[region.key] = finalChild?.output !== void 0 ? resolveOutput(finalChild.output, nextState.context, event, actorScope.self, stateInputMap[finalChild.id]) : void 0;
+              }
+              internalQueue.push(createDoneStateEvent(ancestorMarker.id, regionOutput));
+              rootCompletionNode = ancestorMarker;
+              ancestorMarker = ancestorMarker.parent;
+            }
+            if (ancestorMarker) {
+              continue;
+            }
+            nextState = cloneMachineSnapshot(nextState, {
+              status: "done",
+              output: getMachineOutput(rootCompletionNode)
+            });
+          }
+          if (stateInputsChanged) {
+            nextState = cloneMachineSnapshot(nextState, {
+              _stateInputs: stateInputMap
+            });
+          }
+        };
+        const [resolvedTransitionState, transitionExecutableActions] = resolveActionsWithContext(nextState, event, actorScope, transitionActions);
+        nextState = resolvedTransitionState;
+        executableActions.push(...transitionExecutableActions);
+        if (context && context !== currentSnapshot.context) {
+          nextState = cloneMachineSnapshot(nextState, {
+            context
+          });
+        }
+        if (isInitial || changesState) {
+          enterStates();
+        }
+        const nextStateNodes = [...mutStateNodeSet];
+        if (nextState.status === "done") {
+          const allExitActions = [];
+          const nextStateNodesToExit = nextStateNodes.sort((a, b) => b.order - a.order);
+          nextStateNodesToExit.forEach((stateNode) => {
+            if (stateNode.exit) {
+              const stateInput = getStateInput(nextState, stateNode.id);
+              const [exitActions, nextContext, nextInternalEvents] = getStateActionsAndContext(stateNode.exit, nextState.context, nextState.children, stateInput, "exit", stateNode);
+              if (nextContext) {
+                nextState = cloneMachineSnapshot(nextState, {
+                  context: nextContext
+                });
+              }
+              allExitActions.push(...exitActions);
+              if (nextInternalEvents?.length) {
+                internalQueue.push(...nextInternalEvents);
+              }
+            }
+          });
+          const [resolvedState, resolvedActions] = resolveActionsWithContext(nextState, event, actorScope, allExitActions);
+          nextState = resolvedState;
+          executableActions.push(...resolvedActions);
+          const [stoppedState, stopEffects] = stopChildren(nextState, event, actorScope);
+          nextState = stoppedState;
+          executableActions.push(...stopEffects);
+          const [withoutTimers, cancelEffects] = cancelTimers(nextState, event, actorScope);
+          nextState = withoutTimers;
+          executableActions.push(...cancelEffects);
+        }
+        if (historyValue === currentSnapshot.historyValue && currentSnapshot.nodes.length === mutStateNodeSet.size && currentSnapshot.nodes.every((node) => mutStateNodeSet.has(node))) {
+          if (nextState.context !== originalContext) {
+            return [nextState === currentSnapshot ? cloneMachineSnapshot(nextState) : nextState, executableActions, resolvedTransitions];
+          }
+          return [nextState, executableActions, resolvedTransitions];
+        }
+        return [cloneMachineSnapshot(nextState, {
+          _nodes: nextStateNodes,
+          historyValue
+        }), executableActions, resolvedTransitions];
+      }
+    }
+    function getTransitionResult(transition3, snapshot, event, actorScope, options2) {
+      let transitionArgs;
+      const getTransitionArgs = () => transitionArgs ??= isLazyActorScope(actorScope) ? withActorScope2({
+        context: snapshot.context,
+        event,
+        output: getEventOutput(event),
+        value: snapshot.value,
+        children: snapshot.children,
+        actions: snapshot.machine.sources.actions,
+        actors: snapshot.machine.sources.actors,
+        guards: snapshot.machine.sources.guards,
+        delays: snapshot.machine.sources.delays,
+        input: getStateInput(snapshot, transition3.source.id)
+      }, actorScope) : {
+        context: snapshot.context,
+        event,
+        output: getEventOutput(event),
+        value: snapshot.value,
+        children: snapshot.children,
+        system: actorScope.system,
+        parent: actorScope.self._parent,
+        self: actorScope.self,
+        actions: snapshot.machine.sources.actions,
+        actors: snapshot.machine.sources.actors,
+        guards: snapshot.machine.sources.guards,
+        delays: snapshot.machine.sources.delays,
+        input: getStateInput(snapshot, transition3.source.id)
+      };
+      if (transition3.to) {
+        const actions = [];
+        const internalEvents = [];
+        let res;
+        if (options2?.selectionResult?.reusable) {
+          res = options2.selectionResult.result;
+        } else {
+          const enqueue = createTransitionEnqueue(actorScope, actions, internalEvents, true, options2?.resolveActions ?? true);
+          res = transition3.to(getTransitionArgs(), enqueue);
+          closeTransitionEnqueue(enqueue);
+          assertSyncTransitionResult(res, event, transition3.source.id);
+        }
+        const targets = res?.target ? resolveTarget(transition3.source, toArray(res.target)) : void 0;
+        const resolvedInput2 = res?.input ?? (typeof transition3.input === "function" ? transition3.input({
+          context: snapshot.context,
+          event,
+          output: getEventOutput(event)
+        }) : transition3.input);
+        return {
+          targets,
+          context: res?.context,
+          reenter: res?.reenter,
+          actions,
+          internalEvents,
+          input: resolvedInput2
+        };
+      }
+      const resolvedInput = typeof transition3.input === "function" ? transition3.input({
+        context: snapshot.context,
+        event,
+        output: getEventOutput(event)
+      }) : transition3.input;
+      const resolvedContext = typeof transition3.context === "function" ? transition3.context(getTransitionArgs()) : transition3.context;
+      return {
+        targets: transition3.target,
+        context: resolvedContext,
+        reenter: transition3.reenter,
+        actions: void 0,
+        internalEvents: void 0,
+        input: resolvedInput
+      };
+    }
+    var DEFAULT_MAX_ITERATIONS = 1e3;
+    var InfiniteTransitionError3 = class extends Error {
+      constructor(actorId2, event, maxIterations, states) {
+        super(`Infinite loop detected in actor "${actorId2}" processing event "${event.type}": more than ${maxIterations} microsteps without reaching a stable state. Last states: ${states.map((value) => JSON.stringify(value)).join(" -> ")}. Check for a cycle of eventless transitions or raised events, or raise the bound with createMachine({ options: { maxIterations } }).`);
+        this.actorId = void 0;
+        this.event = void 0;
+        this.maxIterations = void 0;
+        this.states = void 0;
+        this.name = "InfiniteTransitionError";
+        this.actorId = actorId2;
+        this.event = event;
+        this.maxIterations = maxIterations;
+        this.states = states.slice();
+      }
+    };
+    function macrostep(snapshot, event, actorScope, internalQueue, initialMicrosteps = []) {
+      if (snapshot.status !== "active" && !initialMicrosteps.length) {
+        return {
+          snapshot,
+          microsteps: [[snapshot, [], []]]
+        };
+      }
+      let nextSnapshot = snapshot;
+      const microsteps = initialMicrosteps.slice();
+      let handled = false;
+      function removeTerminatedChild(terminalEvent) {
+        if (terminalEvent.type !== "xstate.done.actor" && terminalEvent.type !== "xstate.error.actor") {
+          return;
+        }
+        const {
+          actorId: actorId2,
+          sessionId
+        } = terminalEvent;
+        if (!actorId2) {
+          return;
+        }
+        const child = nextSnapshot.children[actorId2];
+        if (!child) {
+          return;
+        }
+        if (child.sessionId !== void 0 && child.sessionId !== sessionId) {
+          return;
+        }
+        const children = {
+          ...nextSnapshot.children
+        };
+        delete children[actorId2];
+        actorScope.system._unregister(child);
+        nextSnapshot = cloneMachineSnapshot(nextSnapshot, {
+          children
+        });
+        if (microsteps.length) {
+          const [, lastEffects, lastTransitions] = microsteps.at(-1);
+          microsteps[microsteps.length - 1] = [nextSnapshot, lastEffects, lastTransitions];
+        } else {
+          microsteps.push([nextSnapshot, [], []]);
+        }
+      }
+      function completeMacrostep() {
+        if (handled && nextSnapshot === snapshot) {
+          nextSnapshot = cloneMachineSnapshot(snapshot, {});
+          if (microsteps.at(-1)?.[0] === snapshot) {
+            const [, lastEffects, lastTransitions] = microsteps.at(-1);
+            microsteps[microsteps.length - 1] = [nextSnapshot, lastEffects, lastTransitions];
+          }
+        }
+        const effects = microsteps.flatMap(([, actions]) => actions);
+        const starts2 = deriveDeferredStarts(effects);
+        const shouldTerminate = (snapshot.status === "active" || initialMicrosteps.length > 0) && (nextSnapshot.status === "done" || nextSnapshot.status === "error");
+        if (starts2.length || shouldTerminate) {
+          const terminalEffects = shouldTerminate ? [...starts2, createTerminationEffect(actorScope, nextSnapshot)] : starts2;
+          if (microsteps.length) {
+            const [lastSnapshot, lastEffects, lastTransitions] = microsteps.at(-1);
+            microsteps[microsteps.length - 1] = [lastSnapshot, [...lastEffects, ...terminalEffects], lastTransitions];
+          } else {
+            microsteps.push([nextSnapshot, terminalEffects, []]);
+          }
+        }
+        return {
+          snapshot: nextSnapshot,
+          microsteps
+        };
+      }
+      function addMicrostep(step, transitions) {
+        transitions = step[2] ?? transitions;
+        if (!isInertActorScope(actorScope) && (event.type === XSTATE_INIT2 || (actorScope.system._hasInspectionObservers?.() ?? true))) {
+          const collectedMicrosteps = actorScope.self._collectedMicrosteps || [];
+          collectedMicrosteps.push(...transitions);
+          actorScope.self._collectedMicrosteps = collectedMicrosteps;
+        }
+        microsteps.push([step[0], step[1], transitions]);
+      }
+      if (event.type === XSTATE_STOP) {
+        const [stoppedChildrenSnapshot, stopEffects] = stopChildren(nextSnapshot, event, actorScope);
+        const [withoutTimers, cancelEffects] = cancelTimers(stoppedChildrenSnapshot, event, actorScope);
+        nextSnapshot = cloneMachineSnapshot(withoutTimers, {
+          status: "stopped"
+        });
+        addMicrostep([nextSnapshot, [...stopEffects, ...cancelEffects]], []);
+        return completeMacrostep();
+      }
+      let nextEvent = normalizeLegacyInternalEvent(event, snapshot.machine);
+      if (event.type === XSTATE_TIMER2) {
+        const timer = nextSnapshot.timers[event.id];
+        if (!timer) {
+          return completeMacrostep();
+        }
+        const timers = {
+          ...nextSnapshot.timers
+        };
+        delete timers[timer.id];
+        nextSnapshot = cloneMachineSnapshot(nextSnapshot, {
+          timers
+        });
+        if (timer.type === "@xstate.raise") {
+          internalQueue.push(timer.event);
+          addMicrostep([nextSnapshot, []], []);
+        } else {
+          const target = timer.target === "self" ? actorScope.self : timer.target;
+          addMicrostep([nextSnapshot, [createSendToEffect(actorScope, target, timer.event)]], []);
+        }
+      }
+      if (nextEvent.type !== XSTATE_INIT2 && nextEvent.type !== XSTATE_TIMER2) {
+        const currentEvent = nextEvent;
+        const isErr = isErrorEvent(currentEvent);
+        const selectionResults = /* @__PURE__ */ new Map();
+        const transitions = nextSnapshot.machine.getTransitionData(nextSnapshot, currentEvent, actorScope, selectionResults);
+        if (isErr && !transitions.length) {
+          if (currentEvent.type === "xstate.error.actor" && !matchesActorSession(currentEvent, nextSnapshot, currentEvent.actorId)) {
+            return completeMacrostep();
+          }
+          nextSnapshot = cloneMachineSnapshot(snapshot, {
+            status: "error",
+            error: currentEvent.error
+          });
+          addMicrostep([nextSnapshot, []], []);
+          removeTerminatedChild(currentEvent);
+          return completeMacrostep();
+        }
+        handled = transitions.length > 0;
+        const step = microstep(
+          transitions,
+          snapshot,
+          actorScope,
+          nextEvent,
+          false,
+          // isInitial
+          internalQueue,
+          selectionResults
+        );
+        nextSnapshot = step[0];
+        addMicrostep(step, transitions);
+        removeTerminatedChild(currentEvent);
+      }
+      if (!internalQueue.length && snapshot.machine._hasEventlessTransitions === false) {
+        return completeMacrostep();
+      }
+      let shouldSelectEventlessTransitions = true;
+      const maxIterations = snapshot.machine.options?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+      let iterationCount = 0;
+      const recentStates = [];
+      while (nextSnapshot.status === "active") {
+        iterationCount++;
+        if (iterationCount > maxIterations) {
+          throw new InfiniteTransitionError3(actorScope.self?.id, event, maxIterations, recentStates);
+        }
+        recentStates.push(nextSnapshot.value);
+        if (recentStates.length > 5) {
+          recentStates.shift();
+        }
+        let selectionResults;
+        let enabledTransitions = shouldSelectEventlessTransitions ? selectEventlessTransitions(nextSnapshot, nextEvent, actorScope) : [];
+        const previousState = enabledTransitions.length ? nextSnapshot : void 0;
+        const raisedEvents = nextSnapshot.machine._microstepHooks?.drain(actorScope.self);
+        if (raisedEvents?.length) {
+          internalQueue.push(...raisedEvents);
+        }
+        if (!enabledTransitions.length) {
+          if (!internalQueue.length) {
+            break;
+          }
+          nextEvent = internalQueue.shift();
+          selectionResults = /* @__PURE__ */ new Map();
+          enabledTransitions = nextSnapshot.machine.getTransitionData(nextSnapshot, nextEvent, actorScope, selectionResults);
+        }
+        const step = microstep(enabledTransitions, nextSnapshot, actorScope, nextEvent, false, internalQueue, selectionResults);
+        nextSnapshot = step[0];
+        shouldSelectEventlessTransitions = nextSnapshot !== previousState;
+        addMicrostep(step, enabledTransitions);
+        removeTerminatedChild(nextEvent);
+      }
+      return completeMacrostep();
+    }
+    function resolveStateValue(rootNode, stateValue) {
+      const allStateNodes = getAllStateNodes(getStateNodes3(rootNode, stateValue));
+      return getStateValue(rootNode, allStateNodes);
+    }
+    function hasEffect(transition3, context, event, snapshot, actorScope) {
+      if (transition3.to) {
+        return evaluateTransitionFunction(transition3.to, context, event, snapshot, actorScope, snapshot.machine.sources, transition3.source.id).enabled;
+      }
+      return false;
+    }
+    var selectionDepth = 0;
+    var triggerTransitionEffect = () => {
+      if (!selectionDepth) {
+        return lateEnqueueCall();
+      }
+      throw transitionEffectSignal;
+    };
+    function assertSyncTransitionResult(res, event, sourceId, kind) {
+      if (res && typeof res.then === "function") {
+        void Promise.resolve(res).catch(() => {
+        });
+        throw new Error(kind ? `${kind === "entry" ? "Entry" : "Exit"} functions must be synchronous. The ${kind} function of state "${sourceId}" returned a promise (event "${event.type}"). Move async work into an invoked or spawned actor, or enq.effect.` : `Transition functions must be synchronous. Transition for event "${event.type}" in state "${sourceId}" returned a promise. Move async work into an invoked or spawned actor, or enq.effect.`);
+      }
+    }
+    var transitionEffectEnqueue;
+    function getTransitionEffectEnqueue() {
+      return transitionEffectEnqueue ??= createEnqueueObject({
+        emit: triggerTransitionEffect,
+        cancel: triggerTransitionEffect,
+        log: triggerTransitionEffect,
+        raise: triggerTransitionEffect,
+        spawn: triggerTransitionEffect,
+        sendTo: triggerTransitionEffect,
+        stop: triggerTransitionEffect,
+        listen: triggerTransitionEffect,
+        subscribeTo: triggerTransitionEffect
+      }, triggerTransitionEffect);
+    }
+    function evaluateTransitionFunction(transitionTo, context, event, snapshot, actorScope, sources, sourceId) {
+      let res;
+      const parent = getActorScopeParent(actorScope);
+      if (parent) {
+        transitionEffectTargets.push(parent);
+      }
+      selectionDepth++;
+      try {
+        res = transitionTo(withActorScope2({
+          context,
+          event,
+          output: getEventOutput(event),
+          value: snapshot.value,
+          children: snapshot.children,
+          actions: sources.actions,
+          actors: sources.actors,
+          guards: sources.guards,
+          delays: sources.delays,
+          input: getStateInput(snapshot, sourceId)
+        }, actorScope), getTransitionEffectEnqueue());
+      } catch (err) {
+        if (err === transitionEffectSignal) {
+          return {
+            enabled: true,
+            result: void 0,
+            reusable: false
+          };
+        }
+        throw err;
+      } finally {
+        selectionDepth--;
+        if (parent) {
+          transitionEffectTargets.pop();
+        }
+      }
+      assertSyncTransitionResult(res, event, sourceId);
+      return {
+        enabled: res !== void 0,
+        result: res,
+        reusable: true
+      };
+    }
+    function stopChildren(snapshot, event, actorScope) {
+      let children;
+      if (!snapshot.children || (children = Object.values(snapshot.children).filter(Boolean)).length === 0) {
+        return [snapshot, []];
+      }
+      const actions = [];
+      const enqueue = createTransitionEnqueue(actorScope, actions, []);
+      for (const child of children) {
+        enqueue.stop(child);
+      }
+      return resolveActionsWithContext(snapshot, event, actorScope, actions);
+    }
+    function cancelTimers(snapshot, event, actorScope) {
+      const timerIds = Object.keys(snapshot.timers);
+      if (!timerIds.length) {
+        return [snapshot, []];
+      }
+      const actions = [];
+      const enqueue = createTransitionEnqueue(actorScope, actions, []);
+      for (const id of timerIds) {
+        enqueue.cancel(id);
+      }
+      return resolveActionsWithContext(snapshot, event, actorScope, actions);
+    }
+    function selectEventlessTransitions(snapshot, event, actorScope) {
+      snapshot.machine._microstepHooks?.begin(actorScope.self);
+      const enabledTransitionSet = /* @__PURE__ */ new Set();
+      const atomicStates = snapshot.nodes.filter(isAtomicStateNode);
+      for (const atomicStateNode of atomicStates) {
+        loop: for (let stateNode = atomicStateNode; stateNode; stateNode = stateNode.parent) {
+          if (!stateNode.always) {
+            continue;
+          }
+          for (const transition3 of stateNode.always) {
+            if (evaluateCandidate(transition3, event, snapshot, stateNode, actorScope)) {
+              enabledTransitionSet.add(transition3);
+              break loop;
+            }
+          }
+        }
+      }
+      return removeConflictingTransitions(Array.from(enabledTransitionSet), new Set(snapshot.nodes), snapshot, createTransitionResultResolver(snapshot, event, actorScope, false));
+    }
+    function evaluateCandidate(candidate, event, snapshot, stateNode, actorScope, selectionResults) {
+      if (candidate.matches && !matchesEvent(event, candidate.matches)) {
+        return false;
+      }
+      if (candidate._eventMatcher && !candidate._eventMatcher(event, snapshot)) {
+        return false;
+      }
+      if (candidate.guard) {
+        const guardArgs = withActorSelfAndParent({
+          context: snapshot.context,
+          event,
+          output: getEventOutput(event),
+          children: snapshot.children,
+          actions: stateNode.machine.sources.actions,
+          actors: stateNode.machine.sources.actors,
+          guards: stateNode.machine.sources.guards,
+          delays: stateNode.machine.sources.delays,
+          _snapshot: snapshot
+        }, actorScope);
+        if (!candidate.guard(guardArgs)) {
+          return false;
+        }
+      }
+      if (candidate.to) {
+        const evaluation = evaluateTransitionFunction(candidate.to, snapshot.context, event, snapshot, actorScope, stateNode.machine.sources, candidate.source.id);
+        selectionResults?.set(candidate, evaluation);
+        return evaluation.enabled;
+      }
+      return true;
+    }
+    var emptySubscription = {
+      unsubscribe() {
+      }
+    };
+    var restoreHint = "or restore this snapshot with embedded children on the runtime that owns them.";
+    function isRemoteActorRef(actorRef) {
+      return actorRef._remote === true;
+    }
+    var remoteSnapshot = Object.freeze({
+      status: "active",
+      output: void 0,
+      error: void 0
+    });
+    function createRemoteActorRef(system, options2) {
+      const handle2 = {
+        _remote: true,
+        // Self-reference so context persistence recognizes the handle as an
+        // actor reference instead of recursing into it.
+        ref: void 0,
+        id: options2.id,
+        address: options2.address,
+        src: options2.src,
+        registryKey: options2.registryKey,
+        // The host-supplied incarnation token, when present: the owner's
+        // sessionId for this child, letting this side drop stale completions and
+        // journaled sends name the intended incarnation. Without one the handle
+        // does not know the child's incarnation and the owning runtime is the
+        // authority on staleness.
+        sessionId: options2.incarnation,
+        system,
+        _parent: options2.parent,
+        // Round-trips through persistence verbatim (undefined stays undefined,
+        // so re-persisting is byte-stable); a remote handle cannot act on it
+        // locally.
+        _syncSnapshot: options2.syncSnapshot,
+        send(event) {
+          void system.sendEvent(void 0, ref, event);
+        },
+        _send(event) {
+          throw new Error(`Remote actor '${options2.address}' has no local mailbox to receive "${event.type}". Its state lives with another runtime; install a runtime that can reach it (via \`createDurable\`'s adapter runtime operations, or \`system.runtime\`) before sending, ${restoreHint}`);
+        },
+        getSnapshot() {
+          return remoteSnapshot;
+        },
+        getPersistedSnapshot() {
+          throw new Error(`Cannot persist remote actor '${options2.address}' from here: its state lives with the runtime that owns it. Persist it there, ${restoreHint}`);
+        },
+        start() {
+        },
+        _stop() {
+        },
+        stop() {
+          throw new Error(`Cannot stop remote actor '${options2.address}' directly: stopping is a co-located operation. Stop it through the system runtime that owns it (\`system.stopActor(ref)\`), ${restoreHint}`);
+        },
+        select() {
+          throw new Error(`Cannot select from remote actor '${options2.address}': its snapshot is not synchronously readable because its state lives with another runtime. Read it on the runtime that owns it, ${restoreHint}`);
+        },
+        get trigger() {
+          throw new Error(`Remote actor '${options2.address}' has no \`trigger\` shorthand: it requires a co-located actor. Use \`send(...)\`, which routes through the system runtime.`);
+        },
+        // Observation is a co-location capability: a remote handle never emits,
+        // so subscriptions are inert rather than errors — generic observers may
+        // attach to any ref.
+        subscribe() {
+          return emptySubscription;
+        },
+        on() {
+          return emptySubscription;
+        },
+        _isRunning() {
+          return false;
+        },
+        // The same shape Actor.toJSON produces, so serialized snapshots carry
+        // one actor-reference marker whether a child is co-located or remote.
+        toJSON() {
+          return {
+            xstate$type: ACTOR_REF_TYPE,
+            id: options2.id,
+            address: options2.address,
+            src: options2.src
+          };
+        }
+      };
+      const ref = handle2;
+      handle2.ref = ref;
+      return ref;
+    }
+    var emptySnapshotRecord = Object.freeze({});
+    function compactSnapshotRecord(value) {
+      if (value === emptySnapshotRecord) {
+        return value;
+      }
+      return value && Object.keys(value).length ? value : emptySnapshotRecord;
+    }
+    function isMachineSnapshot3(value) {
+      return !!value && typeof value === "object" && "machine" in value && "value" in value;
+    }
+    var machineSnapshotMatches = function matches(testValue) {
+      return matchesState3(testValue, this.value);
+    };
+    var machineSnapshotHasTag = function hasTag(tag) {
+      return this.tags.has(tag);
+    };
+    var machineSnapshotCan = function can(event) {
+      return this.machine?._canTransition(this, event) ?? false;
+    };
+    var machineSnapshotToJSON = function toJSON() {
+      const {
+        nodes,
+        _stateInputs,
+        tags,
+        machine,
+        getMeta,
+        getInputs,
+        toJSON: toJSON2,
+        can,
+        hasTag,
+        matches,
+        ...jsonValues
+      } = this;
+      return {
+        ...jsonValues,
+        tags: Array.from(tags)
+      };
+    };
+    var machineSnapshotGetMeta = function getMeta() {
+      const meta = {};
+      for (const stateNode of this.nodes) {
+        if (stateNode.meta !== void 0) {
+          meta[stateNode.id] = stateNode.meta;
+        }
+      }
+      return meta;
+    };
+    var machineSnapshotGetInputs = function getInputs() {
+      return this._stateInputs;
+    };
+    function collectTags(stateNodes) {
+      const tags = /* @__PURE__ */ new Set();
+      for (const stateNode of stateNodes) {
+        for (const tag of stateNode.tags) {
+          tags.add(tag);
+        }
+      }
+      return tags;
+    }
+    function createMachineSnapshot(config, machine, actorRef) {
+      const snapshot = {
+        status: config.status,
+        output: config.output,
+        error: config.error,
+        machine,
+        context: config.context,
+        nodes: config._nodes,
+        value: config.value ?? getStateValue(machine.root, config._nodes),
+        tags: collectTags(config._nodes),
+        children: compactSnapshotRecord(config.children),
+        timers: compactSnapshotRecord(config.timers),
+        historyValue: compactSnapshotRecord(config.historyValue),
+        _stateInputs: compactSnapshotRecord(config._stateInputs),
+        _nextTimerId: config._nextTimerId ?? 0,
+        _nextActorIds: config._nextActorIds,
+        matches: machineSnapshotMatches,
+        hasTag: machineSnapshotHasTag,
+        can: machineSnapshotCan,
+        getMeta: machineSnapshotGetMeta,
+        getInputs: machineSnapshotGetInputs,
+        toJSON: machineSnapshotToJSON
+      };
+      if (actorRef) {
+        setSnapshotActorRef(snapshot, actorRef);
+      }
+      return snapshot;
+    }
+    function cloneMachineSnapshot(snapshot, config = {}) {
+      const configWithSnapshot = {
+        ...snapshot,
+        ...config
+      };
+      if ((config._nodes ?? snapshot.nodes) === snapshot.nodes) {
+        const clonedSnapshot2 = {
+          status: configWithSnapshot.status,
+          output: configWithSnapshot.output,
+          error: configWithSnapshot.error,
+          machine: snapshot.machine,
+          context: configWithSnapshot.context,
+          nodes: snapshot.nodes,
+          value: snapshot.value,
+          tags: snapshot.tags,
+          children: compactSnapshotRecord(configWithSnapshot.children),
+          timers: compactSnapshotRecord(configWithSnapshot.timers),
+          historyValue: compactSnapshotRecord(configWithSnapshot.historyValue),
+          _stateInputs: compactSnapshotRecord(configWithSnapshot._stateInputs),
+          _nextTimerId: configWithSnapshot._nextTimerId ?? 0,
+          _nextActorIds: configWithSnapshot._nextActorIds,
+          matches: machineSnapshotMatches,
+          hasTag: machineSnapshotHasTag,
+          can: machineSnapshotCan,
+          getMeta: machineSnapshotGetMeta,
+          getInputs: machineSnapshotGetInputs,
+          toJSON: machineSnapshotToJSON
+        };
+        copySnapshotActorRef(snapshot, clonedSnapshot2);
+        return clonedSnapshot2;
+      }
+      const clonedSnapshot = createMachineSnapshot({
+        ...configWithSnapshot,
+        value: void 0
+      }, snapshot.machine);
+      copySnapshotActorRef(snapshot, clonedSnapshot);
+      return clonedSnapshot;
+    }
+    function serializeHistoryValue(historyValue) {
+      const result = {};
+      for (const key in historyValue) {
+        const value = historyValue[key];
+        if (Array.isArray(value)) {
+          result[key] = value.map((item) => ({
+            id: item.id
+          }));
+        }
+      }
+      return result;
+    }
+    function getPersistedSnapshot(snapshot, options2) {
+      const {
+        nodes,
+        _stateInputs,
+        tags,
+        machine,
+        children,
+        timers,
+        context,
+        can,
+        hasTag,
+        matches,
+        getMeta,
+        getInputs,
+        toJSON,
+        ...jsonValues
+      } = snapshot;
+      const childrenJson = {};
+      const timersJson = {};
+      const embedChildren = options2?.embedChildren !== false;
+      for (const id in children) {
+        const child = children[id];
+        if (typeof child.src !== "string" && (!options2 || !("__unsafeAllowInlineActors" in options2))) {
+          throw new Error("An inline child actor cannot be persisted.");
+        }
+        const embed = embedChildren && !isRemoteActorRef(child);
+        if (!embed && typeof child.src !== "string") {
+          throw new Error(`Unable to persist child '${id}' by address: it requires a registered source key.`);
+        }
+        childrenJson[id] = {
+          address: child.address,
+          // The explicit marker disambiguates a by-address reference from a child
+          // whose own persisted snapshot happens to be undefined.
+          ...embed ? {
+            snapshot: child.getPersistedSnapshot(options2)
+          } : {
+            remote: true,
+            // A remote handle's sessionId IS the host-supplied incarnation
+            // token, round-tripped verbatim. A local child persisted by
+            // address never stamps its own sessionId: that value is this
+            // incarnation's, not a durable identity, and it would make
+            // persisted snapshots nondeterministic across replays.
+            incarnation: isRemoteActorRef(child) ? child.sessionId : void 0
+          },
+          src: child.src,
+          registryKey: child.registryKey,
+          syncSnapshot: child._syncSnapshot
+        };
+      }
+      const snapshotActor = getSnapshotActorRef(snapshot)?.actor;
+      const scheduledTimers = snapshotActor?.system?._clock?.now ? void 0 : snapshotActor?.system?._snapshot?._scheduledTimers;
+      for (const id in timers) {
+        const timer = timers[id];
+        let event = timer.event;
+        if (event.type === "xstate.timeout.actor") {
+          event = {
+            ...event
+          };
+          delete event.sessionId;
+        }
+        let target;
+        if (timer.target === "self") {
+          target = "self";
+        } else {
+          const childId = Object.entries(children).find(([, child]) => child === timer.target)?.[0];
+          if (childId) {
+            target = childId;
+          } else if (timer.target === getSnapshotActorRef(snapshot)?.actor._parent) {
+            target = {
+              type: "parent"
+            };
+          } else {
+            throw new Error(`Unable to persist timer '${id}': target actor '${timer.target.id}' is no longer addressable from this snapshot.`);
+          }
+        }
+        const scheduled = scheduledTimers?.[`${snapshotActor.sessionId}.${id}`];
+        const startedAt = scheduled ? scheduled.dueAt - timer.delay : getTimerStart(timer);
+        timersJson[id] = {
+          id: timer.id,
+          delay: timer.delay,
+          type: timer.type,
+          event,
+          target,
+          ...startedAt !== void 0 && {
+            startedAt
+          }
+        };
+      }
+      const persisted = {
+        ...jsonValues,
+        context: persistContext(context, () => getSnapshotActorRef(snapshot)?.actor.id ?? machine.id),
+        children: childrenJson,
+        timers: timersJson,
+        historyValue: serializeHistoryValue(jsonValues.historyValue)
+      };
+      if (_stateInputs && Object.keys(_stateInputs).length > 0) {
+        persisted.stateInputs = _stateInputs;
+      }
+      if (machine.version !== void 0) {
+        persisted.machine = {
+          id: machine.id,
+          version: machine.version
+        };
+        persisted.version = machine.version;
+      }
+      return persisted;
+    }
+    function persistContext(contextPart, getActorId, path2 = "context", ancestors = []) {
+      ancestors.push(contextPart);
+      let copy2;
+      for (const key in contextPart) {
+        const value = contextPart[key];
+        if (value && typeof value === "object") {
+          if (isActorRefLike(value)) {
+            copy2 ??= Array.isArray(contextPart) ? contextPart.slice() : {
+              ...contextPart
+            };
+            copy2[key] = {
+              xstate$type: ACTOR_REF_TYPE,
+              id: value.id
+            };
+          } else {
+            const valuePath = Array.isArray(contextPart) ? `${path2}[${key}]` : `${path2}.${key}`;
+            if (ancestors.includes(value)) {
+              throw new Error(`Cannot persist actor "${getActorId()}": circular reference at ${valuePath}`);
+            }
+            const result = persistContext(value, getActorId, valuePath, ancestors);
+            if (result !== value) {
+              copy2 ??= Array.isArray(contextPart) ? contextPart.slice() : {
+                ...contextPart
+              };
+              copy2[key] = result;
+            }
+          }
+        }
+      }
+      ancestors.pop();
+      return copy2 ?? contextPart;
+    }
+    function matchesState3(parentStateId, childStateId) {
+      const parentStateValue = toStateValue(parentStateId);
+      const childStateValue = toStateValue(childStateId);
+      if (typeof childStateValue === "string") {
+        if (typeof parentStateValue === "string") {
+          return childStateValue === parentStateValue;
+        }
+        return false;
+      }
+      if (typeof parentStateValue === "string") {
+        return parentStateValue in childStateValue;
+      }
+      return Object.keys(parentStateValue).every((key) => {
+        if (!(key in childStateValue)) {
+          return false;
+        }
+        return matchesState3(parentStateValue[key], childStateValue[key]);
+      });
+    }
+    function checkStateIn2(snapshot, stateValue) {
+      if (typeof stateValue === "string" && isStateId(stateValue)) {
+        const target = snapshot.machine.getStateNodeById(stateValue);
+        return snapshot.nodes.some((sn) => sn === target);
+      }
+      return snapshot.matches(stateValue);
+    }
+    function toStatePath(stateId) {
+      if (isArray2(stateId)) {
+        return stateId;
+      }
+      const result = [];
+      let segment = "";
+      for (let i = 0; i < stateId.length; i++) {
+        const char = stateId.charCodeAt(i);
+        switch (char) {
+          // \
+          case 92:
+            segment += stateId[i + 1];
+            i++;
+            continue;
+          // .
+          case 46:
+            result.push(segment);
+            segment = "";
+            continue;
+        }
+        segment += stateId[i];
+      }
+      result.push(segment);
+      return result;
+    }
+    function toStateValue(stateValue) {
+      if (isMachineSnapshot3(stateValue)) {
+        return stateValue.value;
+      }
+      if (typeof stateValue !== "string") {
+        return stateValue;
+      }
+      const statePath = toStatePath(stateValue);
+      return pathToStateValue2(statePath);
+    }
+    function pathToStateValue2(statePath) {
+      if (statePath.length === 1) {
+        return statePath[0];
+      }
+      const value = {};
+      let marker = value;
+      for (let i = 0; i < statePath.length - 1; i++) {
+        if (i === statePath.length - 2) {
+          marker[statePath[i]] = statePath[i + 1];
+        } else {
+          const previous2 = marker;
+          marker = {};
+          previous2[statePath[i]] = marker;
+        }
+      }
+      return value;
+    }
+    function mapValues(collection, iteratee) {
+      const result = {};
+      const collectionKeys = Object.keys(collection);
+      for (let i = 0; i < collectionKeys.length; i++) {
+        const key = collectionKeys[i];
+        const value = iteratee(collection[key], key, collection, i);
+        if (key === "__proto__") {
+          Object.defineProperty(result, key, {
+            value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+          });
+        } else {
+          result[key] = value;
+        }
+      }
+      return result;
+    }
+    function toArrayStrict(value) {
+      if (isArray2(value)) {
+        return value;
+      }
+      return [value];
+    }
+    function toArray(value) {
+      if (value === void 0) {
+        return [];
+      }
+      return toArrayStrict(value);
+    }
+    function resolveOutput(mapper, context, event, self, input) {
+      if (typeof mapper === "function") {
+        const outputMapper = mapper;
+        const args = {
+          context,
+          event,
+          output: getEventOutput(event),
+          self,
+          input
+        };
+        return outputMapper(args);
+      }
+      return mapper;
+    }
+    function getEventOutput(event) {
+      if (isDoneEvent(event)) {
+        const doneEvent = event;
+        return doneEvent.output;
+      }
+      return void 0;
+    }
+    function isDoneEvent(event) {
+      return event.type === "xstate.done.actor" || event.type === "xstate.done.state";
+    }
+    function isArray2(value) {
+      return Array.isArray(value);
+    }
+    function isErrorEvent(event) {
+      return event.type.startsWith("xstate.error.");
+    }
+    function toTransitionConfigArray(configLike) {
+      return toArrayStrict(configLike).map((transitionLike) => {
+        if (typeof transitionLike === "undefined" || typeof transitionLike === "string") {
+          return {
+            target: transitionLike
+          };
+        }
+        if (typeof transitionLike === "function") {
+          return {
+            to: transitionLike
+          };
+        }
+        return transitionLike;
+      });
+    }
+    function normalizeTarget(target) {
+      if (target === void 0 || target === TARGETLESS_KEY) {
+        return void 0;
+      }
+      return toArray(target);
+    }
+    function toObserver3(nextHandler, errorHandler, completionHandler) {
+      const isObserver = typeof nextHandler === "object";
+      const self = isObserver ? nextHandler : void 0;
+      return {
+        next: (isObserver ? nextHandler.next : nextHandler)?.bind(self),
+        error: (isObserver ? nextHandler.error : errorHandler)?.bind(self),
+        complete: (isObserver ? nextHandler.complete : completionHandler)?.bind(self),
+        ...isObserver && nextHandler.passive ? {
+          passive: true
+        } : {}
+      };
+    }
+    function createInvokeId(stateNodeId, index3) {
+      return `${index3}.${stateNodeId}`;
+    }
+    function isActorRefLike(value) {
+      return "sessionId" in value && "send" in value && "ref" in value;
+    }
+    function resolveReferencedActor(machine, src3) {
+      const match = src3.match(/^xstate\.invoke\.(\d+)\.(.*)/);
+      if (!match) {
+        return machine.sources.actors[src3];
+      }
+      const [, indexStr, nodeId] = match;
+      const node = machine.getStateNodeById(nodeId);
+      const invokeConfig = node.config.invoke;
+      const configSrc = (Array.isArray(invokeConfig) ? invokeConfig[indexStr] : invokeConfig).src;
+      return typeof configSrc === "string" ? machine.sources.actors[configSrc] : configSrc;
+    }
+    function getAllOwnEventDescriptors(snapshot) {
+      return [.../* @__PURE__ */ new Set([...snapshot.nodes.flatMap((sn) => sn.ownEvents)])];
+    }
+    function getAllOwnEvents(snapshot) {
+      const events = snapshot.nodes.flatMap((stateNode) => [...stateNode.transitions.values()].flatMap((transitions) => transitions.map((transition3) => {
+        const event = {
+          type: transition3.eventType,
+          ...transition3.matches
+        };
+        if ("actorId" in event && (event.type === "xstate.done.actor" || event.type === "xstate.error.actor" || event.type === "xstate.snapshot.actor" || event.type === "xstate.timeout.actor")) {
+          event.sessionId = snapshot.children[event.actorId]?.sessionId;
+        }
+        return event;
+      })));
+      return events.filter((event, index3) => events.findIndex((candidate) => {
+        const keys = Object.keys(event);
+        return keys.length === Object.keys(candidate).length && keys.every((key) => Object.is(event[key], candidate[key]));
+      }) === index3);
+    }
+    function matchesEvent(event, pattern) {
+      return Object.entries(pattern).every(([key, value]) => Object.is(event[key], value));
+    }
+    function matchesEventDescriptor(eventType, descriptor) {
+      if (descriptor === eventType) {
+        return true;
+      }
+      if (descriptor === WILDCARD) {
+        return true;
+      }
+      if (!descriptor.endsWith(".*")) {
+        return false;
+      }
+      const partialEventTokens = descriptor.split(".");
+      const eventTokens = eventType.split(".");
+      for (let tokenIndex = 0; tokenIndex < partialEventTokens.length; tokenIndex++) {
+        const partialEventToken = partialEventTokens[tokenIndex];
+        const eventToken = eventTokens[tokenIndex];
+        if (partialEventToken === "*") {
+          const isLastToken = tokenIndex === partialEventTokens.length - 1;
+          return isLastToken;
+        }
+        if (partialEventToken !== eventToken) {
+          return false;
+        }
+      }
+      return true;
+    }
+    function getStepEffect(actor, key) {
+      const effects = actor.getSnapshot().effects;
+      return effects && Object.prototype.hasOwnProperty.call(effects, key) ? effects[key] : void 0;
+    }
+    var pendingSteps = /* @__PURE__ */ new WeakMap();
+    async function runStep3(actor, key, exec, sendSelf = (event) => void actor.system.sendEvent(actor, actor, event)) {
+      const effect = getStepEffect(actor, key);
+      if (effect?.status === "done") {
+        return effect.output;
+      }
+      if (effect?.status === "error") {
+        throw effect.error;
+      }
+      const running = pendingSteps.get(actor)?.get(key);
+      if (running) {
+        return running;
+      }
+      if (actor.getSnapshot().status !== "active") {
+        throw new Error(`Actor terminated before step "${key}" completed`);
+      }
+      let resolve2;
+      let reject;
+      const promise = new Promise((resolvePromise, rejectPromise) => {
+        resolve2 = resolvePromise;
+        reject = rejectPromise;
+      });
+      let steps = pendingSteps.get(actor);
+      if (!steps) {
+        steps = /* @__PURE__ */ new Map();
+        pendingSteps.set(actor, steps);
+      }
+      steps.set(key, promise);
+      let subscription;
+      const cleanup = () => {
+        subscription?.unsubscribe();
+        steps.delete(key);
+        if (!steps.size) {
+          pendingSteps.delete(actor);
+        }
+      };
+      void promise.then(cleanup, cleanup);
+      subscription = actor.subscribe({
+        error: reject,
+        complete: () => reject(new Error(`Actor terminated before step "${key}" completed`))
+      });
+      void (async () => {
+        try {
+          sendSelf({
+            type: XSTATE_LOGIC_EFFECT_START,
+            key
+          });
+          const output = await exec();
+          if (actor.getSnapshot().status === "active") {
+            sendSelf({
+              type: XSTATE_LOGIC_EFFECT_RESOLVE,
+              key,
+              output
+            });
+            resolve2(output);
+          }
+        } catch (error) {
+          if (actor.getSnapshot().status === "active") {
+            sendSelf({
+              type: XSTATE_LOGIC_EFFECT_REJECT,
+              key,
+              error
+            });
+          }
+          reject(error);
+        }
+      })().catch(reject);
+      return promise;
+    }
+    function deliverEvent3(source, target, event) {
+      if (rejectUndeliverableEvent(source, target, event)) {
+        return;
+      }
+      const runtimeTarget = target;
+      runtimeTarget._lastSourceRef = source;
+      runtimeTarget._send(event);
+    }
+    function getEventBoundaryError(source, target, event) {
+      const runtimeTarget = target;
+      if (source !== target && runtimeTarget.logic?.isInternalEventType?.(event.type)) {
+        return new Error(`Internal event "${event.type}" cannot be sent to actor "${target.id}" from outside.`);
+      }
+      return void 0;
+    }
+    function rejectUndeliverableEvent(source, target, event) {
+      const error = getEventBoundaryError(source, target, event);
+      if (error) {
+        void target.system.deadLetter(source, target, event, "internalEvent", {
+          error
+        });
+        return true;
+      }
+      return false;
+    }
+    function terminateActor3(actor, termination) {
+      actor._terminate(termination);
+    }
+    function stopActor3(actor) {
+      actor._stop();
+    }
+    var systemIdPrefix;
+    var nextSystemId = 0;
+    var transitionEffectSignal = new Error("Transition effect");
+    var transitionEffectTargets = [];
+    function createSystemIdPrefix() {
+      let crypto2;
+      try {
+        crypto2 = globalThis.crypto;
+      } catch {
+      }
+      if (crypto2?.getRandomValues) {
+        try {
+          const values = new Uint32Array(4);
+          crypto2.getRandomValues(values);
+          return Array.from(values, (value) => value.toString(36).padStart(7, "0")).join("");
+        } catch {
+        }
+      }
+      if (crypto2?.randomUUID) {
+        try {
+          return crypto2.randomUUID().replaceAll("-", "");
+        } catch {
+        }
+      }
+      return `xstate-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    }
+    function createSystemId() {
+      systemIdPrefix ??= createSystemIdPrefix();
+      return `${systemIdPrefix}:${(nextSystemId++).toString(36)}`;
+    }
+    var ambientExecutionIdentity;
+    function withExecutionIdentity(identity, fn) {
+      if (!identity) {
+        return fn();
+      }
+      const previous2 = ambientExecutionIdentity;
+      ambientExecutionIdentity = identity;
+      try {
+        return fn();
+      } finally {
+        ambientExecutionIdentity = previous2;
+      }
+    }
+    function getActorIdPrefix(src3) {
+      if (typeof src3 === "string") {
+        return src3;
+      }
+      const logicId = src3?.id;
+      return typeof logicId === "string" && logicId.length && logicId !== "(machine)" ? logicId : "x";
+    }
+    function encodeAddressSegment(id) {
+      return id.includes("/") || id.includes("%") ? id.replaceAll("%", "%25").replaceAll("/", "%2F") : id;
+    }
+    function parseGeneratedActorId(id) {
+      const separator = id.lastIndexOf(":");
+      if (separator <= 0 || separator === id.length - 1) {
+        return void 0;
+      }
+      const index3 = Number(id.slice(separator + 1));
+      return Number.isSafeInteger(index3) && index3 >= 0 ? {
+        prefix: id.slice(0, separator),
+        index: index3
+      } : void 0;
+    }
+    function getRootActorId(src3) {
+      const prefix = getActorIdPrefix(src3);
+      return prefix === "x" ? "x:0" : prefix;
+    }
+    function getActorIdCounterKey(parent, prefix) {
+      return `${parent ? parent.address : ""}|${prefix}`;
+    }
+    function bumpActorIdCounter(system, counterKey, next) {
+      const counters = system._snapshot._nextActorIds;
+      if ((counters[counterKey] ?? 0) >= next) {
+        return;
+      }
+      system._snapshot._nextActorIds = {
+        ...counters,
+        [counterKey]: next
+      };
+      markSystemSnapshotDirty(system);
+    }
+    function resolveActorId(system, requestedId, options2) {
+      if (requestedId !== void 0) {
+        const generated = parseGeneratedActorId(requestedId);
+        if (generated) {
+          bumpActorIdCounter(system, getActorIdCounterKey(options2?.parent, generated.prefix), generated.index + 1);
+        } else if (!options2?.parent) {
+          bumpActorIdCounter(system, getActorIdCounterKey(void 0, requestedId), 1);
+        }
+        return requestedId;
+      }
+      const prefix = getActorIdPrefix(options2?.src);
+      const counterKey = getActorIdCounterKey(options2?.parent, prefix);
+      const counter = system._snapshot._nextActorIds[counterKey] ?? 0;
+      bumpActorIdCounter(system, counterKey, counter + 1);
+      return !options2?.parent && prefix !== "x" && counter === 0 ? prefix : `${prefix}:${counter}`;
+    }
+    function bookSessionId(system) {
+      return `${system._identity.systemId}:${system._identity.nextSessionId++}`;
+    }
+    var RUNTIME_OPERATIONS = [
+      "spawnActor",
+      "startActor",
+      "stopActor",
+      "terminateActor",
+      "emitEvent",
+      "scheduleTimer",
+      "cancelTimer",
+      "cancelAllTimers",
+      "deadLetter"
+      // `runLogic`, `runStep` and `sendEvent` are deliberately absent: durable
+      // executions wire them separately, since logic bodies and steps await
+      // other runtime operations and root-addressed sends are captured per
+      // batch.
+    ];
+    var emptyScheduledTimers = Object.freeze({});
+    function createScheduledTimerId(actor, id) {
+      return `${actor.sessionId}.${id}`;
+    }
+    var RuntimeSystem = class {
+      get children() {
+        const children = this._children ??= /* @__PURE__ */ new Map();
+        if (this._getRootActor()) {
+          children.set(this._rootActor.sessionId, this._rootActor);
+        }
+        return children;
+      }
+      set children(children) {
+        this._children = children;
+      }
+      _getRootActor() {
+        return this._rootActor._isRunning() ? this._rootActor : void 0;
+      }
+      _peekChildren() {
+        return this._children;
+      }
+      get keyedActors() {
+        return this._keyedActors ??= /* @__PURE__ */ new Map();
+      }
+      set keyedActors(actors) {
+        this._keyedActors = actors;
+      }
+      get reverseKeyedActors() {
+        return this._reverseKeyedActors ??= /* @__PURE__ */ new WeakMap();
+      }
+      set reverseKeyedActors(actors) {
+        this._reverseKeyedActors = actors;
+      }
+      /** @internal Avoids materializing the receptionist for empty systems. */
+      _peekKeyedActors() {
+        return this._keyedActors;
+      }
+      constructor(_rootActor, options2) {
+        this._rootActor = _rootActor;
+        this._identity = ambientExecutionIdentity ?? {
+          systemId: createSystemId(),
+          nextSessionId: 0
+        };
+        this._snapshot = void 0;
+        this._snapshotVersion = 0;
+        this.scheduler = this;
+        this._clock = void 0;
+        this._logger = void 0;
+        this.createActorRef = void 0;
+        const restoredSnapshot = typeof options2.snapshot === "object" && options2.snapshot !== null ? options2.snapshot : void 0;
+        this._clock = options2.clock;
+        this._logger = options2.logger;
+        this.createActorRef = options2.createActorRef;
+        const ambientInspector2 = getAmbientInspector();
+        if (ambientInspector2) {
+          this.inspect(ambientInspector2);
+        }
+        this._snapshot = {
+          _scheduledTimers: restoredSnapshot?.scheduler ?? emptyScheduledTimers,
+          // System-level counters are process-local backstops; per-actor
+          // counters persist on each machine snapshot, and restored explicit ids
+          // reserve their numbering here via `resolveActorId`.
+          _nextActorIds: {}
+        };
+      }
+      // Records a send on the *sender's* transition for the `sent[]` inspection
+      // facet. Captures the send when it is initiated (including delayed sends that
+      // may never deliver), keyed to the source actor's in-flight transition.
+      _recordSent(source, target, event, delay, id) {
+        if (!this._inspectionObservers?.size || !source) {
+          return;
+        }
+        const inspectionSource = source;
+        const collected = inspectionSource._collectedSent ??= [];
+        collected.push({
+          targetRef: target,
+          targetId: target.id,
+          event,
+          delay,
+          id
+        });
+      }
+      schedule(source, id, delay) {
+        const existingId = createScheduledTimerId(source, id);
+        if (this._timerMap?.[existingId] !== void 0) {
+          this.cancel(source, id);
+        }
+        const timer = source.getSnapshot()?.timers?.[id];
+        if (timer) {
+          const target = timer.target === "self" ? source : timer.target;
+          this._recordSent(source, target, timer.event, delay, id);
+        }
+        const scheduledAt = this._clock.now?.() ?? Date.now();
+        const scheduledTimer = {
+          source,
+          delay,
+          id,
+          scheduledAt,
+          dueAt: scheduledAt + delay
+        };
+        const scheduledTimerId = createScheduledTimerId(source, id);
+        if (this._snapshot._scheduledTimers === emptyScheduledTimers) {
+          this._snapshot._scheduledTimers = {};
+        }
+        this._snapshot._scheduledTimers[scheduledTimerId] = scheduledTimer;
+        markSystemSnapshotDirty(this);
+        const timeout = this._clock.setTimeout(() => {
+          if (this._timerMap) {
+            delete this._timerMap[scheduledTimerId];
+          }
+          delete this._snapshot._scheduledTimers[scheduledTimerId];
+          markSystemSnapshotDirty(this);
+          this._deliver(source, source, {
+            type: XSTATE_TIMER2,
+            id
+          });
+        }, delay);
+        (this._timerMap ??= {})[scheduledTimerId] = timeout;
+      }
+      cancel(source, id) {
+        const scheduledTimerId = createScheduledTimerId(source, id);
+        const timeout = this._timerMap?.[scheduledTimerId];
+        if (this._timerMap) {
+          delete this._timerMap[scheduledTimerId];
+        }
+        if (this._snapshot._scheduledTimers !== emptyScheduledTimers) {
+          delete this._snapshot._scheduledTimers[scheduledTimerId];
+        }
+        markSystemSnapshotDirty(this);
+        if (timeout !== void 0) {
+          this._clock.clearTimeout(timeout);
+        }
+      }
+      cancelAll(actor) {
+        for (const scheduledTimerId in this._snapshot._scheduledTimers) {
+          const scheduledTimer = this._snapshot._scheduledTimers[scheduledTimerId];
+          if (scheduledTimer.source === actor) {
+            this.cancel(actor, scheduledTimer.id);
+          }
+        }
+      }
+      // Delivers an event to the target actor. Used by both `_relay` (which also
+      // records the send) and the scheduler's timer (which already recorded it).
+      _deliver(source, target, event) {
+        deliverEvent3(source, target, event);
+      }
+      _register(sessionId, actor) {
+        if (actor === this._rootActor) {
+          this._children?.set(sessionId, actor);
+        } else {
+          (this._children ??= /* @__PURE__ */ new Map()).set(sessionId, actor);
+        }
+        markSystemSnapshotDirty(this);
+        return sessionId;
+      }
+      _unregister(actor) {
+        let changed;
+        if (actor === this._rootActor) {
+          changed = this._getRootActor() !== void 0;
+          changed = actor.sessionId !== void 0 && (this._children?.delete(actor.sessionId) ?? false) || changed;
+        } else {
+          changed = actor.sessionId !== void 0 && (this._children?.delete(actor.sessionId) ?? false);
+        }
+        const registryKey = this._reverseKeyedActors?.get(actor);
+        if (registryKey !== void 0) {
+          if (this._keyedActors?.get(registryKey) === actor) {
+            this._keyedActors.delete(registryKey);
+            changed = true;
+          }
+          this._reverseKeyedActors?.delete(actor);
+        }
+        if (changed) {
+          markSystemSnapshotDirty(this);
+        }
+      }
+      get(registryKey) {
+        return this._keyedActors?.get(registryKey);
+      }
+      getAll() {
+        return Object.fromEntries(this._keyedActors?.entries() ?? []);
+      }
+      _set(registryKey, actor) {
+        const existing = this._keyedActors?.get(registryKey);
+        if (existing && existing !== actor) {
+          throw new Error(`Actor with registry key '${registryKey}' already exists.`);
+        }
+        (this._keyedActors ??= /* @__PURE__ */ new Map()).set(registryKey, actor);
+        (this._reverseKeyedActors ??= /* @__PURE__ */ new WeakMap()).set(actor, registryKey);
+        if (existing !== actor) {
+          markSystemSnapshotDirty(this);
+        }
+      }
+      inspect(observerOrFn) {
+        const observer = toObserver3(observerOrFn);
+        (this._inspectionObservers ??= /* @__PURE__ */ new Set()).add(observer);
+        return {
+          unsubscribe: () => {
+            this._inspectionObservers?.delete(observer);
+          }
+        };
+      }
+      onRejectedEvent(listener) {
+        const entry2 = (rejection) => listener(rejection);
+        (this._rejectionListeners ??= /* @__PURE__ */ new Set()).add(entry2);
+        return {
+          unsubscribe: () => {
+            this._rejectionListeners?.delete(entry2);
+          }
+        };
+      }
+      _hasInspectionObservers() {
+        return !!this._inspectionObservers?.size;
+      }
+      _sendInspectionEvent(event) {
+        if (!this._inspectionObservers?.size) {
+          return;
+        }
+        const resolvedInspectionEvent = {
+          ...event,
+          rootId: this._rootActor.sessionId
+        };
+        this._inspectionObservers.forEach((observer) => observer.next?.(resolvedInspectionEvent));
+      }
+      // Unlike the other operations, spawn has no local work: local actors
+      // register with the system when they are constructed, so this only
+      // notifies a host runtime.
+      spawnActor(source, actor) {
+        return this.runtime?.spawnActor?.(source, actor);
+      }
+      startActor(actor) {
+        const override = this.runtime?.startActor;
+        if (override) {
+          return override(actor);
+        }
+        actor.start();
+      }
+      stopActor(actor) {
+        const override = this.runtime?.stopActor;
+        if (override) {
+          return override(actor);
+        }
+        stopActor3(actor);
+      }
+      terminateActor(actor, termination) {
+        const override = this.runtime?.terminateActor;
+        if (override) {
+          return override(actor, termination);
+        }
+        terminateActor3(actor, termination);
+      }
+      sendEvent(source, target, event) {
+        if (rejectUndeliverableEvent(source, target, event)) {
+          return;
+        }
+        this._recordSent(source, target, event);
+        const override = this.runtime?.sendEvent;
+        if (override) {
+          return override(source, target, event);
+        }
+        this._deliver(source, target, event);
+      }
+      emitEvent(source, event) {
+        const override = this.runtime?.emitEvent;
+        if (override) {
+          return override(source, event);
+        }
+        source._emit(event);
+      }
+      deadLetter(source, target, event, reason, detail) {
+        const listeners = this._rejectionListeners;
+        if (listeners?.size) {
+          const rejection = {
+            event,
+            targetRef: target,
+            targetId: target?.id ?? detail?.targetId,
+            sourceRef: source,
+            eventOrigin: source ? "actor" : "external",
+            reason,
+            issues: detail?.issues,
+            error: detail?.error
+          };
+          for (const listener of [...listeners]) {
+            try {
+              listener(rejection);
+            } catch (err) {
+              reportUnhandledError(err);
+            }
+          }
+        }
+        const override = this.runtime?.deadLetter;
+        if (override) {
+          return override(source, target, event, reason, detail);
+        }
+      }
+      runStep(actor, key, exec) {
+        const override = this.runtime?.runStep;
+        if (override) {
+          return override(actor, key, exec);
+        }
+        return runStep3(actor, key, exec);
+      }
+      runLogic(actor, exec) {
+        const override = this.runtime?.runLogic;
+        if (override) {
+          return override(actor, exec);
+        }
+        return exec();
+      }
+      scheduleTimer(source, id, delay) {
+        const override = this.runtime?.scheduleTimer;
+        if (override) {
+          const timer = source.getSnapshot()?.timers?.[id];
+          if (timer) {
+            const target = timer.target === "self" ? source : timer.target;
+            this._recordSent(source, target, timer.event, delay, id);
+          }
+          return override(source, id, delay);
+        }
+        this.schedule(source, id, delay);
+      }
+      cancelTimer(source, id) {
+        const override = this.runtime?.cancelTimer;
+        if (override) {
+          return override(source, id);
+        }
+        this.cancel(source, id);
+      }
+      cancelAllTimers(source) {
+        const override = this.runtime?.cancelAllTimers;
+        if (override) {
+          return override(source);
+        }
+        this.cancelAll(source);
+      }
+      _relay(source, target, event) {
+        if (transitionEffectTargets.length && transitionEffectTargets.includes(target)) {
+          throw transitionEffectSignal;
+        }
+        return this.sendEvent(source, target, event);
+      }
+      getSnapshot() {
+        return {
+          _scheduledTimers: {
+            ...this._snapshot._scheduledTimers
+          }
+        };
+      }
+      start() {
+        const scheduledTimers = this._snapshot._scheduledTimers;
+        let resetScheduledTimers = true;
+        for (const scheduledId in scheduledTimers) {
+          if (resetScheduledTimers) {
+            this._snapshot._scheduledTimers = {};
+            resetScheduledTimers = false;
+          }
+          const {
+            source,
+            dueAt,
+            id
+          } = scheduledTimers[scheduledId];
+          this.scheduleTimer(source, id, Math.max(0, dueAt - (this._clock.now?.() ?? Date.now())));
+        }
+      }
+    };
+    function createRuntimeSystem(rootActor, options2) {
+      return new RuntimeSystem(rootActor, options2);
+    }
+    var executingCustomAction = false;
+    var ACTOR_REF_TYPE = "actorRef";
+    var emptyInspectionRecords = Object.freeze([]);
+    var ProcessingStatus = /* @__PURE__ */ (function(ProcessingStatus2) {
+      ProcessingStatus2[ProcessingStatus2["NotStarted"] = 0] = "NotStarted";
+      ProcessingStatus2[ProcessingStatus2["Running"] = 1] = "Running";
+      ProcessingStatus2[ProcessingStatus2["Stopped"] = 2] = "Stopped";
+      return ProcessingStatus2;
+    })({});
+    var defaultOptions = Object.freeze({
+      clock: {
+        setTimeout: (fn, ms) => {
+          return setTimeout(fn, ms);
+        },
+        clearTimeout: (id) => {
+          return clearTimeout(id);
+        }
+      },
+      logger: console.log.bind(console)
+    });
+    function safeCall2(fn, arg) {
+      try {
+        fn?.(arg);
+      } catch (err) {
+        reportUnhandledError(err);
+      }
+    }
+    function executeExecutableEffects(effects, actorScope) {
+      if (!effects?.length) {
+        return;
+      }
+      for (const effect of effects) {
+        actorScope.actionExecutor(effect);
+      }
+    }
+    function createActorRef(logic, options2) {
+      return new Actor3(logic, options2);
+    }
+    var Actor3 = class {
+      /**
+       * The deterministic logical address of this actor within its system: the
+       * `/`-joined path of actor ids from the root. Stable across persistence and
+       * restore, unlike `sessionId`, which identifies one incarnation.
+       *
+       * `/` separates segments, so an id containing one (a state name with a
+       * slash reaches its invoked child's id) is percent-encoded to keep the
+       * path unambiguous.
+       */
+      get address() {
+        return this._address ??= this._parent ? `${this._parent.address}/${encodeAddressSegment(this.id)}` : encodeAddressSegment(this.id);
+      }
+      /** The system to which this actor belongs. */
+      get trigger() {
+        return this._trigger ??= new Proxy({}, {
+          get: (_, eventType) => {
+            return (payload) => {
+              this.send({
+                ...payload,
+                type: eventType
+              });
+            };
+          }
+        });
+      }
+      get send() {
+        return this._boundSend ??= this._sendPublic.bind(this);
+      }
+      /**
+       * Creates a new actor instance for the given logic with the provided options,
+       * if any.
+       *
+       * @param logic The logic to create an actor from
+       * @param options Actor options
+       */
+      constructor(logic, options2) {
+        this.logic = logic;
+        this._snapshot = void 0;
+        this.clock = void 0;
+        this.options = void 0;
+        this.id = void 0;
+        this._boundProcess = void 0;
+        this.mailbox = void 0;
+        this._mailboxStarted = false;
+        this.observers = void 0;
+        this._errorObserved = false;
+        this.eventListeners = void 0;
+        this.logger = void 0;
+        this._processingStatus = ProcessingStatus.NotStarted;
+        this._forceDeferredActions = false;
+        this._parent = void 0;
+        this._syncSnapshot = void 0;
+        this.ref = void 0;
+        this._actorScope = void 0;
+        this._lastSourceRef = void 0;
+        this._collectedMicrosteps = void 0;
+        this._collectedActions = void 0;
+        this._collectedSent = void 0;
+        this._initialEffects = void 0;
+        this.registryKey = void 0;
+        this.sessionId = void 0;
+        this._address = void 0;
+        this.system = void 0;
+        this._trigger = void 0;
+        this._boundSend = void 0;
+        this.src = void 0;
+        this._deferred = void 0;
+        this._restored = false;
+        this._warnedUnhandledTypes = void 0;
+        const resolvedOptions = options2 ? {
+          ...defaultOptions,
+          ...options2
+        } : defaultOptions;
+        const {
+          clock,
+          logger,
+          parent,
+          syncSnapshot,
+          id,
+          registryKey,
+          inspect
+        } = resolvedOptions;
+        this.system = parent ? parent.system : resolvedOptions._systemRef?.current ?? createRuntimeSystem(this, {
+          clock,
+          logger,
+          snapshot: resolvedOptions.snapshot,
+          createActorRef
+        });
+        if (!parent && resolvedOptions._systemRef && !resolvedOptions._systemRef.current) {
+          resolvedOptions._systemRef.current = this.system;
+        }
+        if (inspect && !parent) {
+          this.system.inspect(toObserver3(inspect));
+        }
+        if (resolvedOptions.onRejectedEvent && !parent) {
+          this.system.onRejectedEvent(resolvedOptions.onRejectedEvent);
+        }
+        this.sessionId = resolvedOptions._sessionId ?? bookSessionId(this.system);
+        this.id = resolveActorId(this.system, id, {
+          parent,
+          src: resolvedOptions.src ?? logic
+        });
+        this.logger = options2?.logger ?? this.system._logger;
+        this.clock = options2?.clock ?? this.system._clock;
+        this._parent = parent;
+        this._syncSnapshot = syncSnapshot;
+        this.options = resolvedOptions;
+        this.src = resolvedOptions.src ?? logic;
+        this.ref = this;
+        this._actorScope = this;
+        if (registryKey) {
+          this.registryKey = registryKey;
+          this.system._set(registryKey, this);
+        }
+        this._collectedMicrosteps = void 0;
+        const persistedState = options2?.snapshot;
+        this._restored = persistedState !== void 0;
+        try {
+          if (persistedState) {
+            this._setSnapshot(this.logic.restoreSnapshot ? this.logic.restoreSnapshot(persistedState, this._actorScope) : persistedState);
+          } else if (options2?._inert) {
+          } else {
+            const [snapshot, effects] = finalizeTransitionResult(this._actorScope, void 0, this.logic.initialTransition(this.options?.input, this._actorScope));
+            this._setSnapshot(snapshot);
+            this._initialEffects = effects.length ? effects : void 0;
+          }
+        } catch (err) {
+          const restoreErrorSnapshot = persistedState && this.logic._createRestoreErrorSnapshot?.(persistedState, err);
+          this._setSnapshot(restoreErrorSnapshot ?? {
+            status: "error",
+            output: void 0,
+            error: err
+          });
+          if (this._deferred) {
+            this._deferred.length = 0;
+          }
+        }
+        if (registryKey && this._snapshot.status !== "active") {
+          this.system._unregister(this);
+        }
+        if (this.system._hasInspectionObservers?.() ?? true) {
+          this.system._sendInspectionEvent({
+            type: "@xstate.actor",
+            actorRef: this,
+            parentRef: this._parent,
+            id: this.id,
+            src: this.src,
+            snapshot: this._snapshot
+          });
+        }
+      }
+      /** @internal */
+      _getLogger() {
+        return this.logger;
+      }
+      get self() {
+        return this;
+      }
+      get defer() {
+        const defer = (fn) => this._defer(fn);
+        Object.defineProperty(this, "defer", {
+          value: defer
+        });
+        return defer;
+      }
+      get stopChild() {
+        const stopChild = (child) => this._stopChild(child);
+        Object.defineProperty(this, "stopChild", {
+          value: stopChild
+        });
+        return stopChild;
+      }
+      get emit() {
+        const emit = (event) => this.system.emitEvent(this, event);
+        Object.defineProperty(this, "emit", {
+          value: emit
+        });
+        return emit;
+      }
+      get actionExecutor() {
+        const actionExecutor = (action) => this._executeAction(action);
+        Object.defineProperty(this, "actionExecutor", {
+          value: actionExecutor
+        });
+        return actionExecutor;
+      }
+      /** @internal */
+      _isRunning() {
+        return this._processingStatus === ProcessingStatus.Running;
+      }
+      /** @internal */
+      _defer(fn) {
+        (this._deferred ??= []).push(fn);
+      }
+      /** @internal */
+      _stopChild(child) {
+        if (child._parent !== this) {
+          throw new Error(`Cannot stop non-child actor ${child.id}`);
+        }
+        child._stop();
+      }
+      /** @internal */
+      _executeAction(action) {
+        const exec = () => {
+          if (this.system._hasInspectionObservers?.() ?? true) {
+            (this._collectedActions ??= []).push({
+              type: action.type,
+              params: action.params
+            });
+          }
+          const saveExecutingCustomAction = executingCustomAction;
+          try {
+            executingCustomAction = true;
+            const result = action.exec();
+            if (result && typeof result.then === "function") {
+              void Promise.resolve(result).catch((err) => {
+                if (this._processingStatus === ProcessingStatus.Stopped) {
+                  return;
+                }
+                this._recoverOrError(err);
+              });
+            }
+          } finally {
+            executingCustomAction = saveExecutingCustomAction;
+          }
+        };
+        if (this._processingStatus === ProcessingStatus.Running && !this._forceDeferredActions) {
+          exec();
+        } else {
+          (this._deferred ??= []).push(exec);
+        }
+      }
+      /** Associates each live snapshot with this actor for later pure transitions. */
+      _setSnapshot(snapshot) {
+        const previousSnapshot = this._snapshot;
+        this._snapshot = snapshot;
+        setSnapshotActorRef(snapshot, this, this.system, previousSnapshot);
+      }
+      _setErrorSnapshot(err, snapshot = this._snapshot) {
+        this._setSnapshot({
+          ...snapshot,
+          status: "error",
+          error: err
+        });
+      }
+      /** Recover via the logic's error event if possible; otherwise error out. */
+      _recoverOrError(err, snapshot, previousSnapshot) {
+        if (this._tryHandleExecutionError(err, snapshot)) {
+          return true;
+        }
+        this._setErrorSnapshot(err);
+        this._error(err, previousSnapshot);
+        return false;
+      }
+      _tryHandleExecutionError(err, snapshot = this._snapshot) {
+        const errorEvent = this.logic.getExecutionErrorEvent?.(snapshot, err);
+        if (!errorEvent) {
+          return false;
+        }
+        try {
+          const [nextSnapshot, effects] = finalizeTransitionResult(this._actorScope, snapshot, this.logic.transition(snapshot, errorEvent, this._actorScope));
+          this._setSnapshot(nextSnapshot);
+          executeExecutableEffects(effects, this._actorScope);
+          this.update(nextSnapshot, errorEvent);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      _next(snapshot) {
+        for (const observer of this.observers ?? emptyInspectionRecords) {
+          safeCall2(observer.next, snapshot);
+        }
+      }
+      update(snapshot, event) {
+        this._setSnapshot(snapshot);
+        const deferred = this._deferred;
+        for (let i = 0; i < (deferred?.length ?? 0); i++) {
+          const deferredFn = deferred[i];
+          try {
+            deferredFn();
+          } catch (err) {
+            deferred.length = 0;
+            if (this._tryHandleExecutionError(err, snapshot)) {
+              return;
+            }
+            this._setErrorSnapshot(err, snapshot);
+            this._error(err);
+            break;
+          }
+        }
+        if (deferred) {
+          deferred.length = 0;
+        }
+        switch (this._snapshot.status) {
+          case "active":
+            this._next(snapshot);
+            break;
+        }
+        this._inspectTransition(this._snapshot, event);
+      }
+      /** @internal Emits the transition inspection event; used by the pure
+       * `transition()` path for snapshots driven outside a live actor. */
+      _inspectTransition(snapshot, event) {
+        if (this.system._hasInspectionObservers?.() ?? true) {
+          this.system._sendInspectionEvent({
+            type: "@xstate.transition",
+            actorRef: this,
+            event,
+            sourceRef: this._lastSourceRef,
+            targetRef: this,
+            snapshot,
+            microsteps: this._collectedMicrosteps ?? emptyInspectionRecords,
+            actions: this._collectedActions ?? emptyInspectionRecords,
+            sent: this._collectedSent ?? emptyInspectionRecords,
+            eventType: event.type
+          });
+        }
+        this._collectedMicrosteps = void 0;
+        this._collectedActions = void 0;
+        this._collectedSent = void 0;
+      }
+      _flushInitialEffects() {
+        if (!this._initialEffects?.length) {
+          return true;
+        }
+        this._forceDeferredActions = true;
+        try {
+          executeExecutableEffects(this._initialEffects, this._actorScope);
+          this._initialEffects = void 0;
+          return true;
+        } catch (err) {
+          this._initialEffects = void 0;
+          if (this._deferred) {
+            this._deferred.length = 0;
+          }
+          this._recoverOrError(err);
+          return this._snapshot.status === "active";
+        } finally {
+          this._forceDeferredActions = false;
+        }
+      }
+      /**
+       * Subscribe an observer to an actor’s snapshot values.
+       *
+       * @remarks
+       * The observer will receive the actor’s snapshot value when it is emitted.
+       * The observer can be:
+       *
+       * - A plain function that receives the latest snapshot, or
+       * - An observer object whose `.next(snapshot)` method receives the latest
+       *   snapshot
+       *
+       * @example
+       *
+       * ```ts
+       * // Observer as a plain function
+       * const subscription = actor.subscribe((snapshot) => {
+       *   console.log(snapshot);
+       * });
+       * ```
+       *
+       * @example
+       *
+       * ```ts
+       * // Observer as an object
+       * const subscription = actor.subscribe({
+       *   next(snapshot) {
+       *     console.log(snapshot);
+       *   },
+       *   error(err) {
+       *     // ...
+       *   },
+       *   complete() {
+       *     // ...
+       *   }
+       * });
+       * ```
+       *
+       * The return value of `actor.subscribe(observer)` is a subscription object
+       * that has an `.unsubscribe()` method. You can call
+       * `subscription.unsubscribe()` to unsubscribe the observer:
+       *
+       * @example
+       *
+       * ```ts
+       * const subscription = actor.subscribe((snapshot) => {
+       *   // ...
+       * });
+       *
+       * // Unsubscribe the observer
+       * subscription.unsubscribe();
+       * ```
+       *
+       * When the actor is stopped, all of its observers will automatically be
+       * unsubscribed.
+       *
+       * @param observer - Either a plain function that receives the latest
+       *   snapshot, or an observer object whose `.next(snapshot)` method receives
+       *   the latest snapshot
+       */
+      subscribe(nextListenerOrObserver, errorListener, completeListener) {
+        const observer = toObserver3(nextListenerOrObserver, errorListener, completeListener);
+        if (this._processingStatus !== ProcessingStatus.Stopped) {
+          (this.observers ??= /* @__PURE__ */ new Set()).add(observer);
+        } else {
+          switch (this._snapshot.status) {
+            case "done":
+              safeCall2(observer.complete);
+              break;
+            case "error": {
+              const err = this._snapshot.error;
+              if (!observer.error) {
+                reportUnhandledError(err);
+              } else {
+                if (!observer.passive) {
+                  this._errorObserved = true;
+                }
+                safeCall2(observer.error, err);
+              }
+              break;
+            }
+          }
+        }
+        return {
+          unsubscribe: () => {
+            this.observers?.delete(observer);
+          }
+        };
+      }
+      on(type, handler) {
+        let listeners = this.eventListeners?.get(type);
+        if (!listeners) {
+          listeners = /* @__PURE__ */ new Set();
+          (this.eventListeners ??= /* @__PURE__ */ new Map()).set(type, listeners);
+        }
+        listeners.add(handler);
+        return {
+          unsubscribe: () => {
+            listeners.delete(handler);
+          }
+        };
+      }
+      select(selector, equalityFn = Object.is) {
+        return {
+          subscribe: (observerOrFn, errorListener, completeListener) => {
+            const observer = toObserver3(observerOrFn, errorListener, completeListener);
+            let selected = selector(this.getSnapshot());
+            return this.subscribe({
+              next: (snapshot) => {
+                const next = selector(snapshot);
+                if (!equalityFn(selected, next)) {
+                  selected = next;
+                  observer.next?.(next);
+                }
+              },
+              error: observer.error,
+              complete: observer.complete
+            });
+          },
+          get: () => selector(this.getSnapshot())
+        };
+      }
+      /** Starts the Actor from the initial state */
+      start() {
+        if (this._processingStatus === ProcessingStatus.Running) {
+          return this;
+        }
+        if (this._processingStatus === ProcessingStatus.Stopped) {
+          const status2 = this._snapshot.status;
+          if (status2 === "done" || status2 === "error") {
+            return this;
+          }
+          throw new Error(`Actor ${this.id} was stopped and cannot be restarted. Create a new actor with createActor().`);
+        }
+        if (this._syncSnapshot) {
+          this.subscribe({
+            next: (snapshot) => {
+              if (snapshot.status === "active") {
+                this.system._relay(this, this._parent, {
+                  type: "xstate.snapshot.actor",
+                  actorId: this.id,
+                  sessionId: this.sessionId,
+                  snapshot
+                });
+              }
+            },
+            error: () => {
+            }
+          });
+        }
+        this.system._register(this.sessionId, this);
+        if (this.registryKey) {
+          this.system._set(this.registryKey, this);
+        }
+        this._processingStatus = ProcessingStatus.Running;
+        this._lastSourceRef = this._parent;
+        const status = this._snapshot.status;
+        switch (status) {
+          case "done":
+            if (this._restored) {
+              this._next(this._snapshot);
+              this._stopProcedure();
+              this._complete();
+              return this;
+            }
+            if (!this._flushInitialEffects()) {
+              return this;
+            }
+            this.update(this._snapshot, createInitEvent(this.options.input));
+            return this;
+          case "error":
+            this._error(this._snapshot.error);
+            return this;
+          case "stopped":
+            this._stopProcedure();
+            this._complete();
+            return this;
+        }
+        if (!this._parent) {
+          this.system.start();
+        }
+        if (!this._flushInitialEffects()) {
+          return this;
+        }
+        if (this.logic.start) {
+          try {
+            this.logic.start(this._snapshot, this._actorScope, {
+              restored: this._restored
+            });
+          } catch (err) {
+            this._setErrorSnapshot(err);
+            this._error(err);
+            return this;
+          }
+        }
+        if (!this._restored && !this._deferred?.length && !this.observers?.size && !(this.system._hasInspectionObservers?.() ?? true)) {
+          if (!refreshSnapshotActorRefRoot(this._snapshot, this, this.system)) {
+            this._setSnapshot(this._snapshot);
+          }
+          this._collectedMicrosteps = void 0;
+          this._collectedActions = void 0;
+          this._collectedSent = void 0;
+        } else {
+          this.update(this._snapshot, createInitEvent(this.options.input));
+        }
+        if (this._restored) {
+          const timers = this._snapshot.timers ?? {};
+          const wallClock = !this.system._clock.now;
+          const now2 = Date.now();
+          for (const timer of Object.values(timers)) {
+            const delay = wallClock && timer.startedAt !== void 0 ? Math.min(timer.delay, Math.max(0, timer.startedAt + timer.delay - now2)) : timer.delay;
+            this.system.scheduleTimer(this, timer.id, delay);
+          }
+          this._restored = false;
+        }
+        this._mailboxStarted = true;
+        this.mailbox?.start();
+        return this;
+      }
+      _process(event) {
+        const previousSnapshot = this._snapshot;
+        let nextState;
+        let caughtError;
+        try {
+          nextState = finalizeTransitionResult(this._actorScope, this._snapshot, this.logic.transition(this._snapshot, event, this._actorScope));
+        } catch (err) {
+          caughtError = {
+            err
+          };
+        }
+        if (caughtError) {
+          this._collectedMicrosteps = void 0;
+          this._collectedActions = void 0;
+          this._collectedSent = void 0;
+          if (!this._recoverOrError(caughtError.err)) {
+            this._inspectTransition(this._snapshot, event);
+          }
+          return;
+        }
+        if (!nextState) {
+          return;
+        }
+        let snapshot = this._snapshot;
+        try {
+          const [nextSnapshot, effects] = nextState;
+          if (nextSnapshot === previousSnapshot && !effects.length && // State machine snapshots only; other logic may ignore events freely.
+          "machine" in previousSnapshot && // `xstate.route` is sent by users, so a route that matches nothing is
+          // reported like any other unhandled event.
+          (!event.type.startsWith("xstate.") || event.type === "xstate.route")) {
+            this._reportUnhandledEvent(event);
+          }
+          snapshot = nextSnapshot;
+          this._setSnapshot(snapshot);
+          executeExecutableEffects(effects, this._actorScope);
+          this.update(snapshot, event);
+        } catch (err) {
+          if (!this._recoverOrError(err, snapshot, previousSnapshot)) {
+            this._inspectTransition(this._snapshot, event);
+          }
+          return;
+        }
+        if (event.type === XSTATE_STOP) {
+          this._stopProcedure();
+          this._complete();
+        }
+      }
+      _reportUnhandledEvent(event) {
+        safeCall2(() => this.options.onUnhandledEvent?.(event, this._snapshot));
+      }
+      /** @internal */
+      _emit(event) {
+        for (const listeners of [this.eventListeners?.get(event.type), this.eventListeners?.get("*")]) {
+          if (listeners) {
+            for (const handler of listeners) {
+              safeCall2(handler, event);
+            }
+          }
+        }
+      }
+      /** @internal */
+      _terminate(termination) {
+        if (termination.status === "done") {
+          this._next(this._snapshot);
+          this._stopProcedure();
+          this._complete();
+          if (this._parent) {
+            this.system._relay(this, this._parent, createDoneActorEvent(this.id, termination.output, this.sessionId));
+          }
+          return;
+        }
+        if (termination.status === "error") {
+          this._error(termination.error);
+        }
+      }
+      /** @internal */
+      _stop() {
+        if (this._processingStatus === ProcessingStatus.Stopped) {
+          return this;
+        }
+        this.mailbox?.clear();
+        if (this._processingStatus === ProcessingStatus.NotStarted) {
+          this._processingStatus = ProcessingStatus.Stopped;
+          this.system._unregister(this);
+          return this;
+        }
+        this._send({
+          type: XSTATE_STOP
+        });
+        this.system._unregister(this);
+        return this;
+      }
+      /** Stops the Actor and unsubscribe all listeners. */
+      stop() {
+        if (this._parent) {
+          throw new Error("A non-root actor cannot be stopped directly.");
+        }
+        return this._stop();
+      }
+      _complete() {
+        for (const observer of this.observers ?? emptyInspectionRecords) {
+          safeCall2(observer.complete);
+        }
+        this.observers?.clear();
+        this.eventListeners?.clear();
+      }
+      /**
+       * Reports an unhandled error unless a consumer observes it before the
+       * report runs. An actor can error before its creator has a chance to
+       * subscribe, so the check waits one macrotask for a subscriber with an
+       * `error` callback.
+       */
+      _reportUnlessObserved(err) {
+        setTimeout(() => {
+          if (!this._errorObserved) {
+            reportUnhandledError(err);
+          }
+        });
+      }
+      _error(err, previousSnapshot) {
+        this._stopProcedure();
+        const children = /* @__PURE__ */ new Set();
+        for (const snapshot of [this._snapshot, previousSnapshot]) {
+          const snapshotChildren = snapshot?.children;
+          for (const child of Object.values(snapshotChildren ?? {})) {
+            if (child?._parent === this && typeof child.getSnapshot === "function") {
+              children.add(child);
+            }
+          }
+        }
+        for (const child of this.system._peekChildren?.()?.values() ?? []) {
+          if (child._parent === this) {
+            children.add(child);
+          }
+        }
+        for (const child of children) {
+          try {
+            if (child.getSnapshot().status !== "active") {
+              continue;
+            }
+            const result = this.system.stopActor(child);
+            if (result) {
+              void Promise.resolve(result).catch(reportUnhandledError);
+            }
+          } catch (error) {
+            reportUnhandledError(error);
+          }
+        }
+        if (!this.observers?.size) {
+          if (!this._parent) {
+            this._reportUnlessObserved(err);
+          }
+        } else {
+          let reportError = false;
+          let handled = false;
+          for (const observer of this.observers) {
+            const errorListener = observer.error;
+            if (!observer.passive) {
+              reportError ||= !errorListener;
+              handled ||= !!errorListener;
+            }
+            safeCall2(errorListener, err);
+          }
+          reportError ||= !handled;
+          this.observers.clear();
+          if (reportError) {
+            this._reportUnlessObserved(err);
+          }
+        }
+        this.eventListeners?.clear();
+        if (this._parent) {
+          this.system._relay(this, this._parent, createErrorActorEvent(this.id, err, this.sessionId));
+        }
+      }
+      _stopProcedure() {
+        if (this._processingStatus !== ProcessingStatus.Running) {
+          return;
+        }
+        this.system.cancelAllTimers(this);
+        this.mailbox?.clear();
+        this.mailbox = void 0;
+        this._boundProcess = void 0;
+        this._mailboxStarted = false;
+        this._processingStatus = ProcessingStatus.Stopped;
+        this.system._unregister(this);
+      }
+      /** @internal */
+      _send(event) {
+        if (this._processingStatus === ProcessingStatus.Stopped) {
+          this.system.deadLetter(this._lastSourceRef, this, event, "stopped");
+          return;
+        }
+        let mailbox = this.mailbox;
+        if (!mailbox) {
+          this._boundProcess ??= this._process.bind(this);
+          mailbox = this.mailbox = new Mailbox(this._boundProcess);
+          if (this._mailboxStarted) {
+            mailbox.start();
+          }
+        }
+        mailbox.enqueue(event);
+      }
+      /**
+       * Sends an event to the running Actor to trigger a transition.
+       *
+       * @param event The event to send
+       */
+      _sendPublic(event) {
+        this.system._relay(void 0, this, event);
+      }
+      /**
+       * Returns the actor's serializable logical identity: its `id`, `address`,
+       * and registered source key (when the actor was created from one).
+       */
+      toJSON() {
+        return {
+          xstate$type: ACTOR_REF_TYPE,
+          id: this.id,
+          address: this.address,
+          src: typeof this.src === "string" ? this.src : void 0
+        };
+      }
+      /**
+       * Obtain the internal state of the actor, which can be persisted.
+       *
+       * @remarks
+       * The internal state can be persisted from any actor, not only machines.
+       *
+       * Note that the persisted state is not the same as the snapshot from
+       * {@link Actor.getSnapshot}. Persisted state represents the internal state of
+       * the actor, while snapshots represent the actor's last emitted value.
+       *
+       * Can be restored with {@link ActorOptions.snapshot}
+       * @see https://stately.ai/docs/persistence
+       */
+      getPersistedSnapshot(options2) {
+        return this.logic.getPersistedSnapshot(this._snapshot, options2);
+      }
+      [symbolObservable2]() {
+        return this;
+      }
+      /**
+       * Read an actor’s snapshot synchronously.
+       *
+       * @remarks
+       * The snapshot is the last value the actor published, not a query of its
+       * private state: the actor emits a snapshot when it transitions, and this
+       * returns that cached last emission. The read is coherent within one
+       * synchronous transition turn because event processing runs to completion;
+       * across asynchronous boundaries it may be stale, like any observed value.
+       *
+       * Only co-located actors publish full snapshots. A location-transparent
+       * remote handle exposes lifecycle only ({ status, output?, error? }): while
+       * the handle exists among its parent's children the child is presumed
+       * `active`, and its terminal result arrives as a completion event.
+       *
+       * Note that some actors, such as callback actors generated with
+       * `createCallbackLogic`, will not emit snapshots.
+       * @see {@link Actor.subscribe} to subscribe to an actor’s snapshot values.
+       * @see {@link Actor.getPersistedSnapshot} to persist the internal state of an actor (which is more than just a snapshot).
+       */
+      getSnapshot() {
+        return this._snapshot;
+      }
+    };
+    function createActor3(logic, ...[options2]) {
+      return new Actor3(logic, options2);
+    }
+    exports.ACTOR_REF_TYPE = ACTOR_REF_TYPE;
+    exports.Actor = Actor3;
+    exports.InfiniteTransitionError = InfiniteTransitionError3;
+    exports.NULL_EVENT = NULL_EVENT;
+    exports.ProcessingStatus = ProcessingStatus;
+    exports.RUNTIME_OPERATIONS = RUNTIME_OPERATIONS;
+    exports.STATE_DELIMITER = STATE_DELIMITER;
+    exports.XSTATE_INIT = XSTATE_INIT2;
+    exports.XSTATE_LOGIC_EFFECT_REJECT = XSTATE_LOGIC_EFFECT_REJECT;
+    exports.XSTATE_LOGIC_EFFECT_RESOLVE = XSTATE_LOGIC_EFFECT_RESOLVE;
+    exports.XSTATE_LOGIC_EFFECT_START = XSTATE_LOGIC_EFFECT_START;
+    exports.XSTATE_STOP = XSTATE_STOP;
+    exports.XSTATE_TIMER = XSTATE_TIMER2;
+    exports.allocateChildId = allocateChildId;
+    exports.assertChildIdFree = assertChildIdFree;
+    exports.attachSnapshotActorRef = attachSnapshotActorRef;
+    exports.beginSpawnAllocation = beginSpawnAllocation;
+    exports.checkStateIn = checkStateIn2;
+    exports.cloneMachineSnapshot = cloneMachineSnapshot;
+    exports.createActor = createActor3;
+    exports.createCustomEffect = createCustomEffect;
+    exports.createDeadLetterEffect = createDeadLetterEffect;
+    exports.createDoneActorEvent = createDoneActorEvent;
+    exports.createEmitEffect = createEmitEffect;
+    exports.createErrorActorEvent = createErrorActorEvent;
+    exports.createErrorPlatformEvent = createErrorPlatformEvent;
+    exports.createInertActorScope = createInertActorScope;
+    exports.createInitEvent = createInitEvent;
+    exports.createInvokeId = createInvokeId;
+    exports.createInvokeTimeoutEvent = createInvokeTimeoutEvent;
+    exports.createInvokeTimeoutEventId = createInvokeTimeoutEventId;
+    exports.createListenerLogic = createListenerLogic3;
+    exports.createMachineSnapshot = createMachineSnapshot;
+    exports.createRemoteActorRef = createRemoteActorRef;
+    exports.createSendToEffect = createSendToEffect;
+    exports.createSpawnEffect = createSpawnEffect;
+    exports.createStartEffect = createStartEffect;
+    exports.createSubscriptionLogic = createSubscriptionLogic3;
+    exports.createTimerEffect = createTimerEffect;
+    exports.deliverEvent = deliverEvent3;
+    exports.encodeAddressSegment = encodeAddressSegment;
+    exports.evaluateCandidate = evaluateCandidate;
+    exports.executeEffects = executeEffects3;
+    exports.finalizeTransitionResult = finalizeTransitionResult;
+    exports.formatRouteTransitions = formatRouteTransitions;
+    exports.formatTransition = formatTransition;
+    exports.getActorIdPrefix = getActorIdPrefix;
+    exports.getAllOwnEventDescriptors = getAllOwnEventDescriptors;
+    exports.getAllOwnEvents = getAllOwnEvents;
+    exports.getAllStateNodes = getAllStateNodes;
+    exports.getCandidates = getCandidates;
+    exports.getDelayedTransitions = getDelayedTransitions;
+    exports.getEventDescriptorKey = getEventDescriptorKey;
+    exports.getPersistedSnapshot = getPersistedSnapshot;
+    exports.getProperAncestors = getProperAncestors;
+    exports.getRootActorId = getRootActorId;
+    exports.getSnapshotActorRef = getSnapshotActorRef;
+    exports.getStateNodeByPath = getStateNodeByPath;
+    exports.getStateNodes = getStateNodes3;
+    exports.getTimerStart = getTimerStart;
+    exports.getTransitionResult = getTransitionResult;
+    exports.hasAmbientInspector = hasAmbientInspector;
+    exports.hasEffect = hasEffect;
+    exports.initialMicrostep = initialMicrostep;
+    exports.isActorRefLike = isActorRefLike;
+    exports.isAtomicStateNode = isAtomicStateNode;
+    exports.isBuiltInExecutableAction = isBuiltInExecutableAction2;
+    exports.isInFinalState = isInFinalState;
+    exports.isInertActorScope = isInertActorScope;
+    exports.isMachineSnapshot = isMachineSnapshot3;
+    exports.isRemoteActorRef = isRemoteActorRef;
+    exports.isStateId = isStateId;
+    exports.listenerLogic = listenerLogic2;
+    exports.macrostep = macrostep;
+    exports.mapValues = mapValues;
+    exports.matchesActorSession = matchesActorSession;
+    exports.matchesEvent = matchesEvent;
+    exports.matchesEventDescriptor = matchesEventDescriptor;
+    exports.matchesState = matchesState3;
+    exports.mergeActorIdCounters = mergeActorIdCounters;
+    exports.parseDelayToMilliseconds = parseDelayToMilliseconds;
+    exports.parseGeneratedActorId = parseGeneratedActorId;
+    exports.pathToStateValue = pathToStateValue2;
+    exports.recordTimerStart = recordTimerStart;
+    exports.reserveChildId = reserveChildId;
+    exports.resolveActionsWithContext = resolveActionsWithContext;
+    exports.resolveReferencedActor = resolveReferencedActor;
+    exports.resolveRegisteredActorSource = resolveRegisteredActorSource;
+    exports.resolveStateValue = resolveStateValue;
+    exports.runStep = runStep3;
+    exports.setInertActorScopeSnapshot = setInertActorScopeSnapshot;
+    exports.setSnapshotActorRef = setSnapshotActorRef;
+    exports.stopActor = stopActor3;
+    exports.subscriptionLogic = subscriptionLogic2;
+    exports.systemLogicMetadata = systemLogicMetadata;
+    exports.takeSpawnAllocationCounters = takeSpawnAllocationCounters;
+    exports.terminateActor = terminateActor3;
+    exports.toArray = toArray;
+    exports.toObserver = toObserver3;
+    exports.toStatePath = toStatePath;
+    exports.toTransitionConfigArray = toTransitionConfigArray;
+    exports.transitionNode = transitionNode;
+    exports.withActorSelf = withActorSelf;
+    exports.withExecutionIdentity = withExecutionIdentity;
+    exports.withSystemInspector = withSystemInspector;
+  }
+});
+
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/index-f201d440.cjs.js
+var require_index_f201d440_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/index-f201d440.cjs.js"(exports) {
+    "use strict";
+    var createActor3 = require_createActor_b987e971_cjs();
+    function assertValid(validator, request2) {
+      const error = validator.check(request2);
+      if (error) {
+        throw error;
+      }
+    }
+    var effectStates = /* @__PURE__ */ new WeakMap();
+    function getEffectState(self) {
+      let state3 = effectStates.get(self);
+      if (!state3) {
+        state3 = /* @__PURE__ */ new Map();
+        effectStates.set(self, state3);
+      }
+      return state3;
+    }
+    function executeLogicEffect(self, key, effect) {
+      const state3 = getEffectState(self);
+      if (key !== void 0 && state3.has(key)) {
+        return;
+      }
+      const cleanup = effect();
+      state3.set(key ?? Symbol(), {
+        cleanup: typeof cleanup === "function" ? cleanup : void 0
+      });
+    }
+    function cleanupLogicEffects(self) {
+      const state3 = effectStates.get(self);
+      if (!state3) {
+        return;
+      }
+      effectStates.delete(self);
+      let failure5;
+      for (const {
+        cleanup
+      } of state3.values()) {
+        try {
+          cleanup?.();
+        } catch (error) {
+          failure5 ??= {
+            error
+          };
+        }
+      }
+      if (failure5) throw failure5.error;
+    }
+    function resolveContext(context, input) {
+      return typeof context === "function" ? context({
+        input
+      }) : context;
+    }
+    function createLogic2(config) {
+      const calculateTransition = (snapshot, event, actorScope) => {
+        if (snapshot.status !== "active") {
+          return [snapshot, []];
+        }
+        if (event.type === createActor3.XSTATE_STOP) {
+          return [{
+            ...snapshot,
+            status: "stopped",
+            input: void 0
+          }, [createActor3.createCustomEffect("xstate.logic.cleanup", () => cleanupLogicEffects(actorScope.self))]];
+        }
+        if (event.type === createActor3.XSTATE_LOGIC_EFFECT_START) {
+          return [{
+            ...snapshot,
+            effects: {
+              ...snapshot.effects,
+              [event.key]: {
+                status: "active"
+              }
+            }
+          }, []];
+        }
+        if (event.type === createActor3.XSTATE_LOGIC_EFFECT_RESOLVE) {
+          return [{
+            ...snapshot,
+            effects: {
+              ...snapshot.effects,
+              [event.key]: {
+                status: "done",
+                output: event.output
+              }
+            }
+          }, []];
+        }
+        if (event.type === createActor3.XSTATE_LOGIC_EFFECT_REJECT) {
+          return [{
+            ...snapshot,
+            effects: {
+              ...snapshot.effects,
+              [event.key]: {
+                status: "error",
+                error: event.error
+              }
+            }
+          }, []];
+        }
+        const effects = [];
+        const trackedEffects = /* @__PURE__ */ Object.create(null);
+        const enqueueEffect = (key, exec) => {
+          const recorded = snapshot.effects && Object.prototype.hasOwnProperty.call(snapshot.effects, key) ? snapshot.effects[key] : void 0;
+          if (recorded && !(event.type === createActor3.XSTATE_INIT && recorded.status === "active")) {
+            return;
+          }
+          effects.push(createActor3.createCustomEffect("xstate.logic.effect", (runtime = actorScope.self.system) => executeLogicEffect(actorScope.self, key, () => exec(runtime)), {
+            key
+          }));
+          trackedEffects[key] = {
+            status: "active"
+          };
+        };
+        const enq = {
+          emit: (emitted) => {
+            effects.push(createActor3.createEmitEffect(actorScope, emitted));
+          },
+          sendBack: (sentEvent) => {
+            const parent = actorScope.self._parent;
+            if (parent) {
+              effects.push(createActor3.createSendToEffect(actorScope, parent, sentEvent));
+            }
+          },
+          raise: (raisedEvent) => {
+            effects.push(createActor3.createSendToEffect(actorScope, actorScope.self, raisedEvent));
+          },
+          effect: (keyOrExec, maybeExec) => {
+            if (typeof keyOrExec === "string") {
+              enqueueEffect(keyOrExec, maybeExec);
+              return;
+            }
+            const exec = keyOrExec;
+            effects.push(createActor3.createCustomEffect("xstate.logic.effect", (runtime = actorScope.self.system) => executeLogicEffect(actorScope.self, void 0, () => exec(runtime))));
+          }
+        };
+        const patch = config.run({
+          context: snapshot.context,
+          event,
+          input: snapshot.input,
+          system: actorScope.system,
+          self: actorScope.self,
+          emit: actorScope.emit
+        }, enq);
+        const nextSnapshot = {
+          ...snapshot,
+          ...patch || {}
+        };
+        if ("context" in snapshot || patch?.context !== void 0) {
+          nextSnapshot.context = patch?.context ?? snapshot.context;
+        }
+        if (patch?.effects || Object.keys(trackedEffects).length) {
+          nextSnapshot.effects = {
+            ...snapshot.effects,
+            ...patch?.effects,
+            ...trackedEffects
+          };
+        }
+        return createActor3.finalizeTransitionResult(actorScope, snapshot, [nextSnapshot, effects]);
+      };
+      const transition3 = (snapshot, event, actorScope) => {
+        if (config.validator) {
+          const sourceRef = actorScope.self._lastSourceRef;
+          const eventOrigin = sourceRef ? "actor" : "external";
+          const error = config.validator.check({
+            kind: "event",
+            logic,
+            event,
+            eventOrigin
+          });
+          if (error) {
+            return [snapshot, [createActor3.createDeadLetterEffect(actorScope, sourceRef, event, "invalidEvent", {
+              issues: error.issues,
+              error
+            })]];
+          }
+        }
+        const result = calculateTransition(snapshot, event, actorScope);
+        if (config.validator) {
+          assertValid(config.validator, {
+            kind: "result",
+            logic,
+            snapshot: result[0],
+            effects: result[1]
+          });
+        }
+        return result;
+      };
+      const logic = {
+        id: config.id,
+        config,
+        validator: config.validator,
+        transition: transition3,
+        start: (snapshot, actorScope, options2) => {
+          if (!options2?.restored) {
+            return;
+          }
+          const [nextSnapshot, effects] = transition3(snapshot, createActor3.createInitEvent(snapshot.input), actorScope);
+          Object.assign(snapshot, nextSnapshot);
+          for (const effect of effects) {
+            actorScope.actionExecutor(effect);
+          }
+        },
+        initialTransition: (input, actorScope) => {
+          if (config.validator) {
+            assertValid(config.validator, {
+              kind: "input",
+              logic,
+              input
+            });
+          }
+          const context = resolveContext(config.context, input);
+          const snapshot = {
+            status: "active",
+            output: void 0,
+            error: void 0,
+            input
+          };
+          if (context !== void 0) {
+            snapshot.context = context;
+          }
+          return transition3({
+            ...snapshot
+          }, createActor3.createInitEvent(input), actorScope);
+        },
+        getInitialSnapshot: (actorScope, input) => logic.initialTransition(input, actorScope)[0],
+        getPersistedSnapshot: (snapshot) => snapshot,
+        restoreSnapshot: (snapshot) => snapshot
+      };
+      return logic;
+    }
+    var instanceStates = /* @__PURE__ */ new WeakMap();
+    function createCallbackLogic3(callbackOrConfig) {
+      const callback = typeof callbackOrConfig === "function" ? callbackOrConfig : callbackOrConfig.run;
+      const schemas = typeof callbackOrConfig === "function" ? void 0 : callbackOrConfig.schemas;
+      const validator = typeof callbackOrConfig === "function" ? void 0 : callbackOrConfig.validator;
+      return createLogic2({
+        validator,
+        schemas,
+        context: void 0,
+        run: (args, enq) => {
+          const {
+            event,
+            input,
+            self,
+            system
+          } = args;
+          const emit = args.emit;
+          const callbackState = instanceStates.get(self);
+          callbackState?.receivers?.forEach((receiver) => receiver(event));
+          enq.effect("callback", () => {
+            const callbackState2 = {
+              receivers: void 0,
+              dispose: void 0
+            };
+            instanceStates.set(self, callbackState2);
+            callbackState2.dispose = callback({
+              input,
+              system,
+              self,
+              sendBack: (event2) => {
+                if (self.getSnapshot().status === "stopped") {
+                  return;
+                }
+                const parent = self._parent;
+                if (parent) {
+                  system._relay(self, parent, event2);
+                }
+              },
+              receive: (listener) => {
+                callbackState2.receivers ??= /* @__PURE__ */ new Set();
+                callbackState2.receivers.add(listener);
+              },
+              emit
+            });
+            return () => {
+              instanceStates.delete(self);
+              callbackState2.receivers?.clear();
+              callbackState2.dispose?.();
+            };
+          });
+        }
+      });
+    }
+    var XSTATE_OBSERVABLE_NEXT = "xstate.observable.next";
+    var XSTATE_OBSERVABLE_ERROR = "xstate.observable.error";
+    var XSTATE_OBSERVABLE_COMPLETE = "xstate.observable.complete";
+    function createObservableLogic3(observableCreatorOrConfig) {
+      const observableCreator = typeof observableCreatorOrConfig === "function" ? observableCreatorOrConfig : observableCreatorOrConfig.run;
+      const schemas = typeof observableCreatorOrConfig === "function" ? void 0 : observableCreatorOrConfig.schemas;
+      const validator = typeof observableCreatorOrConfig === "function" ? void 0 : observableCreatorOrConfig.validator;
+      return createLogic2({
+        validator,
+        schemas,
+        context: void 0,
+        run: (args, enq) => {
+          const {
+            event,
+            input,
+            self,
+            system
+          } = args;
+          switch (event.type) {
+            case XSTATE_OBSERVABLE_NEXT: {
+              return {
+                context: event.data
+              };
+            }
+            case XSTATE_OBSERVABLE_ERROR:
+              return {
+                status: "error",
+                error: event.data,
+                input: void 0,
+                effects: {
+                  observable: {
+                    status: "error",
+                    error: event.data
+                  }
+                }
+              };
+            case XSTATE_OBSERVABLE_COMPLETE:
+              return {
+                status: "done",
+                input: void 0,
+                effects: {
+                  observable: {
+                    status: "done"
+                  }
+                }
+              };
+          }
+          if (event.type !== createActor3.XSTATE_INIT) {
+            return;
+          }
+          enq.effect((runtime = system) => {
+            const actorSelf = self;
+            const sendSelf = (event2) => void runtime.sendEvent(actorSelf, actorSelf, event2);
+            const subscription = observableCreator({
+              input,
+              system,
+              self,
+              emit: (event2) => void runtime.emitEvent(actorSelf, event2)
+            }).subscribe({
+              next: (value) => {
+                sendSelf({
+                  type: XSTATE_OBSERVABLE_NEXT,
+                  data: value
+                });
+              },
+              error: (err) => {
+                sendSelf({
+                  type: XSTATE_OBSERVABLE_ERROR,
+                  data: err
+                });
+              },
+              complete: () => {
+                sendSelf({
+                  type: XSTATE_OBSERVABLE_COMPLETE
+                });
+              }
+            });
+            return () => subscription.unsubscribe();
+          });
+        }
+      });
+    }
+    function createEventObservableLogic3(lazyObservableOrConfig) {
+      const lazyObservable = typeof lazyObservableOrConfig === "function" ? lazyObservableOrConfig : lazyObservableOrConfig.run;
+      const validator = typeof lazyObservableOrConfig === "function" ? void 0 : lazyObservableOrConfig.validator;
+      const logic = {
+        config: lazyObservableOrConfig,
+        validator,
+        transition: (state3, event, actorScope) => {
+          if (state3.status !== "active") {
+            return [state3, []];
+          }
+          switch (event.type) {
+            case XSTATE_OBSERVABLE_ERROR:
+              return createActor3.finalizeTransitionResult(actorScope, state3, [{
+                ...state3,
+                status: "error",
+                error: event.data,
+                input: void 0,
+                _subscription: void 0
+              }, []]);
+            case XSTATE_OBSERVABLE_COMPLETE:
+              return createActor3.finalizeTransitionResult(actorScope, state3, [{
+                ...state3,
+                status: "done",
+                input: void 0,
+                _subscription: void 0
+              }, []]);
+            case createActor3.XSTATE_STOP:
+              state3._subscription.unsubscribe();
+              return [{
+                ...state3,
+                status: "stopped",
+                input: void 0,
+                _subscription: void 0
+              }, []];
+            default:
+              return [state3, []];
+          }
+        },
+        initialTransition: (input, _) => {
+          if (validator) {
+            assertValid(validator, {
+              kind: "input",
+              logic,
+              input
+            });
+          }
+          const snapshot = {
+            status: "active",
+            output: void 0,
+            error: void 0,
+            context: void 0,
+            input,
+            _subscription: void 0
+          };
+          return [snapshot, []];
+        },
+        getInitialSnapshot: (actorScope, input) => logic.initialTransition(input, actorScope)[0],
+        start: (state3, {
+          self,
+          system,
+          emit
+        }) => {
+          if (state3.status === "done") {
+            return;
+          }
+          state3._subscription = lazyObservable({
+            input: state3.input,
+            system,
+            self,
+            emit: (event) => {
+              void emit(event);
+            }
+          }).subscribe({
+            next: (value) => {
+              if (self._parent) {
+                system._relay(self, self._parent, value);
+              }
+            },
+            error: (err) => {
+              system._relay(self, self, {
+                type: XSTATE_OBSERVABLE_ERROR,
+                data: err
+              });
+            },
+            complete: () => {
+              system._relay(self, self, {
+                type: XSTATE_OBSERVABLE_COMPLETE
+              });
+            }
+          });
+        },
+        getPersistedSnapshot: ({
+          _subscription,
+          ...snapshot
+        }) => snapshot,
+        restoreSnapshot: (snapshot) => ({
+          ...snapshot,
+          _subscription: void 0
+        })
+      };
+      return logic;
+    }
+    var XSTATE_ASYNC_RESOLVE = "xstate.async.resolve";
+    var XSTATE_ASYNC_REJECT = "xstate.async.reject";
+    var TimeoutError3 = class extends Error {
+      constructor(timeout) {
+        super(`Async logic timed out after ${timeout}.`);
+        this.name = "TimeoutError";
+      }
+    };
+    function createAsyncLogic3(asyncLogic) {
+      const config = asyncLogic;
+      const logic = createLogic2({
+        id: config.id,
+        validator: config.validator,
+        schemas: config.schemas,
+        context: void 0,
+        run: ({
+          event,
+          input,
+          self,
+          system
+        }, enq) => {
+          switch (event.type) {
+            case XSTATE_ASYNC_RESOLVE: {
+              const resolvedValue = event.data ?? event.output;
+              return {
+                status: "done",
+                output: resolvedValue,
+                input: void 0,
+                effects: {
+                  async: {
+                    status: "done",
+                    output: resolvedValue
+                  }
+                }
+              };
+            }
+            case XSTATE_ASYNC_REJECT: {
+              const error = event.data ?? event.error;
+              return {
+                status: "error",
+                error,
+                input: void 0,
+                effects: {
+                  async: {
+                    status: "error",
+                    error
+                  }
+                }
+              };
+            }
+          }
+          if (event.type !== createActor3.XSTATE_INIT) {
+            return;
+          }
+          enq.effect((runtime = system) => {
+            const actorSelf = self;
+            const sendSelf = (event2) => void runtime.sendEvent(actorSelf, actorSelf, event2);
+            const controller = new AbortController();
+            const timeout = config.timeout;
+            const timeoutMs = createActor3.parseDelayToMilliseconds(timeout);
+            const timeoutId = timeoutMs === void 0 ? void 0 : system._clock.setTimeout(() => {
+              if (self.getSnapshot().status !== "active") {
+                return;
+              }
+              controller.abort();
+              sendSelf({
+                type: XSTATE_ASYNC_REJECT,
+                data: new TimeoutError3(timeout)
+              });
+            }, timeoutMs);
+            const clearTimeout2 = () => {
+              if (timeoutId !== void 0) {
+                system._clock.clearTimeout(timeoutId);
+              }
+            };
+            const runBody = () => {
+              try {
+                return Promise.resolve(config.run({
+                  input,
+                  system,
+                  self,
+                  signal: controller.signal
+                }, {
+                  emit: (event2) => void runtime.emitEvent(actorSelf, event2),
+                  // Steps route through the runtime: a durable host that
+                  // implements `runStep` owns the step journal; otherwise the
+                  // built-in behavior memoizes into this actor's own snapshot,
+                  // self-sending through the same runtime as the other effects.
+                  step: (key, exec) => runtime.runStep ? Promise.resolve(runtime.runStep(actorSelf, key, exec)) : createActor3.runStep(actorSelf, key, exec, sendSelf)
+                }));
+              } catch (err) {
+                return Promise.reject(err);
+              }
+            };
+            const resolvedPromise = runtime.runLogic ? Promise.resolve(runtime.runLogic(actorSelf, runBody)) : runBody();
+            resolvedPromise.then((response) => {
+              clearTimeout2();
+              if (self.getSnapshot().status !== "active") {
+                return;
+              }
+              sendSelf({
+                type: XSTATE_ASYNC_RESOLVE,
+                data: response
+              });
+            }, (errorData) => {
+              clearTimeout2();
+              if (self.getSnapshot().status !== "active") {
+                return;
+              }
+              sendSelf({
+                type: XSTATE_ASYNC_REJECT,
+                data: errorData
+              });
+            });
+            return () => {
+              controller.abort();
+              clearTimeout2();
+            };
+          });
+          return {
+            effects: {
+              async: {
+                status: "active"
+              }
+            }
+          };
+        }
+      });
+      Object.defineProperty(logic, createActor3.systemLogicMetadata, {
+        value: {
+          kind: "async",
+          timeout: config.timeout
+        }
+      });
+      return logic;
+    }
+    var emptyLogic = /* @__PURE__ */ createLogic2({
+      context: void 0,
+      run: () => void 0
+    });
+    function createEmptyActor3() {
+      return createActor3.createActor(emptyLogic);
+    }
+    exports.TimeoutError = TimeoutError3;
+    exports.assertValid = assertValid;
+    exports.createAsyncLogic = createAsyncLogic3;
+    exports.createCallbackLogic = createCallbackLogic3;
+    exports.createEmptyActor = createEmptyActor3;
+    exports.createEventObservableLogic = createEventObservableLogic3;
+    exports.createLogic = createLogic2;
+    exports.createObservableLogic = createObservableLogic3;
+  }
+});
+
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/schema.types-15a68ddc.cjs.js
+var require_schema_types_15a68ddc_cjs2 = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/schema.types-15a68ddc.cjs.js"(exports) {
+    "use strict";
+    function types3() {
+      return {
+        "~standard": {
+          version: 1,
+          vendor: "xstate.types",
+          validate: (value) => ({
+            value
+          })
+        }
+      };
+    }
+    function isTypeSchema3(value) {
+      return !!value && typeof value === "object" && "~standard" in value && value["~standard"].vendor === "xstate.types";
+    }
+    exports.isTypeSchema = isTypeSchema3;
+    exports.types = types3;
+  }
+});
+
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/effectDescriptor-4cf24593.cjs.js
+var require_effectDescriptor_4cf24593_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/effectDescriptor-4cf24593.cjs.js"(exports) {
+    "use strict";
+    var createActor3 = require_createActor_b987e971_cjs();
+    function attachMicrostepActorRefs(microsteps, actorScope, inputSnapshot) {
+      const result = microsteps.map(([snapshot, actions, transitions]) => [snapshot, actions, transitions ?? []]);
+      if (!result.length) {
+        return result;
+      }
+      const finalSnapshot = result.at(-1)[0];
+      createActor3.setInertActorScopeSnapshot(actorScope, finalSnapshot, false);
+      if (finalSnapshot !== inputSnapshot) {
+        createActor3.attachSnapshotActorRef(actorScope, finalSnapshot);
+      }
+      for (const [snapshot] of result) {
+        if (snapshot !== inputSnapshot && snapshot !== finalSnapshot) {
+          const snapshotScope = createActor3.createInertActorScope(snapshot.machine, snapshot, void 0, actorScope);
+          createActor3.attachSnapshotActorRef(snapshotScope, snapshot);
+        }
+      }
+      return result;
+    }
+    function transition3(logic, snapshot, event) {
+      const actorScope = createActor3.createInertActorScope(logic, snapshot);
+      createActor3.setInertActorScopeSnapshot(actorScope, snapshot, false);
+      const [nextSnapshot, effects] = createActor3.finalizeTransitionResult(actorScope, snapshot, logic.transition(snapshot, event, actorScope));
+      createActor3.setInertActorScopeSnapshot(actorScope, nextSnapshot, false);
+      const returnedSnapshot = nextSnapshot === snapshot ? nextSnapshot : createActor3.attachSnapshotActorRef(actorScope, nextSnapshot);
+      inspectPureTransition(actorScope, returnedSnapshot, event);
+      return [returnedSnapshot, effects];
+    }
+    function isUnhandled3(previousSnapshot, result) {
+      return result[0] === previousSnapshot && result[1].length === 0;
+    }
+    function initialTransition3(logic, ...[input]) {
+      const actorScope = createActor3.createInertActorScope(logic);
+      const [nextSnapshot, executableActions] = createActor3.finalizeTransitionResult(actorScope, void 0, logic.initialTransition(input, actorScope));
+      createActor3.setInertActorScopeSnapshot(actorScope, nextSnapshot, false);
+      const returnedSnapshot = createActor3.attachSnapshotActorRef(actorScope, nextSnapshot);
+      inspectPureTransition(actorScope, returnedSnapshot, createActor3.createInitEvent(input));
+      return [returnedSnapshot, executableActions];
+    }
+    function inspectPureTransition(actorScope, snapshot, event) {
+      if (!createActor3.hasAmbientInspector()) {
+        return;
+      }
+      const self = actorScope.self;
+      if (self?.system._hasInspectionObservers?.()) {
+        self._inspectTransition(snapshot, event);
+      }
+    }
+    function getMicrosteps3(machine, snapshot, event) {
+      const actorScope = createActor3.createInertActorScope(machine, snapshot);
+      createActor3.beginSpawnAllocation(actorScope);
+      const {
+        microsteps
+      } = createActor3.macrostep(snapshot, event, actorScope, []);
+      return attachMicrostepActorRefs(microsteps, actorScope, snapshot);
+    }
+    function getInitialMicrosteps3(machine, ...[input]) {
+      const actorScope = createActor3.createInertActorScope(machine);
+      createActor3.beginSpawnAllocation(actorScope);
+      const initEvent = createActor3.createInitEvent(input);
+      const internalQueue = [];
+      const preInitialSnapshot = machine._getPreInitialState(actorScope, initEvent);
+      const contextSpawnEffects = Object.values(preInitialSnapshot.children).filter(Boolean).map((actor) => createActor3.createSpawnEffect(actor));
+      const first = createActor3.initialMicrostep(machine.root, preInitialSnapshot, actorScope, initEvent, internalQueue);
+      const {
+        microsteps
+      } = createActor3.macrostep(first[0], initEvent, actorScope, internalQueue, [[first[0], [...contextSpawnEffects, ...first[1]], []]]);
+      return attachMicrostepActorRefs(microsteps, actorScope);
+    }
+    function getNextTransitions3(state3) {
+      if (state3.status !== "active") {
+        return [];
+      }
+      const potentialTransitions = [];
+      const atomicStates = state3.nodes.filter(createActor3.isAtomicStateNode);
+      const visited2 = /* @__PURE__ */ new Set();
+      for (const stateNode of atomicStates) {
+        for (const s of [stateNode].concat(createActor3.getProperAncestors(stateNode, void 0))) {
+          if (visited2.has(s.id)) {
+            continue;
+          }
+          visited2.add(s.id);
+          for (const [, transitions] of s.transitions.entries()) {
+            potentialTransitions.push(...transitions);
+          }
+          if (s.always) {
+            potentialTransitions.push(...s.always);
+          }
+        }
+      }
+      return potentialTransitions;
+    }
+    function getEffectDescriptor2(effect) {
+      if (effect.kind === "action") {
+        return {
+          kind: "action",
+          type: effect.type,
+          params: effect.params
+        };
+      }
+      if (effect.kind === "emit") {
+        return {
+          kind: "emit",
+          type: effect.type,
+          source: effect.source.address,
+          event: effect.event
+        };
+      }
+      switch (effect.type) {
+        case "@xstate.spawn":
+          return {
+            kind: "builtin",
+            type: "@xstate.spawn",
+            source: effect.source?.address,
+            actor: effect.actor.address,
+            id: effect.id,
+            // `src` is only a unique key for registered sources; anonymous inline
+            // logic collapses to its logic id or 'x'. The `actor` address is the
+            // identity field.
+            src: createActor3.getActorIdPrefix(effect.src),
+            input: effect.input
+          };
+        case "@xstate.start":
+          return {
+            kind: "builtin",
+            type: "@xstate.start",
+            source: effect.source?.address,
+            actor: effect.actor.address,
+            id: effect.id
+          };
+        case "@xstate.raise":
+          return {
+            kind: "builtin",
+            type: "@xstate.raise",
+            source: effect.source.address,
+            event: effect.event,
+            id: effect.id,
+            delay: effect.delay
+          };
+        case "@xstate.sendTo":
+          return {
+            kind: "builtin",
+            type: "@xstate.sendTo",
+            source: effect.source.address,
+            target: effect.target?.address,
+            incarnation: createActor3.isRemoteActorRef(effect.target) ? effect.target.sessionId : void 0,
+            event: effect.event,
+            id: effect.id,
+            delay: effect.delay
+          };
+        case "@xstate.cancel":
+          return {
+            kind: "builtin",
+            type: "@xstate.cancel",
+            source: effect.source.address,
+            id: effect.id
+          };
+        case "@xstate.stop":
+          return {
+            kind: "builtin",
+            type: "@xstate.stop",
+            source: effect.source.address,
+            actor: effect.actor.address,
+            id: effect.id
+          };
+        case "@xstate.terminate":
+          return {
+            kind: "builtin",
+            type: "@xstate.terminate",
+            source: effect.source.address,
+            actor: effect.actor.address,
+            id: effect.id,
+            status: effect.status,
+            output: effect.output,
+            error: effect.error
+          };
+        case "@xstate.deadLetter":
+          return {
+            kind: "builtin",
+            type: "@xstate.deadLetter",
+            source: effect.source?.address,
+            target: effect.target?.address,
+            event: effect.event,
+            reason: effect.reason,
+            issues: effect.detail?.issues,
+            error: effect.detail?.error
+          };
+      }
+    }
+    exports.getEffectDescriptor = getEffectDescriptor2;
+    exports.getInitialMicrosteps = getInitialMicrosteps3;
+    exports.getMicrosteps = getMicrosteps3;
+    exports.getNextTransitions = getNextTransitions3;
+    exports.initialTransition = initialTransition3;
+    exports.isUnhandled = isUnhandled3;
+    exports.transition = transition3;
+  }
+});
+
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/xstate.cjs.js
+var require_xstate_cjs2 = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/xstate.cjs.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var dist_xstateActors = require_index_f201d440_cjs();
+    var createActor3 = require_createActor_b987e971_cjs();
+    var schema_types = require_schema_types_15a68ddc_cjs2();
+    var effectDescriptor = require_effectDescriptor_4cf24593_cjs();
+    function assertEvent3(event, type) {
+      const types3 = createActor3.toArray(type);
+      const matches = types3.some((descriptor) => createActor3.matchesEventDescriptor(event.type, descriptor));
+      if (!matches) {
+        const typesText = types3.length === 1 ? `type matching "${types3[0]}"` : `one of types matching "${types3.join('", "')}"`;
+        throw new Error(`Expected event ${JSON.stringify(event)} to have ${typesText}`);
+      }
+    }
+    var historicalEventSchemas = /* @__PURE__ */ new WeakMap();
+    function createSpawner(actorScope, actors, spawnedChildren) {
+      return (src3, options2) => {
+        const referencedSrc = createActor3.resolveRegisteredActorSource(actors, src3);
+        const id = options2?.id ?? createActor3.allocateChildId(actorScope, referencedSrc ?? src3).id;
+        if (options2?.id !== void 0) {
+          createActor3.assertChildIdFree(actorScope, options2.id);
+          createActor3.reserveChildId(actorScope, options2.id);
+        }
+        const actor = actorScope.system.createActorRef(src3, {
+          id,
+          parent: actorScope.self,
+          syncSnapshot: options2?.syncSnapshot,
+          input: options2?.input,
+          src: referencedSrc ?? src3,
+          registryKey: options2?.registryKey
+        });
+        spawnedChildren[actor.id] = actor;
+        return actor;
+      };
+    }
+    var cache3 = /* @__PURE__ */ new WeakMap();
+    function memo(object2, key, fn) {
+      let memoizedData = cache3.get(object2);
+      if (!memoizedData) {
+        memoizedData = {
+          [key]: fn()
+        };
+        cache3.set(object2, memoizedData);
+      } else if (!(key in memoizedData)) {
+        memoizedData[key] = fn();
+      }
+      return memoizedData[key];
+    }
+    var EMPTY_OBJECT = {};
+    var StateNode3 = class _StateNode {
+      constructor(config, options2) {
+        this.config = config;
+        this.key = void 0;
+        this.id = void 0;
+        this.type = void 0;
+        this.path = void 0;
+        this.states = void 0;
+        this.history = void 0;
+        this.entry = void 0;
+        this.exit = void 0;
+        this.parent = void 0;
+        this.machine = void 0;
+        this.meta = void 0;
+        this.output = void 0;
+        this.order = -1;
+        this.description = void 0;
+        this.schemas = void 0;
+        this.tags = [];
+        this.transitions = void 0;
+        this.always = void 0;
+        this.invoke = void 0;
+        this.on = void 0;
+        this.after = void 0;
+        this.events = void 0;
+        this.ownEvents = void 0;
+        this._candidateCache = void 0;
+        this.parent = options2._parent;
+        this.key = options2._key;
+        this.machine = options2._machine;
+        this.path = this.parent ? this.parent.path.concat(this.key) : [];
+        const firstStateKey = this.config.states ? Object.keys(this.config.states)[0] : void 0;
+        this.id = this.config.id || [this.machine.id, ...this.path].join(createActor3.STATE_DELIMITER);
+        this.type = this.config.type || (firstStateKey !== void 0 ? "compound" : this.config.history ? "history" : "atomic");
+        this.description = this.config.description;
+        this.schemas = this.config.schemas;
+        validateStateNodeConfig(this);
+        this.order = this.machine.idMap.size;
+        this.machine.idMap.set(this.id, this);
+        this.states = this.config.states ? createActor3.mapValues(this.config.states, (stateConfig, key) => {
+          const stateNode = new _StateNode(stateConfig, {
+            _parent: this,
+            _key: key,
+            _machine: this.machine
+          });
+          return stateNode;
+        }) : EMPTY_OBJECT;
+        if (this.type === "compound" && !this.config.initial) {
+          throw new Error(`No initial state specified for compound state node "#${this.id}".`);
+        }
+        this.history = this.config.history === true ? "shallow" : this.config.history || false;
+        this.entry = this.config.entry;
+        this.exit = this.config.exit;
+        if (this.entry) {
+          this.entry._special = true;
+        }
+        if (this.exit) {
+          this.exit._special = true;
+        }
+        this.meta = this.config.meta;
+        this.output = this.type === "final" || !this.parent ? this.config.output : void 0;
+        this.tags = createActor3.toArray(config.tags).slice();
+        this.invoke = createActor3.toArray(this.config.invoke).map((invokeConfig, i) => {
+          const {
+            src: src3,
+            registryKey
+          } = invokeConfig;
+          const invokeId = createActor3.createInvokeId(this.id, i);
+          const resolvedId = invokeConfig.id ?? invokeId;
+          const sourceName = typeof src3 === "string" ? src3 : `xstate.invoke.${invokeId}`;
+          return {
+            ...invokeConfig,
+            src: sourceName,
+            logic: src3,
+            id: resolvedId,
+            registryKey
+          };
+        });
+      }
+      /** @internal */
+      _initialize() {
+        this.after = createActor3.getDelayedTransitions(this);
+        this.transitions = formatTransitions(this);
+        if (this.type === "choice") {
+          this.always = formatChoiceTransitions(this);
+        } else if (this.config.always) {
+          this.always = mapTransitionConfigs(this.config.always, (transition3) => createActor3.formatTransition(this, createActor3.NULL_EVENT, transition3));
+        }
+        for (const key of Object.keys(this.states)) {
+          this.states[key]._initialize();
+        }
+        this._refreshEventMetadata();
+      }
+      /** @internal */
+      _refreshEventMetadata() {
+        const on = {};
+        const ownEvents = [];
+        for (const [descriptor, transitions] of this.transitions) {
+          on[descriptor] = transitions.slice();
+          if (transitions.some((transition3) => transition3.target || transition3.reenter || transition3.to)) {
+            ownEvents.push(descriptor);
+          }
+        }
+        this.on = on;
+        this.ownEvents = ownEvents;
+        const events = new Set(ownEvents);
+        for (const state3 of Object.values(this.states)) {
+          for (const event of state3.events) {
+            events.add(event);
+          }
+        }
+        this.events = Array.from(events);
+      }
+      get initial() {
+        return memo(this, "initial", () => formatInitialTransition(this, this.config.initial));
+      }
+      /** @internal */
+      next(snapshot, event, actorScope, selectionResults) {
+        if (this.type === "final") {
+          return void 0;
+        }
+        const descriptorKey = createActor3.getEventDescriptorKey(event);
+        let candidates = this._candidateCache?.get(descriptorKey);
+        if (!candidates) {
+          candidates = createActor3.getCandidates(this, event);
+          (this._candidateCache ??= /* @__PURE__ */ new Map()).set(descriptorKey, candidates);
+        }
+        for (const candidate of candidates) {
+          const guardPassed = createActor3.evaluateCandidate(candidate, event, snapshot, this, actorScope, selectionResults);
+          if (guardPassed) {
+            return [candidate];
+          }
+        }
+        return void 0;
+      }
+    };
+    function validateStateNodeConfig(stateNode) {
+      const config = stateNode.config;
+      if (stateNode.type === "history" && !(typeof config.target === "string" && config.target.trim().length > 0 || Array.isArray(config.target) && config.target.length > 0 && config.target.every((target) => typeof target === "string" && target.trim().length > 0))) {
+        throw new Error(`Missing history target on "${stateNode.id}"`);
+      }
+      if (stateNode.type !== "choice") {
+        return;
+      }
+      if (typeof config.choice !== "function") {
+        throw new Error(`Missing \`choice\` function on "${stateNode.id}"`);
+      }
+    }
+    function formatChoiceTransitions(stateNode) {
+      const choice = stateNode.config.choice;
+      const validateChoiceResult = (result) => {
+        if (!result || result.target === void 0) {
+          throw new Error(`Choice "${stateNode.id}" has no target`);
+        }
+        return result;
+      };
+      return [createActor3.formatTransition(stateNode, createActor3.NULL_EVENT, {
+        to: (args) => validateChoiceResult(choice(args))
+      })];
+    }
+    function mapTransitionConfigs(transitionsConfig, mapper) {
+      const transitionConfigs = createActor3.toTransitionConfigArray(transitionsConfig);
+      const transitions = new Array(transitionConfigs.length);
+      for (let i = 0; i < transitionConfigs.length; i++) {
+        transitions[i] = mapper(transitionConfigs[i]);
+      }
+      return transitions;
+    }
+    function formatTransitions(stateNode) {
+      const transitions = /* @__PURE__ */ new Map();
+      const addTransitions = (descriptor, additions) => {
+        transitions.set(descriptor, [...transitions.get(descriptor) ?? [], ...additions]);
+      };
+      if (stateNode.config.on) {
+        for (const descriptor of Object.keys(stateNode.config.on)) {
+          if (descriptor === createActor3.NULL_EVENT) {
+            throw new Error("Null event transition key");
+          }
+          const transitionsConfig = stateNode.config.on[descriptor];
+          transitions.set(descriptor, mapTransitionConfigs(transitionsConfig, (transition3) => createActor3.formatTransition(stateNode, descriptor, transition3)));
+        }
+      }
+      if (stateNode.config.onDone) {
+        const descriptor = "xstate.done.state";
+        addTransitions(descriptor, mapTransitionConfigs(stateNode.config.onDone, (transition3) => createActor3.formatTransition(stateNode, descriptor, {
+          ...transition3,
+          matches: {
+            ...transition3.matches,
+            stateId: stateNode.id
+          }
+        })));
+      }
+      if (stateNode.config.onError) {
+        const descriptor = "xstate.error.*";
+        transitions.set(descriptor, mapTransitionConfigs(stateNode.config.onError, (transition3) => createActor3.formatTransition(stateNode, descriptor, transition3)));
+      }
+      const createCancelInvokeTimeoutTransition = (descriptor, timeoutEventId, actorId2) => createActor3.formatTransition(stateNode, descriptor, {
+        matches: {
+          actorId: actorId2
+        },
+        _eventMatcher: (event, snapshot) => createActor3.matchesActorSession(event, snapshot, actorId2),
+        to: (_args, enq) => {
+          enq.cancel(timeoutEventId);
+          return {};
+        }
+      });
+      const formatInvokeCompletionTransition = (descriptor, transitionConfig, timeoutEventId) => {
+        const {
+          target,
+          to,
+          reenter,
+          ...rest
+        } = transitionConfig;
+        return createActor3.formatTransition(stateNode, descriptor, {
+          ...rest,
+          reenter,
+          to: (args, enq) => {
+            if (to) {
+              let didEnqueue = false;
+              const trackingEnqueue = new Proxy(enq, {
+                apply(target2, thisArg, argArray) {
+                  didEnqueue = true;
+                  return Reflect.apply(target2, thisArg, argArray);
+                },
+                get(target2, prop, receiver) {
+                  const value = Reflect.get(target2, prop, receiver);
+                  if (typeof value !== "function") {
+                    return value;
+                  }
+                  return (...argArray) => {
+                    didEnqueue = true;
+                    return value.apply(target2, argArray);
+                  };
+                }
+              });
+              const result = to(args, trackingEnqueue);
+              if (result !== void 0 || didEnqueue) {
+                enq.cancel(timeoutEventId);
+              }
+              return result;
+            }
+            enq.cancel(timeoutEventId);
+            return {
+              target,
+              reenter
+            };
+          }
+        });
+      };
+      for (const invokeDef of stateNode.invoke) {
+        const withInvokeMatch = (transition3) => ({
+          ...transition3,
+          matches: {
+            ...transition3.matches,
+            actorId: invokeDef.id
+          },
+          _eventMatcher: (event, snapshot) => createActor3.matchesActorSession(event, snapshot, invokeDef.id)
+        });
+        const invokeTimeoutEventId = invokeDef.timeout !== void 0 ? createActor3.createInvokeTimeoutEventId(invokeDef.id) : void 0;
+        if (invokeDef.onDone) {
+          const descriptor = "xstate.done.actor";
+          const invokeDoneTransitions = mapTransitionConfigs(invokeDef.onDone, (rawTransition) => {
+            const transition3 = withInvokeMatch(rawTransition);
+            return invokeTimeoutEventId ? formatInvokeCompletionTransition(descriptor, transition3, invokeTimeoutEventId) : createActor3.formatTransition(stateNode, descriptor, transition3);
+          });
+          if (invokeTimeoutEventId) {
+            invokeDoneTransitions.push(createCancelInvokeTimeoutTransition(descriptor, invokeTimeoutEventId, invokeDef.id));
+          }
+          addTransitions(descriptor, invokeDoneTransitions);
+        } else if (invokeTimeoutEventId) {
+          const descriptor = "xstate.done.actor";
+          addTransitions(descriptor, [createCancelInvokeTimeoutTransition(descriptor, invokeTimeoutEventId, invokeDef.id)]);
+        }
+        if (invokeDef.onError) {
+          const descriptor = "xstate.error.actor";
+          addTransitions(descriptor, mapTransitionConfigs(invokeDef.onError, (rawTransition) => {
+            const transition3 = withInvokeMatch(rawTransition);
+            return invokeTimeoutEventId ? formatInvokeCompletionTransition(descriptor, transition3, invokeTimeoutEventId) : createActor3.formatTransition(stateNode, descriptor, transition3);
+          }));
+        }
+        if (invokeDef.onSnapshot) {
+          const descriptor = "xstate.snapshot.actor";
+          addTransitions(descriptor, mapTransitionConfigs(invokeDef.onSnapshot, (transition3) => createActor3.formatTransition(stateNode, descriptor, withInvokeMatch(transition3))));
+        }
+      }
+      for (const delayedTransition of stateNode.after) {
+        let existing = transitions.get(delayedTransition.eventType);
+        if (!existing) {
+          existing = [];
+          transitions.set(delayedTransition.eventType, existing);
+        }
+        existing.push(delayedTransition);
+      }
+      return transitions;
+    }
+    function formatInitialTransition(stateNode, _target) {
+      const targetString = typeof _target === "object" && _target !== null ? _target.target : _target;
+      const input = typeof _target === "object" && _target !== null ? _target.input : void 0;
+      const to = typeof _target === "object" && _target !== null ? _target.to : void 0;
+      const meta = typeof _target === "object" && _target !== null ? _target.meta : void 0;
+      const description = typeof _target === "object" && _target !== null ? _target.description : void 0;
+      const targetStrings = Array.isArray(targetString) ? targetString : targetString ? [targetString] : [];
+      const resolvedTargets = targetStrings.map((target) => target.startsWith("#") ? stateNode.machine.getStateNodeById(target.slice(1)) : stateNode.states[target]);
+      if (resolvedTargets.some((target) => !target)) {
+        throw new Error(`Initial state not found on "#${stateNode.id}"`);
+      }
+      const transition3 = {
+        source: stateNode,
+        target: resolvedTargets.length ? resolvedTargets : void 0,
+        input,
+        to,
+        meta,
+        description
+      };
+      return transition3;
+    }
+    var STATE_IDENTIFIER = "#";
+    function findEventSchema(schemas, eventType) {
+      if (!schemas) {
+        return void 0;
+      }
+      if (Object.hasOwn(schemas, eventType)) {
+        return schemas[eventType];
+      }
+      const descriptor = Object.keys(schemas).find((key) => createActor3.matchesEventDescriptor(eventType, key));
+      return descriptor === void 0 ? void 0 : schemas[descriptor];
+    }
+    var emptyCanActor;
+    var emptyCanActorScope;
+    function getEmptyCanActor() {
+      return emptyCanActor ??= createActor3.createActor({
+        transition: (snapshot) => [snapshot, []],
+        initialTransition: () => [{
+          status: "active",
+          output: void 0,
+          error: void 0
+        }, []],
+        getInitialSnapshot: () => ({
+          status: "active",
+          output: void 0,
+          error: void 0
+        }),
+        getPersistedSnapshot: (snapshot) => snapshot
+      });
+    }
+    function getEmptyCanActorScope() {
+      if (emptyCanActorScope) {
+        return emptyCanActorScope;
+      }
+      const actor = getEmptyCanActor();
+      emptyCanActorScope = {
+        self: actor,
+        logger: () => {
+        },
+        id: "",
+        sessionId: "",
+        defer: () => {
+        },
+        system: actor.system,
+        stopChild: () => {
+        },
+        emit: () => {
+        },
+        actionExecutor: () => {
+        }
+      };
+      return emptyCanActorScope;
+    }
+    var StateMachine3 = class _StateMachine {
+      constructor(config, sources, validator) {
+        this.config = config;
+        this.validator = validator;
+        this._internalEventType = void 0;
+        this._transitionMetaType = void 0;
+        this._inputType = void 0;
+        this._actionMap = void 0;
+        this._actorMap = void 0;
+        this._stateSchema = void 0;
+        this.version = void 0;
+        this.schemas = void 0;
+        this.snapshotSchema = void 0;
+        this.eventSchema = void 0;
+        this.sources = void 0;
+        this.options = void 0;
+        this.idMap = /* @__PURE__ */ new Map();
+        this.root = void 0;
+        this.id = void 0;
+        this.states = void 0;
+        this.events = void 0;
+        this.internalEventDescriptors = void 0;
+        this._hasEventlessTransitions = void 0;
+        this._microstepHooks = void 0;
+        this._json = void 0;
+        this.id = config.id || "(machine)";
+        this.sources = {
+          actors: config.actors ?? {},
+          actions: config.actions ?? {},
+          delays: config.delays ?? {},
+          guards: config.guards ?? {},
+          ...sources
+        };
+        this.version = this.config.version;
+        this.schemas = this.config.schemas;
+        this.snapshotSchema = {
+          "~standard": {
+            version: 1,
+            vendor: "xstate",
+            validate: async (value) => {
+              if (value === null || typeof value !== "object") {
+                return {
+                  issues: [{
+                    message: "Expected a persisted snapshot."
+                  }]
+                };
+              }
+              const snapshot = {
+                historyValue: {},
+                timers: {},
+                ...value
+              };
+              const contextSchema = this.schemas?.context;
+              let context = snapshot.context;
+              if (contextSchema) {
+                const result = await contextSchema["~standard"].validate(context);
+                if (result.issues) {
+                  return {
+                    issues: [{
+                      message: `Invalid context for machine '${this.id}' version '${this.version}': ${result.issues[0]?.message}`
+                    }]
+                  };
+                }
+                context = result.value;
+              }
+              for (const key of ["value", "children"]) {
+                if (!(key in snapshot)) {
+                  return {
+                    issues: [{
+                      message: `Persisted snapshot is missing '${key}'.`
+                    }]
+                  };
+                }
+              }
+              if (!["active", "done", "error", "stopped"].includes(snapshot.status)) {
+                return {
+                  issues: [{
+                    message: "Persisted snapshot has invalid status."
+                  }]
+                };
+              }
+              for (const key of ["children", "historyValue", "timers"]) {
+                if (snapshot[key] === null || typeof snapshot[key] !== "object" || Array.isArray(snapshot[key])) {
+                  return {
+                    issues: [{
+                      message: `Persisted snapshot has invalid '${key}'.`
+                    }]
+                  };
+                }
+              }
+              try {
+                this.resolveState({
+                  value: snapshot.value,
+                  context
+                });
+              } catch (error) {
+                return {
+                  issues: [{
+                    message: error instanceof Error ? error.message : "Persisted snapshot has invalid state value."
+                  }]
+                };
+              }
+              return {
+                value: {
+                  ...snapshot,
+                  context
+                }
+              };
+            }
+          }
+        };
+        const historicalEventSchema = {
+          "~standard": {
+            version: 1,
+            vendor: "xstate",
+            validate: async (value) => {
+              if (value === null || typeof value !== "object" || typeof value.type !== "string") {
+                return {
+                  issues: [{
+                    message: "Expected an event object."
+                  }]
+                };
+              }
+              const event = value;
+              const eventSchemas = this.schemas?.events;
+              const internalEventSchemas = this.schemas?.internalEvents;
+              const isFrameworkEvent = event.type.startsWith("xstate.") || event.type.startsWith("@xstate.");
+              const schema2 = findEventSchema(internalEventSchemas, event.type) ?? findEventSchema(eventSchemas, event.type);
+              if ((eventSchemas || internalEventSchemas) && !schema2 && !isFrameworkEvent) {
+                return {
+                  issues: [{
+                    message: `Unknown event '${event.type}' for machine '${this.id}' version '${this.version}'.`
+                  }]
+                };
+              }
+              if (!schema2) {
+                return {
+                  value: event
+                };
+              }
+              const {
+                type,
+                ...payload
+              } = event;
+              const result = await schema2["~standard"].validate(payload);
+              if (result.issues) {
+                return result;
+              }
+              if (result.value === null || typeof result.value !== "object") {
+                return {
+                  issues: [{
+                    message: "Expected an event payload."
+                  }]
+                };
+              }
+              return {
+                value: {
+                  ...result.value,
+                  type
+                }
+              };
+            }
+          }
+        };
+        historicalEventSchemas.set(this, historicalEventSchema);
+        this.eventSchema = {
+          "~standard": {
+            version: 1,
+            vendor: "xstate",
+            validate: async (value) => {
+              const event = value;
+              if (event && typeof event.type === "string") {
+                const internal = findEventSchema(this.schemas?.internalEvents, event.type);
+                const framework = event.type.startsWith("xstate.") || event.type.startsWith("@xstate.");
+                if (internal || framework) {
+                  if (!internal && event.type === "xstate.route") {
+                    const result = await historicalEventSchema["~standard"].validate(value);
+                    if (result.issues) {
+                      return result;
+                    }
+                    const to = result.value.to;
+                    const route2 = typeof to === "string" && to.startsWith("#") ? this.idMap.get(to.slice(1)) : void 0;
+                    if (route2 && route2 !== this.root && route2.config.id && route2.config.route) {
+                      return {
+                        value: result.value
+                      };
+                    }
+                  }
+                  return {
+                    issues: [{
+                      message: `Event '${event.type}' is not a public input event.`
+                    }]
+                  };
+                }
+              }
+              return historicalEventSchema["~standard"].validate(value);
+            }
+          }
+        };
+        this.internalEventDescriptors = Object.keys(this.schemas?.internalEvents ?? {});
+        this.options = {
+          ...this.config.options
+        };
+        this.transition = this.transition.bind(this);
+        this.initialTransition = this.initialTransition.bind(this);
+        this.getInitialSnapshot = this.getInitialSnapshot.bind(this);
+        this.getPersistedSnapshot = this.getPersistedSnapshot.bind(this);
+        this.restoreSnapshot = this.restoreSnapshot.bind(this);
+        this.start = this.start.bind(this);
+        this.root = new StateNode3(config, {
+          _key: this.id,
+          _machine: this
+        });
+        this.root._initialize();
+        createActor3.formatRouteTransitions(this.root);
+        this.root._refreshEventMetadata();
+        this._hasEventlessTransitions = Array.from(this.idMap.values()).some((stateNode) => !!stateNode.always?.length);
+        this.states = this.root.states;
+        this.events = this.root.events;
+      }
+      /**
+       * Clones this state machine with the provided sources.
+       *
+       * @param sources Options (`actions`, `guards`, `actors`, `delays`) to
+       *   recursively merge with the existing options.
+       * @returns A new `StateMachine` instance with the provided sources.
+       */
+      provide(sources) {
+        const {
+          actions,
+          guards,
+          actors,
+          delays
+        } = this.sources;
+        const provided = new _StateMachine(this.config, {
+          actions: {
+            ...actions,
+            ...sources.actions
+          },
+          guards: {
+            ...guards,
+            ...sources.guards
+          },
+          actors: {
+            ...actors,
+            ...sources.actors
+          },
+          delays: {
+            ...delays,
+            ...sources.delays
+          }
+        }, this.validator);
+        provided._json = this._json;
+        provided.internalEventDescriptors = this.internalEventDescriptors;
+        provided._microstepHooks = this._microstepHooks;
+        return provided;
+      }
+      resolveState(config) {
+        const resolvedStateValue = createActor3.resolveStateValue(this.root, config.value);
+        const nodeSet = createActor3.getAllStateNodes(createActor3.getStateNodes(this.root, resolvedStateValue));
+        const nodes = [...nodeSet];
+        return createActor3.createMachineSnapshot({
+          _nodes: nodes,
+          value: resolvedStateValue,
+          context: config.context || {},
+          children: {},
+          status: createActor3.isInFinalState(nodeSet, this.root) ? "done" : config.status || "active",
+          output: config.output,
+          error: config.error,
+          historyValue: config.historyValue
+        }, this);
+      }
+      /**
+       * Determines the next snapshot given the current `snapshot` and received
+       * `event`. Calculates a full macrostep from all microsteps.
+       *
+       * @param snapshot The current snapshot
+       * @param event The received event
+       */
+      transition(snapshot, event, actorScope) {
+        const usesInertScope = !actorScope;
+        const resolvedActorScope = actorScope ?? createActor3.createInertActorScope(this, snapshot);
+        if (usesInertScope) {
+          createActor3.setInertActorScopeSnapshot(resolvedActorScope, snapshot, false);
+        }
+        if (this.validator) {
+          const sourceRef = actorScope && actorScope.self._lastSourceRef;
+          const eventOrigin = sourceRef ? "actor" : "external";
+          const error = this.validator.check({
+            kind: "event",
+            logic: this,
+            event,
+            eventOrigin
+          });
+          if (error) {
+            return [snapshot, [createActor3.createDeadLetterEffect(resolvedActorScope, sourceRef, event, "invalidEvent", {
+              issues: error.issues,
+              error
+            })]];
+          }
+        }
+        createActor3.beginSpawnAllocation(resolvedActorScope);
+        const fastSnapshot = this._transitionFast(snapshot, event, resolvedActorScope);
+        if (fastSnapshot) {
+          if (usesInertScope) {
+            createActor3.setInertActorScopeSnapshot(resolvedActorScope, fastSnapshot, false);
+          }
+          const returnedSnapshot2 = usesInertScope && fastSnapshot !== snapshot ? createActor3.attachSnapshotActorRef(resolvedActorScope, fastSnapshot) : this._attachPureActorRef(fastSnapshot, resolvedActorScope);
+          if (this.validator) {
+            dist_xstateActors.assertValid(this.validator, {
+              kind: "result",
+              logic: this,
+              snapshot: returnedSnapshot2,
+              effects: []
+            });
+          }
+          return [returnedSnapshot2, []];
+        }
+        const {
+          snapshot: nextSnapshot,
+          microsteps
+        } = createActor3.macrostep(snapshot, event, resolvedActorScope, []);
+        if (usesInertScope) {
+          createActor3.setInertActorScopeSnapshot(resolvedActorScope, nextSnapshot, false);
+        }
+        const returnedSnapshot = usesInertScope ? nextSnapshot === snapshot ? nextSnapshot : createActor3.attachSnapshotActorRef(resolvedActorScope, nextSnapshot) : this._attachPureActorRef(nextSnapshot, resolvedActorScope);
+        const effects = this._collectEffects(microsteps);
+        if (this.validator) {
+          dist_xstateActors.assertValid(this.validator, {
+            kind: "result",
+            logic: this,
+            snapshot: returnedSnapshot,
+            effects
+          });
+        }
+        return [returnedSnapshot, effects];
+      }
+      _collectEffects(microsteps) {
+        return microsteps.flatMap(([, actions]) => actions);
+      }
+      _attachPureActorRef(snapshot, actorScope, skipInitializingActor = false) {
+        if (createActor3.isInertActorScope(actorScope)) {
+          return snapshot;
+        }
+        if (skipInitializingActor && actorScope.self._actorScope === actorScope && actorScope.self._snapshot === void 0) {
+          return snapshot;
+        }
+        createActor3.setSnapshotActorRef(snapshot, actorScope.self, actorScope.system);
+        return snapshot;
+      }
+      _transitionFast(snapshot, event, actorScope) {
+        if (snapshot.status !== "active" || typeof snapshot.value !== "string" || this.root.always?.length) {
+          return void 0;
+        }
+        const sourceNode = this.root.states[snapshot.value];
+        if (!sourceNode || sourceNode.type !== "atomic" || sourceNode.exit || sourceNode.invoke.length || sourceNode.always?.length || sourceNode.after?.length) {
+          return void 0;
+        }
+        const transitions = sourceNode.transitions.get(event.type);
+        if (transitions?.length !== 1) {
+          return void 0;
+        }
+        const selected = transitions[0];
+        if (selected.guard || selected.actions || selected.to || selected.reenter || selected.input || typeof selected.context === "function" || selected.target && selected.target.length !== 1) {
+          return void 0;
+        }
+        const targetNode = selected.target?.[0] ?? sourceNode;
+        const stateChanged = targetNode !== sourceNode;
+        if (targetNode.parent !== this.root || targetNode.type !== "atomic" || stateChanged && (targetNode.entry || targetNode.invoke.length || targetNode.always?.length || targetNode.after?.length)) {
+          return void 0;
+        }
+        const context = selected.context !== void 0 ? {
+          ...snapshot.context,
+          ...selected.context
+        } : snapshot.context;
+        if (!createActor3.isInertActorScope(actorScope) && (actorScope.system._hasInspectionObservers?.() ?? true)) {
+          const collectedMicrosteps = actorScope.self._collectedMicrosteps || [];
+          collectedMicrosteps.push(selected);
+          actorScope.self._collectedMicrosteps = collectedMicrosteps;
+        }
+        return createActor3.cloneMachineSnapshot(snapshot, {
+          ...context !== snapshot.context ? {
+            context
+          } : {},
+          ...stateChanged ? {
+            _nodes: [this.root, targetNode]
+          } : {}
+        });
+      }
+      /**
+       * Determines the next state given the current `state` and `event`. Calculates
+       * a microstep.
+       *
+       * @param state The current state
+       * @param event The received event
+       */
+      microstep(snapshot, event, actorScope) {
+        const {
+          microsteps
+        } = createActor3.macrostep(snapshot, event, actorScope, []);
+        const snapshots = new Array(microsteps.length);
+        for (let i = 0; i < microsteps.length; i++) {
+          snapshots[i] = microsteps[i][0];
+        }
+        return snapshots;
+      }
+      getTransitionData(snapshot, event, actorScope, selectionResults) {
+        this._microstepHooks?.begin(actorScope.self);
+        return createActor3.transitionNode(this.root, snapshot.value, snapshot, event, actorScope, selectionResults) || [];
+      }
+      isInternalEventType(eventType) {
+        if (eventType === createActor3.XSTATE_TIMER) {
+          return true;
+        }
+        for (const descriptor of this.internalEventDescriptors) {
+          if (createActor3.matchesEventDescriptor(eventType, descriptor)) {
+            return true;
+          }
+        }
+        return false;
+      }
+      /**
+       * Determines whether sending the `event` to the given snapshot would select a
+       * non-forbidden transition. Backs `snapshot.can(...)`; lives here so that
+       * non-machine bundles don't pay for the transition-resolution machinery.
+       *
+       * @internal
+       */
+      _canTransition(snapshot, event) {
+        if (snapshot.status !== "active") {
+          return false;
+        }
+        const emptyActorScope = getEmptyCanActorScope();
+        const transitionData = this.getTransitionData(snapshot, event, emptyActorScope);
+        if (!transitionData?.length) {
+          return false;
+        }
+        for (const transition3 of transitionData) {
+          if (transition3.target !== void 0) {
+            return true;
+          }
+          const res = createActor3.getTransitionResult(transition3, snapshot, event, emptyActorScope, {
+            resolveActions: false
+          });
+          if (res.targets?.length || res.context || createActor3.hasEffect(transition3, snapshot.context, event, snapshot, emptyActorScope)) {
+            return true;
+          }
+        }
+        return false;
+      }
+      /**
+       * Returns the error event that the actor should transition with to recover
+       * from an execution error, if any active state node declares `onError`.
+       *
+       * @internal
+       */
+      getExecutionErrorEvent(snapshot, error) {
+        if (snapshot?.status !== "active" || !snapshot.nodes?.some((stateNode) => stateNode.config.onError)) {
+          return void 0;
+        }
+        return createActor3.createErrorPlatformEvent("execution", error);
+      }
+      /**
+       * The initial state _before_ evaluating any microsteps. This "pre-initial"
+       * state is provided to initial actions executed in the initial state.
+       *
+       * @internal
+       */
+      _getPreInitialState(actorScope, initEvent) {
+        const {
+          context
+        } = this.config;
+        const preInitial = createActor3.createMachineSnapshot({
+          context: typeof context !== "function" && context ? context : {},
+          _nodes: [this.root],
+          children: {},
+          status: "active"
+        }, this);
+        if (typeof context === "function") {
+          const children = {};
+          const spawn = createSpawner(actorScope, this.sources.actors, children);
+          const resolvedContext = context(createActor3.withActorSelf({
+            spawn,
+            input: initEvent.input,
+            actors: this.sources.actors
+          }, actorScope));
+          const [nextState] = createActor3.resolveActionsWithContext(preInitial, initEvent, actorScope, []);
+          if (resolvedContext) {
+            nextState.context = resolvedContext;
+          }
+          if (Object.keys(children).length > 0) {
+            nextState.children = {
+              ...nextState.children,
+              ...children
+            };
+            const counters = createActor3.takeSpawnAllocationCounters(actorScope);
+            if (counters) {
+              nextState._nextActorIds = createActor3.mergeActorIdCounters(nextState._nextActorIds, counters);
+            }
+          }
+          return nextState;
+        }
+        return preInitial;
+      }
+      /**
+       * Returns the initial `State` instance, with reference to `self` as an
+       * `ActorRef`.
+       */
+      getInitialSnapshot(actorScope, input) {
+        return this.initialTransition(input, actorScope)[0];
+      }
+      initialTransition(input, actorScope) {
+        if (this.validator) {
+          dist_xstateActors.assertValid(this.validator, {
+            kind: "input",
+            logic: this,
+            input
+          });
+        }
+        const usesInertScope = !actorScope;
+        const resolvedActorScope = actorScope ?? createActor3.createInertActorScope(this);
+        createActor3.beginSpawnAllocation(resolvedActorScope);
+        const initEvent = createActor3.createInitEvent(input);
+        const internalQueue = [];
+        const finalizeInitialResult = (macroState, microsteps) => {
+          if (usesInertScope) {
+            createActor3.setInertActorScopeSnapshot(resolvedActorScope, macroState, false);
+          }
+          const returnedSnapshot = usesInertScope ? createActor3.attachSnapshotActorRef(resolvedActorScope, macroState) : this._attachPureActorRef(macroState, resolvedActorScope, true);
+          const effects = this._collectEffects(microsteps);
+          if (this.validator && macroState.status !== "error") {
+            dist_xstateActors.assertValid(this.validator, {
+              kind: "result",
+              logic: this,
+              snapshot: returnedSnapshot,
+              effects
+            });
+          }
+          return [returnedSnapshot, effects];
+        };
+        let preInitialState;
+        try {
+          preInitialState = this._getPreInitialState(resolvedActorScope, initEvent);
+        } catch (error) {
+          const errorSnapshot = createActor3.cloneMachineSnapshot(createActor3.createMachineSnapshot({
+            context: typeof this.config.context !== "function" && this.config.context ? this.config.context : {},
+            _nodes: [this.root],
+            children: {},
+            status: "active"
+          }, this), {
+            status: "error",
+            error
+          });
+          return finalizeInitialResult(errorSnapshot, []);
+        }
+        const contextSpawnEffects = Object.values(preInitialState.children).filter(Boolean).map((actor) => createActor3.createSpawnEffect(actor));
+        try {
+          const [nextState, initialActions] = createActor3.initialMicrostep(this.root, preInitialState, resolvedActorScope, initEvent, internalQueue);
+          const {
+            snapshot: macroState,
+            microsteps
+          } = createActor3.macrostep(nextState, initEvent, resolvedActorScope, internalQueue, [[nextState, [...contextSpawnEffects, ...initialActions]]]);
+          return finalizeInitialResult(macroState, microsteps);
+        } catch (err) {
+          if (!this.root.config.onError) {
+            throw err;
+          }
+          const errorEvent = createActor3.createErrorPlatformEvent("execution", err);
+          const errorMacrostep = createActor3.macrostep(preInitialState, errorEvent, resolvedActorScope, [], [[preInitialState, contextSpawnEffects]]);
+          return finalizeInitialResult(errorMacrostep.snapshot, errorMacrostep.microsteps);
+        }
+      }
+      start(snapshot, actorScope) {
+        if (!snapshot?.children) {
+          return;
+        }
+        const children = snapshot.children;
+        for (const childId in children) {
+          if (!Object.hasOwn(children, childId)) {
+            continue;
+          }
+          const child = children[childId];
+          if (child._rehydrated && child.getSnapshot?.().status === "active") {
+            if (actorScope) {
+              actorScope.actionExecutor(createActor3.createStartEffect(child));
+            } else {
+              void child.system.startActor(child);
+            }
+          }
+        }
+      }
+      getStateNodeById(stateId) {
+        const fullPath = createActor3.toStatePath(stateId);
+        const relativePath = fullPath.slice(1);
+        const resolvedStateId = createActor3.isStateId(fullPath[0]) ? fullPath[0].slice(STATE_IDENTIFIER.length) : fullPath[0];
+        const stateNode = this.idMap.get(resolvedStateId);
+        if (!stateNode) {
+          throw new Error(`Child state node '#${resolvedStateId}' does not exist on machine '${this.id}'`);
+        }
+        return createActor3.getStateNodeByPath(stateNode, relativePath);
+      }
+      getPersistedSnapshot(snapshot, options2) {
+        return createActor3.getPersistedSnapshot(snapshot, options2);
+      }
+      /**
+       * @internal Builds a machine-shaped `'error'` snapshot (root configuration,
+       * no children) for a persisted snapshot that failed to restore, so
+       * consumers keep `matches()`, `can()` and friends.
+       */
+      _createRestoreErrorSnapshot(persisted, error) {
+        const context = persisted?.context;
+        return createActor3.cloneMachineSnapshot(createActor3.createMachineSnapshot({
+          context: context && typeof context === "object" ? context : {},
+          _nodes: [this.root],
+          children: {},
+          status: "active"
+        }, this), {
+          status: "error",
+          error
+        });
+      }
+      restoreSnapshot(snapshot, actorScope) {
+        const usesInertScope = !actorScope;
+        const resolvedActorScope = actorScope ?? createActor3.createInertActorScope(this);
+        const snapshotMachine = snapshot.machine;
+        const persistedMachine = snapshotMachine && typeof snapshotMachine === "object" && typeof snapshotMachine.transition === "function" && "root" in snapshotMachine ? void 0 : snapshotMachine;
+        const legacyPersistedVersion = snapshot.version;
+        const persistedVersion = typeof persistedMachine?.version === "string" ? persistedMachine.version : legacyPersistedVersion;
+        if (legacyPersistedVersion !== void 0 && persistedMachine?.version !== void 0 && persistedMachine.version !== legacyPersistedVersion) {
+          throw new Error(`Persisted snapshot version '${legacyPersistedVersion}' conflicts with machine version '${persistedMachine.version}'.`);
+        }
+        if (persistedMachine && typeof persistedMachine.id === "string" && persistedMachine.id !== this.id) {
+          throw new Error(`Machine ID mismatch: persisted snapshot machine '${persistedMachine.id}' does not match '${this.id}'.`);
+        }
+        if (persistedVersion !== this.version) {
+          const migrate = this.config.migrate;
+          if (typeof migrate !== "function") {
+            throw new Error(`Persisted snapshot version '${persistedVersion}' does not match machine version '${this.version}'.`);
+          }
+          snapshot = migrate(snapshot, persistedVersion);
+        }
+        const snapshotData2 = snapshot;
+        const children = {};
+        const snapshotChildren = snapshotData2.children;
+        for (const actorId2 of Object.keys(snapshotChildren)) {
+          const actorData = snapshotChildren[actorId2];
+          if (actorData.remote === true && actorData.address !== void 0) {
+            if (typeof actorData.src !== "string") {
+              throw new Error(`Unable to restore remote child '${actorId2}': a child referenced by address requires a registered source key.`);
+            }
+            const handle2 = createActor3.createRemoteActorRef(resolvedActorScope.system, {
+              id: actorId2,
+              address: actorData.address,
+              src: actorData.src,
+              parent: resolvedActorScope.self,
+              registryKey: actorData.registryKey,
+              syncSnapshot: actorData.syncSnapshot,
+              incarnation: actorData.incarnation
+            });
+            if (actorData.registryKey) {
+              resolvedActorScope.system._set(actorData.registryKey, handle2);
+            }
+            children[actorId2] = handle2;
+            continue;
+          }
+          const childState = actorData.snapshot;
+          const src3 = actorData.src;
+          const logic = typeof src3 === "string" ? createActor3.resolveReferencedActor(this, src3) : src3;
+          if (!logic) {
+            const sourceId = typeof src3 === "string" ? src3 : "<unknown>";
+            throw new Error(`Unable to restore child actor '${actorId2}': child source '${sourceId}' is not provided in machine '${this.id}'.`);
+          }
+          const actor = resolvedActorScope.system.createActorRef(logic, {
+            id: actorId2,
+            parent: resolvedActorScope.self,
+            syncSnapshot: actorData.syncSnapshot,
+            snapshot: childState,
+            src: src3,
+            registryKey: actorData.registryKey
+          });
+          actor._rehydrated = true;
+          children[actorId2] = actor;
+        }
+        const timers = {};
+        const persistedTimers = snapshotData2.timers ?? {};
+        for (const [id, timer] of Object.entries(persistedTimers)) {
+          let event = timer.event;
+          if (event.type === "xstate.timeout.actor") {
+            const actorId2 = event.actorId;
+            const child = children[actorId2];
+            if (child) {
+              event = createActor3.createInvokeTimeoutEvent(actorId2, child.sessionId);
+            }
+          }
+          const target = typeof timer.target === "string" ? timer.target === "self" ? "self" : children[timer.target] : resolvedActorScope.self._parent;
+          if (!target) {
+            const targetDescription = typeof timer.target === "string" ? timer.target : timer.target.type;
+            throw new Error(`Unable to restore timer '${id}': target actor '${targetDescription}' is unavailable.`);
+          }
+          timers[id] = {
+            ...timer,
+            event,
+            target
+          };
+        }
+        const reviveHistoryValue = (historyValue) => {
+          if (!historyValue || typeof historyValue !== "object") {
+            return {};
+          }
+          const revived = {};
+          for (const key of Object.keys(historyValue)) {
+            const arr = historyValue[key];
+            for (const item of arr) {
+              let resolved;
+              if (item instanceof StateNode3) {
+                resolved = item;
+              } else {
+                try {
+                  resolved = this.root.machine.getStateNodeById(item.id);
+                } catch {
+                }
+              }
+              if (!resolved) {
+                continue;
+              }
+              revived[key] ??= [];
+              revived[key].push(resolved);
+            }
+          }
+          return revived;
+        };
+        const revivedHistoryValue = reviveHistoryValue(snapshotData2.historyValue);
+        const validateStateValue = (stateValue, node, path2) => {
+          const missingStateError = (statePath) => new Error(`Persisted snapshot references state '${statePath.join(".")}' which does not exist on machine '${this.id}'.`);
+          if (typeof stateValue === "string") {
+            if (!node.states[stateValue]) {
+              throw missingStateError(path2.concat(stateValue));
+            }
+            return;
+          }
+          if (!stateValue || typeof stateValue !== "object") {
+            return;
+          }
+          for (const key of Object.keys(stateValue)) {
+            const childNode = node.states[key];
+            if (!childNode) {
+              throw missingStateError(path2.concat(key));
+            }
+            validateStateValue(stateValue[key], childNode, path2.concat(key));
+          }
+        };
+        validateStateValue(snapshotData2.value, this.root, []);
+        const nodes = Array.from(createActor3.getAllStateNodes(createActor3.getStateNodes(this.root, snapshotData2.value)));
+        const {
+          version: _persistedSnapshotVersion,
+          // The legacy system-wide counter: superseded by per-snapshot
+          // `_nextActorIds` plus the child-id fold below; dropped so old and new
+          // snapshots round-trip to the same shape.
+          _nextActorId: _legacyNextActorId,
+          ...persistedRest
+        } = snapshot;
+        let restoredCounters = persistedRest._nextActorIds;
+        for (const childId of Object.keys(snapshotChildren)) {
+          const generated = createActor3.parseGeneratedActorId(childId);
+          if (generated && (restoredCounters?.[generated.prefix] ?? 0) <= generated.index) {
+            restoredCounters = {
+              ...restoredCounters,
+              [generated.prefix]: generated.index + 1
+            };
+          }
+        }
+        const restoredSnapshot = createActor3.createMachineSnapshot({
+          ...persistedRest,
+          children,
+          timers,
+          _nextActorIds: restoredCounters,
+          _nodes: nodes,
+          value: snapshotData2.value,
+          historyValue: revivedHistoryValue,
+          _stateInputs: snapshotData2.stateInputs ?? {}
+        }, this, resolvedActorScope.self);
+        const seen = /* @__PURE__ */ new WeakSet();
+        function reviveContext(contextPart) {
+          if (seen.has(contextPart)) {
+            return;
+          }
+          seen.add(contextPart);
+          for (const key of Object.keys(contextPart)) {
+            const value = contextPart[key];
+            if (value && typeof value === "object") {
+              if ("xstate$type" in value && value.xstate$type === createActor3.ACTOR_REF_TYPE) {
+                contextPart[key] = children[value.id];
+                continue;
+              }
+              reviveContext(value);
+            }
+          }
+        }
+        reviveContext(restoredSnapshot.context);
+        if (usesInertScope) {
+          createActor3.setInertActorScopeSnapshot(resolvedActorScope, restoredSnapshot, false);
+          return createActor3.attachSnapshotActorRef(resolvedActorScope, restoredSnapshot);
+        }
+        return this._attachPureActorRef(restoredSnapshot, resolvedActorScope);
+      }
+    };
+    function createMachine3(config) {
+      return new StateMachine3(config);
+    }
+    function createMachineFromCompiledConfig(config, validator) {
+      return new StateMachine3(config, void 0, validator);
+    }
+    function createStateConfig3(config) {
+      return config;
+    }
+    function serializeMachine2(machine) {
+      const json3 = machine._json;
+      return json3 ? cloneJSON(json3) : machineConfigToJSON3(machine.config);
+    }
+    function cloneJSON(value) {
+      if (Array.isArray(value)) {
+        return value.map(cloneJSON);
+      }
+      if (value === null || typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) {
+        return value;
+      }
+      return Object.fromEntries(Object.entries(value).map(([key, entry2]) => [key, cloneJSON(entry2)]));
+    }
+    function codeExpression(fn) {
+      return {
+        "@code": fn.toString(),
+        "@lang": "ts"
+      };
+    }
+    function isActorLogic(value) {
+      return !!value && typeof value === "object" && typeof value.transition === "function" && typeof value.getInitialSnapshot === "function";
+    }
+    function isRuntimeSchema(value) {
+      return !!value && typeof value === "object" && "~standard" in value;
+    }
+    function valueToJSON(value) {
+      if (typeof value === "function") {
+        return codeExpression(value);
+      }
+      if (value === null || typeof value !== "object") {
+        return typeof value === "bigint" || typeof value === "symbol" ? void 0 : value;
+      }
+      if (isActorLogic(value)) {
+        return void 0;
+      }
+      if (isRuntimeSchema(value)) {
+        return void 0;
+      }
+      if (Array.isArray(value)) {
+        return value.map(valueToJSON).filter((item) => item !== void 0);
+      }
+      if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) {
+        return void 0;
+      }
+      const result = {};
+      for (const key of Object.keys(value)) {
+        const v = value[key];
+        if (v !== void 0) {
+          const jsonValue = valueToJSON(v);
+          if (jsonValue !== void 0) {
+            Object.defineProperty(result, key, {
+              value: jsonValue,
+              enumerable: true,
+              writable: true,
+              configurable: true
+            });
+          }
+        }
+      }
+      return result;
+    }
+    function invokeToJSON(invoke) {
+      if (Array.isArray(invoke)) {
+        const values = invoke.map(invokeToJSON).filter((value) => value !== void 0);
+        return values.length ? values : void 0;
+      }
+      const def2 = invoke;
+      const result = {};
+      for (const key of Object.keys(def2)) {
+        const value = def2[key];
+        if (value === void 0) {
+          continue;
+        }
+        result[key] = key === "src" && typeof value !== "string" ? value.id : valueToJSON(value);
+        if (result[key] === void 0) {
+          delete result[key];
+        }
+      }
+      return result.src === void 0 ? void 0 : result;
+    }
+    function sourcesToJSON(map) {
+      if (!map) {
+        return void 0;
+      }
+      const result = {};
+      for (const key of Object.keys(map)) {
+        const value = map[key];
+        if (typeof value === "function") {
+          result[key] = void 0;
+        } else {
+          result[key] = valueToJSON(value);
+        }
+        if (result[key] === void 0) {
+          delete result[key];
+        }
+      }
+      return result;
+    }
+    function stateNodeConfigToJSON(config) {
+      const result = {};
+      for (const key of Object.keys(config)) {
+        if (key === "states" || key === "invoke") {
+          continue;
+        }
+        const value = config[key];
+        if (value !== void 0) {
+          result[key] = valueToJSON(value);
+        }
+      }
+      if (config.invoke !== void 0) {
+        const invoke = invokeToJSON(config.invoke);
+        if (invoke !== void 0) {
+          result.invoke = invoke;
+        }
+      }
+      if (config.states) {
+        const states = {};
+        for (const key of Object.keys(config.states)) {
+          states[key] = stateNodeConfigToJSON(config.states[key]);
+        }
+        result.states = states;
+      }
+      return result;
+    }
+    function machineConfigToJSON3(config) {
+      const result = stateNodeConfigToJSON(config);
+      const internalEvents = Object.keys(config.schemas?.internalEvents ?? {});
+      delete result.internalEvents;
+      if (internalEvents.length) {
+        result.internalEvents = internalEvents;
+      }
+      if (config.schemas) {
+        const schemas = {};
+        for (const key of Object.keys(config.schemas)) {
+          const value = config.schemas[key];
+          if (value && typeof value === "object" && !("~standard" in value)) {
+            schemas[key] = sourcesToJSON(value);
+          } else {
+            schemas[key] = valueToJSON(value);
+          }
+          if (schemas[key] === void 0) {
+            delete schemas[key];
+          }
+        }
+        result.schemas = schemas;
+      }
+      for (const key of ["actions", "guards", "actors", "delays"]) {
+        if (config[key]) {
+          const value = sourcesToJSON(config[key]);
+          if (value && Object.keys(value).length) {
+            result[key] = value;
+          } else {
+            delete result[key];
+          }
+        }
+      }
+      return result;
+    }
+    function delayToMs(delay) {
+      const parsedDelay = createActor3.parseDelayToMilliseconds(delay);
+      if (parsedDelay !== void 0) return parsedDelay;
+      return typeof delay === "string" ? parseFloat(delay) || 0 : delay;
+    }
+    function isExpression(value) {
+      return !!value && typeof value === "object" && typeof value["@expr"] === "string";
+    }
+    function isCode(value) {
+      return !!value && typeof value === "object" && typeof value["@code"] === "string";
+    }
+    function isResolvable(value) {
+      return isExpression(value) || isCode(value);
+    }
+    function containsResolvable(value) {
+      return isResolvable(value) || !!value && typeof value === "object" && Object.values(value).some(containsResolvable);
+    }
+    function isBuiltInActionType(type) {
+      return type.startsWith("@xstate.");
+    }
+    function toPath(parent, key) {
+      return typeof key === "number" ? `${parent}[${key}]` : `${parent}.${key}`;
+    }
+    function extractSerializableDelays(delays) {
+      const result = {};
+      if (!delays) {
+        return result;
+      }
+      for (const key of Object.keys(delays)) {
+        const value = delays[key];
+        if (typeof value === "number") {
+          result[key] = value;
+        } else if (value && typeof value === "object" && typeof value.duration === "number") {
+          result[key] = value.duration;
+        }
+      }
+      return result;
+    }
+    function mergeSources(json3, sources) {
+      return {
+        actions: sources.actions ?? {},
+        guards: sources.guards ?? {},
+        actors: sources.actors ?? {},
+        delays: {
+          ...extractSerializableDelays(json3.delays),
+          ...sources.delays ?? {}
+        },
+        evaluators: sources.evaluators ?? {}
+      };
+    }
+    function createExpressionResolver(expressionLanguage, sources) {
+      function getEvaluator(value, path2) {
+        const lang = value["@lang"] ?? expressionLanguage;
+        if (!lang) {
+          throw new Error(`Missing @exprLang for expression at ${path2}`);
+        }
+        const evaluator = sources.evaluators[lang];
+        if (!evaluator) {
+          throw new Error(`Missing evaluator for @lang '${lang}' at ${path2}`);
+        }
+        return evaluator;
+      }
+      function evaluateResolvable(value, slot, scope, path2) {
+        const kind = isExpression(value) ? "expr" : "code";
+        const source = isExpression(value) ? value["@expr"] : value["@code"];
+        return getEvaluator(value, path2)({
+          source,
+          kind,
+          slot,
+          scope,
+          path: path2
+        });
+      }
+      function resolveValue2(value, slot, scope, path2) {
+        if (isResolvable(value)) {
+          return evaluateResolvable(value, slot, scope, path2);
+        }
+        if (Array.isArray(value)) {
+          return value.map((item, index3) => resolveValue2(item, slot, scope, toPath(path2, index3)));
+        }
+        if (!value || typeof value !== "object") {
+          return value;
+        }
+        const result = {};
+        for (const key of Object.keys(value)) {
+          result[key] = resolveValue2(value[key], slot, scope, toPath(path2, key));
+        }
+        return result;
+      }
+      function makeScope(x, extra) {
+        return {
+          context: x.context,
+          event: x.event,
+          input: x.input,
+          self: x.self,
+          children: x.children,
+          params: x.params,
+          // Named sources, so revived `@code` can call `guards.name(...)` and
+          // `enq(actions.name)` like the code-authored function it came from.
+          actions: x.actions,
+          actors: x.actors,
+          guards: x.guards,
+          delays: x.delays,
+          ...extra
+        };
+      }
+      function getDurationConfig(value, path2) {
+        if (!isResolvable(value)) {
+          return value;
+        }
+        return (args) => delayToMs(resolveValue2(value, "delay", makeScope(args), path2));
+      }
+      function assertResolvable(value, path2) {
+        if (isResolvable(value)) {
+          getEvaluator(value, path2);
+          return;
+        }
+        if (Array.isArray(value)) {
+          value.forEach((item, index3) => assertResolvable(item, toPath(path2, index3)));
+          return;
+        }
+        if (!value || typeof value !== "object") {
+          return;
+        }
+        for (const key of Object.keys(value)) {
+          assertResolvable(value[key], toPath(path2, key));
+        }
+      }
+      return {
+        evaluateResolvable,
+        resolveValue: resolveValue2,
+        makeScope,
+        getDurationConfig,
+        assertResolvable
+      };
+    }
+    function toActionArray(actions) {
+      return actions === void 0 ? [] : Array.isArray(actions) ? actions : [actions];
+    }
+    function validateChoiceConfig(choice, path2) {
+      if (!Array.isArray(choice)) {
+        return;
+      }
+      choice.forEach((branch, index3) => {
+        if (branch.when === void 0 && index3 !== choice.length - 1) {
+          throw new Error(`Choice fallback branch at ${path2}[${index3}] must be last.`);
+        }
+      });
+    }
+    var transitionJSONKeys = ["target", "matches", "context", "actions", "guard", "description", "reenter", "meta", "input"];
+    var stateNodeJSONKeys = ["id", "key", "type", "initial", "states", "on", "onError", "after", "always", "choice", "route", "invoke", "entry", "exit", "meta", "description", "tags", "input", "timeout", "onTimeout", "history", "target", "output", "context"];
+    var machineJSONOnlyKeys = ["@exprLang", "version", "actions", "guards", "actors", "delays", "schemas", "internalEvents"];
+    function assertKnownKeys(value, allowedKeys, path2) {
+      for (const key of Object.keys(value)) {
+        if (!allowedKeys.includes(key)) {
+          throw new Error(`Unknown key "${key}" at ${path2}`);
+        }
+      }
+    }
+    function assertMachineJSON(json3, resolvedSources, expressionResolver) {
+      const {
+        assertResolvable
+      } = expressionResolver;
+      const stateIdRefs = [];
+      function assertCondition(condition, path2, stack = []) {
+        if (!condition) {
+          return;
+        }
+        if (isResolvable(condition)) {
+          assertResolvable(condition, path2);
+          return;
+        }
+        assertResolvable(condition.params, `${path2}.params`);
+        if (json3.guards?.[condition.type]) {
+          if (stack.includes(condition.type)) {
+            throw new Error(`Circular guard reference: ${stack.concat(condition.type).join(" -> ")}`);
+          }
+          assertCondition(json3.guards[condition.type].when, `$.guards.${condition.type}.when`, stack.concat(condition.type));
+          return;
+        }
+        if (resolvedSources.guards[condition.type]) {
+          return;
+        }
+        const params2 = condition.params;
+        if (condition.type === "xstate.not") {
+          if (!params2?.guard) {
+            throw new Error(`Missing guard at ${path2}.params.guard`);
+          }
+          assertCondition(params2.guard, `${path2}.params.guard`, stack);
+          return;
+        }
+        if (condition.type === "xstate.stateIn") {
+          if (typeof params2?.stateId === "string") {
+            stateIdRefs.push({
+              stateId: params2.stateId,
+              path: `${path2}.params.stateId`
+            });
+          } else if (!isResolvable(params2?.stateId)) {
+            throw new Error(`Missing state ID at ${path2}.params.stateId`);
+          }
+          return;
+        }
+        throw new Error(`Missing guard source "${condition.type}"`);
+      }
+      function assertAction(action, path2, stack = []) {
+        if (isResolvable(action)) {
+          assertResolvable(action, path2);
+          return;
+        }
+        if (!action || typeof action.type !== "string") {
+          throw new Error(`Invalid action at ${path2}`);
+        }
+        assertResolvable(action.params, `${path2}.params`);
+        if (isBuiltInActionType(action.type)) {
+          assertResolvable(action, path2);
+          return;
+        }
+        const definition = json3.actions?.[action.type];
+        if (definition) {
+          if (stack.includes(action.type)) {
+            throw new Error(`Circular action reference: ${stack.concat(action.type).join(" -> ")}`);
+          }
+          const definitions2 = Array.isArray(definition) ? definition : [definition];
+          definitions2.forEach((item, index3) => assertAction(item, `${path2}.actions.${action.type}${definitions2.length > 1 ? `[${index3}]` : ""}`, stack.concat(action.type)));
+          return;
+        }
+        if (!resolvedSources.actions[action.type]) {
+          throw new Error(`Missing action source "${action.type}"`);
+        }
+      }
+      function assertActions(actions, path2) {
+        toActionArray(actions).forEach((action, index3) => assertAction(action, `${path2}[${index3}]`));
+      }
+      function assertTransition(transition3, path2) {
+        const transitions = Array.isArray(transition3) ? transition3 : transition3 ? [transition3] : [];
+        transitions.forEach((t, index3) => {
+          const transitionPath = Array.isArray(transition3) ? `${path2}[${index3}]` : path2;
+          if (isResolvable(t)) {
+            assertResolvable(t, transitionPath);
+            return;
+          }
+          if (!t || typeof t !== "object") {
+            throw new Error(typeof t === "string" ? `Invalid transition at ${transitionPath}: use { "target": ${JSON.stringify(t)} } instead of a string` : `Invalid transition at ${transitionPath}`);
+          }
+          assertKnownKeys(t, transitionJSONKeys, transitionPath);
+          assertCondition(t.guard, `${transitionPath}.guard`);
+          assertActions(t.actions, `${transitionPath}.actions`);
+          assertResolvable(t.context, `${transitionPath}.context`);
+          assertResolvable(t.input, `${transitionPath}.input`);
+        });
+      }
+      function assertStateNode(node, path2) {
+        assertKnownKeys(node, path2 === "$" ? [...stateNodeJSONKeys, ...machineJSONOnlyKeys] : stateNodeJSONKeys, path2);
+        if ((node.type === "history" || node.history !== void 0) && !(typeof node.target === "string" && node.target.trim().length > 0 || Array.isArray(node.target) && node.target.length > 0 && node.target.every((target) => target.trim().length > 0))) {
+          throw new Error(`History state at ${path2} must declare a non-empty target.`);
+        }
+        assertResolvable(node.context, `${path2}.context`);
+        assertResolvable(node.input, `${path2}.input`);
+        assertResolvable(node.output, `${path2}.output`);
+        assertResolvable(node.timeout, `${path2}.timeout`);
+        assertActions(node.entry, `${path2}.entry`);
+        assertActions(node.exit, `${path2}.exit`);
+        if (node.type === "choice") {
+          if (!node.choice) {
+            throw new Error(`Choice state at ${path2} must declare choice.`);
+          }
+          if (Array.isArray(node.choice)) {
+            validateChoiceConfig(node.choice, `${path2}.choice`);
+            node.choice.forEach((branch, index3) => {
+              assertCondition(branch.when, `${path2}.choice[${index3}].when`);
+              assertResolvable(branch.context, `${path2}.choice[${index3}].context`);
+              assertResolvable(branch.input, `${path2}.choice[${index3}].input`);
+            });
+          } else {
+            assertResolvable(node.choice, `${path2}.choice`);
+          }
+        }
+        if (isResolvable(node.route)) {
+          assertResolvable(node.route, `${path2}.route`);
+        }
+        if (node.invoke) {
+          const invokes = Array.isArray(node.invoke) ? node.invoke : [node.invoke];
+          invokes.forEach((invoke, index3) => {
+            const invokePath = `${path2}.invoke${Array.isArray(node.invoke) ? `[${index3}]` : ""}`;
+            if (!resolvedSources.actors[invoke.src]) {
+              throw new Error(`Missing actor source "${invoke.src}"`);
+            }
+            assertResolvable(invoke.input, `${invokePath}.input`);
+            assertResolvable(invoke.timeout, `${invokePath}.timeout`);
+            assertTransition(invoke.onDone, `${invokePath}.onDone`);
+            assertTransition(invoke.onError, `${invokePath}.onError`);
+            assertTransition(invoke.onSnapshot, `${invokePath}.onSnapshot`);
+            assertTransition(invoke.onTimeout, `${invokePath}.onTimeout`);
+          });
+        }
+        if (node.on) {
+          for (const descriptor of Object.keys(node.on)) {
+            assertTransition(node.on[descriptor], `${path2}.on.${descriptor}`);
+          }
+        }
+        if (node.after) {
+          for (const delay of Object.keys(node.after)) {
+            if (Number.isNaN(Number(delay)) && createActor3.parseDelayToMilliseconds(delay) === void 0 && !json3.delays?.[delay] && !resolvedSources.delays[delay]) {
+              throw new Error(`Missing delay source "${delay}"`);
+            }
+            assertTransition(node.after[delay], `${path2}.after.${delay}`);
+          }
+        }
+        assertTransition(node.always, `${path2}.always`);
+        assertTransition(node.onError, `${path2}.onError`);
+        assertTransition(node.onTimeout, `${path2}.onTimeout`);
+        if (node.states) {
+          for (const key of Object.keys(node.states)) {
+            assertStateNode(node.states[key], `${path2}.states.${key}`);
+          }
+        }
+      }
+      if (json3.actions) {
+        for (const key of Object.keys(json3.actions)) {
+          const actions = Array.isArray(json3.actions[key]) ? json3.actions[key] : [json3.actions[key]];
+          actions.forEach((action, index3) => assertAction(action, `$.actions.${key}${actions.length > 1 ? `[${index3}]` : ""}`, [key]));
+        }
+      }
+      if (json3.guards) {
+        for (const key of Object.keys(json3.guards)) {
+          assertCondition(json3.guards[key].when, `$.guards.${key}.when`, [key]);
+        }
+      }
+      if (json3.delays) {
+        for (const key of Object.keys(json3.delays)) {
+          const delay = json3.delays[key];
+          assertResolvable(delay && typeof delay === "object" && "duration" in delay ? delay.duration : delay, `$.delays.${key}`);
+        }
+      }
+      assertStateNode(json3, "$");
+      return stateIdRefs;
+    }
+    function createMachineFromConfig2(json3, sources = {}) {
+      json3 = cloneJSON(json3);
+      const resolvedSources = mergeSources(json3, sources);
+      const expressionResolver = createExpressionResolver(json3["@exprLang"], resolvedSources);
+      const {
+        evaluateResolvable,
+        resolveValue: resolveValue2,
+        makeScope,
+        getDurationConfig
+      } = expressionResolver;
+      function resolveCondition(condition, slot, path2) {
+        if (!condition) return void 0;
+        if (isResolvable(condition)) {
+          return (args) => !!evaluateResolvable(condition, slot, makeScope(args), path2);
+        }
+        if (condition.type === "xstate.not" && !json3.guards?.[condition.type] && !resolvedSources.guards[condition.type]) {
+          const guard = resolveCondition(condition.params?.guard, slot, `${path2}.params.guard`);
+          return (args) => !guard?.(args);
+        }
+        return (args) => {
+          const params2 = resolveValue2(condition.params, slot, makeScope(args), `${path2}.params`);
+          const declarativeGuard = json3.guards?.[condition.type];
+          if (declarativeGuard) {
+            const guard = resolveCondition(declarativeGuard.when, "guard", `$.guards.${condition.type}.when`);
+            return !!guard?.({
+              ...args,
+              params: params2
+            });
+          }
+          const guardImpl = args.guards?.[condition.type];
+          if (!guardImpl) {
+            throw new Error(getMissingGuardMessage(condition.type, args.guards ?? {}));
+          }
+          return guardImpl(args, params2);
+        };
+      }
+      function getMissingGuardMessage(type, guards) {
+        return `Guard '${type}' is not implemented in machine '${json3.id ?? "(machine)"}'. Available guards: ${Object.keys(guards).map((key) => `'${key}'`).join(", ") || "(none)"}.`;
+      }
+      function makeChoiceConfig(choice, path2) {
+        if (!choice) return void 0;
+        if (isResolvable(choice)) {
+          return (args) => evaluateResolvable(choice, "choice", makeScope(args), path2);
+        }
+        validateChoiceConfig(choice, path2);
+        return (args) => {
+          for (let index3 = 0; index3 < choice.length; index3++) {
+            const branch = choice[index3];
+            const guard = resolveCondition(branch.when, "choice", `${path2}[${index3}].when`);
+            if (!guard || guard(args)) {
+              return {
+                target: branch.target,
+                context: branch.context ? resolveValue2(branch.context, "transitionContext", makeScope(args), `${path2}[${index3}].context`) : void 0,
+                input: branch.input !== void 0 ? resolveValue2(branch.input, "input", makeScope(args), `${path2}[${index3}].input`) : void 0,
+                description: branch.description,
+                reenter: branch.reenter,
+                meta: branch.meta
+              };
+            }
+          }
+          throw new Error(`Choice state at ${path2} did not match any branch.`);
+        };
+      }
+      function resolveRouteConfig(route2, path2) {
+        if (!route2 || typeof route2 === "function") return route2;
+        if (isResolvable(route2)) {
+          return (args) => evaluateResolvable(route2, "transition", makeScope(args), path2);
+        }
+        const {
+          guard,
+          ...routeConfig
+        } = route2;
+        if (!guard) return routeConfig;
+        const resolvedGuard = resolveCondition({
+          type: guard
+        }, "guard", path2);
+        return (args) => resolvedGuard(args) ? routeConfig : void 0;
+      }
+      function executeActions(actions, x, enq, path2, stack = []) {
+        let context;
+        const current = () => context ? {
+          ...x,
+          context: {
+            ...x.context,
+            ...context
+          }
+        } : x;
+        for (let index3 = 0; index3 < actions.length; index3++) {
+          const action = actions[index3];
+          const actionPath = `${path2}[${index3}]`;
+          if (isResolvable(action)) {
+            const result2 = evaluateResolvable(action, "action", makeScope(current(), {
+              params: x.params,
+              enq
+            }), actionPath);
+            if (result2 && typeof result2 === "object" && "context" in result2 && result2.context) {
+              context ??= {};
+              Object.assign(context, result2.context);
+            }
+            continue;
+          }
+          if (isBuiltInActionJSON(action)) {
+            switch (action.type) {
+              case "@xstate.raise":
+                enq.raise(resolveValue2(action.event, "actionParams", makeScope(current(), {
+                  params: x.params
+                }), `${actionPath}.event`), {
+                  id: action.id,
+                  delay: action.delay
+                });
+                break;
+              case "@xstate.cancel":
+                enq.cancel(action.id);
+                break;
+              case "@xstate.log":
+                enq.log(...action.args);
+                break;
+              case "@xstate.emit":
+                enq.emit(resolveValue2(action.event, "actionParams", makeScope(current(), {
+                  params: x.params
+                }), `${actionPath}.event`));
+                break;
+              case "@xstate.assign":
+                context ??= {};
+                Object.assign(context, resolveValue2(action.context, "transitionContext", makeScope(current(), {
+                  params: x.params
+                }), `${actionPath}.context`));
+                break;
+            }
+            continue;
+          }
+          const params2 = resolveValue2(action.params, "actionParams", makeScope(current(), {
+            params: x.params
+          }), `${actionPath}.params`);
+          const definition = json3.actions?.[action.type];
+          if (!definition) {
+            enq(x.actions[action.type], params2);
+            continue;
+          }
+          if (stack.includes(action.type)) {
+            throw new Error(`Circular action reference: ${stack.concat(action.type).join(" -> ")}`);
+          }
+          const definitions2 = Array.isArray(definition) ? definition : [definition];
+          const result = executeActions(definitions2, {
+            ...x,
+            context: {
+              ...x.context,
+              ...context
+            },
+            params: params2
+          }, enq, `${actionPath}.actions.${action.type}`, stack.concat(action.type));
+          if (result.context) context = result.context;
+        }
+        return {
+          context: context ? {
+            ...x.context,
+            ...context
+          } : void 0
+        };
+      }
+      function iterActions(actions, path2) {
+        const actionArray = toActionArray(actions);
+        return (x, enq) => executeActions(actionArray, x, enq, path2);
+      }
+      function getTransitionConfig(transition3, path2) {
+        const transitions = Array.isArray(transition3) ? transition3 : [transition3];
+        return transitions.map((item, index3) => {
+          const transitionPath = Array.isArray(transition3) ? `${path2}[${index3}]` : path2;
+          if (isResolvable(item)) {
+            return (x, enq) => evaluateResolvable(item, "transition", makeScope(x, {
+              enq
+            }), transitionPath);
+          }
+          const context = item.context ? (x) => resolveValue2(item.context, "transitionContext", makeScope(x), `${transitionPath}.context`) : void 0;
+          const input = item.input !== void 0 ? (x) => resolveValue2(item.input, "input", makeScope(x), `${transitionPath}.input`) : void 0;
+          const dynamic = !!context || !!item.actions?.length;
+          return {
+            matches: item.matches,
+            target: dynamic ? void 0 : item.target,
+            to: dynamic ? (x, enq) => {
+              const resolvedContext = context?.(x);
+              const result = item.actions?.length ? executeActions(item.actions, resolvedContext ? {
+                ...x,
+                context: {
+                  ...x.context,
+                  ...resolvedContext
+                }
+              } : x, enq, `${transitionPath}.actions`) : void 0;
+              return {
+                target: item.target,
+                context: result?.context ?? resolvedContext,
+                reenter: item.reenter
+              };
+            } : void 0,
+            guard: resolveCondition(item.guard, "guard", `${transitionPath}.guard`),
+            description: item.description,
+            reenter: item.reenter,
+            meta: item.meta,
+            input
+          };
+        });
+      }
+      function iterInvokeConfigs(invokes, path2) {
+        return (Array.isArray(invokes) ? invokes : [invokes]).map((inv, index3) => {
+          const invokePath = `${path2}.invoke${Array.isArray(invokes) ? `[${index3}]` : ""}`;
+          return {
+            src: inv.src,
+            id: inv.id,
+            registryKey: inv.registryKey,
+            input: inv.input !== void 0 ? (args) => resolveValue2(inv.input, "input", makeScope(args), `${invokePath}.input`) : void 0,
+            onDone: inv.onDone ? getTransitionConfig(inv.onDone, `${invokePath}.onDone`) : void 0,
+            onError: inv.onError ? getTransitionConfig(inv.onError, `${invokePath}.onError`) : void 0,
+            onSnapshot: inv.onSnapshot ? getTransitionConfig(inv.onSnapshot, `${invokePath}.onSnapshot`) : void 0,
+            timeout: getDurationConfig(inv.timeout, `${invokePath}.timeout`),
+            onTimeout: inv.onTimeout ? getTransitionConfig(inv.onTimeout, `${invokePath}.onTimeout`) : void 0
+          };
+        });
+      }
+      function iterNode(node, path2) {
+        return {
+          id: node.id,
+          initial: node.initial,
+          type: node.type,
+          history: node.history,
+          target: node.target,
+          description: node.description,
+          tags: node.tags,
+          input: node.input,
+          timeout: getDurationConfig(node.timeout, `${path2}.timeout`),
+          states: node.states ? Object.fromEntries(Object.entries(node.states).map(([key, value]) => [key, iterNode(value, `${path2}.states.${key}`)])) : void 0,
+          on: node.on ? Object.fromEntries(Object.entries(node.on).map(([key, value]) => [key, getTransitionConfig(value, `${path2}.on.${key}`)])) : void 0,
+          always: node.always ? getTransitionConfig(node.always, `${path2}.always`) : void 0,
+          onError: node.onError ? getTransitionConfig(node.onError, `${path2}.onError`) : void 0,
+          choice: makeChoiceConfig(node.choice, `${path2}.choice`),
+          route: resolveRouteConfig(node.route, `${path2}.route`),
+          after: node.after ? Object.fromEntries(Object.entries(node.after).map(([key, value]) => [key, getTransitionConfig(value, `${path2}.after.${key}`)])) : void 0,
+          onTimeout: node.onTimeout ? getTransitionConfig(node.onTimeout, `${path2}.onTimeout`) : void 0,
+          entry: node.entry ? iterActions(node.entry, `${path2}.entry`) : void 0,
+          exit: node.exit ? iterActions(node.exit, `${path2}.exit`) : void 0,
+          invoke: node.invoke ? iterInvokeConfigs(node.invoke, path2) : void 0,
+          meta: node.meta,
+          output: containsResolvable(node.output) ? ({
+            context,
+            event,
+            self,
+            input
+          }) => resolveValue2(node.output, "output", {
+            context,
+            event,
+            self,
+            input
+          }, `${path2}.output`) : node.output
+        };
+      }
+      if (json3.delays) {
+        for (const [key, delay] of Object.entries(json3.delays)) {
+          if (typeof delay === "number") resolvedSources.delays[key] = delay;
+          else if (typeof delay === "string") resolvedSources.delays[key] = delayToMs(delay);
+          else if (delay && typeof delay === "object") {
+            resolvedSources.delays[key] = (args) => delayToMs(resolveValue2(delay.duration, "delay", makeScope(args), `$.delays.${key}.duration`));
+          }
+        }
+      }
+      const stateIdRefs = assertMachineJSON(json3, resolvedSources, expressionResolver);
+      const contextConfig = json3.context ? {
+        context: (args) => resolveValue2(json3.context, "context", args, "$.context")
+      } : {};
+      const machine = createMachineFromCompiledConfig({
+        ...iterNode(json3, "$"),
+        ...contextConfig,
+        version: json3.version,
+        ...sources.schemas && {
+          schemas: sources.schemas
+        }
+      }, sources.validator);
+      assertInitialStates(machine.root, "$");
+      for (const {
+        stateId,
+        path: path2
+      } of stateIdRefs) {
+        if (!machine.idMap.has(stateId.replace(/^#/, ""))) {
+          throw new Error(`Unknown state ID "${stateId}" at ${path2}`);
+        }
+      }
+      if (json3.internalEvents?.length) {
+        machine.internalEventDescriptors = [...machine.internalEventDescriptors, ...json3.internalEvents];
+      }
+      const provided = machine.provide({
+        actions: resolvedSources.actions,
+        actors: resolvedSources.actors,
+        guards: {
+          "xstate.stateIn": (args, params2) => {
+            const stateId = params2?.stateId;
+            const snapshot = args._snapshot;
+            return !!stateId && !!snapshot?.nodes?.some((node) => node.id === stateId.replace(/^#/, ""));
+          },
+          "xstate.not": (args, params2) => {
+            const inner = params2?.guard;
+            const impl = inner && args.guards?.[inner.type];
+            if (!impl) throw new Error(`Guard '${inner?.type}' referenced by 'xstate.not' is not implemented.`);
+            return !impl(args, inner.params);
+          },
+          ...resolvedSources.guards
+        },
+        delays: resolvedSources.delays
+      });
+      provided._json = json3;
+      return provided;
+    }
+    function assertInitialStates(stateNode, path2) {
+      if (stateNode.type === "compound") {
+        try {
+          void stateNode.initial;
+        } catch (err) {
+          throw new Error(`Invalid initial state at ${path2}.initial: ${err.message}`);
+        }
+      }
+      for (const key of Object.keys(stateNode.states)) {
+        assertInitialStates(stateNode.states[key], `${path2}.states.${key}`);
+      }
+    }
+    function isBuiltInActionJSON(action) {
+      return !isResolvable(action) && action.type.startsWith("@xstate.");
+    }
+    function mapState3(snapshot, mapper) {
+      const results = [];
+      const findMapper = (currentMapper, nodePath) => {
+        let mapper2 = currentMapper;
+        for (const key of nodePath) {
+          if (!mapper2?.states) {
+            return void 0;
+          }
+          const states = mapper2.states;
+          if (!(key in states)) {
+            return void 0;
+          }
+          mapper2 = states[key];
+        }
+        return mapper2;
+      };
+      const visited2 = /* @__PURE__ */ new Set();
+      for (const atomicNode of snapshot.nodes.filter(createActor3.isAtomicStateNode)) {
+        let current = atomicNode;
+        while (current && !visited2.has(current)) {
+          visited2.add(current);
+          const nodeMapper = findMapper(mapper, current.path);
+          if (nodeMapper?.map) {
+            results.push({
+              stateNode: current,
+              result: nodeMapper.map(snapshot)
+            });
+          }
+          current = current.parent;
+        }
+      }
+      return results;
+    }
+    function isObject3(value) {
+      return value !== null && typeof value === "object";
+    }
+    function isVersionedStateMachine(entry2) {
+      return "transition" in entry2 && typeof entry2.transition === "function";
+    }
+    function hasSnapshotSchema(entry2) {
+      return "snapshotSchema" in entry2 && entry2.snapshotSchema !== void 0;
+    }
+    function hasEventSchema(entry2) {
+      return "eventSchema" in entry2 && entry2.eventSchema !== void 0;
+    }
+    function getSnapshotSource(raw, defaultId) {
+      if (!isObject3(raw)) {
+        return {};
+      }
+      if (isObject3(raw.machine)) {
+        return {
+          id: typeof raw.machine.id === "string" ? raw.machine.id : void 0,
+          version: typeof raw.machine.version === "string" ? raw.machine.version : void 0
+        };
+      }
+      return {
+        id: typeof raw.version === "string" ? defaultId : void 0,
+        version: typeof raw.version === "string" ? raw.version : void 0
+      };
+    }
+    async function validate4(schema2, value, description) {
+      if (!schema2) {
+        return value;
+      }
+      const result = await schema2["~standard"].validate(value);
+      if (result.issues) {
+        throw new Error(`Invalid ${description}: ${result.issues[0]?.message}`);
+      }
+      return result.value;
+    }
+    async function finalizeSnapshot(snapshot, target) {
+      return await validate4(target.snapshotSchema, {
+        ...snapshot,
+        machine: {
+          id: target.id,
+          version: target.version
+        },
+        version: target.version
+      }, `snapshot for machine '${target.id}' version '${target.version}'`);
+    }
+    async function validateEvents(events, source) {
+      return Promise.all(events.map(async (event, index3) => {
+        const schema2 = historicalEventSchemas.get(source) ?? source.eventSchema;
+        const result = await schema2["~standard"].validate(event);
+        if (result.issues) {
+          const message = result.issues[0]?.message;
+          if (message?.startsWith("Unknown event ")) {
+            throw new Error(message);
+          }
+          const type = isObject3(event) ? event.type : void 0;
+          throw new Error(typeof type === "string" ? `Invalid event '${type}' at index ${index3}${message ? `: ${message}` : "."}` : `Invalid event at index ${index3}${message ? `: ${message}` : "."}`);
+        }
+        const validated = result.value;
+        if (!isObject3(validated) || typeof validated.type !== "string") {
+          throw new Error(`Invalid event at index ${index3}.`);
+        }
+        return validated;
+      }));
+    }
+    function machineVersions3(entries2, options2) {
+      const byIdentity = /* @__PURE__ */ new Map();
+      const machinesByIdentity = /* @__PURE__ */ new Map();
+      const machineId = entries2[0].id;
+      for (const entry2 of entries2) {
+        if (entry2.version === void 0) {
+          throw new Error(`Machine '${entry2.id}' must define a version.`);
+        }
+        if (entry2.version === "*") {
+          throw new Error("Machine version '*' is reserved for wildcard migrations.");
+        }
+        if (entry2.id !== machineId) {
+          throw new Error(`Machine '${entry2.id}' does not match machine ID '${machineId}'.`);
+        }
+        const key = `${entry2.id}\0${entry2.version}`;
+        if (byIdentity.has(key)) {
+          throw new Error(`Duplicate machine identity '${entry2.id}' version '${entry2.version}'.`);
+        }
+        byIdentity.set(key, entry2);
+        if (isVersionedStateMachine(entry2)) {
+          machinesByIdentity.set(key, entry2);
+        }
+      }
+      if (options2?.unversioned !== void 0 && !byIdentity.has(`${machineId}\0${options2.unversioned}`)) {
+        throw new Error(`Unversioned snapshot version '${options2.unversioned}' is not retained for machine '${machineId}'.`);
+      }
+      const parseSnapshot = async (raw) => {
+        if (!isObject3(raw)) {
+          throw new Error("Persisted snapshot is missing machine identity.");
+        }
+        let id;
+        let version;
+        if (isObject3(raw.machine)) {
+          ({
+            id,
+            version
+          } = raw.machine);
+          if (typeof id !== "string" || typeof version !== "string") {
+            throw new Error("Persisted snapshot has an invalid machine identity.");
+          }
+        } else if (typeof raw.version === "string") {
+          id = machineId;
+          version = raw.version;
+        } else if (raw.version === void 0 && options2?.unversioned !== void 0) {
+          id = machineId;
+          version = options2.unversioned;
+        } else {
+          throw new Error("Persisted snapshot is missing machine identity.");
+        }
+        if (raw.version !== void 0 && typeof raw.version !== "string") {
+          throw new Error("Persisted snapshot has an invalid version.");
+        }
+        if (raw.version !== void 0 && raw.version !== version) {
+          throw new Error(`Persisted snapshot version '${raw.version}' conflicts with machine version '${version}'.`);
+        }
+        const source = byIdentity.get(`${id}\0${version}`);
+        if (!source) {
+          throw new Error(`Unknown machine identity '${id}' version '${version}'.`);
+        }
+        if (!hasSnapshotSchema(source)) {
+          throw new Error(`Machine version '${version}' does not define a snapshot schema.`);
+        }
+        const snapshot = await validate4(source.snapshotSchema, raw, `snapshot for machine '${id}' version '${version}'`);
+        return {
+          source,
+          ...isVersionedStateMachine(source) && {
+            machine: source
+          },
+          snapshot: {
+            ...snapshot,
+            machine: {
+              id,
+              version
+            }
+          }
+        };
+      };
+      return {
+        parseSnapshot,
+        async adaptEvents(events, adaptationOptions) {
+          const target = machinesByIdentity.get(`${machineId}\0${adaptationOptions.to}`);
+          if (!target) {
+            throw new Error(`Target version '${adaptationOptions.to}' is not backed by a machine for '${machineId}'.`);
+          }
+          const sourceId = adaptationOptions.from.id ?? machineId;
+          const source = byIdentity.get(`${sourceId}\0${adaptationOptions.from.version}`);
+          let sourceError;
+          let sourceValidationFailed = false;
+          const hasTypedSource = source && hasEventSchema(source);
+          if (hasTypedSource) {
+            let sourceEvents;
+            try {
+              sourceEvents = await validateEvents(events, source);
+            } catch (error) {
+              sourceError = error;
+              sourceValidationFailed = true;
+            }
+            if (sourceEvents) {
+              if (source === target) {
+                return sourceEvents;
+              }
+              const adapter = adaptationOptions.adapters[source.version];
+              if (adapter) {
+                return validateEvents(await adapter(sourceEvents), target);
+              }
+            }
+          }
+          const wildcardAdapter = adaptationOptions.adapters["*"];
+          if (wildcardAdapter) {
+            return validateEvents(await wildcardAdapter(events, adaptationOptions.from), target);
+          }
+          if (hasTypedSource) {
+            if (sourceValidationFailed) {
+              throw sourceError instanceof Error ? sourceError : new Error(`Unable to validate event history for machine '${source.id}' version '${source.version}'.`, {
+                cause: sourceError
+              });
+            }
+            throw new Error(`No event adapter from version '${source.version}' to '${target.version}' for machine '${target.id}'.`);
+          }
+          if (source) {
+            throw new Error(`Machine version '${source.version}' does not define an event schema; only the '*' adapter can handle its event history.`);
+          }
+          throw new Error(`Unknown event history source '${sourceId}' version '${adaptationOptions.from.version}'.`);
+        },
+        async migrateSnapshot(raw, migrationOptions) {
+          const target = machinesByIdentity.get(`${machineId}\0${migrationOptions.to}`);
+          if (!target) {
+            throw new Error(`Target version '${migrationOptions.to}' is not backed by a machine for '${machineId}'.`);
+          }
+          let source;
+          let parseError;
+          try {
+            source = await parseSnapshot(raw);
+          } catch (error) {
+            parseError = error;
+          }
+          if (source) {
+            if (source.source.version === target.version) {
+              return finalizeSnapshot(source.snapshot, target);
+            }
+            const exactMigration = migrationOptions.migrations[source.source.version];
+            if (exactMigration) {
+              return finalizeSnapshot(await exactMigration(source.snapshot), target);
+            }
+          }
+          const wildcardMigration = migrationOptions.migrations["*"];
+          if (!wildcardMigration) {
+            if (source) {
+              throw new Error(`No snapshot migration from version '${source.source.version}' to '${target.version}' for machine '${target.id}'.`);
+            }
+            throw parseError;
+          }
+          const snapshot = await wildcardMigration(raw, getSnapshotSource(raw, machineId));
+          return finalizeSnapshot(snapshot, target);
+        }
+      };
+    }
+    function hotSwapActorLogic(actorRef, machine) {
+      const actor = actorRef;
+      const snapshot = actor.getSnapshot();
+      if (actor._processingStatus !== createActor3.ProcessingStatus.Running || snapshot.status !== "active" || snapshot.machine?.id !== machine.id) {
+        return false;
+      }
+      let nodes;
+      const historyValue = {};
+      try {
+        nodes = [...createActor3.getAllStateNodes(createActor3.getStateNodes(machine.root, snapshot.value))];
+        for (const [key, items] of Object.entries(snapshot.historyValue ?? {})) {
+          if (machine.getStateNodeById(key).type !== "history") {
+            return false;
+          }
+          historyValue[key] = items.map((item) => machine.getStateNodeById(item.id));
+        }
+      } catch {
+        return false;
+      }
+      const children = {};
+      const restarts = [];
+      for (const [childId, child] of Object.entries(snapshot.children)) {
+        if (!child) {
+          continue;
+        }
+        if (typeof child.src !== "string") {
+          children[childId] = child;
+          continue;
+        }
+        let logic;
+        try {
+          logic = createActor3.resolveReferencedActor(machine, child.src);
+        } catch {
+        }
+        if (!logic || typeof logic === "function") {
+          return false;
+        }
+        if (logic === child.logic) {
+          children[childId] = child;
+        } else {
+          restarts.push([childId, child, logic]);
+        }
+      }
+      const restarting = new Set(restarts.map(([, child]) => child));
+      if (restarting.size && (Object.values(snapshot.timers ?? {}).some((timer) => restarting.has(timer.target)) || holdsActorRef(snapshot.context, restarting))) {
+        return false;
+      }
+      const buildSnapshot = () => createActor3.createMachineSnapshot({
+        ...snapshot,
+        _nodes: nodes,
+        value: void 0,
+        children,
+        historyValue
+      }, machine);
+      if (machine.validator?.check({
+        kind: "result",
+        logic: machine,
+        snapshot: buildSnapshot(),
+        effects: []
+      })) {
+        return false;
+      }
+      for (const [childId, child, logic] of restarts) {
+        actor._stopChild(child);
+        children[childId] = actor.system.createActorRef(logic, {
+          id: childId,
+          parent: actor,
+          syncSnapshot: child._syncSnapshot,
+          src: child.src,
+          registryKey: child.registryKey,
+          input: child.options?.input
+        });
+      }
+      if (actor.src === actor.logic) {
+        actor.src = machine;
+      }
+      actor.logic = machine;
+      const next = buildSnapshot();
+      actor._setSnapshot(next);
+      actor._next(next);
+      for (const [childId] of restarts) {
+        children[childId].start();
+      }
+      return true;
+    }
+    function holdsActorRef(value, refs, visited2 = /* @__PURE__ */ new Set()) {
+      if (!value || typeof value !== "object" || visited2.has(value)) {
+        return false;
+      }
+      visited2.add(value);
+      if (createActor3.isActorRefLike(value)) {
+        return refs.has(value);
+      }
+      const proto = Object.getPrototypeOf(value);
+      const items = value instanceof Map || value instanceof Set ? [...value.values()] : Array.isArray(value) || proto === Object.prototype || proto === null ? Object.values(value) : [];
+      return items.some((item) => holdsActorRef(item, refs, visited2));
+    }
+    var setup3 = function setupImplementation(config = {}) {
+      const {
+        validator,
+        states = {},
+        schemas,
+        actions,
+        actors,
+        guards,
+        delays
+      } = config;
+      return {
+        extend(extension) {
+          return setup3(mergeSetupConfigs(config, extension));
+        },
+        createMachine(machineConfig) {
+          const configSchemas = machineConfig.schemas;
+          const mergedSchemas = mergeSchemas(configSchemas, schemas);
+          const mergedStates = mergeStateSchemas(machineConfig.states, states);
+          const mergedActions = mergeMaps(actions, machineConfig.actions);
+          const mergedActors = mergeMaps(actors, machineConfig.actors);
+          const mergedGuards = mergeMaps(guards, machineConfig.guards);
+          const mergedDelays = mergeMaps(delays, machineConfig.delays);
+          const config2 = {
+            ...machineConfig,
+            ...mergedSchemas ? {
+              schemas: mergedSchemas
+            } : void 0,
+            ...mergedStates ? {
+              states: mergedStates
+            } : void 0,
+            ...mergedActions ? {
+              actions: mergedActions
+            } : void 0,
+            ...mergedActors ? {
+              actors: mergedActors
+            } : void 0,
+            ...mergedGuards ? {
+              guards: mergedGuards
+            } : void 0,
+            ...mergedDelays ? {
+              delays: mergedDelays
+            } : void 0
+          };
+          return new StateMachine3(config2, void 0, validator);
+        },
+        createInvoke(invokeConfig, ..._check) {
+          return typeof invokeConfig.src === "function" ? {
+            ...invokeConfig,
+            src: dist_xstateActors.createAsyncLogic({
+              schemas: invokeConfig.schemas,
+              run: invokeConfig.src
+            })
+          } : invokeConfig;
+        },
+        createStateConfig(...args) {
+          return args.length > 1 ? args[1] : args[0];
+        },
+        states,
+        schemas: schemas ?? {}
+      };
+    };
+    function createSystem3(_config = {}) {
+      const runtimeRef = {};
+      const pending = [];
+      const flushObservers = () => {
+        const runtime = runtimeRef.current;
+        if (!runtime) {
+          return;
+        }
+        for (const entry2 of pending) {
+          if (entry2.active && !entry2.subscription) {
+            entry2.subscription = entry2.subscribe(runtime);
+          }
+        }
+      };
+      const subscribeToSystem = (subscribe) => {
+        const runtime = runtimeRef.current;
+        if (runtime) {
+          return subscribe(runtime);
+        }
+        const entry2 = {
+          subscribe,
+          active: true
+        };
+        pending.push(entry2);
+        return {
+          unsubscribe() {
+            entry2.active = false;
+            entry2.subscription?.unsubscribe();
+          }
+        };
+      };
+      return {
+        createActor(logic, ...[options2]) {
+          const actor = createActor3.createActor(logic, {
+            ...options2,
+            _systemRef: runtimeRef
+          });
+          flushObservers();
+          return actor;
+        },
+        get(key) {
+          return runtimeRef.current?.get(key);
+        },
+        getAll() {
+          return runtimeRef.current?.getAll() ?? {};
+        },
+        inspect(observer) {
+          return subscribeToSystem((system) => system.inspect(observer));
+        },
+        onRejectedEvent(listener) {
+          return subscribeToSystem((system) => system.onRejectedEvent(listener));
+        },
+        setup: setup3
+      };
+    }
+    function mergeMaps(left, right) {
+      return left || right ? {
+        ...left,
+        ...right
+      } : void 0;
+    }
+    function mergeSetupStateSchemas(left, right) {
+      if (!left && !right) {
+        return void 0;
+      }
+      if (!left) {
+        return right;
+      }
+      if (!right) {
+        return left;
+      }
+      return Object.fromEntries(Array.from(/* @__PURE__ */ new Set([...Object.keys(left), ...Object.keys(right)])).map((key) => {
+        const leftState = left[key];
+        const rightState = right[key];
+        if (!leftState) {
+          return [key, rightState];
+        }
+        if (!rightState) {
+          return [key, leftState];
+        }
+        const schemas = mergeSchemas(leftState.schemas, rightState.schemas);
+        const states = mergeSetupStateSchemas(leftState.states, rightState.states);
+        return [key, {
+          ...leftState,
+          ...rightState,
+          ...schemas ? {
+            schemas
+          } : void 0,
+          ...states ? {
+            states
+          } : void 0
+        }];
+      }));
+    }
+    function mergeSchemas(left, right) {
+      if (!left && !right) {
+        return void 0;
+      }
+      return {
+        ...left,
+        ...right,
+        events: mergeMaps(left?.events, right?.events),
+        internalEvents: mergeMaps(left?.internalEvents, right?.internalEvents),
+        actions: mergeMaps(left?.actions, right?.actions),
+        guards: mergeMaps(left?.guards, right?.guards),
+        emitted: mergeMaps(left?.emitted, right?.emitted),
+        children: mergeMaps(left?.children, right?.children)
+      };
+    }
+    function mergeStateSchemas(configStates, setupStates) {
+      if (!configStates || !setupStates) {
+        return configStates;
+      }
+      return Object.fromEntries(Object.entries(configStates).map(([key, configState]) => {
+        const setupState = setupStates[key];
+        if (!setupState) {
+          return [key, configState];
+        }
+        const schemas = mergeMaps(configState.schemas, setupState.schemas);
+        const states = mergeStateSchemas(configState.states, setupState.states);
+        const structuralFields = ["type", "id", "initial", "history", "target", "route"];
+        const structural = Object.fromEntries(structuralFields.flatMap((field) => configState[field] === void 0 && setupState[field] !== void 0 ? [[field, setupState[field]]] : []));
+        return [key, {
+          ...configState,
+          ...structural,
+          ...schemas ? {
+            schemas
+          } : void 0,
+          ...states ? {
+            states
+          } : void 0
+        }];
+      }));
+    }
+    function mergeSetupConfigs(base3, extension) {
+      return {
+        ...base3,
+        ...extension,
+        schemas: mergeSchemas(base3.schemas, extension.schemas),
+        states: mergeSetupStateSchemas(base3.states, extension.states),
+        actions: mergeMaps(base3.actions, extension.actions),
+        actors: mergeMaps(base3.actors, extension.actors),
+        guards: mergeMaps(base3.guards, extension.guards),
+        delays: mergeMaps(base3.delays, extension.delays)
+      };
+    }
+    var IndexedHeap = class {
+      constructor(before) {
+        this.before = before;
+        this.entries = [];
+        this.indices = /* @__PURE__ */ new Map();
+      }
+      push(entry2) {
+        this.entries.push(entry2);
+        this.up(this.entries.length - 1, entry2);
+      }
+      peek() {
+        return this.entries[0];
+      }
+      pop() {
+        const first = this.peek();
+        if (first) this.remove(first);
+        return first;
+      }
+      remove(entry2) {
+        const index3 = this.indices.get(entry2);
+        if (index3 === void 0) return;
+        const last = this.entries.pop();
+        this.indices.delete(entry2);
+        if (index3 === this.entries.length) return;
+        if (index3 > 0 && this.before(last, this.entries[index3 - 1 >> 1])) {
+          this.up(index3, last);
+        } else {
+          this.down(index3, last);
+        }
+      }
+      up(index3, entry2) {
+        while (index3 > 0) {
+          const parent = index3 - 1 >> 1;
+          if (!this.before(entry2, this.entries[parent])) break;
+          this.place(index3, this.entries[parent]);
+          index3 = parent;
+        }
+        this.place(index3, entry2);
+      }
+      down(index3, entry2) {
+        while (index3 * 2 + 1 < this.entries.length) {
+          let child = index3 * 2 + 1;
+          if (child + 1 < this.entries.length && this.before(this.entries[child + 1], this.entries[child])) child++;
+          if (!this.before(this.entries[child], entry2)) break;
+          this.place(index3, this.entries[child]);
+          index3 = child;
+        }
+        this.place(index3, entry2);
+      }
+      place(index3, entry2) {
+        this.entries[index3] = entry2;
+        this.indices.set(entry2, index3);
+      }
+    };
+    var SimulatedClock3 = class {
+      constructor() {
+        this.timeouts = /* @__PURE__ */ new Map();
+        this.deadlines = new IndexedHeap((a, b) => {
+          const aTime = a.start + a.timeout;
+          const bTime = b.start + b.timeout;
+          return aTime < bTime || aTime === bTime && a.id < b.id;
+        });
+        this._now = 0;
+        this._id = 0;
+        this._flushing = false;
+      }
+      now() {
+        return this._now;
+      }
+      getId() {
+        return this._id++;
+      }
+      setTimeout(fn, timeout) {
+        if (!Number.isFinite(timeout)) throw new Error("Timer delay must be finite");
+        const id = this.getId();
+        const timer = {
+          id,
+          start: this.now(),
+          timeout: Math.max(0, timeout),
+          fn
+        };
+        this.timeouts.set(id, timer);
+        this.deadlines.push(timer);
+        return id;
+      }
+      clearTimeout(id) {
+        const timer = this.timeouts.get(id);
+        if (timer) this.deadlines.remove(timer);
+        this.timeouts.delete(id);
+      }
+      set(time) {
+        if (!Number.isFinite(time) || this._now > time) {
+          throw new Error("Clock time must be finite; unable to travel back in time");
+        }
+        if (this._flushing) throw new Error("Cannot advance a clock during a timer callback");
+        this.flushTimeouts(time);
+      }
+      flushTimeouts(destination) {
+        this._flushing = true;
+        try {
+          let count = 0;
+          while (true) {
+            const next = this.deadlines.peek();
+            if (!next || next.start + next.timeout > destination) break;
+            if (++count > 1e4) throw new Error("Clock exceeded 10,000 timer callbacks; check for a zero-delay loop");
+            this.deadlines.pop();
+            this._now = Math.max(this._now, next.start + next.timeout);
+            this.timeouts.delete(next.id);
+            next.fn.call(null);
+          }
+          this._now = destination;
+        } finally {
+          this._flushing = false;
+        }
+      }
+      increment(ms) {
+        this.set(this._now + ms);
+      }
+    };
+    function timerKey(source, id) {
+      return JSON.stringify([source.$actor, source.incarnation, id]);
+    }
+    function isReference(value) {
+      return !!value && typeof value.$actor === "string" && Number.isSafeInteger(value.incarnation);
+    }
+    function isHandle(value) {
+      return !!value && typeof value.address === "string" && typeof value.getSnapshot === "function";
+    }
+    var systemActorHandle = Symbol("xstate.systemActorHandle");
+    var systemLogger = () => {
+    };
+    function encode8(value, seen = /* @__PURE__ */ new Set(), mappers) {
+      if (typeof value === "function" && mappers?.has(value)) return {
+        $systemMapper: mappers.get(value)
+      };
+      if (isHandle(value)) {
+        if (!value[systemActorHandle]) throw new Error("Live actors cannot be stored in a pure system snapshot.");
+        return {
+          $actor: value.address,
+          incarnation: Number(value.sessionId)
+        };
+      }
+      if (!value || typeof value !== "object") {
+        if (typeof value === "function" || typeof value === "symbol" || typeof value === "bigint" || typeof value === "number" && !Number.isFinite(value)) throw new Error("System snapshots require data, not executable capabilities.");
+        return value;
+      }
+      if (seen.has(value)) throw new Error("System snapshots cannot contain cyclic data.");
+      seen.add(value);
+      let result;
+      if (value.machine && typeof value.machine.transition === "function" && typeof value.id === "string" && Array.isArray(value.path)) {
+        result = {
+          $stateNode: value.id
+        };
+      } else if (value instanceof Error) {
+        result = {
+          $error: value.name,
+          message: value.message
+        };
+      } else if (Array.isArray(value)) {
+        result = value.map((item) => encode8(item, seen, mappers));
+      } else {
+        if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) {
+          throw new Error("System snapshot values must be plain data.");
+        }
+        result = Object.fromEntries(Object.entries(value).map(([key, item]) => [key, encode8(item, seen, mappers)]));
+      }
+      seen.delete(value);
+      return result;
+    }
+    function snapshotData(snapshot, mappers) {
+      if (!createActor3.isMachineSnapshot(snapshot)) return encode8(snapshot, /* @__PURE__ */ new Set(), mappers);
+      const {
+        machine,
+        nodes,
+        tags,
+        matches,
+        can,
+        hasTag,
+        getMeta,
+        getInputs,
+        toJSON,
+        ...data
+      } = snapshot;
+      return encode8({
+        ...data,
+        nodeIds: nodes.map((node) => node.id)
+      }, /* @__PURE__ */ new Set(), mappers);
+    }
+    function definitions(systemLogic) {
+      const result = /* @__PURE__ */ new Map();
+      const visited2 = /* @__PURE__ */ new Set();
+      function add2(key, logic) {
+        result.set(key, logic);
+        if (visited2.has(logic)) return;
+        visited2.add(logic);
+        const machine = logic;
+        for (const [name, child] of Object.entries(machine.sources?.actors ?? {})) {
+          add2(`${key}/actors/${createActor3.encodeAddressSegment(name)}`, child);
+        }
+        function visit(node) {
+          for (const invoke of node.invoke ?? []) {
+            if (typeof invoke.logic === "object") add2(`${key}/invoke/${createActor3.encodeAddressSegment(node.id)}/${createActor3.encodeAddressSegment(invoke.id)}`, invoke.logic);
+          }
+          for (const child of Object.values(node.states ?? {})) visit(child);
+        }
+        if (machine.root) visit(machine.root);
+      }
+      add2("root", systemLogic.root);
+      for (const [key, logic] of Object.entries(systemLogic.actors ?? {})) add2(`actors/${createActor3.encodeAddressSegment(key)}`, logic);
+      add2("xstate.listener", createActor3.listenerLogic);
+      add2("xstate.subscription", createActor3.subscriptionLogic);
+      return result;
+    }
+    var SystemReduction = class {
+      constructor(logic, snapshot, maxSteps = 1e4) {
+        this.snapshot = void 0;
+        this.effects = [];
+        this.logic = void 0;
+        this.handles = /* @__PURE__ */ new Map();
+        this.snapshots = /* @__PURE__ */ new Map();
+        this.initialEffects = /* @__PURE__ */ new Map();
+        this.stopping = /* @__PURE__ */ new Set();
+        this.deadlines = new IndexedHeap((a, b) => a.dueAt < b.dueAt || a.dueAt === b.dueAt && a.sequence < b.sequence);
+        this.effectNames = /* @__PURE__ */ new Map([[systemLogger, "xstate.log"]]);
+        this.mapperNames = void 0;
+        this.mappers = void 0;
+        this.remaining = void 0;
+        if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) throw new Error("maxSteps must be a positive integer.");
+        this.logic = definitions(logic);
+        this.mappers = logic.mappers ?? {};
+        this.mapperNames = new Map(Object.entries(this.mappers).map(([key, mapper]) => [mapper, key]));
+        for (const [key, implementation] of Object.entries(logic.effects ?? {})) this.effectNames.set(implementation, key);
+        for (const [key, definition] of this.logic) {
+          for (const [name, implementation] of Object.entries(definition.sources?.actions ?? {})) {
+            if (typeof implementation === "function" && !this.effectNames.has(implementation)) this.effectNames.set(implementation, `${key}/actions/${createActor3.encodeAddressSegment(name)}`);
+          }
+        }
+        this.snapshot = {
+          ...snapshot,
+          actors: Object.assign(/* @__PURE__ */ Object.create(null), snapshot.actors),
+          registry: Object.assign(/* @__PURE__ */ Object.create(null), snapshot.registry),
+          messages: [...snapshot.messages],
+          timers: {
+            ...snapshot.timers
+          },
+          externalEffects: {
+            ...snapshot.externalEffects
+          },
+          counters: {
+            ...snapshot.counters
+          }
+        };
+        this.remaining = maxSteps;
+        for (const timer of Object.values(snapshot.timers)) this.deadlines.push(timer);
+      }
+      step() {
+        if (--this.remaining < 0) throw new Error("System transition exceeded maxSteps; the input snapshot is unchanged.");
+      }
+      reference(actor) {
+        return {
+          $actor: actor.address,
+          incarnation: Number(actor.sessionId)
+        };
+      }
+      current(ref) {
+        const actor = this.snapshot.actors[ref.$actor];
+        return actor?.incarnation === ref.incarnation ? actor : void 0;
+      }
+      decode(value, machine) {
+        if (isReference(value)) return this.handle(value);
+        if (!value || typeof value !== "object") return value;
+        if (typeof value.$systemMapper === "string") {
+          const mapper = Object.hasOwn(this.mappers, value.$systemMapper) && this.mappers[value.$systemMapper];
+          if (!mapper) throw new Error(`Missing pure mapper '${value.$systemMapper}'.`);
+          return mapper;
+        }
+        if (typeof value.$stateNode === "string") return machine.getStateNodeById(value.$stateNode);
+        if (typeof value.$error === "string") {
+          const error = new Error(value.message);
+          error.name = value.$error;
+          if (error.name === "TimeoutError") Object.setPrototypeOf(error, dist_xstateActors.TimeoutError.prototype);
+          return error;
+        }
+        if (Array.isArray(value)) return value.map((item) => this.decode(item, machine));
+        return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, this.decode(item, machine)]));
+      }
+      encode(value) {
+        return encode8(value, /* @__PURE__ */ new Set(), this.mapperNames);
+      }
+      attachedKind(actor) {
+        return this.logic.get(actor.logic)?.[createActor3.systemLogicMetadata]?.kind;
+      }
+      relayAttachments(source, emitted) {
+        for (const actor of Object.values(this.snapshot.actors)) {
+          const kind = this.attachedKind(actor);
+          if (!actor.started || actor.snapshot.status !== "active" || kind !== "xstate.listener" && kind !== "xstate.subscription") continue;
+          const target = actor.input.actor;
+          if (!target || target.$actor !== source.$actor || target.incarnation !== source.incarnation || !actor.parent || this.current(actor.parent)?.snapshot.status !== "active") continue;
+          const input = this.decode(actor.input);
+          let event;
+          if (kind === "xstate.listener") {
+            if (emitted && createActor3.matchesEventDescriptor(emitted.type, input.eventType)) event = input.mapper(this.decode(this.encode(emitted)));
+          } else if (!emitted) {
+            const snapshot = this.hydrate(source);
+            const mapper = input.mappers[snapshot.status === "active" ? "snapshot" : snapshot.status === "done" ? "done" : snapshot.status === "error" ? "error" : ""];
+            if (mapper) event = mapper(snapshot.status === "done" ? snapshot.output : snapshot.status === "error" ? snapshot.error : snapshot);
+          }
+          if (event) this.enqueue({
+            $actor: actor.address,
+            incarnation: actor.incarnation
+          }, actor.parent, event);
+        }
+      }
+      stopAttachments(parent) {
+        for (const actor of Object.values(this.snapshot.actors)) {
+          const kind = this.attachedKind(actor);
+          if ((kind === "xstate.listener" || kind === "xstate.subscription") && actor.parent?.$actor === parent.$actor && actor.parent.incarnation === parent.incarnation) this.stop({
+            $actor: actor.address,
+            incarnation: actor.incarnation
+          });
+        }
+      }
+      hydrate(ref) {
+        const key = JSON.stringify(ref);
+        if (this.snapshots.has(key)) return this.snapshots.get(key);
+        const actor = this.current(ref);
+        if (!actor) return {
+          status: "stopped",
+          output: void 0,
+          error: void 0
+        };
+        const logic = this.logic.get(actor.logic);
+        if (!logic || logic.version !== actor.logicVersion) throw new Error(`Actor definition/version mismatch for '${actor.address}'.`);
+        const data = this.decode(actor.snapshot, logic);
+        const snapshot = typeof logic.getStateNodeById === "function" && data.nodeIds ? createActor3.createMachineSnapshot({
+          ...data,
+          _nodes: data.nodeIds.map((id) => logic.getStateNodeById(id))
+        }, logic) : data;
+        this.snapshots.set(key, snapshot);
+        return snapshot;
+      }
+      handle(ref) {
+        const key = JSON.stringify(ref);
+        const existing = this.handles.get(key);
+        if (existing) return existing;
+        const actor = this.current(ref);
+        const getState = () => this.current(ref) ?? actor;
+        const getLogic = () => this.logic.get(getState()?.logic ?? "");
+        const getParent = () => {
+          const parent = getState()?.parent;
+          return parent && this.handle(parent);
+        };
+        const getSnapshot = () => this.hydrate(ref);
+        const unsupported = () => {
+          throw new Error("Use enqueue operations and systemTransition; live actor capabilities are unavailable in a pure snapshot.");
+        };
+        const handle2 = {
+          [systemActorHandle]: true,
+          id: actor?.id ?? ref.$actor.split("/").at(-1),
+          address: ref.$actor,
+          sessionId: String(ref.incarnation),
+          options: {
+            _inert: true,
+            input: actor?.input
+          },
+          get logic() {
+            return getLogic();
+          },
+          get src() {
+            return getState()?.logic;
+          },
+          get registryKey() {
+            return getState()?.registryKey;
+          },
+          get _parent() {
+            return getParent();
+          },
+          get _snapshot() {
+            return getSnapshot();
+          },
+          getSnapshot,
+          send: unsupported,
+          start: unsupported,
+          stop: unsupported,
+          subscribe: unsupported,
+          on: unsupported,
+          system: void 0
+        };
+        this.handles.set(key, handle2);
+        handle2.system = this.system();
+        return handle2;
+      }
+      system() {
+        return {
+          createActorRef: (logic, options2) => this.allocate(logic, options2),
+          _unregister: (actor) => {
+            this.stopping.add(JSON.stringify(this.reference(actor)));
+            for (const [key, ref] of Object.entries(this.snapshot.registry)) {
+              if (ref.$actor === actor.address && String(ref.incarnation) === actor.sessionId) delete this.snapshot.registry[key];
+            }
+          },
+          get: (key) => this.snapshot.registry[key] && this.handle(this.snapshot.registry[key]),
+          getAll: () => Object.fromEntries(Object.entries(this.snapshot.registry).map(([key, ref]) => [key, this.handle(ref)])),
+          _hasInspectionObservers: () => false,
+          _sendInspectionEvent: () => {
+          },
+          _clock: {
+            now: () => this.snapshot.now,
+            setTimeout: () => {
+              throw new Error("Timers must be declared as logical effects.");
+            },
+            clearTimeout: () => {
+              throw new Error("Timers must be canceled as logical effects.");
+            }
+          }
+        };
+      }
+      scope(ref, source) {
+        const self = this.handle(ref);
+        self._lastSourceRef = source && this.handle(source);
+        return {
+          self,
+          system: self.system,
+          id: self.id,
+          sessionId: self.sessionId,
+          logger: systemLogger,
+          defer: () => {
+          },
+          emit: () => {
+            throw new Error("Emit events through enqueue operations.");
+          },
+          actionExecutor: () => {
+            throw new Error("Execute external effects outside system transitions.");
+          },
+          stopChild: () => {
+            throw new Error("Stop children through enqueue operations.");
+          }
+        };
+      }
+      allocate(logic, options2 = {}) {
+        this.step();
+        const definition = [...this.logic].find(([, value]) => value === logic);
+        if (!definition) throw new Error("Register dynamically spawned logic in systemLogic.actors.");
+        const parent = options2.parent && this.reference(options2.parent);
+        const id = options2.id ?? `${createActor3.getActorIdPrefix(options2.src ?? logic)}:${this.snapshot.counters.actor}`;
+        const address = `${parent ? parent.$actor + "/" : ""}${createActor3.encodeAddressSegment(id)}`;
+        const occupied = this.snapshot.actors[address];
+        if (occupied?.snapshot.status === "active") {
+          const previous2 = {
+            $actor: address,
+            incarnation: occupied.incarnation
+          };
+          if (!this.stopping.has(JSON.stringify(previous2))) throw new Error(`Actor address '${address}' is already occupied.`);
+          this.stop(previous2);
+        }
+        const incarnation = this.snapshot.counters.actor++;
+        const ref = {
+          $actor: address,
+          incarnation
+        };
+        const state3 = {
+          id,
+          address,
+          incarnation,
+          logic: definition[0],
+          ...logic.version !== void 0 && {
+            logicVersion: logic.version
+          },
+          parent,
+          registryKey: options2.registryKey,
+          syncSnapshot: options2.syncSnapshot,
+          started: false,
+          input: this.encode(options2.input),
+          snapshot: {
+            status: "active",
+            output: void 0,
+            error: void 0
+          }
+        };
+        this.snapshot.actors[address] = state3;
+        if (options2.registryKey) {
+          if (this.snapshot.registry[options2.registryKey]) throw new Error(`Registry key '${options2.registryKey}' is already occupied.`);
+          this.snapshot.registry[options2.registryKey] = ref;
+        }
+        const scope = this.scope(ref);
+        const result = logic.initialTransition(this.decode(state3.input), scope);
+        const [snapshot, effects] = createActor3.finalizeTransitionResult(scope, void 0, result);
+        this.store(ref, snapshot);
+        this.initialEffects.set(JSON.stringify(ref), effects);
+        return this.handle(ref);
+      }
+      store(ref, snapshot) {
+        const actor = this.current(ref);
+        if (!actor) return;
+        this.snapshots.set(JSON.stringify(ref), snapshot);
+        this.snapshot.actors[ref.$actor] = {
+          ...actor,
+          snapshot: snapshotData(snapshot, this.mapperNames)
+        };
+      }
+      external(ref, effect) {
+        const value = effect;
+        if (value.kind === "action" && value.action === void 0) return;
+        const type = value.kind === "action" && !value.type.startsWith("xstate.logic.") ? this.effectNames.get(value.action) : value.type;
+        if (type === void 0) throw new Error("Register callable external actions in systemLogic.effects or the machine action sources.");
+        const id = `${this.snapshot.executionId}:${this.snapshot.counters.effect++}`;
+        const params2 = typeof value.params?.action === "function" ? Object.fromEntries(Object.entries(value.params).filter(([key]) => key !== "action" && key !== "args")) : value.params;
+        const result = {
+          id,
+          source: ref,
+          type,
+          kind: value.kind === "emit" ? "emit" : value.type === "@xstate.deadLetter" ? "deadLetter" : "action",
+          ...params2 !== void 0 && {
+            params: this.encode(params2)
+          },
+          args: this.encode(value.args ?? []),
+          ...value.event && {
+            event: this.encode(value.event)
+          },
+          ...value.reason && {
+            reason: value.reason
+          }
+        };
+        this.effects.push(result);
+        this.snapshot.externalEffects[id] = result;
+        if (value.kind === "emit") this.relayAttachments(ref, value.event);
+      }
+      enqueue(source, target, event, timerOccurrence) {
+        this.snapshot.messages.push({
+          source,
+          target,
+          event: this.encode(event),
+          sequence: this.snapshot.counters.sequence++,
+          ...timerOccurrence !== void 0 && {
+            timerOccurrence
+          }
+        });
+      }
+      cancel(ref, id) {
+        for (const [key, timer] of Object.entries(this.snapshot.timers)) {
+          if (timer.source.$actor === ref.$actor && timer.source.incarnation === ref.incarnation && (id === void 0 || timer.id === id)) delete this.snapshot.timers[key];
+        }
+      }
+      effectsFor(ref, effects) {
+        for (const effect of effects) {
+          const value = effect;
+          if (value.kind !== "builtin") {
+            this.external(ref, effect);
+            continue;
+          }
+          switch (value.type) {
+            case "@xstate.spawn":
+              break;
+            // Allocation already updated the snapshot.
+            case "@xstate.start":
+              this.start(this.reference(value.actor));
+              break;
+            case "@xstate.stop":
+              this.stop(this.reference(value.actor));
+              break;
+            case "@xstate.cancel":
+              this.cancel(ref, value.id);
+              break;
+            case "@xstate.raise":
+            case "@xstate.sendTo": {
+              if (value.delay !== void 0) {
+                if (!Number.isFinite(value.delay) || value.delay < 0) throw new Error("System timer delays must be finite and nonnegative.");
+                const timer = this.current(ref)?.snapshot.timers?.[value.id];
+                if (!timer) break;
+                this.schedule(ref, value.id, value.delay);
+              } else if (value.target) this.enqueue(ref, this.reference(value.target), value.event);
+              break;
+            }
+            case "@xstate.terminate":
+              this.terminate(ref);
+              break;
+            default:
+              this.external(ref, effect);
+          }
+        }
+      }
+      schedule(ref, id, delay, event) {
+        const dueAt = this.snapshot.now + delay;
+        if (!Number.isFinite(delay) || delay < 0 || !Number.isFinite(dueAt)) throw new Error("System timer deadlines must be finite and delays nonnegative.");
+        const timer = {
+          source: ref,
+          id,
+          occurrence: this.snapshot.counters.timer++,
+          scheduledAt: this.snapshot.now,
+          dueAt,
+          sequence: this.snapshot.counters.sequence++,
+          ...event && {
+            event: this.encode(event)
+          }
+        };
+        this.snapshot.timers[timerKey(ref, id)] = timer;
+        this.deadlines.push(timer);
+      }
+      start(ref) {
+        const actor = this.current(ref);
+        if (!actor || actor.started || actor.snapshot.status === "stopped") return;
+        this.snapshot.actors[ref.$actor] = {
+          ...actor,
+          started: true
+        };
+        this.effectsFor(ref, this.initialEffects.get(JSON.stringify(ref)) ?? []);
+        this.initialEffects.delete(JSON.stringify(ref));
+        if (this.attachedKind(actor) === "xstate.subscription") {
+          const input = this.decode(actor.input);
+          const target = this.reference(input.actor);
+          const observed = this.current(target);
+          if (observed?.started && observed.snapshot.status === "error" && input.mappers.error && actor.parent) {
+            this.enqueue(ref, actor.parent, input.mappers.error(this.hydrate(target).error));
+          }
+        }
+        if (this.current(ref)?.snapshot.status === "active") this.relayAttachments(ref);
+        const metadata = this.logic.get(actor.logic)[createActor3.systemLogicMetadata];
+        if (metadata?.timeout !== void 0 && this.current(ref)?.snapshot.status === "active") {
+          const delay = createActor3.parseDelayToMilliseconds(metadata.timeout);
+          if (delay === void 0) throw new Error("Unable to resolve async actor timeout.");
+          this.schedule(ref, "xstate.async.timeout", delay, {
+            type: "xstate.async.reject",
+            data: new dist_xstateActors.TimeoutError(metadata.timeout)
+          });
+        }
+      }
+      stop(ref) {
+        const actor = this.current(ref);
+        if (!actor || actor.snapshot.status !== "active") return;
+        this.process({
+          source: ref,
+          target: ref,
+          event: {
+            type: "@xstate.stop"
+          },
+          sequence: this.snapshot.counters.sequence++
+        });
+        this.cancel(ref);
+        this.handle(ref).system._unregister(this.handle(ref));
+        this.snapshot.messages = this.snapshot.messages.filter((message) => message.target.$actor !== ref.$actor || message.target.incarnation !== ref.incarnation);
+        this.cancelExternal(ref);
+        this.stopAttachments(ref);
+      }
+      cancelExternal(ref) {
+        for (const [id, effect] of Object.entries(this.snapshot.externalEffects)) {
+          if (effect.kind !== "action" || effect.type === "xstate.system.cancelEffect" || effect.type === "xstate.logic.cleanup" || effect.source.$actor !== ref.$actor || effect.source.incarnation !== ref.incarnation) continue;
+          delete this.snapshot.externalEffects[id];
+          const cancellation = {
+            id: `${this.snapshot.executionId}:${this.snapshot.counters.effect++}`,
+            source: ref,
+            kind: "action",
+            type: "xstate.system.cancelEffect",
+            params: {
+              effectId: id
+            }
+          };
+          this.effects.push(cancellation);
+          this.snapshot.externalEffects[cancellation.id] = cancellation;
+        }
+      }
+      terminate(ref) {
+        const actor = this.current(ref);
+        if (!actor) return;
+        this.relayAttachments(ref);
+        this.cancel(ref);
+        this.cancelExternal(ref);
+        this.stopAttachments(ref);
+        if (actor.parent) {
+          const event = actor.snapshot.status === "done" ? createActor3.createDoneActorEvent(actor.id, this.decode(actor.snapshot.output), String(actor.incarnation)) : createActor3.createErrorActorEvent(actor.id, this.decode(actor.snapshot.error), String(actor.incarnation));
+          this.enqueue(ref, actor.parent, event);
+        }
+      }
+      process(message) {
+        this.step();
+        const actor = this.current(message.target);
+        if (!actor || actor.snapshot.status !== "active") return;
+        if (message.event.type === "xstate.timer" && message.timerOccurrence === void 0) {
+          throw new Error("Only the system scheduler may deliver a timer occurrence.");
+        }
+        const logic = this.logic.get(actor.logic);
+        if (!logic) throw new Error(`Missing actor definition '${actor.logic}'.`);
+        if (logic.isInternalEventType?.(message.event.type) && (!message.source || message.source.$actor !== actor.address || message.source.incarnation !== actor.incarnation)) {
+          throw new Error(`Internal event '${message.event.type}' cannot be injected into a pure system.`);
+        }
+        if (!message.source && /^(xstate\.after(?:\.|$)|xstate\.timeout(?:\.|$))/.test(message.event.type)) throw new Error("Select a pending timer instead of injecting its internal event.");
+        const scope = this.scope(message.target, message.source);
+        const previous2 = this.hydrate(message.target);
+        const [snapshot, effects] = createActor3.finalizeTransitionResult(scope, previous2, logic.transition(previous2, this.decode(message.event), scope));
+        this.store(message.target, snapshot);
+        this.effectsFor(message.target, effects);
+        if (snapshot.status === "active") this.relayAttachments(message.target);
+        if (actor.syncSnapshot && actor.parent && snapshot.status === "active") {
+          this.enqueue(message.target, actor.parent, {
+            type: "xstate.snapshot.actor",
+            actorId: actor.id,
+            sessionId: String(actor.incarnation),
+            snapshot: snapshotData(snapshot, this.mapperNames)
+          });
+        }
+      }
+      settle() {
+        while (this.snapshot.messages.length) {
+          const message = this.snapshot.messages.shift();
+          this.process(message);
+        }
+      }
+      advance(time) {
+        if (!Number.isFinite(time) || time < this.snapshot.now) throw new Error("System time must be finite and cannot move backwards.");
+        this.settle();
+        while (true) {
+          const timer = this.deadlines.peek();
+          if (timer && this.snapshot.timers[timerKey(timer.source, timer.id)] !== timer) {
+            this.deadlines.pop();
+            continue;
+          }
+          if (!timer || timer.dueAt > time) break;
+          this.step();
+          this.deadlines.pop();
+          delete this.snapshot.timers[timerKey(timer.source, timer.id)];
+          this.snapshot.now = Math.max(this.snapshot.now, timer.dueAt);
+          const actor = this.current(timer.source);
+          if (!actor || actor.snapshot.status !== "active" || !timer.event && !actor.snapshot.timers?.[timer.id]) continue;
+          this.enqueue(timer.source, timer.source, timer.event ?? {
+            type: "xstate.timer",
+            id: timer.id
+          }, timer.occurrence);
+          this.settle();
+        }
+        this.snapshot.now = time;
+      }
+      send(path2, event) {
+        if (event.type === "xstate.timer") {
+          const actor2 = this.snapshot.actors[path2];
+          if (!actor2) throw new Error(`Unknown actor address '${path2}'.`);
+          const timer = this.snapshot.timers[timerKey({
+            $actor: path2,
+            incarnation: actor2.incarnation
+          }, event.id)];
+          if (!timer || event.occurrence !== timer.occurrence) throw new Error("Select a current timer occurrence.");
+          this.advance(timer.dueAt);
+          return;
+        }
+        this.advance(this.snapshot.now);
+        const actor = this.snapshot.actors[path2];
+        if (!actor) throw new Error(`Unknown actor address '${path2}'.`);
+        const ref = {
+          $actor: path2,
+          incarnation: actor.incarnation
+        };
+        if (event.type === "xstate.system.effect.result") {
+          const effect = this.snapshot.externalEffects[event.effectId];
+          if (!effect || effect.source.$actor !== path2 || event.event && (effect.source.incarnation !== actor.incarnation || actor.snapshot.status !== "active" || effect.type === "xstate.system.cancelEffect" || effect.type === "xstate.logic.cleanup")) throw new Error("External effect result does not match its owner or is stale.");
+          delete this.snapshot.externalEffects[event.effectId];
+          if (event.event) {
+            this.enqueue(ref, ref, event.event);
+            this.settle();
+          }
+          return;
+        }
+        if (event.type === "@xstate.stop") {
+          this.stop(ref);
+          this.settle();
+          return;
+        }
+        if (event.type.startsWith("xstate.async.") || event.type.startsWith("xstate.logic.effect.")) throw new Error("Deliver external work results with xstate.system.effect.result.");
+        this.enqueue(void 0, ref, event);
+        this.settle();
+      }
+      initialize(input, id, registryKey) {
+        const root = this.allocate(this.logic.get("root"), {
+          id,
+          input,
+          registryKey
+        });
+        this.snapshot.root = root.address;
+        this.start(this.reference(root));
+        this.settle();
+      }
+    };
+    function initialSystemTransition3(systemLogic, options2 = {}) {
+      const now2 = options2.time ?? 0;
+      if (!Number.isFinite(now2) || now2 < 0) throw new Error("Initial system time must be finite and nonnegative.");
+      const reduction = new SystemReduction(systemLogic, {
+        root: "",
+        executionId: options2.executionId ?? "system",
+        now: now2,
+        actors: {},
+        registry: {},
+        messages: [],
+        timers: {},
+        externalEffects: {},
+        counters: {
+          actor: 0,
+          timer: 0,
+          sequence: 0,
+          effect: 0
+        }
+      }, options2.maxSteps);
+      reduction.initialize(options2.input, options2.id ?? systemLogic.root.id ?? "root", options2.registryKey);
+      return [reduction.snapshot, reduction.effects];
+    }
+    function systemTransition3(systemLogic, snapshot, actorPath, event) {
+      const reduction = new SystemReduction(systemLogic, snapshot);
+      reduction.send(actorPath, event);
+      return [reduction.snapshot, reduction.effects];
+    }
+    function advanceSystemTime3(systemLogic, snapshot, options2) {
+      const reduction = new SystemReduction(systemLogic, snapshot, options2.maxSteps);
+      reduction.advance(options2.time);
+      return [reduction.snapshot, reduction.effects];
+    }
+    function toPromise3(actor) {
+      return new Promise((resolve2, reject) => {
+        actor.subscribe({
+          complete: () => {
+            resolve2(actor.getSnapshot().output);
+          },
+          error: reject
+        });
+      });
+    }
+    var SpecialTargets2 = /* @__PURE__ */ (function(SpecialTargets3) {
+      SpecialTargets3["Internal"] = "#_internal";
+      return SpecialTargets3;
+    })({});
+    var defaultWaitForOptions = {
+      timeout: Infinity
+      // much more than 10 seconds
+    };
+    function waitFor4(actorRef, predicate, options2) {
+      const resolvedOptions = {
+        ...defaultWaitForOptions,
+        ...options2
+      };
+      return new Promise((res, rej) => {
+        const {
+          signal
+        } = resolvedOptions;
+        if (signal?.aborted) {
+          rej(signal.reason);
+          return;
+        }
+        let done = false;
+        const handle2 = resolvedOptions.timeout === Infinity ? void 0 : setTimeout(() => {
+          dispose();
+          rej(new Error(`Timeout of ${resolvedOptions.timeout} ms exceeded`));
+        }, resolvedOptions.timeout);
+        const dispose = () => {
+          clearTimeout(handle2);
+          done = true;
+          sub?.unsubscribe();
+          if (abortListener) {
+            signal.removeEventListener("abort", abortListener);
+          }
+        };
+        function checkEmitted(emitted) {
+          if (predicate(emitted)) {
+            dispose();
+            res(emitted);
+          }
+        }
+        let abortListener;
+        let sub;
+        checkEmitted(actorRef.getSnapshot());
+        if (done) {
+          return;
+        }
+        if (signal) {
+          abortListener = () => {
+            dispose();
+            rej(signal.reason);
+          };
+          signal.addEventListener("abort", abortListener);
+        }
+        sub = actorRef.subscribe({
+          next: checkEmitted,
+          error: (err) => {
+            dispose();
+            rej(err);
+          },
+          complete: () => {
+            dispose();
+            rej(new Error(`Actor terminated without satisfying predicate`));
+          }
+        });
+        if (done) {
+          sub.unsubscribe();
+        }
+      });
+    }
+    exports.TimeoutError = dist_xstateActors.TimeoutError;
+    exports.createAsyncLogic = dist_xstateActors.createAsyncLogic;
+    exports.createCallbackLogic = dist_xstateActors.createCallbackLogic;
+    exports.createEmptyActor = dist_xstateActors.createEmptyActor;
+    exports.createEventObservableLogic = dist_xstateActors.createEventObservableLogic;
+    exports.createLogic = dist_xstateActors.createLogic;
+    exports.createObservableLogic = dist_xstateActors.createObservableLogic;
+    exports.Actor = createActor3.Actor;
+    exports.InfiniteTransitionError = createActor3.InfiniteTransitionError;
+    exports.__unsafe_getAllOwnEventDescriptors = createActor3.getAllOwnEventDescriptors;
+    exports._parseDelayToMilliseconds = createActor3.parseDelayToMilliseconds;
+    exports.checkStateIn = createActor3.checkStateIn;
+    exports.createActor = createActor3.createActor;
+    exports.createListenerLogic = createActor3.createListenerLogic;
+    exports.createSubscriptionLogic = createActor3.createSubscriptionLogic;
+    exports.deliverEvent = createActor3.deliverEvent;
+    exports.executeEffects = createActor3.executeEffects;
+    exports.getStateNodes = createActor3.getStateNodes;
+    exports.isBuiltInExecutableAction = createActor3.isBuiltInExecutableAction;
+    exports.isMachineSnapshot = createActor3.isMachineSnapshot;
+    exports.listenerLogic = createActor3.listenerLogic;
+    exports.matchesState = createActor3.matchesState;
+    exports.pathToStateValue = createActor3.pathToStateValue;
+    exports.runStep = createActor3.runStep;
+    exports.stopActor = createActor3.stopActor;
+    exports.subscriptionLogic = createActor3.subscriptionLogic;
+    exports.terminateActor = createActor3.terminateActor;
+    exports.toObserver = createActor3.toObserver;
+    exports.isTypeSchema = schema_types.isTypeSchema;
+    exports.types = schema_types.types;
+    exports.getEffectDescriptor = effectDescriptor.getEffectDescriptor;
+    exports.getInitialMicrosteps = effectDescriptor.getInitialMicrosteps;
+    exports.getMicrosteps = effectDescriptor.getMicrosteps;
+    exports.getNextTransitions = effectDescriptor.getNextTransitions;
+    exports.initialTransition = effectDescriptor.initialTransition;
+    exports.isUnhandled = effectDescriptor.isUnhandled;
+    exports.transition = effectDescriptor.transition;
+    exports.SimulatedClock = SimulatedClock3;
+    exports.SpecialTargets = SpecialTargets2;
+    exports.StateMachine = StateMachine3;
+    exports.StateNode = StateNode3;
+    exports._createMachineFromCompiledConfig = createMachineFromCompiledConfig;
+    exports._hotSwapActorLogic = hotSwapActorLogic;
+    exports.advanceSystemTime = advanceSystemTime3;
+    exports.assertEvent = assertEvent3;
+    exports.createMachine = createMachine3;
+    exports.createMachineFromConfig = createMachineFromConfig2;
+    exports.createStateConfig = createStateConfig3;
+    exports.createSystem = createSystem3;
+    exports.initialSystemTransition = initialSystemTransition3;
+    exports.machineConfigToJSON = machineConfigToJSON3;
+    exports.machineVersions = machineVersions3;
+    exports.mapState = mapState3;
+    exports.serializeMachine = serializeMachine2;
+    exports.setup = setup3;
+    exports.systemTransition = systemTransition3;
+    exports.toPromise = toPromise3;
+    exports.waitFor = waitFor4;
   }
 });
 
@@ -37964,19 +48202,19 @@ var watchActor = Effect5.fnUntraced(function* watchActor2(machine, actor) {
   yield* watcher.watch(machine, actor);
 });
 
-// ../../node_modules/.pnpm/@xstate+effect@0.1.0-alpha.7_effect@4.0.1_xstate@6.0.0-alpha.65/node_modules/@xstate/effect/dist/xstate-effect.js
+// ../../node_modules/.pnpm/@xstate+effect@1.0.0-alpha.9_effect@4.0.1_xstate@6.0.0-alpha.70/node_modules/@xstate/effect/dist/xstate-effect.js
 import { Schema as Schema5, Effect as Effect7, Stream, Exit as Exit2, Cause as Cause2, Queue as Queue2 } from "effect";
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/xstate.cjs.mjs
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate.cjs.mjs
 var import_xstate_cjs = __toESM(require_xstate_cjs(), 1);
 
-// ../../node_modules/.pnpm/@xstate+effect@0.1.0-alpha.7_effect@4.0.1_xstate@6.0.0-alpha.65/node_modules/@xstate/effect/dist/state-b3d9b3e2.js
+// ../../node_modules/.pnpm/@xstate+effect@1.0.0-alpha.9_effect@4.0.1_xstate@6.0.0-alpha.70/node_modules/@xstate/effect/dist/state-a2e5cb31.js
 import { Queue, Effect as Effect6, Fiber, Scope, Exit, Cause, Context as Context6, Clock, Duration, Data as Data3 } from "effect";
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/xstate-durable.cjs.mjs
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate-durable.cjs.mjs
 var import_xstate_durable_cjs = __toESM(require_xstate_durable_cjs(), 1);
 
-// ../../node_modules/.pnpm/@xstate+effect@0.1.0-alpha.7_effect@4.0.1_xstate@6.0.0-alpha.65/node_modules/@xstate/effect/dist/state-b3d9b3e2.js
+// ../../node_modules/.pnpm/@xstate+effect@1.0.0-alpha.9_effect@4.0.1_xstate@6.0.0-alpha.70/node_modules/@xstate/effect/dist/state-a2e5cb31.js
 var actionFailure = Symbol.for("@xstate/effect/actionFailure");
 function isActionFailure(value) {
   return typeof value === "object" && value !== null && actionFailure in value;
@@ -37991,7 +48229,7 @@ function safeCall(fn, arg) {
     });
   }
 }
-function toObserver2(nextHandler, errorHandler, completionHandler) {
+function toObserver(nextHandler, errorHandler, completionHandler) {
   if (typeof nextHandler === "object") {
     return nextHandler;
   }
@@ -38043,7 +48281,7 @@ var EffectActor = class {
     return this;
   }
   subscribe(nextListenerOrObserver, errorListener, completeListener) {
-    const observer = toObserver2(nextListenerOrObserver, errorListener, completeListener);
+    const observer = toObserver(nextListenerOrObserver, errorListener, completeListener);
     if (this._settled) {
       const snapshot = this._snapshot;
       if (snapshot.status === "error") {
@@ -38102,8 +48340,7 @@ var EffectActor = class {
   }
   toJSON() {
     return {
-      xstate$$type: 1,
-      id: this.id
+      $actor: this.address
     };
   }
   /** @internal Publishes a snapshot produced by the execution loop. */
@@ -38310,7 +48547,7 @@ function closeEffectHost(host) {
 var ActorScope = class extends Context6.Service()("@xstate/effect/ActorScope") {
 };
 var XSTATE_TIMER = "xstate.timer";
-var XSTATE_INIT = "@xstate.init";
+var XSTATE_INIT = "xstate.init";
 function createEffectActor(logic, ...[options2]) {
   return Effect6.acquireRelease(Effect6.gen(function* () {
     const parentScope = yield* Effect6.scope;
@@ -38329,7 +48566,7 @@ function createEffectActor(logic, ...[options2]) {
         Queue.offerUnsafe(mailbox, item);
       }
     };
-    const timerKey = (source, id) => `${source.sessionId}:${id}`;
+    const timerKey = (source, timer) => `${source.sessionId}:${JSON.stringify(timer)}`;
     const inspectors = /* @__PURE__ */ new Set();
     let rootAnnounced = false;
     const clock = Context6.get(context, Clock.Clock);
@@ -38385,14 +48622,14 @@ function createEffectActor(logic, ...[options2]) {
         }
         source._emit(event);
       },
-      scheduleTimer: (source, id, delay) => {
-        const key = timerKey(source, id);
+      scheduleTimer: (source, timer, delay) => {
+        const key = timerKey(source, timer);
         timers.get(key)?.interruptUnsafe();
         const fiber = Fiber.runIn(runFork(Effect6.andThen(Effect6.sleep(Duration.millis(delay)), Effect6.sync(() => {
           timers.delete(key);
           const timerEvent = {
             type: XSTATE_TIMER,
-            id
+            ...timer
           };
           if (isRoot(source)) {
             offer(timerEvent);
@@ -38402,8 +48639,8 @@ function createEffectActor(logic, ...[options2]) {
         }))), actorScope);
         timers.set(key, fiber);
       },
-      cancelTimer: (source, id) => {
-        const key = timerKey(source, id);
+      cancelTimer: (source, timer) => {
+        const key = timerKey(source, timer);
         timers.get(key)?.interruptUnsafe();
         timers.delete(key);
       },
@@ -38479,14 +48716,14 @@ function createEffectActor(logic, ...[options2]) {
     rootAnnounced = true;
     const actor = new EffectActor(logic, root, snapshot, mailbox, stop2, inspectors);
     bindEffectHost(actor, host);
-    const executeEffects2 = (batch) => Effect6.promise(() => durable.executeEffects(batch).then(() => void 0, (error) => {
+    const executeEffects3 = (batch) => Effect6.promise(() => durable.executeEffects(batch).then(() => void 0, (error) => {
       offer({
         [actionFailure]: true,
         error
       });
     }));
     const loop = Effect6.gen(function* () {
-      yield* executeEffects2(effects);
+      yield* executeEffects3(effects);
       while (snapshot.status === "active" && !stopped) {
         const item = yield* Effect6.promise(() => durable.waitForEvent().then((event2) => event2, () => void 0));
         if (item === void 0 || stopped) {
@@ -38510,7 +48747,7 @@ function createEffectActor(logic, ...[options2]) {
           break;
         }
         actor._publish(snapshot);
-        yield* executeEffects2(effects);
+        yield* executeEffects3(effects);
       }
       if (!stopped) {
         actor._publish(snapshot);
@@ -38555,7 +48792,7 @@ var NotReadyError = class extends Data3.TaggedError("NotReadyError") {
   }
 };
 
-// ../../node_modules/.pnpm/@xstate+effect@0.1.0-alpha.7_effect@4.0.1_xstate@6.0.0-alpha.65/node_modules/@xstate/effect/dist/xstate-effect.js
+// ../../node_modules/.pnpm/@xstate+effect@1.0.0-alpha.9_effect@4.0.1_xstate@6.0.0-alpha.70/node_modules/@xstate/effect/dist/xstate-effect.js
 import { dual } from "effect/Function";
 function isStandardSchema(value) {
   return !!value && (typeof value === "object" || typeof value === "function") && "~standard" in value;
@@ -38598,7 +48835,7 @@ function toStandardSetupStates(states) {
     }];
   }));
 }
-var EFFECT_INIT = "@xstate.init";
+var EFFECT_INIT = "xstate.init";
 var EFFECT_RESOLVE = "xstate.effect.resolve";
 var EFFECT_REJECT = "xstate.effect.reject";
 var effectLogicBrand = Symbol.for("@xstate/effect/logic");
@@ -38634,7 +48871,7 @@ function brandLogic(logic, error, requirements) {
   });
   return logic;
 }
-function fromEffect(sourceOrConfig) {
+function createEffectLogic(sourceOrConfig) {
   const config = typeof sourceOrConfig === "function" || Effect7.isEffect(sourceOrConfig) ? {
     effect: sourceOrConfig
   } : sourceOrConfig;
@@ -38647,7 +48884,7 @@ function fromEffect(sourceOrConfig) {
       output: toStandardSchema(config.schemas.output)
     } : {}
   } : void 0;
-  const logic = (0, import_xstate_cjs.createLogic)({
+  const logic = (0, import_xstate_cjs.createStepLogic)({
     id: config.id,
     validator: config.validator,
     schemas,
@@ -38676,7 +48913,7 @@ function fromEffect(sourceOrConfig) {
         return;
       }
       const effect = typeof source === "function" ? source(createSourceArgs(input, self, system)) : source;
-      enq.effect(() => startHostedEffect(self, Effect7.scoped(effect), "fromEffect", (exit) => {
+      enq.effect(() => startHostedEffect(self, Effect7.scoped(effect), "createEffectLogic", (exit) => {
         if (self.getSnapshot().status !== "active") {
           return;
         }
@@ -38828,8 +49065,8 @@ function decorateMachine(machine) {
   return machine;
 }
 function decorateEffectSetup(effectSetup) {
-  const createMachine2 = effectSetup.createMachine.bind(effectSetup);
-  effectSetup.createMachine = (config) => decorateMachine(createMachine2(config));
+  const createMachine3 = effectSetup.createMachine.bind(effectSetup);
+  effectSetup.createMachine = (config) => decorateMachine(createMachine3(config));
   const extend = effectSetup.extend;
   const extendAny = extend;
   effectSetup.extend = (extension) => decorateEffectSetup(extendAny({
@@ -38852,7 +49089,7 @@ function setupEffect(config = {}) {
 // ../../packages/core/dist/inspect-machine.js
 import { Data as Data4, Effect as Effect8, Schema as Schema6 } from "effect";
 var inspectOutcome = Data4.taggedEnum();
-var readStats = fromEffect({
+var readStats = createEffectLogic({
   effect: ({ input }) => FileInspector.use((inspector) => inspector.inspect(input.path)),
   schemas: { input: Schema6.Struct({ path: Schema6.String }) }
 });
@@ -39631,8 +49868,47 @@ var refusal = (declaration, { field, from: from4, level, model: model2, subject,
 var undeclaredThinking = (plan, declaration) => askersOf(plan).flatMap((asker) => {
   const asked = askedBy(plan, declaration, asker);
   const declared = declaration.models[asked.model];
-  return declared === void 0 || declared.includes(asked.level) ? [] : [refusal(declaration, asked, declared)];
+  if (declared === void 0) {
+    return declaration.exhaustive === true ? [
+      `${asked.where}: model "${asked.model}" has no registered route on this host. Mapped: ${Object.keys(declaration.models).join(", ") || "none"}. Fix: set ${asked.field}.model to a mapped model, or configure the host route before submitPlan.`
+    ] : [];
+  }
+  return declared.includes(asked.level) ? [] : [refusal(declaration, asked, declared)];
 });
+
+// ../../packages/core/dist/plans/hydrate.js
+var hydrateNode = (node, path2, machineId) => {
+  const hydrated = { ...node };
+  const invoke = (definition, index3) => ({
+    ...definition,
+    id: definition.id ?? `${index3}.${[machineId, ...path2].join(".")}`
+  });
+  if (node.invoke !== void 0) {
+    hydrated.invoke = Array.isArray(node.invoke) ? node.invoke.map(invoke) : invoke(node.invoke, 0);
+  }
+  if (node.on !== void 0) {
+    const on = {};
+    for (const [event, transition3] of Object.entries(node.on)) {
+      const prefix = "xstate.done.state.";
+      const legacy = event.startsWith(prefix);
+      const eventType = legacy ? "xstate.done.state" : event;
+      const entries2 = Array.isArray(transition3) ? transition3 : [transition3];
+      const matches = { stateId: event.slice(prefix.length) };
+      const mapped = legacy ? entries2.map((entry2) => ({ ...entry2, matches })) : entries2;
+      const existing = on[eventType];
+      on[eventType] = existing === void 0 ? mapped : [...Array.isArray(existing) ? existing : [existing], ...mapped];
+    }
+    hydrated.on = on;
+  }
+  if (node.states !== void 0) {
+    hydrated.states = Object.fromEntries(Object.entries(node.states).map(([key, child]) => [
+      key,
+      hydrateNode(child, [...path2, key], machineId)
+    ]));
+  }
+  return hydrated;
+};
+var hydratePlan = (compiled, sources) => (0, import_xstate_cjs.machineFromJSON)({ ...compiled, ...hydrateNode(compiled, [], compiled.id) }, sources);
 
 // ../../packages/core/dist/plans/step-kinds.js
 import { Context as Context9 } from "effect";
@@ -39989,7 +50265,7 @@ var probeSources = {
 };
 var hydrationErrors = (plan) => {
   try {
-    (0, import_xstate_cjs.createMachineFromConfig)(compilePlan(plan), probeSources);
+    hydratePlan(compilePlan(plan), probeSources);
     return [];
   } catch (error) {
     return [
@@ -40488,7 +50764,7 @@ var extendRunContract = defineContract("extendRun", {
 });
 
 // ../../packages/core/dist/runs/host.js
-import { Clock as Clock3, Context as Context20, Crypto as Crypto2, Effect as Effect27, Layer as Layer13, Option as Option12, Result as Result6, Schema as Schema39 } from "effect";
+import { Clock as Clock3, Context as Context20, Crypto as Crypto2, Effect as Effect27, Layer as Layer13, Option as Option13, Result as Result6, Schema as Schema40 } from "effect";
 
 // ../../packages/core/dist/steps/judge.js
 import { Context as Context10, Effect as Effect12, Layer as Layer4, Schema as Schema22 } from "effect";
@@ -40845,7 +51121,7 @@ var providerWakeAt = (held) => {
 };
 
 // ../../packages/core/dist/runs/session.js
-import { Clock as Clock2, Crypto, Deferred, Effect as Effect25, Option as Option10, Result as Result5, Schema as Schema37, Semaphore } from "effect";
+import { Clock as Clock2, Crypto, Deferred, Effect as Effect25, Option as Option11, Result as Result5, Schema as Schema38, Semaphore } from "effect";
 import { constVoid as constVoid2 } from "effect/Function";
 
 // ../../packages/core/dist/plans/amend.js
@@ -41059,24 +51335,37 @@ var withoutDoneOutputs = (persisted) => Option6.match(decodeChildren(persisted),
 });
 
 // ../../packages/core/dist/runs/execution.js
-import { Effect as Effect23, Option as Option7, Predicate as Predicate2, Schema as Schema34 } from "effect";
-var StateValueSchema = Schema34.Union([
-  Schema34.String,
-  Schema34.Record(Schema34.String, Schema34.suspend(() => StateValueSchema))
-]);
-var ViewSchema = Schema34.Struct({
-  children: Schema34.Record(Schema34.String, Schema34.UndefinedOr(Schema34.Struct({ sessionId: Schema34.String }))),
-  status: Schema34.String,
-  value: StateValueSchema
-});
-var decodeView = Schema34.decodeUnknownSync(ViewSchema);
-var StartSchema = Schema34.Struct({
-  descriptor: Schema34.Struct({
-    actor: Schema34.String,
-    type: Schema34.Literal("@xstate.start")
+import { Effect as Effect23, Option as Option8, Predicate as Predicate2, Schema as Schema35 } from "effect";
+
+// ../../packages/core/dist/runs/restore-snapshot.js
+import { Option as Option7, Schema as Schema34 } from "effect";
+var decodeEmptyLegacyTimers = Schema34.decodeUnknownOption(Schema34.Struct({ timers: Schema34.Record(Schema34.String, Schema34.Never) }));
+var restorePlanSnapshot = (persisted) => Option7.match(decodeEmptyLegacyTimers(persisted), {
+  onNone: () => persisted,
+  onSome: () => ({
+    ...persisted,
+    timers: []
   })
 });
-var decodeStart = Schema34.decodeUnknownOption(StartSchema);
+
+// ../../packages/core/dist/runs/execution.js
+var StateValueSchema = Schema35.Union([
+  Schema35.String,
+  Schema35.Record(Schema35.String, Schema35.suspend(() => StateValueSchema))
+]);
+var ViewSchema = Schema35.Struct({
+  children: Schema35.Record(Schema35.String, Schema35.UndefinedOr(Schema35.Struct({ sessionId: Schema35.String }))),
+  status: Schema35.String,
+  value: StateValueSchema
+});
+var decodeView = Schema35.decodeUnknownSync(ViewSchema);
+var StartSchema = Schema35.Struct({
+  descriptor: Schema35.Struct({
+    actor: Schema35.Struct({ $actor: Schema35.String }),
+    type: Schema35.Literal("@xstate.start")
+  })
+});
+var decodeStart = Schema35.decodeUnknownOption(StartSchema);
 var typed = (step) => {
   const snapshot = step[0];
   return { effects: step[1], snapshot };
@@ -41084,18 +51373,18 @@ var typed = (step) => {
 var leaves = (value, prefix = []) => Predicate2.isString(value) ? [[...prefix, value]] : Object.entries(value).flatMap(([key, child]) => leaves(child, [...prefix, key]));
 var describeValue = (value) => leaves(value).map((path2) => path2.join(".")).toSorted().join(" | ");
 var openExecution = (compiled, sources, adapter, opening) => {
-  const machine = (0, import_xstate_cjs.createMachineFromConfig)(compiled, sources);
+  const machine = hydratePlan(compiled, sources);
   const durable = (0, import_xstate_durable_cjs.createDurable)(machine, {
     ...adapter,
     transitionIndex: opening.transitionIndex
   });
-  const cursor = typed(Option7.match(opening.persisted, {
+  const cursor = typed(Option8.match(opening.persisted, {
     onNone: () => durable.initialTransition(),
-    onSome: (persisted) => durable.restore(persisted)
+    onSome: (persisted) => durable.restore(restorePlanSnapshot(persisted))
   }));
-  const startsOf = () => cursor.effects.flatMap((effect) => Option7.match(decodeStart(effect), {
+  const startsOf = () => cursor.effects.flatMap((effect) => Option8.match(decodeStart(effect), {
     onNone: () => [],
-    onSome: ({ descriptor }) => [descriptor.actor]
+    onSome: ({ descriptor }) => [descriptor.actor.$actor]
   }));
   return {
     flush: () => {
@@ -41112,30 +51401,30 @@ var openExecution = (compiled, sources, adapter, opening) => {
       Object.assign(cursor, typed(durable.transition(cursor.snapshot, event)));
       return startsOf();
     },
-    started: Option7.isNone(opening.persisted) ? startsOf() : [],
+    started: Option8.isNone(opening.persisted) ? startsOf() : [],
     view: () => decodeView(cursor.snapshot)
   };
 };
 
 // ../../packages/core/dist/runs/redrive.js
-import { Context as Context19, Effect as Effect24, Layer as Layer12, Option as Option8, Result as Result4, Schema as Schema35 } from "effect";
-var Attempts = Schema35.Int.check(Schema35.isGreaterThan(0));
+import { Context as Context19, Effect as Effect24, Layer as Layer12, Option as Option9, Result as Result4, Schema as Schema36 } from "effect";
+var Attempts = Schema36.Int.check(Schema36.isGreaterThan(0));
 var RedriveAttempts = Context19.Reference("@mischief/core/RedriveAttempts", {
   defaultValue: () => 3
 });
-var redriveAttemptsLayer = (value) => Layer12.effect(RedriveAttempts, Schema35.decodeEffect(Attempts)(value === void 0 || value.trim() === "" ? 3 : Number(value)).pipe(Effect24.orDie));
-var ThinkAttemptSchema = Schema35.Struct({
-  attempts: Schema35.Int.check(Schema35.isGreaterThanOrEqualTo(0)),
-  level: Schema35.String,
-  model: Schema35.String,
-  pending: Schema35.Boolean,
-  unfinished: Schema35.Int.check(Schema35.isGreaterThanOrEqualTo(0))
+var redriveAttemptsLayer = (value) => Layer12.effect(RedriveAttempts, Schema36.decodeEffect(Attempts)(value === void 0 || value.trim() === "" ? 3 : Number(value)).pipe(Effect24.orDie));
+var ThinkAttemptSchema = Schema36.Struct({
+  attempts: Schema36.Int.check(Schema36.isGreaterThanOrEqualTo(0)),
+  level: Schema36.String,
+  model: Schema36.String,
+  pending: Schema36.Boolean,
+  unfinished: Schema36.Int.check(Schema36.isGreaterThanOrEqualTo(0))
 });
-var decode = Schema35.decodeUnknownOption(ThinkAttemptSchema);
+var decode = Schema36.decodeUnknownOption(ThinkAttemptSchema);
 var settleThinkAttempt = (call, journal) => Effect24.gen(function* settleAttempt() {
   const key = `think-attempt:${call.key}#${call.visit}@${call.epoch}`;
   const attempt = decode(journal.get(key));
-  if (Option8.isSome(attempt) && attempt.value.pending) {
+  if (Option9.isSome(attempt) && attempt.value.pending) {
     const entry2 = { ...attempt.value, pending: false };
     journal.set(key, entry2);
     yield* (yield* RunStore).writeJournal(call.runId, key, entry2);
@@ -41146,7 +51435,7 @@ var attemptedThink = (call, journal, effect, exhausted) => Effect24.gen(function
   const cap = yield* RedriveAttempts;
   const key = `think-attempt:${call.key}#${call.visit}@${call.epoch}`;
   const previous2 = decode(journal.get(key));
-  const before = Option8.getOrElse(previous2, () => ({
+  const before = Option9.getOrElse(previous2, () => ({
     attempts: 0,
     level: call.agent.thinking ?? `host default (ceiling ${call.ceiling})`,
     model: call.agent.model ?? "host default",
@@ -41181,10 +51470,10 @@ var attemptedThink = (call, journal, effect, exhausted) => Effect24.gen(function
 });
 
 // ../../packages/core/dist/runs/replay.js
-import { Option as Option9, Schema as Schema36 } from "effect";
-var isText2 = Schema36.is(Schema36.String);
-var isList2 = Schema36.is(Schema36.Array(Schema36.Json));
-var isRecord2 = Schema36.is(Schema36.Record(Schema36.String, Schema36.Json));
+import { Option as Option10, Schema as Schema37 } from "effect";
+var isText2 = Schema37.is(Schema37.String);
+var isList2 = Schema37.is(Schema37.Array(Schema37.Json));
+var isRecord2 = Schema37.is(Schema37.Record(Schema37.String, Schema37.Json));
 var textsIn = (value) => {
   if (isText2(value)) {
     return [value];
@@ -41194,13 +51483,13 @@ var textsIn = (value) => {
   }
   return isRecord2(value) ? Object.values(value).flatMap((item) => textsIn(item)) : [];
 };
-var ReadsSchema = Schema36.Struct({
-  input: Schema36.Struct({
-    ephemeral: Schema36.optionalKey(Schema36.Struct({ reads: Schema36.optionalKey(Schema36.Array(Schema36.String)) })),
-    reads: Schema36.optionalKey(Schema36.Union([Schema36.String, Schema36.Array(Schema36.String)]))
+var ReadsSchema = Schema37.Struct({
+  input: Schema37.Struct({
+    ephemeral: Schema37.optionalKey(Schema37.Struct({ reads: Schema37.optionalKey(Schema37.Array(Schema37.String)) })),
+    reads: Schema37.optionalKey(Schema37.Union([Schema37.String, Schema37.Array(Schema37.String)]))
   })
 });
-var decodeReads = Schema36.decodeUnknownOption(ReadsSchema);
+var decodeReads = Schema37.decodeUnknownOption(ReadsSchema);
 var namesOf = (names3) => {
   if (names3 === void 0) {
     return [];
@@ -41208,78 +51497,78 @@ var namesOf = (names3) => {
   return isText2(names3) ? [names3] : names3;
 };
 var docsRead = (step) => {
-  const reads = decodeReads(step).pipe(Option9.map(({ input }) => [
+  const reads = decodeReads(step).pipe(Option10.map(({ input }) => [
     ...namesOf(input.reads),
     ...namesOf(input.ephemeral?.reads)
-  ]), Option9.getOrElse(() => []));
+  ]), Option10.getOrElse(() => []));
   return [.../* @__PURE__ */ new Set([...textsIn(step).flatMap(docRefs), ...reads])].toSorted();
 };
-var ThinkSchema = Schema36.Struct({
-  output: Schema36.Struct({ output: Schema36.Json }),
-  step: Schema36.Struct({
-    input: Schema36.Struct({ writes: Schema36.String }),
-    src: Schema36.Literal("think")
+var ThinkSchema = Schema37.Struct({
+  output: Schema37.Struct({ output: Schema37.Json }),
+  step: Schema37.Struct({
+    input: Schema37.Struct({ writes: Schema37.String }),
+    src: Schema37.Literal("think")
   })
 });
-var CalledSchema = Schema36.Struct({
-  output: Schema36.Struct({ output: Schema36.Json }),
-  step: Schema36.Struct({
-    input: Schema36.Struct({ writes: Schema36.String }),
-    src: Schema36.Literal("call")
+var CalledSchema = Schema37.Struct({
+  output: Schema37.Struct({ output: Schema37.Json }),
+  step: Schema37.Struct({
+    input: Schema37.Struct({ writes: Schema37.String }),
+    src: Schema37.Literal("call")
   })
 });
-var decodeCalled = Schema36.decodeUnknownOption(CalledSchema);
-var AskSchema = Schema36.Struct({
-  output: Schema36.Struct({ messageId: Schema36.String }),
-  step: Schema36.Struct({
-    input: Schema36.Struct({ key: Schema36.String, to: Schema36.String }),
-    src: Schema36.Literal("ask")
+var decodeCalled = Schema37.decodeUnknownOption(CalledSchema);
+var AskSchema = Schema37.Struct({
+  output: Schema37.Struct({ messageId: Schema37.String }),
+  step: Schema37.Struct({
+    input: Schema37.Struct({ key: Schema37.String, to: Schema37.String }),
+    src: Schema37.Literal("ask")
   })
 });
-var ElaborateSchema = Schema36.Struct({
-  output: Schema36.Struct({ amendment: Schema36.Json }),
-  step: Schema36.Struct({
-    input: Schema36.Struct({ key: Schema36.String }),
-    src: Schema36.Literal("elaborate")
+var ElaborateSchema = Schema37.Struct({
+  output: Schema37.Struct({ amendment: Schema37.Json }),
+  step: Schema37.Struct({
+    input: Schema37.Struct({ key: Schema37.String }),
+    src: Schema37.Literal("elaborate")
   })
 });
-var JudgedSchema = Schema36.Struct({
-  output: Schema36.Struct({ why: WhySchema }),
-  step: Schema36.Struct({
-    input: Schema36.Struct({ key: Schema36.String }),
-    src: Schema36.Literal("judge")
+var JudgedSchema = Schema37.Struct({
+  output: Schema37.Struct({ why: WhySchema }),
+  step: Schema37.Struct({
+    input: Schema37.Struct({ key: Schema37.String }),
+    src: Schema37.Literal("judge")
   })
 });
-var decodeThink = Schema36.decodeUnknownOption(ThinkSchema);
-var AskedSchema = Schema36.Struct({
-  output: Schema36.Struct({ asked: Schema36.String }),
-  step: Schema36.Struct({
-    input: Schema36.Struct({ key: Schema36.String }),
-    src: Schema36.Literal("judge")
+var decodeThink = Schema37.decodeUnknownOption(ThinkSchema);
+var AskedSchema = Schema37.Struct({
+  output: Schema37.Struct({ asked: Schema37.String }),
+  step: Schema37.Struct({
+    input: Schema37.Struct({ key: Schema37.String }),
+    src: Schema37.Literal("judge")
   })
 });
-var ReasonSchema = Schema36.Struct({
-  output: Schema36.Struct({ reason: Schema36.String }),
+var ReasonSchema = Schema37.Struct({
+  output: Schema37.Struct({ reason: Schema37.String }),
   step: AskedSchema.fields.step
 });
-var decodeJudged = Schema36.decodeUnknownOption(JudgedSchema);
-var decodeReason = Schema36.decodeUnknownOption(ReasonSchema);
-var decodeAsked = Schema36.decodeUnknownOption(AskedSchema);
-var decodeAsk = Schema36.decodeUnknownOption(AskSchema);
-var decodeElaborate = Schema36.decodeUnknownOption(ElaborateSchema);
+var decodeJudged = Schema37.decodeUnknownOption(JudgedSchema);
+var decodeReason = Schema37.decodeUnknownOption(ReasonSchema);
+var decodeAsked = Schema37.decodeUnknownOption(AskedSchema);
+var decodeAsk = Schema37.decodeUnknownOption(AskSchema);
+var decodeElaborate = Schema37.decodeUnknownOption(ElaborateSchema);
 var docWrites = (step, output) => {
   const done = { output, step };
   return [
-    ...Option9.toArray(decodeThink(done)).map((thought2) => [thought2.step.input.writes, thought2.output.output]),
-    ...Option9.toArray(decodeCalled(done)).map((called) => [called.step.input.writes, called.output.output]),
-    ...Option9.toArray(decodeAsk(done)).map((sent) => [
+    ...Option10.toArray(decodeThink(done)).map((thought2) => [thought2.step.input.writes, thought2.output.output]),
+    ...Option10.toArray(decodeCalled(done)).map((called) => [called.step.input.writes, called.output.output]),
+    ...Option10.toArray(decodeAsk(done)).map((sent) => [
       `__sent:${sent.step.input.key}`,
       { messageId: sent.output.messageId, to: sent.step.input.to }
     ]),
-    ...Option9.toArray(decodeJudged(done)).map((verdict) => [whyDocName(verdict.step.input.key), [...verdict.output.why]]),
-    ...Option9.toArray(decodeAsked(done)).map((verdict) => [askedDocName(verdict.step.input.key), verdict.output.asked]),
-    ...Option9.toArray(decodeReason(done)).map((verdict) => [reasonDocName(verdict.step.input.key), verdict.output.reason]),
-    ...Option9.toArray(decodeElaborate(done)).map((result) => [
+    ...Option10.toArray(decodeJudged(done)).map((verdict) => [whyDocName(verdict.step.input.key), [...verdict.output.why]]),
+    ...Option10.toArray(decodeAsked(done)).map((verdict) => [askedDocName(verdict.step.input.key), verdict.output.asked]),
+    ...Option10.toArray(decodeReason(done)).map((verdict) => [reasonDocName(verdict.step.input.key), verdict.output.reason]),
+    ...Option10.toArray(decodeElaborate(done)).map((result) => [
       `__amendment:${result.step.input.key}`,
       result.output.amendment
     ])
@@ -41288,7 +51577,7 @@ var docWrites = (step, output) => {
 
 // ../../packages/core/dist/runs/session.js
 var DRAINED = { type: "mischief.drained" };
-var isText3 = Schema37.is(Schema37.String);
+var isText3 = Schema38.is(Schema38.String);
 var statusAfter = (machine) => {
   switch (machine) {
     case "done": {
@@ -41302,19 +51591,19 @@ var statusAfter = (machine) => {
     }
   }
 };
-var decodeFailure = Schema37.decodeUnknownOption(Schema37.Struct({
-  error: Schema37.String,
-  reason: Schema37.optionalKey(Schema37.String)
+var decodeFailure = Schema38.decodeUnknownOption(Schema38.Struct({
+  error: Schema38.String,
+  reason: Schema38.optionalKey(Schema38.String)
 }));
 var reasonOf = (failure5) => failure5.reason ?? failure5.error;
-var isStepFailed = Schema37.is(StepFailed);
-var decodeVerdict = Schema37.decodeUnknownOption(OutputEventSchema);
-var decodeSent = Schema37.decodeUnknownOption(Schema37.Struct({
-  message: Schema37.optionalKey(Schema37.String),
-  messageId: Schema37.String
+var isStepFailed = Schema38.is(StepFailed);
+var decodeVerdict = Schema38.decodeUnknownOption(OutputEventSchema);
+var decodeSent = Schema38.decodeUnknownOption(Schema38.Struct({
+  message: Schema38.optionalKey(Schema38.String),
+  messageId: Schema38.String
 }));
-var decodeOutput = Schema37.decodeUnknownEffect(Schema37.Json);
-var decodeIdentity = Schema37.decodeUnknownOption(Schema37.Struct({ machine: Schema37.Struct({ id: Schema37.String }) }));
+var decodeOutput = Schema38.decodeUnknownEffect(Schema38.Json);
+var decodeIdentity = Schema38.decodeUnknownOption(Schema38.Struct({ machine: Schema38.Struct({ id: Schema38.String }) }));
 var failed = (key, reason) => new StepFailed({ key, reason });
 var shown = (ask, docs) => {
   if (ask === void 0) {
@@ -41328,13 +51617,13 @@ var shown = (ask, docs) => {
   };
   return isText3(reason) ? { ...question, reason } : question;
 };
-var verdictOf = (event) => Option10.match(decodeVerdict(event), {
+var verdictOf = (event) => Option11.match(decodeVerdict(event), {
   onNone: () => ({}),
   onSome: ({ output }) => output
 });
 var migrateTo = (persisted, plan) => {
   const version = String(plan.version);
-  const id = Option10.match(decodeIdentity(persisted), {
+  const id = Option11.match(decodeIdentity(persisted), {
     onNone: () => plan.machine.id,
     onSome: ({ machine }) => machine.id
   });
@@ -41346,7 +51635,7 @@ var reportOf = (runId2, plan, state3) => Effect25.gen(function* buildReport() {
   const store = yield* RunStore;
   const journal = [...yield* store.readJournal(runId2)];
   const thought2 = thinkTotals(journal.map(([, entry2]) => entry2));
-  const failures = journal.flatMap(([key, entry2]) => Option10.match(decodeFailure(entry2), {
+  const failures = journal.flatMap(([key, entry2]) => Option11.match(decodeFailure(entry2), {
     onNone: () => [],
     onSome: (failure5) => [{ key, reason: reasonOf(failure5) }]
   }));
@@ -41421,10 +51710,10 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect25.gen(f
     const strict2 = strictFor(key);
     if (hit !== void 0 && !strict2) {
       const failure5 = decodeFailure(hit);
-      return Option10.isSome(failure5) ? yield* failed(key, failure5.value.error) : hit;
+      return Option11.isSome(failure5) ? yield* failed(key, failure5.value.error) : hit;
     }
     const print = yield* fingerprint;
-    if (hit !== void 0 && print !== "" && prints.get(key) === print && Option10.isNone(decodeFailure(hit))) {
+    if (hit !== void 0 && print !== "" && prints.get(key) === print && Option11.isNone(decodeFailure(hit))) {
       if (key.startsWith("logic:")) {
         watch2?.reused.push(key);
       }
@@ -41460,8 +51749,8 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect25.gen(f
   const PRODUCED = "directive:";
   const produce = (key, directive) => Effect25.suspend(() => journal.has(`${PRODUCED}${key}`) ? Effect25.void : recordJournal(`${PRODUCED}${key}`, directive));
   const deliveryKey = (stepKey, cause) => Effect25.suspend(() => {
-    const known = Schema37.decodeUnknownOption(DirectiveKey)(journal.get(cause));
-    if (Option10.isSome(known)) {
+    const known = Schema38.decodeUnknownOption(DirectiveKey)(journal.get(cause));
+    if (Option11.isSome(known)) {
       return Effect25.succeed(known.value);
     }
     const key = directiveKey({
@@ -41472,7 +51761,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect25.gen(f
     });
     return recordJournal(cause, key).pipe(Effect25.as(key));
   });
-  const pendingNow = Effect25.suspend(() => Effect25.forEach([...journal.keys()].flatMap((entry2) => entry2.startsWith(PRODUCED) && !journal.has(`done:${entry2.slice(PRODUCED.length)}`) ? [entry2.slice(PRODUCED.length)] : []), (key) => Schema37.decodeUnknownEffect(DirectiveSchema)(journal.get(`${PRODUCED}${key}`)).pipe(Effect25.map((directive) => ({ directive, key })), Effect25.orDie)));
+  const pendingNow = Effect25.suspend(() => Effect25.forEach([...journal.keys()].flatMap((entry2) => entry2.startsWith(PRODUCED) && !journal.has(`done:${entry2.slice(PRODUCED.length)}`) ? [entry2.slice(PRODUCED.length)] : []), (key) => Schema38.decodeUnknownEffect(DirectiveSchema)(journal.get(`${PRODUCED}${key}`)).pipe(Effect25.map((directive) => ({ directive, key })), Effect25.orDie)));
   const visitOf = (key) => visits.get(key) ?? 1;
   const epochOf = () => run2.state.revision === null ? 0 : run2.plan.version;
   const step = (key, effect) => effect.pipe(Effect25.tapError((failure5) => isStepFailed(failure5) ? store.writeDoc(runId2, `failed:${key}`, true) : Effect25.void));
@@ -41524,7 +51813,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect25.gen(f
       runId: runId2,
       visit: visitOf(input.key)
     };
-    const sealed = yield* journaled(`seal:${input.key}#${call.visit}`, step(input.key, withDocs(input.key, input.message).pipe(Effect25.flatMap((message2) => mail.seal({ ...call, message: message2, to: input.to })))), printOf({ input, src: "ask" })).pipe(Effect25.flatMap(Schema37.decodeUnknownEffect(SealedSchema)), Effect25.mapError(() => failed(input.key, "sealed envelope refused")));
+    const sealed = yield* journaled(`seal:${input.key}#${call.visit}`, step(input.key, withDocs(input.key, input.message).pipe(Effect25.flatMap((message2) => mail.seal({ ...call, message: message2, to: input.to })))), printOf({ input, src: "ask" })).pipe(Effect25.flatMap(Schema38.decodeUnknownEffect(SealedSchema)), Effect25.mapError(() => failed(input.key, "sealed envelope refused")));
     const message = yield* step(input.key, withDocs(input.key, input.message));
     yield* store.writeMessage(sealed.messageId, runId2);
     yield* store.writeDoc(runId2, `__sent:${input.key}`, {
@@ -41600,12 +51889,12 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect25.gen(f
     const finisher = yield* capabilityNamed(input.key, post2.capability);
     const prompt = yield* withDocs(input.key, input.prompt);
     yield* store.commit(runId2);
-    const ephemeral = input.ephemeral === void 0 ? Option10.none() : Option10.some(yield* fetchEphemeral(input.key, input.ephemeral, call));
+    const ephemeral = input.ephemeral === void 0 ? Option11.none() : Option11.some(yield* fetchEphemeral(input.key, input.ephemeral, call));
     const thought2 = yield* attempt(input.key, input.agent ?? {}, thinkUnrecorded({
       ...call,
       agent: input.agent ?? {},
       ceiling: run2.plan.envelope.maxThinking,
-      prompt: Option10.match(ephemeral, {
+      prompt: Option11.match(ephemeral, {
         onNone: () => prompt,
         onSome: (text) => `${prompt}
 
@@ -41613,7 +51902,7 @@ ${docText(text)}`
       })
     })).pipe(Effect25.mapError(withheldThink(input.key)));
     yield* observed(input.key, thought2.receipt);
-    const output = yield* callPermits.withPermits(1)(finisher.invoke(Option10.match(ephemeral, {
+    const output = yield* callPermits.withPermits(1)(finisher.invoke(Option11.match(ephemeral, {
       onNone: () => ({ answer: thought2.output }),
       onSome: (text) => ({
         answer: thought2.output,
@@ -41666,13 +51955,13 @@ ${docText(text)}`
       runId: runId2,
       visit: visitOf(input.key)
     };
-    const reply = Option10.fromNullishOr(run2.state.replies.find(({ key }) => key === input.key));
+    const reply = Option11.fromNullishOr(run2.state.replies.find(({ key }) => key === input.key));
     const docs = Object.fromEntries((input.reads ?? []).flatMap((name) => name in stored2 ? [[name, stored2[name] ?? null]] : []));
     const { probabilities, usage, why } = yield* step(input.key, judge.choose({
       ...call,
       criteria: input.criteria,
       docs,
-      reply: reply.pipe(Option10.map(({ body }) => body))
+      reply: reply.pipe(Option11.map(({ body }) => body))
     }));
     const [top] = Object.entries(probabilities).toSorted((left, right) => right[1] - left[1]);
     const jev = { probs: probabilities, rung: "jev", usage: { ...usage } };
@@ -41705,7 +51994,7 @@ ${docText(text)}`
     }
     const deliberation = deliberated.success;
     const tokens = usage.tokens + deliberation.usage.tokens;
-    const rung = Option10.match(deliberation.decision, {
+    const rung = Option11.match(deliberation.decision, {
       onNone: () => ({ rung: "think", usage: { ...deliberation.usage } }),
       onSome: ({ choice, confidence }) => ({
         choice,
@@ -41714,8 +52003,8 @@ ${docText(text)}`
         usage: { ...deliberation.usage }
       })
     });
-    const confident = deliberation.decision.pipe(Option10.filter(({ choice, confidence }) => confidence >= thinkThreshold && input.options.includes(choice)));
-    if (Option10.isNone(confident)) {
+    const confident = deliberation.decision.pipe(Option11.filter(({ choice, confidence }) => confidence >= thinkThreshold && input.options.includes(choice)));
+    if (Option11.isNone(confident)) {
       return yield* escalated([jev, rung], tokens);
     }
     return withWhy({
@@ -41726,7 +52015,7 @@ ${docText(text)}`
   });
   const logic = (schema2, body) => (0, import_xstate_cjs.createAsyncLogic)({
     // oxlint-disable-next-line typescript/promise-function-async -- xstate async logic consumes a Promise factory.
-    run: ({ input }) => runPromise(Schema37.decodeEffect(schema2)(input).pipe(Effect25.mapError(() => failed("input", "step input refused")), Effect25.flatMap(body)))
+    run: ({ input }) => runPromise(Schema38.decodeEffect(schema2)(input).pipe(Effect25.mapError(() => failed("input", "step input refused")), Effect25.flatMap(body)))
   });
   const sources = {
     actions: {
@@ -41795,7 +52084,7 @@ ${docText(text)}`
       const key = `logic:${actor.address}#${visit}`;
       const stepKey = stepKeyOf(actor.address);
       const work = Effect25.tryPromise({
-        catch: (cause) => cause instanceof VerdictDeferred || Schema37.is(ProviderUnavailable)(cause) ? cause : failed(key, isStepFailed(cause) ? cause.reason : `${key} failed`),
+        catch: (cause) => cause instanceof VerdictDeferred || Schema38.is(ProviderUnavailable)(cause) ? cause : failed(key, isStepFailed(cause) ? cause.reason : `${key} failed`),
         // oxlint-disable-next-line typescript/promise-function-async -- xstate hands the step body over as a Promise factory.
         try: () => {
           visits.set(stepKeyOf(actor.address), visit);
@@ -41855,7 +52144,7 @@ ${docText(text)}`
   };
   const { checkpoint } = opened.state;
   let execution = openExecution(compilePlan(run2.plan), sources, adapter, {
-    persisted: Option10.fromNullOr(checkpoint).pipe(Option10.map(({ snapshot }) => migrateTo(
+    persisted: Option11.fromNullOr(checkpoint).pipe(Option11.map(({ snapshot }) => migrateTo(
       // SAFETY: the checkpoint snapshot was written by getPersistedSnapshot for this run's plan.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       snapshot,
@@ -41880,7 +52169,7 @@ ${docText(text)}`
     return (run2.state.revision === null || !run2.state.revision.diverged) && isText3(answer2) ? answer2 : void 0;
   };
   const awaitsHere = () => factsHere().flatMap((fact) => fact.kind === "await" ? [fact] : []);
-  const awaitingOf = (docs) => awaitsHere().flatMap((fact) => Option10.toArray(decodeSent(docs[`__sent:${fact.key}`])).map(({ message, messageId }) => ({
+  const awaitingOf = (docs) => awaitsHere().flatMap((fact) => Option11.toArray(decodeSent(docs[`__sent:${fact.key}`])).map(({ message, messageId }) => ({
     key: fact.key,
     message: message ?? null,
     messageId,
@@ -41989,13 +52278,13 @@ ${docText(text)}`
       dropStale();
       const event = mailbox.shift();
       if (event !== void 0) {
-        return Option10.some(event);
+        return Option11.some(event);
       }
       const wake2 = yield* Deferred.make();
       wakers.add(wake2);
       if (pending.size === 0) {
         wakers.delete(wake2);
-        return Option10.none();
+        return Option11.none();
       }
       const inFlight = [...pending.values()];
       yield* Effect25.raceFirst(
@@ -42008,7 +52297,7 @@ ${docText(text)}`
   });
   const choose = Effect25.gen(function* chooseEvent() {
     const next = yield* nextEvent;
-    if (Option10.isSome(next)) {
+    if (Option11.isSome(next)) {
       return { event: next.value, kind: "event" };
     }
     const awaiting = awaitsHere();
@@ -42064,18 +52353,18 @@ ${docText(text)}`
     const docs = yield* store.readDocs(runId2);
     const raw = docs[`__amendment:${point.path.join(".")}`] ?? null;
     const amendment = yield* refuseCode(raw).pipe(Effect25.andThen(decodeAmendment(raw)), Effect25.option);
-    if (Option10.isNone(amendment)) {
+    if (Option11.isNone(amendment)) {
       return false;
     }
     const next = yield* checkPlan(amendPlan(run2.plan, point, amendment.value), Object.keys(yield* store.readDocs(runId2))).pipe(Effect25.option);
-    if (Option10.isNone(next)) {
+    if (Option11.isNone(next)) {
       return false;
     }
     run2.plan = next.value;
     run2.facts = planFacts(run2.plan);
     yield* store.writePlan(runId2, run2.plan);
     execution = openExecution(compilePlan(run2.plan), sources, adapter, {
-      persisted: Option10.some(migrateTo(execution.persist(), run2.plan)),
+      persisted: Option11.some(migrateTo(execution.persist(), run2.plan)),
       transitionIndex: execution.nextTransitionIndex()
     });
     run2.state = { ...run2.state, planVersion: run2.plan.version };
@@ -42171,9 +52460,9 @@ ${docText(text)}`
 }).pipe(Effect25.scoped);
 
 // ../../packages/core/dist/runs/submission.js
-import { Effect as Effect26, Option as Option11, Schema as Schema38 } from "effect";
-var decodeJsonObject = Schema38.decodeUnknownOption(Schema38.JsonObject);
-var docKeyGuard = Schema38.is(DocKey);
+import { Effect as Effect26, Option as Option12, Schema as Schema39 } from "effect";
+var decodeJsonObject = Schema39.decodeUnknownOption(Schema39.JsonObject);
+var docKeyGuard = Schema39.is(DocKey);
 var isDocKey = (name) => docKeyGuard(name);
 var checkSubmission = Effect26.fn("checkSubmission")(function* checkSubmission2(input, docs) {
   const badNames = Object.keys(docs).filter((name) => !isDocKey(name));
@@ -42182,14 +52471,14 @@ var checkSubmission = Effect26.fn("checkSubmission")(function* checkSubmission2(
       errors: badNames.map((name) => `docs.${name}: seed doc names are lowercase, start with a letter and use only a-z, 0-9, _ and -, up to 64 characters`)
     });
   }
-  return yield* validatePlan(Option11.match(decodeJsonObject(input), {
+  return yield* validatePlan(Option12.match(decodeJsonObject(input), {
     onNone: () => input,
     onSome: (fields) => ({ ...fields, version: 1 })
   }), Object.keys(docs));
 });
 
 // ../../packages/core/dist/runs/host.js
-var decodeJsonObject2 = Schema39.decodeUnknownOption(Schema39.JsonObject);
+var decodeJsonObject2 = Schema40.decodeUnknownOption(Schema40.JsonObject);
 var RunHost = class extends Context20.Service()("@mischief/core/RunHost", {
   make: Effect27.gen(function* makeRunHost() {
     const context = yield* Effect27.context();
@@ -42204,11 +52493,11 @@ var RunHost = class extends Context20.Service()("@mischief/core/RunHost", {
     const hostGates = (effect) => effect.pipe(Effect27.provideService(EnabledStepKinds, enabledKinds), Effect27.provideService(CallRegistry, registry), Effect27.provideService(DeclaredThinking, declared));
     const loadRun = Effect27.fn("RunHost.loadRun")(function* loadRun2(runId2) {
       const state3 = yield* store.readRun(runId2);
-      if (Option12.isNone(state3)) {
+      if (Option13.isNone(state3)) {
         return yield* new UnknownRun({ runId: runId2 });
       }
       const plan = yield* store.readPlan(runId2, state3.value.planVersion);
-      if (Option12.isNone(plan)) {
+      if (Option13.isNone(plan)) {
         return yield* new UnknownRun({ runId: runId2 });
       }
       return { plan: plan.value, state: state3.value };
@@ -42272,7 +52561,7 @@ var RunHost = class extends Context20.Service()("@mischief/core/RunHost", {
     const submit = Effect27.fn("RunHost.submit")(function* submit2(runId2, input, docs = {}) {
       const submitted = yield* fingerprintOf(Context20.get(context, Crypto2.Crypto), { docs, plan: input });
       const existing = yield* store.readRun(runId2);
-      if (Option12.isSome(existing)) {
+      if (Option13.isSome(existing)) {
         if (existing.value.submitted !== null && existing.value.submitted !== submitted) {
           return yield* new PlanRefused({
             errors: [
@@ -42382,7 +52671,7 @@ var RunHost = class extends Context20.Service()("@mischief/core/RunHost", {
     const deliver = Effect27.fn("RunHost.deliver")(function* deliver2(line) {
       const refuse2 = (reason) => new ReplyRefused({ reason, replyTo: line.replyTo });
       const owner = yield* store.readMessage(line.replyTo);
-      if (Option12.isNone(owner)) {
+      if (Option13.isNone(owner)) {
         return yield* refuse2("no run sent that message. Check replyTo against the messageId the ask sent; inspectRun shows it under awaiting.");
       }
       const runId2 = owner.value;
@@ -42454,7 +52743,7 @@ var RunHost = class extends Context20.Service()("@mischief/core/RunHost", {
       if (opened.state.status === "aborted") {
         return yield* refuse2(`the run was aborted and stays ended. submitPlan the revised plan as a new run.`);
       }
-      const plan = yield* hostGates(validatePlan(Option12.match(decodeJsonObject2(input), {
+      const plan = yield* hostGates(validatePlan(Option13.match(decodeJsonObject2(input), {
         onNone: () => input,
         onSome: (fields) => ({
           ...fields,
@@ -42507,7 +52796,7 @@ ${refusals.map((error) => `- ${error}`).join("\n")}`);
       abort: (runId2, supersededBy) => unit(runId2)(abort(runId2, supersededBy)),
       advance: (runId2) => unit(runId2)(advance3(runId2)),
       answer: (runId2, reply) => afterStored(unit(runId2)(answer2(runId2, reply))),
-      deliver: (line) => afterStored(store.readMessage(line.replyTo).pipe(Effect27.flatMap((owner) => Option12.isSome(owner) ? unit(owner.value)(deliver(line)) : deliver(line)))),
+      deliver: (line) => afterStored(store.readMessage(line.replyTo).pipe(Effect27.flatMap((owner) => Option13.isSome(owner) ? unit(owner.value)(deliver(line)) : deliver(line)))),
       extend: (runId2, maxSteps) => afterStored(unit(runId2)(extend(runId2, maxSteps))),
       inspect,
       pause: (runId2) => unit(runId2)(pause(runId2)),
@@ -42546,17 +52835,17 @@ var runCapabilities = [
 ];
 
 // ../../packages/core/dist/runs/drain.js
-import { Effect as Effect28, Option as Option13, Schema as Schema40 } from "effect";
-var DrainOutcomeSchema = Schema40.TaggedUnion({
-  Delivered: { replyTo: Schema40.String, status: Schema40.String },
-  Refused: { reason: Schema40.String, replyTo: Schema40.String },
-  Unrouted: { line: Schema40.String, reason: Schema40.String }
+import { Effect as Effect28, Option as Option14, Schema as Schema41 } from "effect";
+var DrainOutcomeSchema = Schema41.TaggedUnion({
+  Delivered: { replyTo: Schema41.String, status: Schema41.String },
+  Refused: { reason: Schema41.String, replyTo: Schema41.String },
+  Unrouted: { line: Schema41.String, reason: Schema41.String }
 });
 var UNROUTED_REASON = "not a reply to a Mischief ask: it needs string body and replyTo fields. Kept in __unrouted.jsonl; read it there and answer the sender directly";
-var decodeLine = Schema40.decodeUnknownOption(Schema40.fromJsonString(ReplyLineSchema));
+var decodeLine = Schema41.decodeUnknownOption(Schema41.fromJsonString(ReplyLineSchema));
 var consumeDrained = Effect28.fn("consumeDrained")(function* consume(raw) {
   const line = decodeLine(raw);
-  if (Option13.isNone(line)) {
+  if (Option14.isNone(line)) {
     return DrainOutcomeSchema.cases.Unrouted.make({
       line: raw,
       reason: UNROUTED_REASON
@@ -42567,26 +52856,26 @@ var consumeDrained = Effect28.fn("consumeDrained")(function* consume(raw) {
 });
 
 // ../../packages/core/dist/steps/shadow-judge.js
-import { Effect as Effect29, Layer as Layer14, Option as Option14, Schema as Schema41 } from "effect";
+import { Effect as Effect29, Layer as Layer14, Option as Option15, Schema as Schema42 } from "effect";
 var SHADOW_JUDGE = "shadow/judge";
-var Probability2 = Schema41.Number.check(Schema41.isBetween({ maximum: 1, minimum: 0 }));
-var VerdictSchema = Schema41.Union([
-  Schema41.Struct({
-    probabilities: Schema41.Record(Schema41.String, Probability2),
-    why: Schema41.optionalKey(WhySchema)
+var Probability2 = Schema42.Number.check(Schema42.isBetween({ maximum: 1, minimum: 0 }));
+var VerdictSchema = Schema42.Union([
+  Schema42.Struct({
+    probabilities: Schema42.Record(Schema42.String, Probability2),
+    why: Schema42.optionalKey(WhySchema)
   }),
-  Schema41.Struct({ choice: Schema41.String, why: Schema41.optionalKey(WhySchema) })
+  Schema42.Struct({ choice: Schema42.String, why: Schema42.optionalKey(WhySchema) })
 ]);
-var decodeVerdict2 = Schema41.decodeUnknownOption(Schema41.fromJsonString(VerdictSchema));
+var decodeVerdict2 = Schema42.decodeUnknownOption(Schema42.fromJsonString(VerdictSchema));
 var NO_USAGE = { tokens: 0 };
 var refused = (key, why, options2) => Effect29.fail(new StepFailed({
   key,
   reason: `${why}. ${SHADOW_JUDGE} replies with JSON {"choice": "<option>"} or {"probabilities": {"<option>": 0..1}}, where each option is one of: ${options2.join(", ")}. Either may add "why": up to ${String(WHY_LINES)} lines of at most ${String(WHY_LINE_CHARS)} characters, ids and counts only`
 }));
 var shadowJudge = Layer14.succeed(Judge, Judge.of({
-  choose: ({ key, options: options2, reply }) => Option14.match(reply, {
+  choose: ({ key, options: options2, reply }) => Option15.match(reply, {
     onNone: () => Effect29.fail(new VerdictDeferred({ to: SHADOW_JUDGE })),
-    onSome: (body) => Option14.match(decodeVerdict2(body), {
+    onSome: (body) => Option15.match(decodeVerdict2(body), {
       onNone: () => refused(key, "the shadow verdict did not decode", options2),
       onSome: (verdict) => {
         const probabilities = "choice" in verdict ? { [verdict.choice]: 1 } : verdict.probabilities;
@@ -42599,89 +52888,89 @@ var shadowJudge = Layer14.succeed(Judge, Judge.of({
 }));
 
 // ../../packages/core/dist/schedules/host.js
-import { Clock as Clock4, Duration as Duration2, Effect as Effect31, Option as Option15, Result as Result8, Schema as Schema45 } from "effect";
+import { Clock as Clock4, Duration as Duration2, Effect as Effect31, Option as Option16, Result as Result8, Schema as Schema46 } from "effect";
 
 // ../../packages/core/dist/schedules/decide.js
 import { Cron, Data as Data7, Predicate as Predicate3, Result as Result7 } from "effect";
 
 // ../../packages/core/dist/schedules/schema.js
-import { Effect as Effect30, Schema as Schema42 } from "effect";
-var ScheduleId = Schema42.String.check(Schema42.isPattern(/^[a-z0-9][a-z0-9-]{0,47}$/u));
+import { Effect as Effect30, Schema as Schema43 } from "effect";
+var ScheduleId = Schema43.String.check(Schema43.isPattern(/^[a-z0-9][a-z0-9-]{0,47}$/u));
 var HISTORY = 100;
-var Millis = Schema42.Int.check(Schema42.isGreaterThanOrEqualTo(0));
-var Every = Schema42.TaggedStruct("every", { ms: Millis });
-var CronCadence = Schema42.TaggedStruct("cron", {
-  expression: Schema42.String
+var Millis = Schema43.Int.check(Schema43.isGreaterThanOrEqualTo(0));
+var Every = Schema43.TaggedStruct("every", { ms: Millis });
+var CronCadence = Schema43.TaggedStruct("cron", {
+  expression: Schema43.String
 });
-var CadenceSchema = Schema42.Union([Every, CronCadence]);
-var WakeSchema = Schema42.Struct({
+var CadenceSchema = Schema43.Union([Every, CronCadence]);
+var WakeSchema = Schema43.Struct({
   at: Millis,
   due: Millis,
   n: Count,
-  runId: Schema42.String
+  runId: Schema43.String
 });
-var SkipSchema = Schema42.Struct({
+var SkipSchema = Schema43.Struct({
   at: Millis,
   due: Millis,
-  reason: Schema42.String
+  reason: Schema43.String
 });
-var AbortSchema = Schema42.Struct({
+var AbortSchema = Schema43.Struct({
   at: Millis,
-  reason: Schema42.String,
-  runId: Schema42.String
+  reason: Schema43.String,
+  runId: Schema43.String
 });
-var EndReasonSchema = Schema42.Literals([
+var EndReasonSchema = Schema43.Literals([
   "completed",
   "done",
   "cap",
   "timeout",
   "failed"
 ]);
-var EndedSchema = Schema42.Struct({
+var EndedSchema = Schema43.Struct({
   at: Millis,
-  detail: Schema42.String,
+  detail: Schema43.String,
   reason: EndReasonSchema
 });
-var ScheduleStateSchema = Schema42.Struct({
-  abortCount: Count.pipe(Schema42.withDecodingDefaultKey(Effect30.succeed(0))),
-  aborting: Schema42.NullOr(Schema42.String).pipe(Schema42.withDecodingDefaultKey(Effect30.succeed(null))),
-  aborts: Schema42.Array(AbortSchema).pipe(Schema42.withDecodingDefaultKey(Effect30.succeed([]))),
+var ScheduleStateSchema = Schema43.Struct({
+  abortCount: Count.pipe(Schema43.withDecodingDefaultKey(Effect30.succeed(0))),
+  aborting: Schema43.NullOr(Schema43.String).pipe(Schema43.withDecodingDefaultKey(Effect30.succeed(null))),
+  aborts: Schema43.Array(AbortSchema).pipe(Schema43.withDecodingDefaultKey(Effect30.succeed([]))),
   cadence: CadenceSchema,
-  carry: Schema42.Array(Schema42.String),
+  carry: Schema43.Array(Schema43.String),
   createdAt: Millis,
   docs: DocsSchema,
-  ended: Schema42.NullOr(EndedSchema),
-  endsAt: Schema42.NullOr(Millis),
-  escalateTo: Schema42.NullOr(EscalateToSchema).pipe(Schema42.withDecodingDefaultKey(Effect30.succeed(null))),
-  judge: Schema42.NullOr(JudgeModeSchema).pipe(Schema42.withDecodingDefaultKey(Effect30.succeed(null))),
-  maxWakes: Schema42.NullOr(Count),
+  ended: Schema43.NullOr(EndedSchema),
+  endsAt: Schema43.NullOr(Millis),
+  escalateTo: Schema43.NullOr(EscalateToSchema).pipe(Schema43.withDecodingDefaultKey(Effect30.succeed(null))),
+  judge: Schema43.NullOr(JudgeModeSchema).pipe(Schema43.withDecodingDefaultKey(Effect30.succeed(null))),
+  maxWakes: Schema43.NullOr(Count),
   nextAt: Millis,
   pendingDocs: DocsSchema,
-  plan: Schema42.Json,
+  plan: Schema43.Json,
   scheduleId: ScheduleId,
   skipCount: Count,
-  skips: Schema42.Array(SkipSchema),
+  skips: Schema43.Array(SkipSchema),
   wakeCount: Count,
-  wakeTimeoutMs: Schema42.NullOr(Millis).pipe(Schema42.withDecodingDefaultKey(Effect30.succeed(null))),
-  wakes: Schema42.Array(WakeSchema)
+  wakeTimeoutMs: Schema43.NullOr(Millis).pipe(Schema43.withDecodingDefaultKey(Effect30.succeed(null))),
+  wakes: Schema43.Array(WakeSchema)
 });
-var ScheduleReportSchema = Schema42.Struct({
+var ScheduleReportSchema = Schema43.Struct({
   abortCount: Count,
-  aborts: Schema42.Array(AbortSchema),
+  aborts: Schema43.Array(AbortSchema),
   cadence: CadenceSchema,
-  carry: Schema42.Array(Schema42.String),
-  ended: Schema42.NullOr(EndedSchema),
-  endsAt: Schema42.NullOr(Millis),
-  escalateTo: Schema42.NullOr(EscalateToSchema),
-  judge: Schema42.NullOr(JudgeModeSchema),
-  maxWakes: Schema42.NullOr(Count),
-  nextAt: Schema42.NullOr(Millis),
+  carry: Schema43.Array(Schema43.String),
+  ended: Schema43.NullOr(EndedSchema),
+  endsAt: Schema43.NullOr(Millis),
+  escalateTo: Schema43.NullOr(EscalateToSchema),
+  judge: Schema43.NullOr(JudgeModeSchema),
+  maxWakes: Schema43.NullOr(Count),
+  nextAt: Schema43.NullOr(Millis),
   scheduleId: ScheduleId,
   skipCount: Count,
-  skips: Schema42.Array(SkipSchema),
+  skips: Schema43.Array(SkipSchema),
   wakeCount: Count,
-  wakeTimeoutMs: Schema42.NullOr(Millis),
-  wakes: Schema42.Array(WakeSchema)
+  wakeTimeoutMs: Schema43.NullOr(Millis),
+  wakes: Schema43.Array(WakeSchema)
 });
 var reportOf2 = (state3) => ({
   abortCount: state3.abortCount,
@@ -42859,8 +53148,8 @@ var ScheduleAlarm = class extends Context21.Service()("@mischief/core/ScheduleAl
 };
 
 // ../../packages/core/dist/schedules/schedule-refused.js
-import { Schema as Schema43 } from "effect";
-var ScheduleRefused = class extends Schema43.TaggedError()("ScheduleRefused", { errors: Schema43.Array(Schema43.String), scheduleId: Schema43.String }) {
+import { Schema as Schema44 } from "effect";
+var ScheduleRefused = class extends Schema44.TaggedError()("ScheduleRefused", { errors: Schema44.Array(Schema44.String), scheduleId: Schema44.String }) {
   get message() {
     return `Schedule ${this.scheduleId} refused, nothing was stored. Fix each problem and call createSchedule again:
 ${this.errors.map((error) => `- ${error}`).join("\n")}`;
@@ -42873,8 +53162,8 @@ var ScheduleStore = class extends Context22.Service()("@mischief/core/ScheduleSt
 };
 
 // ../../packages/core/dist/schedules/unknown-schedule.js
-import { Schema as Schema44 } from "effect";
-var UnknownSchedule = class extends Schema44.TaggedError()("UnknownSchedule", { scheduleId: Schema44.String }) {
+import { Schema as Schema45 } from "effect";
+var UnknownSchedule = class extends Schema45.TaggedError()("UnknownSchedule", { scheduleId: Schema45.String }) {
   get message() {
     return `No schedule named "${this.scheduleId}". Check the scheduleId, or start one with createSchedule({ scheduleId, plan, every or cron, maxWakes or timeout }).`;
   }
@@ -42887,8 +53176,8 @@ var WakeRuns = class extends Context23.Service()("@mischief/core/WakeRuns") {
 
 // ../../packages/core/dist/schedules/host.js
 var MIN_EVERY_MS = 6e4;
-var decodeDuration = Schema45.decodeUnknownOption(Schema45.DurationFromString);
-var millisOf = (text) => decodeDuration(text).pipe(Option15.filter(Duration2.isFinite), Option15.map(Duration2.toMillis));
+var decodeDuration = Schema46.decodeUnknownOption(Schema46.DurationFromString);
+var millisOf = (text) => decodeDuration(text).pipe(Option16.filter(Duration2.isFinite), Option16.map(Duration2.toMillis));
 var cadenceOf = (input) => {
   if (input.every === void 0 === (input.cron === void 0)) {
     return Result8.fail([
@@ -42903,7 +53192,7 @@ var cadenceOf = (input) => {
       onSuccess: () => Result8.succeed(CronCadence.make({ expression: input.cron ?? "" }))
     });
   }
-  return Option15.match(millisOf(input.every ?? ""), {
+  return Option16.match(millisOf(input.every ?? ""), {
     onNone: () => Result8.fail([
       `every "${String(input.every)}" is not a duration; write it as "<number> <unit>", such as "30 minutes" or "1 day"`
     ]),
@@ -42921,7 +53210,7 @@ var limitsOf = (input) => {
   if (input.timeout === void 0) {
     return Result8.succeed(null);
   }
-  return Option15.match(millisOf(input.timeout), {
+  return Option16.match(millisOf(input.timeout), {
     onNone: () => Result8.fail([
       `timeout "${input.timeout}" is not a finite duration; write it as "<number> <unit>", such as "7 days"`
     ]),
@@ -42932,7 +53221,7 @@ var wakeLimitOf = (input) => {
   if (input.wakeTimeout === void 0) {
     return Result8.succeed(null);
   }
-  return Option15.match(millisOf(input.wakeTimeout), {
+  return Option16.match(millisOf(input.wakeTimeout), {
     onNone: () => Result8.fail([
       `wakeTimeout "${input.wakeTimeout}" is not a finite duration; write it as "<number> <unit>", such as "2 hours"`
     ]),
@@ -42946,14 +53235,14 @@ var carryErrors = (input) => {
   return (input.carry ?? []).filter((name) => !Object.hasOwn(docs, name)).map((name) => `carry doc "${name}" has no starting value; add it to docs so the first wake has it too`);
 };
 var refuse = (scheduleId2, errors) => new ScheduleRefused({ errors, scheduleId: scheduleId2 });
-var loaded = (scheduleId2) => ScheduleStore.use((store) => store.load).pipe(Effect31.flatMap(Option15.match({
+var loaded = (scheduleId2) => ScheduleStore.use((store) => store.load).pipe(Effect31.flatMap(Option16.match({
   onNone: () => Effect31.fail(new UnknownSchedule({ scheduleId: scheduleId2 })),
   onSome: Effect31.succeed
 })));
 var createSchedule = Effect31.fn("createSchedule")(function* createSchedule2(input) {
   const store = yield* ScheduleStore;
   const existing = yield* store.load;
-  if (Option15.isSome(existing)) {
+  if (Option16.isSome(existing)) {
     return reportOf2(existing.value);
   }
   const cadence = cadenceOf(input);
@@ -43024,7 +53313,7 @@ var previousOf = (state3) => {
   if (wake2 === void 0) {
     return Effect31.succeed(previous.None());
   }
-  return WakeRuns.use((runs) => runs.inspect(wake2.runId)).pipe(Effect31.map(Option15.match({
+  return WakeRuns.use((runs) => runs.inspect(wake2.runId)).pipe(Effect31.map(Option16.match({
     onNone: () => previous.Missing(),
     onSome: (report2) => previous.Reported({ report: report2 })
   })));
@@ -43032,7 +53321,7 @@ var previousOf = (state3) => {
 var wakeSchedule = Effect31.fn("wakeSchedule")(function* wakeSchedule2() {
   const store = yield* ScheduleStore;
   const found = yield* store.load;
-  if (Option15.isNone(found)) {
+  if (Option16.isNone(found)) {
     return yield* ScheduleAlarm.use((alarm) => alarm.set(null));
   }
   const now2 = yield* Clock4.currentTimeMillis;
@@ -43066,7 +53355,7 @@ var wakeSchedule = Effect31.fn("wakeSchedule")(function* wakeSchedule2() {
 });
 
 // ../../packages/core/dist/schedules/contracts.js
-import { Schema as Schema46 } from "effect";
+import { Schema as Schema47 } from "effect";
 var scheduleId = ScheduleId.annotate({
   description: "Schedule id, lowercase kebab-case, up to 48 characters"
 });
@@ -43074,30 +53363,30 @@ var createScheduleContract = defineContract("createSchedule", {
   annotations: { idempotent: true, openWorld: true },
   description: 'Wake a fresh run of one plan on a cadence, one wake at a time, until completeSchedule, a "done" doc, maxWakes or the timeout. Wake n is the run "<scheduleId>-wake-<n>"; a slot whose previous wake is still going is skipped, and missed slots collapse to one wake. With wakeTimeout, a wake still going past it is aborted at the next slot instead. Creating an existing schedule id returns it unchanged.',
   failure: ScheduleRefused,
-  input: Schema46.Struct({
-    carry: Schema46.optionalKey(Schema46.Array(Schema46.String).annotate({
+  input: Schema47.Struct({
+    carry: Schema47.optionalKey(Schema47.Array(Schema47.String).annotate({
       description: "Doc names each wake passes to the next; each needs a starting value in docs"
     })),
-    cron: Schema46.optionalKey(Schema46.String.annotate({
+    cron: Schema47.optionalKey(Schema47.String.annotate({
       description: 'Five cron fields in UTC, such as "0 9 * * 1-5"'
     })),
-    docs: Schema46.optionalKey(DocsSchema.annotate({ description: "Seed docs for every wake" })),
-    escalateTo: Schema46.optionalKey(EscalateToSchema),
-    every: Schema46.optionalKey(Schema46.String.annotate({
+    docs: Schema47.optionalKey(DocsSchema.annotate({ description: "Seed docs for every wake" })),
+    escalateTo: Schema47.optionalKey(EscalateToSchema),
+    every: Schema47.optionalKey(Schema47.String.annotate({
       description: 'A duration of at least 1 minute, such as "30 minutes"'
     })),
-    judge: Schema46.optionalKey(JudgeModeSchema),
-    maxWakes: Schema46.optionalKey(Schema46.Int.check(Schema46.isGreaterThan(0)).annotate({
+    judge: Schema47.optionalKey(JudgeModeSchema),
+    maxWakes: Schema47.optionalKey(Schema47.Int.check(Schema47.isGreaterThan(0)).annotate({
       description: "The most wakes before the schedule ends"
     })),
-    plan: Schema46.Json.annotate({
+    plan: Schema47.Json.annotate({
       description: "The plan every wake runs, as JSON"
     }),
     scheduleId,
-    timeout: Schema46.optionalKey(Schema46.String.annotate({
+    timeout: Schema47.optionalKey(Schema47.String.annotate({
       description: 'How long the schedule may live, such as "7 days"'
     })),
-    wakeTimeout: Schema46.optionalKey(Schema46.String.annotate({
+    wakeTimeout: Schema47.optionalKey(Schema47.String.annotate({
       description: 'How long one wake may run, at least 1 minute, such as "2 hours". At the next slot, a wake past it is aborted, and the next wake starts from the docs the aborted one started with'
     }))
   }),
@@ -43107,14 +53396,14 @@ var inspectScheduleContract = defineContract("inspectSchedule", {
   annotations: { idempotent: true, readOnly: true },
   description: "Report a schedule's cadence, its recent wakes and skips with counts, when it wakes next, and why it ended",
   failure: UnknownSchedule,
-  input: Schema46.Struct({ scheduleId }),
+  input: Schema47.Struct({ scheduleId }),
   output: ScheduleReportSchema
 });
 var completeScheduleContract = defineContract("completeSchedule", {
   annotations: { destructive: true, idempotent: true },
   description: "End a schedule for good; a wake already running finishes, and its runs stay readable",
   failure: UnknownSchedule,
-  input: Schema46.Struct({ scheduleId }),
+  input: Schema47.Struct({ scheduleId }),
   output: ScheduleReportSchema
 });
 
@@ -43129,7 +53418,7 @@ var scheduleCapabilities = [
 ];
 
 // ../../packages/plan-run/dist/sql-store.js
-import { Effect as Effect32, Option as Option16, Schema as Schema47 } from "effect";
+import { Effect as Effect32, Option as Option17, Schema as Schema48 } from "effect";
 var SCHEMA = `
 CREATE TABLE IF NOT EXISTS mischief_runs (run_id TEXT PRIMARY KEY, state TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS mischief_plans (run_id TEXT NOT NULL, version INTEGER NOT NULL, plan TEXT NOT NULL, PRIMARY KEY (run_id, version));
@@ -43139,14 +53428,14 @@ CREATE TABLE IF NOT EXISTS mischief_fingerprints (run_id TEXT NOT NULL, key TEXT
 CREATE TABLE IF NOT EXISTS mischief_paused (run_id TEXT PRIMARY KEY, paused INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS mischief_messages (message_id TEXT PRIMARY KEY, run_id TEXT NOT NULL);
 `;
-var JsonText = Schema47.fromJsonString(Schema47.Json);
-var StateText = Schema47.fromJsonString(RunStateSchema);
-var PlanText = Schema47.fromJsonString(PlanSchema);
-var PrintText = Schema47.fromJsonString(Schema47.String);
-var textOf = (value) => Schema47.is(Schema47.String)(value) ? value : "";
-var read2 = (codec, text) => Schema47.decodeUnknownEffect(codec)(text).pipe(Effect32.orDie);
+var JsonText = Schema48.fromJsonString(Schema48.Json);
+var StateText = Schema48.fromJsonString(RunStateSchema);
+var PlanText = Schema48.fromJsonString(PlanSchema);
+var PrintText = Schema48.fromJsonString(Schema48.String);
+var textOf = (value) => Schema48.is(Schema48.String)(value) ? value : "";
+var read2 = (codec, text) => Schema48.decodeUnknownEffect(codec)(text).pipe(Effect32.orDie);
 var entriesOf = (found, name, value, codec) => Effect32.all(found.map((row2) => read2(codec, textOf(row2[value])).pipe(Effect32.map((decoded) => [textOf(row2[name]), decoded]))));
-var write = (codec, value) => Schema47.encodeEffect(codec)(value).pipe(Effect32.orDie);
+var write = (codec, value) => Schema48.encodeEffect(codec)(value).pipe(Effect32.orDie);
 var docStatements = (runId2, changes) => Effect32.forEach([...changes.docs], ([name, doc]) => write(JsonText, doc).pipe(Effect32.map((text) => [
   "INSERT INTO mischief_docs (run_id, name, doc) VALUES (?, ?, ?) ON CONFLICT (run_id, name) DO UPDATE SET doc = excluded.doc",
   runId2,
@@ -43205,7 +53494,7 @@ var encodedFor = (runId2, changes) => Effect32.all([
 ]));
 var runBackendSql = (storage) => Effect32.gen(function* openSqlStore() {
   const rows = (query, ...bindings) => storage.sql.exec(query, ...bindings).toArray();
-  const column = (query, name, ...bindings) => Effect32.sync(() => Option16.fromUndefinedOr(rows(query, ...bindings)[0]).pipe(Option16.map((row2) => textOf(row2[name]))));
+  const column = (query, name, ...bindings) => Effect32.sync(() => Option17.fromUndefinedOr(rows(query, ...bindings)[0]).pipe(Option17.map((row2) => textOf(row2[name]))));
   yield* Effect32.sync(() => storage.sql.exec(SCHEMA));
   const docsOf = (runId2) => Effect32.sync(() => rows("SELECT name, doc FROM mischief_docs WHERE run_id = ?", runId2)).pipe(Effect32.flatMap((found) => entriesOf(found, "name", "doc", JsonText)), Effect32.map((entries2) => Object.fromEntries(entries2)));
   return {
@@ -43221,8 +53510,8 @@ var runBackendSql = (storage) => Effect32.gen(function* openSqlStore() {
     readJournal: (runId2) => Effect32.sync(() => rows("SELECT key, entry FROM mischief_journal WHERE run_id = ? ORDER BY seq", runId2)).pipe(Effect32.flatMap((found) => entriesOf(found, "key", "entry", JsonText)), Effect32.map((entries2) => new Map(entries2))),
     readMessage: (messageId) => column("SELECT run_id FROM mischief_messages WHERE message_id = ?", "run_id", messageId),
     readPaused: (runId2) => Effect32.sync(() => rows("SELECT paused FROM mischief_paused WHERE run_id = ? AND paused = 1", runId2).length > 0),
-    readPlan: (runId2, version) => column("SELECT plan FROM mischief_plans WHERE run_id = ? AND version = ?", "plan", runId2, version).pipe(Effect32.flatMap((text) => Option16.isSome(text) ? read2(PlanText, text.value).pipe(Effect32.asSome) : Effect32.succeedNone)),
-    readRun: (runId2) => column("SELECT state FROM mischief_runs WHERE run_id = ?", "state", runId2).pipe(Effect32.flatMap((text) => Option16.isSome(text) ? read2(StateText, text.value).pipe(Effect32.asSome) : Effect32.succeedNone))
+    readPlan: (runId2, version) => column("SELECT plan FROM mischief_plans WHERE run_id = ? AND version = ?", "plan", runId2, version).pipe(Effect32.flatMap((text) => Option17.isSome(text) ? read2(PlanText, text.value).pipe(Effect32.asSome) : Effect32.succeedNone)),
+    readRun: (runId2) => column("SELECT state FROM mischief_runs WHERE run_id = ?", "state", runId2).pipe(Effect32.flatMap((text) => Option17.isSome(text) ? read2(StateText, text.value).pipe(Effect32.asSome) : Effect32.succeedNone))
   };
 });
 var runStoreSql = (storage) => runBackendSql(storage).pipe(Effect32.map(bufferedRunStore));
@@ -43246,13 +53535,13 @@ var webCrypto = Layer15.succeed(Crypto3.Crypto, Crypto3.make({
 }));
 
 // ../../packages/plan-run/dist/outbox.js
-import { Effect as Effect34, Layer as Layer16, Schema as Schema48 } from "effect";
+import { Effect as Effect34, Layer as Layer16, Schema as Schema49 } from "effect";
 var OUTBOX = `CREATE TABLE IF NOT EXISTS mischief_outbox (message_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, envelope TEXT NOT NULL)`;
-var EnvelopeText = Schema48.fromJsonString(Schema48.Struct({ message: Schema48.String, to: Schema48.String }));
+var EnvelopeText = Schema49.fromJsonString(Schema49.Struct({ message: Schema49.String, to: Schema49.String }));
 var mailOutboxSql = (storage) => Layer16.effect(Mail, Effect34.sync(() => {
   storage.sql.exec(OUTBOX);
   return Mail.of({
-    seal: ({ key, message, runId: runId2, to, visit }) => Schema48.encodeEffect(EnvelopeText)({ message, to }).pipe(Effect34.map((envelope) => ({
+    seal: ({ key, message, runId: runId2, to, visit }) => Schema49.encodeEffect(EnvelopeText)({ message, to }).pipe(Effect34.map((envelope) => ({
       envelope,
       messageId: `${runId2}/${key}#${visit}`
     })), Effect34.mapError(() => new StepFailed({ key, reason: "envelope did not encode" }))),
@@ -43263,7 +53552,7 @@ var mailOutboxSql = (storage) => Layer16.effect(Mail, Effect34.sync(() => {
 }));
 
 // ../../packages/capability/dist/to-http-api.js
-import { Data as Data8, Effect as Effect35, Layer as Layer17, Predicate as Predicate5, Schema as Schema49, SchemaAST } from "effect";
+import { Data as Data8, Effect as Effect35, Layer as Layer17, Predicate as Predicate5, Schema as Schema50, SchemaAST } from "effect";
 import { HttpServerRequest } from "effect/http";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, OpenApi } from "effect/http-api";
 
@@ -43292,12 +53581,12 @@ var membersOf = (failure5) => {
   if (!SchemaAST.isUnion(failure5.ast) || failure5.ast.annotations?.httpApiStatus !== void 0 || !Predicate5.hasProperty(failure5, "members") || !Array.isArray(failure5.members)) {
     return [failure5];
   }
-  return failure5.members.filter((member) => Schema49.isSchema(member));
+  return failure5.members.filter((member) => Schema50.isSchema(member));
 };
 var UndeclaredFailure = class extends Data8.TaggedError("UndeclaredFailure") {
 };
 var declaredFailuresOnly = (contract) => {
-  const isDeclared = Schema49.is(failureSchemaOf(contract));
+  const isDeclared = Schema50.is(failureSchemaOf(contract));
   return (handled) => Effect35.catchIf(handled, (failure5) => !isDeclared(failure5), (failure5) => Effect35.die(new UndeclaredFailure({ cause: failure5, contract: contract.name })));
 };
 var httpFailure = (contract) => [
@@ -43315,10 +53604,10 @@ var routedEndpoint = (contract, http2, error) => {
     }
   }
   const params2 = Object.fromEntries(Object.entries(fields).filter(([name]) => names3.includes(name)));
-  const input = names3.length === 0 ? contract.input : Schema49.Struct(Object.fromEntries(Object.entries(fields).filter(([name]) => !names3.includes(name))));
+  const input = names3.length === 0 ? contract.input : Schema50.Struct(Object.fromEntries(Object.entries(fields).filter(([name]) => !names3.includes(name))));
   return route(http2.method)(contract.name, http2.path, {
     error,
-    params: names3.length === 0 ? void 0 : Schema49.Struct(params2),
+    params: names3.length === 0 ? void 0 : Schema50.Struct(params2),
     success: contract.output,
     ...BODY_METHODS.has(http2.method) ? { payload: input } : { query: input }
   });
@@ -43331,7 +53620,7 @@ var inputOf = (contract, request2) => {
   if (pathParamNames(contract.http.path).length === 0) {
     return Effect35.succeed(parts2);
   }
-  return HttpApiError.HttpApiSchemaError.wrap("Params", Schema49.decodeEffect(Schema49.toType(contract.input))({
+  return HttpApiError.HttpApiSchemaError.wrap("Params", Schema50.decodeEffect(Schema50.toType(contract.input))({
     ...request2.params,
     ...parts2
   }));
@@ -43436,29 +53725,29 @@ var toHttpApi = (id, capabilities2, options2) => {
 };
 
 // ../../packages/plan-run/dist/plan-run.js
-import { Clock as Clock5, Crypto as Crypto4, Effect as Effect36, Layer as Layer18, ManagedRuntime, Option as Option18, Schema as Schema52, Schedule, Semaphore as Semaphore2 } from "effect";
+import { Clock as Clock5, Crypto as Crypto4, Effect as Effect36, Layer as Layer18, ManagedRuntime, Option as Option19, Schema as Schema53, Schedule, Semaphore as Semaphore2 } from "effect";
 import { constVoid as constVoid3 } from "effect/Function";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder2 } from "effect/http-api";
 
 // ../../packages/plan-run/dist/drive-lease-lost.js
-import { Schema as Schema50 } from "effect";
-var DriveLeaseLost = class extends Schema50.TaggedError()("DriveLeaseLost", {
-  owner: Schema50.String,
-  reason: Schema50.String
+import { Schema as Schema51 } from "effect";
+var DriveLeaseLost = class extends Schema51.TaggedError()("DriveLeaseLost", {
+  owner: Schema51.String,
+  reason: Schema51.String
 }) {
 };
 
 // ../../packages/plan-run/dist/drive-lease.js
-import { Option as Option17, Schema as Schema51 } from "effect";
-var decode2 = Schema51.decodeUnknownSync(DriveLeaseSchema);
+import { Option as Option18, Schema as Schema52 } from "effect";
+var decode2 = Schema52.decodeUnknownSync(DriveLeaseSchema);
 var driveLease = (storage) => {
   storage.sql.exec("CREATE TABLE IF NOT EXISTS mischief_drive_lease (id INTEGER PRIMARY KEY CHECK (id = 1), epoch INTEGER NOT NULL, holder TEXT, lease_until INTEGER NOT NULL)");
   storage.sql.exec("INSERT OR IGNORE INTO mischief_drive_lease VALUES (1, 0, NULL, 0)");
   const peek = () => decode2(storage.sql.exec("SELECT epoch, holder, lease_until AS leaseUntil FROM mischief_drive_lease WHERE id = 1").toArray()[0]);
   const take = (holder, now2, ttl) => storage.transactionSync(() => {
     const rows = storage.sql.exec("UPDATE mischief_drive_lease SET epoch = epoch + 1, holder = ?, lease_until = ? WHERE id = 1 AND (holder IS NULL OR lease_until <= ?) RETURNING epoch, holder, lease_until AS leaseUntil", holder, now2 + ttl, now2).toArray();
-    return rows.length === 0 ? Option17.none() : Option17.some(decode2(rows[0]));
+    return rows.length === 0 ? Option18.none() : Option18.some(decode2(rows[0]));
   });
   const renew = (lease, now2, ttl) => storage.sql.exec("UPDATE mischief_drive_lease SET lease_until = ? WHERE id = 1 AND epoch = ? AND holder = ? AND lease_until > ? RETURNING epoch", now2 + ttl, lease.epoch, lease.holder, now2).toArray().length === 1;
   const release = (lease) => {
@@ -43481,13 +53770,13 @@ var driveLease = (storage) => {
 };
 
 // ../../packages/plan-run/dist/plan-run.js
-var isText4 = Schema52.is(Schema52.String);
-var decodeState = Schema52.decodeUnknownOption(Schema52.fromJsonString(RunStateSchema));
+var isText4 = Schema53.is(Schema53.String);
+var decodeState = Schema53.decodeUnknownOption(Schema53.fromJsonString(RunStateSchema));
 var runsOf = (storage) => storage.sql.exec("SELECT run_id, state FROM mischief_runs WHERE run_id NOT IN (SELECT run_id FROM mischief_paused WHERE paused = 1) ORDER BY run_id").toArray().flatMap((row2) => {
   const state3 = decodeState(row2.state);
-  return isText4(row2.run_id) && Option18.isSome(state3) ? [{ runId: row2.run_id, state: state3.value }] : [];
+  return isText4(row2.run_id) && Option19.isSome(state3) ? [{ runId: row2.run_id, state: state3.value }] : [];
 });
-var decodeSubmit = Schema52.decodeUnknownOption(Schema52.Struct({ runId: Schema52.String }));
+var decodeSubmit = Schema53.decodeUnknownOption(Schema53.Struct({ runId: Schema53.String }));
 var stored = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_runs WHERE run_id = ?", runId2).toArray().length > 0;
 var alarmPending = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = ?", runId2, "done:hold-alarm").toArray().length === 0;
 var wakeAt = (storage, now2, guardMs, attempts, runningAt) => {
@@ -43547,10 +53836,10 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
     const take = Clock5.currentTimeMillis.pipe(Effect36.map((now2) => lease.take(holder, now2, guardMs)));
     const held = yield* wait2 ? take.pipe(Effect36.repeat({
       schedule: Schedule.spaced(interval),
-      while: Option18.isNone
+      while: Option19.isNone
     })) : take;
-    if (Option18.isNone(held)) {
-      return Option18.none();
+    if (Option19.isNone(held)) {
+      return Option19.none();
     }
     return yield* Effect36.acquireUseRelease(Effect36.succeed(held.value), (token) => Effect36.gen(function* holdingLease() {
       acquired();
@@ -43563,11 +53852,11 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
       lease.release(token);
     }));
   });
-  const mutate = (effect) => exclusive(effect, true).pipe(Effect36.flatMap(Option18.match({
+  const mutate = (effect) => exclusive(effect, true).pipe(Effect36.flatMap(Option19.match({
     onNone: () => Effect36.die(new Error("The writer wait ended without a lease; retry the capability and inspectRun.")),
     onSome: Effect36.succeed
   })), requests.withPermits(1), Effect36.ensuring(reconcile(true)));
-  const http2 = toHttpApi("Mischief", aroundHandlers(runCapabilities, (contract, input, effect) => contract.annotations.readOnly || contract.name === "submitPlan" && Option18.exists(decodeSubmit(input), ({ runId: runId2 }) => stored(storage, runId2)) ? effect : mutate(effect)));
+  const http2 = toHttpApi("Mischief", aroundHandlers(runCapabilities, (contract, input, effect) => contract.annotations.readOnly || contract.name === "submitPlan" && Option19.exists(decodeSubmit(input), ({ runId: runId2 }) => stored(storage, runId2)) ? effect : mutate(effect)));
   const { handler } = HttpRouter.toWebHandler(HttpApiBuilder2.layer(http2.api).pipe(Layer18.provide(http2.layer), Layer18.provide(Layer18.merge(host, HttpServer.layerServices))), { disableLogger: true, memoMap });
   return {
     alarm: async (signal) => {
@@ -43605,21 +53894,21 @@ import { HttpRouter as HttpRouter2, HttpServer as HttpServer2 } from "effect/htt
 import { HttpApiBuilder as HttpApiBuilder3, OpenApi as OpenApi2 } from "effect/http-api";
 
 // ../../packages/plan-run/dist/schedule-store.js
-import { Effect as Effect37, Option as Option19, Schema as Schema53 } from "effect";
+import { Effect as Effect37, Option as Option20, Schema as Schema54 } from "effect";
 var SCHEMA2 = "CREATE TABLE IF NOT EXISTS mischief_schedule (id INTEGER PRIMARY KEY CHECK (id = 1), state TEXT NOT NULL)";
-var StateText2 = Schema53.fromJsonString(ScheduleStateSchema);
-var StateRow = Schema53.Struct({ state: Schema53.String });
+var StateText2 = Schema54.fromJsonString(ScheduleStateSchema);
+var StateRow = Schema54.Struct({ state: Schema54.String });
 var scheduleStoreSql = (storage) => {
   const rows = (query, ...bindings) => {
     storage.sql.exec(SCHEMA2);
     return storage.sql.exec(query, ...bindings).toArray();
   };
   return ScheduleStore.of({
-    load: Effect37.suspend(() => Option19.match(Schema53.decodeUnknownOption(StateRow)(rows("SELECT state FROM mischief_schedule WHERE id = 1")[0]), {
+    load: Effect37.suspend(() => Option20.match(Schema54.decodeUnknownOption(StateRow)(rows("SELECT state FROM mischief_schedule WHERE id = 1")[0]), {
       onNone: () => Effect37.succeedNone,
-      onSome: ({ state: state3 }) => Schema53.decodeUnknownEffect(StateText2)(state3).pipe(Effect37.map(Option19.some), Effect37.orDie)
+      onSome: ({ state: state3 }) => Schema54.decodeUnknownEffect(StateText2)(state3).pipe(Effect37.map(Option20.some), Effect37.orDie)
     })),
-    save: (state3) => Schema53.encodeEffect(StateText2)(state3).pipe(Effect37.orDie, Effect37.flatMap((text) => Effect37.sync(() => {
+    save: (state3) => Schema54.encodeEffect(StateText2)(state3).pipe(Effect37.orDie, Effect37.flatMap((text) => Effect37.sync(() => {
       rows("INSERT INTO mischief_schedule (id, state) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET state = excluded.state", text);
     })))
   });
@@ -45093,8 +55382,8 @@ function IsEnum(value) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/types/intersect.mjs
-function Intersect(types2, options2 = {}) {
-  return memory_exports.Create({ "~kind": "Intersect" }, { allOf: types2 }, options2);
+function Intersect(types3, options2 = {}) {
+  return memory_exports.Create({ "~kind": "Intersect" }, { allOf: types3 }, options2);
 }
 function IsIntersect(value) {
   return IsKind(value, "Intersect");
@@ -45498,18 +55787,18 @@ function ParsePatternIntoTypes(pattern) {
 function FromLiteral(_value) {
   return true;
 }
-function FromTypesReduce(types2) {
-  return guard_exports.ShiftLeft(types2, (left, right) => FromType(left) ? FromTypesReduce(right) : false, () => true);
+function FromTypesReduce(types3) {
+  return guard_exports.ShiftLeft(types3, (left, right) => FromType(left) ? FromTypesReduce(right) : false, () => true);
 }
-function FromTypes(types2) {
-  const result = guard_exports.IsEqual(types2.length, 0) ? false : FromTypesReduce(types2);
+function FromTypes(types3) {
+  const result = guard_exports.IsEqual(types3.length, 0) ? false : FromTypesReduce(types3);
   return result;
 }
 function FromType(type) {
   return IsUnion(type) ? FromTypes(type.anyOf) : IsLiteral(type) ? FromLiteral(type.const) : false;
 }
-function IsTemplateLiteralFinite(types2) {
-  const result = FromTypes(types2);
+function IsTemplateLiteralFinite(types3) {
+  const result = FromTypes(types3);
   return result;
 }
 
@@ -45525,34 +55814,34 @@ function FromLiteralPush(variants, value, result = []) {
 function FromLiteral2(variants, value) {
   return guard_exports.IsEqual(variants.length, 0) ? [`${value}`] : FromLiteralPush(variants, value);
 }
-function FromUnion(variants, types2, result = []) {
-  return guard_exports.ShiftLeft(types2, (left, right) => FromUnion(variants, right, [...result, ...FromType2(variants, left)]), () => result);
+function FromUnion(variants, types3, result = []) {
+  return guard_exports.ShiftLeft(types3, (left, right) => FromUnion(variants, right, [...result, ...FromType2(variants, left)]), () => result);
 }
 function FromType2(variants, type) {
   const result = IsUnion(type) ? FromUnion(variants, type.anyOf) : IsLiteral(type) ? FromLiteral2(variants, type.const) : Unreachable();
   return result;
 }
-function DecodeFromSpan(variants, types2) {
-  return guard_exports.ShiftLeft(types2, (left, right) => DecodeFromSpan(FromType2(variants, left), right), () => variants);
+function DecodeFromSpan(variants, types3) {
+  return guard_exports.ShiftLeft(types3, (left, right) => DecodeFromSpan(FromType2(variants, left), right), () => variants);
 }
 function VariantsToLiterals(variants) {
   return variants.map((variant) => Literal(variant));
 }
-function DecodeTypesAsUnion(types2) {
-  const variants = DecodeFromSpan([], types2);
+function DecodeTypesAsUnion(types3) {
+  const variants = DecodeFromSpan([], types3);
   const literals = VariantsToLiterals(variants);
   const result = Union(literals);
   return result;
 }
-function DecodeTypes(types2) {
-  return guard_exports.IsEqual(types2.length, 0) ? Unreachable() : (
+function DecodeTypes(types3) {
+  return guard_exports.IsEqual(types3.length, 0) ? Unreachable() : (
     // Literal('') :
-    guard_exports.IsEqual(types2.length, 1) && IsLiteral(types2[0]) ? types2[0] : DecodeTypesAsUnion(types2)
+    guard_exports.IsEqual(types3.length, 1) && IsLiteral(types3[0]) ? types3[0] : DecodeTypesAsUnion(types3)
   );
 }
 function TemplateLiteralDecodeUnsafe(pattern) {
-  const types2 = ParsePatternIntoTypes(pattern);
-  const result = guard_exports.IsEqual(types2.length, 0) ? String2() : IsTemplateLiteralFinite(types2) ? DecodeTypes(types2) : TemplateLiteralCreate(pattern);
+  const types3 = ParsePatternIntoTypes(pattern);
+  const result = guard_exports.IsEqual(types3.length, 0) ? String2() : IsTemplateLiteralFinite(types3) ? DecodeTypes(types3) : TemplateLiteralCreate(pattern);
   return result;
 }
 function TemplateLiteralDecode(pattern) {
@@ -45579,8 +55868,8 @@ function FromBooleanKey(value) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/types/tuple.mjs
-function Tuple(types2, options2 = {}) {
-  const [items, minItems, additionalItems] = [types2, types2.length, false];
+function Tuple(types3, options2 = {}) {
+  const [items, minItems, additionalItems] = [types3, types3.length, false];
   return memory_exports.Create({ ["~kind"]: "Tuple" }, { type: "array", additionalItems, items, minItems }, options2);
 }
 function IsTuple(value) {
@@ -45627,8 +55916,8 @@ function RemoveOptional(type, options2 = {}) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/tuple/to_object.mjs
-function TupleElementsToProperties(types2) {
-  const result = types2.reduceRight((result2, right, index3) => {
+function TupleElementsToProperties(types3) {
+  const result = types3.reduceRight((result2, right, index3) => {
     return { [index3]: right, ...result2 };
   }, {});
   return result;
@@ -45704,14 +55993,14 @@ function DistributeOperation(left, right) {
   const result = shouldEvaluate ? EvaluateIntersect([evaluatedLeft, evaluatedRight]) : Narrow(evaluatedLeft, evaluatedRight);
   return result;
 }
-function DistributeType(type, types2, result = []) {
-  return guard_exports.ShiftLeft(types2, (left, right) => DistributeType(type, right, [...result, DistributeOperation(left, type)]), () => guard_exports.IsEqual(result.length, 0) ? [type] : result);
+function DistributeType(type, types3, result = []) {
+  return guard_exports.ShiftLeft(types3, (left, right) => DistributeType(type, right, [...result, DistributeOperation(left, type)]), () => guard_exports.IsEqual(result.length, 0) ? [type] : result);
 }
-function DistributeUnion(types2, distribution, result = []) {
-  return guard_exports.ShiftLeft(types2, (left, right) => DistributeUnion(right, distribution, [...result, ...Distribute([left], distribution)]), () => result);
+function DistributeUnion(types3, distribution, result = []) {
+  return guard_exports.ShiftLeft(types3, (left, right) => DistributeUnion(right, distribution, [...result, ...Distribute([left], distribution)]), () => result);
 }
-function Distribute(types2, result = []) {
-  return guard_exports.ShiftLeft(types2, (left, right) => IsUnion(left) ? Distribute(right, DistributeUnion(left.anyOf, result)) : Distribute(right, DistributeType(left, result)), () => result);
+function Distribute(types3, result = []) {
+  return guard_exports.ShiftLeft(types3, (left, right) => IsUnion(left) ? Distribute(right, DistributeUnion(left.anyOf, result)) : Distribute(right, DistributeType(left, result)), () => result);
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/exclude/operation.mjs
@@ -45741,8 +56030,8 @@ function EvaluateDependent(if_, then_, else_) {
 function EvaluateEnum(values, result = []) {
   return guard_exports.ShiftLeft(values, (left, right) => EvaluateEnum(right, [...result, Literal(left)]), () => EvaluateUnion(result));
 }
-function EvaluateIntersect(types2) {
-  const distribution = Distribute(types2);
+function EvaluateIntersect(types3) {
+  const distribution = Distribute(types3);
   const broadend = Broaden(distribution);
   const result = EvaluateUnion(broadend);
   return result;
@@ -45752,8 +56041,8 @@ function EvaluateTemplateLiteral(pattern) {
   const result = EvaluateType(evaluated);
   return result;
 }
-function EvaluateUnion(types2) {
-  const broadend = Broaden(types2);
+function EvaluateUnion(types3) {
+  const broadend = Broaden(types3);
   const result = EvaluateUnionFast(broadend);
   return result;
 }
@@ -45761,8 +56050,8 @@ function EvaluateType(type) {
   const result = IsDependent(type) ? EvaluateDependent(type.if, type.then, type.else) : IsEnum(type) ? EvaluateEnum(type.enum) : IsIntersect(type) ? EvaluateIntersect(type.allOf) : IsTemplateLiteral(type) ? EvaluateTemplateLiteral(type.pattern) : IsUnion(type) ? EvaluateUnion(type.anyOf) : type;
   return result;
 }
-function EvaluateUnionFast(types2) {
-  const result = guard_exports.IsEqual(types2.length, 1) ? types2[0] : guard_exports.IsEqual(types2.length, 0) ? Never() : Union(types2);
+function EvaluateUnionFast(types3) {
+  const result = guard_exports.IsEqual(types3.length, 1) ? types3[0] : guard_exports.IsEqual(types3.length, 0) ? Never() : Union(types3);
   return result;
 }
 
@@ -45780,8 +56069,8 @@ function FromIntegerKey(_key, value) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/record/from_key_intersect.mjs
-function FromIntersectKey(types2, value) {
-  const evaluatedKey = EvaluateIntersect(types2);
+function FromIntersectKey(types3, value) {
+  const evaluatedKey = EvaluateIntersect(types3);
   const result = FromKey(evaluatedKey, value);
   return result;
 }
@@ -45804,8 +56093,8 @@ function FromStringKey(key, value) {
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/record/from_key_template_literal.mjs
 function FromTemplateKey(pattern, value) {
-  const types2 = ParsePatternIntoTypes(pattern);
-  const finite = IsTemplateLiteralFinite(types2);
+  const types3 = ParsePatternIntoTypes(pattern);
+  const finite = IsTemplateLiteralFinite(types3);
   const result = finite ? FromKey(EvaluateTemplateLiteral(pattern), value) : CreateRecord(pattern, value);
   return result;
 }
@@ -45815,29 +56104,29 @@ function FlattenType(type) {
   const result = IsUnion(type) ? Flatten(type.anyOf) : [type];
   return result;
 }
-function Flatten(types2, result = []) {
-  return guard_exports.ShiftLeft(types2, (left, right) => Flatten(right, [...result, ...FlattenType(left)]), () => result);
+function Flatten(types3, result = []) {
+  return guard_exports.ShiftLeft(types3, (left, right) => Flatten(right, [...result, ...FlattenType(left)]), () => result);
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/record/from_key_union.mjs
-function StringOrNumberCheck(types2) {
-  return types2.some((type) => IsString4(type) || IsNumber4(type) || IsInteger3(type));
+function StringOrNumberCheck(types3) {
+  return types3.some((type) => IsString4(type) || IsNumber4(type) || IsInteger3(type));
 }
-function TryBuildRecord(types2, value) {
-  return guard_exports.IsEqual(StringOrNumberCheck(types2), true) ? CreateRecord(StringKey, value) : void 0;
+function TryBuildRecord(types3, value) {
+  return guard_exports.IsEqual(StringOrNumberCheck(types3), true) ? CreateRecord(StringKey, value) : void 0;
 }
-function CreateProperties(types2, value) {
-  return types2.reduce((result, left) => {
+function CreateProperties(types3, value) {
+  return types3.reduce((result, left) => {
     return IsLiteral(left) && (guard_exports.IsString(left.const) || guard_exports.IsNumber(left.const)) ? { ...result, [left.const]: value } : result;
   }, {});
 }
-function CreateObject(types2, value) {
-  const properties = CreateProperties(types2, value);
+function CreateObject(types3, value) {
+  const properties = CreateProperties(types3, value);
   const result = _Object_(properties);
   return result;
 }
-function FromUnionKey(types2, value) {
-  const flattened = Flatten(types2);
+function FromUnionKey(types3, value) {
+  const flattened = Flatten(types3);
   const record = TryBuildRecord(flattened, value);
   return IsSchema(record) ? record : CreateObject(flattened, value);
 }
@@ -46102,8 +56391,8 @@ function EncodeString(right, pattern) {
 function EncodeTemplateLiteral(templatePattern, right, pattern) {
   return EncodeTypes(right, `${pattern}${UnwrapTemplateLiteralPattern(templatePattern)}`);
 }
-function EncodeTemplateLiteralDeferred(types2, right, pattern) {
-  const templateLiteral = TemplateLiteralAction(types2, {});
+function EncodeTemplateLiteralDeferred(types3, right, pattern) {
+  const templateLiteral = TemplateLiteralAction(types3, {});
   const result = EncodeType(templateLiteral, right, pattern);
   return result;
 }
@@ -46111,39 +56400,39 @@ function EncodeEnum(values, right, pattern) {
   const evaluated = EvaluateEnum(values);
   return EncodeType(evaluated, right, pattern);
 }
-function EncodeUnion(types2, right, pattern, result = []) {
-  return guard_exports.ShiftLeft(types2, (head, tail) => EncodeUnion(tail, right, pattern, [...result, EncodeType(head, [], "")]), () => EncodeTypes(right, `${pattern}(${JoinString(result)})`));
+function EncodeUnion(types3, right, pattern, result = []) {
+  return guard_exports.ShiftLeft(types3, (head, tail) => EncodeUnion(tail, right, pattern, [...result, EncodeType(head, [], "")]), () => EncodeTypes(right, `${pattern}(${JoinString(result)})`));
 }
 function EncodeType(type, right, pattern) {
   return IsEnum(type) ? EncodeEnum(type.enum, right, pattern) : IsInteger3(type) ? EncodeInteger(right, pattern) : IsLiteral(type) ? EncodeLiteral(type.const, right, pattern) : IsBigInt3(type) ? EncodeBigInt(right, pattern) : IsBoolean4(type) ? EncodeBoolean(right, pattern) : IsNumber4(type) ? EncodeNumber(right, pattern) : IsString4(type) ? EncodeString(right, pattern) : IsTemplateLiteral(type) ? EncodeTemplateLiteral(type.pattern, right, pattern) : IsTemplateLiteralDeferred(type) ? EncodeTemplateLiteralDeferred(type.parameters[0], right, pattern) : IsUnion(type) ? EncodeUnion(type.anyOf, right, pattern) : NeverPattern;
 }
-function EncodeTypes(types2, pattern) {
-  return guard_exports.ShiftLeft(types2, (left, right) => EncodeType(left, right, pattern), () => pattern);
+function EncodeTypes(types3, pattern) {
+  return guard_exports.ShiftLeft(types3, (left, right) => EncodeType(left, right, pattern), () => pattern);
 }
-function EncodePattern(types2) {
-  const encoded = EncodeTypes(types2, "");
+function EncodePattern(types3) {
+  const encoded = EncodeTypes(types3, "");
   const result = `^${encoded}$`;
   return result;
 }
-function TemplateLiteralEncode(types2) {
-  const pattern = EncodePattern(types2);
+function TemplateLiteralEncode(types3) {
+  const pattern = EncodePattern(types3);
   const result = TemplateLiteralCreate(pattern);
   return result;
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/template_literal/instantiate.mjs
-function TemplateLiteralAction(types2, options2) {
-  const result = CanInstantiate(types2) ? memory_exports.Update(TemplateLiteralEncode(types2), {}, options2) : TemplateLiteralDeferred(types2, options2);
+function TemplateLiteralAction(types3, options2) {
+  const result = CanInstantiate(types3) ? memory_exports.Update(TemplateLiteralEncode(types3), {}, options2) : TemplateLiteralDeferred(types3, options2);
   return result;
 }
-function TemplateLiteralInstantiate(context, state3, types2, options2) {
-  const instantiatedTypes = InstantiateTypes(context, state3, types2);
+function TemplateLiteralInstantiate(context, state3, types3, options2) {
+  const instantiatedTypes = InstantiateTypes(context, state3, types3);
   return TemplateLiteralAction(instantiatedTypes, options2);
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/types/template_literal.mjs
-function TemplateLiteralDeferred(types2, options2 = {}) {
-  return Deferred2("TemplateLiteral", [types2], options2);
+function TemplateLiteralDeferred(types3, options2 = {}) {
+  return Deferred2("TemplateLiteral", [types3], options2);
 }
 function IsTemplateLiteralDeferred(value) {
   return IsSchema(value) && guard_exports.HasPropertyKey(value, "action") && guard_exports.IsEqual(value.action, "TemplateLiteral");
@@ -46436,14 +56725,14 @@ function InferUnionResult(inferred, name, left, right) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/extends/tuple.mjs
-function Reverse(types2) {
-  return [...types2].reverse();
+function Reverse(types3) {
+  return [...types3].reverse();
 }
-function ApplyReverse(types2, reversed) {
-  return reversed ? Reverse(types2) : types2;
+function ApplyReverse(types3, reversed) {
+  return reversed ? Reverse(types3) : types3;
 }
-function Reversed(types2) {
-  const first = types2.length > 0 ? types2[0] : void 0;
+function Reversed(types3) {
+  const first = types3.length > 0 ? types3[0] : void 0;
   const inferrable = IsSchema(first) ? TryRestInferable(first) : void 0;
   return IsSchema(inferrable);
 }
@@ -46537,11 +56826,11 @@ function FromRef(stack, context, ref) {
   return stack.includes(ref) ? true : FromType3([...stack, ref], context, context[ref]);
 }
 function FromProperties(stack, context, properties) {
-  const types2 = PropertyValues(properties);
-  return FromTypes2(stack, context, types2);
+  const types3 = PropertyValues(properties);
+  return FromTypes2(stack, context, types3);
 }
-function FromTypes2(stack, context, types2) {
-  return guard_exports.ShiftLeft(types2, (left, right) => FromType3(stack, context, left) ? true : FromTypes2(stack, context, right), () => false);
+function FromTypes2(stack, context, types3) {
+  return guard_exports.ShiftLeft(types3, (left, right) => FromType3(stack, context, left) ? true : FromTypes2(stack, context, right), () => false);
 }
 function FromType3(stack, context, type) {
   return IsRef(type) ? FromRef(stack, context, type.$ref) : IsArray3(type) ? FromType3(stack, context, type.items) : IsConstructor3(type) ? FromTypes2(stack, context, [...type.parameters, type.instanceType]) : IsFunction3(type) ? FromTypes2(stack, context, [...type.parameters, type.returnType]) : IsInterfaceDeferred(type) ? FromProperties(stack, context, type.parameters[1]) : IsIntersect(type) ? FromTypes2(stack, context, type.allOf) : IsObject3(type) ? FromProperties(stack, context, type.properties) : IsUnion(type) ? FromTypes2(stack, context, type.anyOf) : IsTuple(type) ? FromTypes2(stack, context, type.items) : IsRecord(type) ? FromType3(stack, context, RecordValue(type)) : false;
@@ -46568,11 +56857,11 @@ function FromRef2(context, ref, result) {
   return result.includes(ref) ? result : ref in context ? FromType4(context, context[ref], [...result, ref]) : Unreachable();
 }
 function FromProperties2(context, properties, result) {
-  const types2 = PropertyValues(properties);
-  return FromTypes3(context, types2, result);
+  const types3 = PropertyValues(properties);
+  return FromTypes3(context, types3, result);
 }
-function FromTypes3(context, types2, result) {
-  return types2.reduce((result2, left) => {
+function FromTypes3(context, types3, result) {
+  return types3.reduce((result2, left) => {
     return FromType4(context, left, result2);
   }, result);
 }
@@ -46593,8 +56882,8 @@ function FromProperties3(properties) {
     return { ...result, [key]: FromType5(properties[key]) };
   }, {});
 }
-function FromTypes4(types2) {
-  return types2.reduce((result, left) => {
+function FromTypes4(types3) {
+  return types3.reduce((result, left) => {
     return [...result, FromType5(left)];
   }, []);
 }
@@ -46660,33 +56949,33 @@ function Compare(left, right) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/evaluate/broaden.mjs
-function BroadenFilter(type, types2, result = [], all = types2) {
-  return guard_exports.ShiftLeft(types2, (left, right) => {
+function BroadenFilter(type, types3, result = [], all = types3) {
+  return guard_exports.ShiftLeft(types3, (left, right) => {
     const compare2 = Compare(type, left);
     return guard_exports.IsEqual(compare2, CompareResultLeftInside) || guard_exports.IsEqual(compare2, CompareResultEqual) ? all : guard_exports.IsEqual(compare2, CompareResultDisjoint) ? BroadenFilter(type, right, [...result, left], all) : BroadenFilter(type, right, result, all);
   }, () => [...result, type]);
 }
-function BroadenType(type, types2, result) {
+function BroadenType(type, types3, result) {
   const evaluated = EvaluateType(type);
   return IsAny(evaluated) ? [evaluated] : (
     // terminate (always the most broad)
     IsUnknown(evaluated) ? [evaluated] : (
       // terminate (always the most broad)
-      IsNever(evaluated) ? BroadenTypes(types2, result) : (
+      IsNever(evaluated) ? BroadenTypes(types3, result) : (
         // ignored: never is dropped
-        IsObject3(evaluated) ? BroadenTypes(types2, [...result, evaluated]) : (
+        IsObject3(evaluated) ? BroadenTypes(types3, [...result, evaluated]) : (
           // objects are always considered (too expensive to compare)
-          BroadenTypes(types2, BroadenFilter(evaluated, result))
+          BroadenTypes(types3, BroadenFilter(evaluated, result))
         )
       )
     )
   );
 }
-function BroadenTypes(types2, result = []) {
-  return guard_exports.ShiftLeft(types2, (left, right) => BroadenType(left, right, result), () => result);
+function BroadenTypes(types3, result = []) {
+  return guard_exports.ShiftLeft(types3, (left, right) => BroadenType(left, right, result), () => result);
 }
-function Broaden(types2) {
-  const broadened = BroadenTypes(types2);
+function Broaden(types3) {
+  const broadened = BroadenTypes(types3);
   const flattened = Flatten(broadened);
   return flattened;
 }
@@ -46881,8 +57170,8 @@ function FromTemplateLiteral(mapping, pattern) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/intrinsics/from_union.mjs
-function FromUnion2(mapping, types2) {
-  const result = types2.map((type) => FromType7(mapping, type));
+function FromUnion2(mapping, types3) {
+  const result = types3.map((type) => FromType7(mapping, type));
   return Union(result);
 }
 
@@ -47070,8 +57359,8 @@ function CollapseIntersectProperties(left, right) {
   const shared = memory_exports.Assign(unique, sharedProperties);
   return shared;
 }
-function FromIntersect(types2) {
-  return types2.reduce((result, left) => {
+function FromIntersect(types3) {
+  return types3.reduce((result, left) => {
     return CollapseIntersectProperties(result, FromType8(left));
   }, {});
 }
@@ -47082,8 +57371,8 @@ function FromObject4(properties) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/object/from_tuple.mjs
-function FromTuple(types2) {
-  const object2 = TupleToObject(Tuple(types2));
+function FromTuple(types3) {
+  const object2 = TupleToObject(Tuple(types3));
   const result = FromType8(object2);
   return result;
 }
@@ -47096,11 +57385,11 @@ function CollapseUnionProperties(left, right) {
   }, {});
   return result;
 }
-function ReduceVariants(types2, result) {
-  return guard_exports.ShiftLeft(types2, (left, right) => ReduceVariants(right, CollapseUnionProperties(result, FromType8(left))), () => result);
+function ReduceVariants(types3, result) {
+  return guard_exports.ShiftLeft(types3, (left, right) => ReduceVariants(right, CollapseUnionProperties(result, FromType8(left))), () => result);
 }
-function FromUnion3(types2) {
-  return guard_exports.ShiftLeft(types2, (left, right) => ReduceVariants(right, FromType8(left)), () => Unreachable());
+function FromUnion3(types3) {
+  return guard_exports.ShiftLeft(types3, (left, right) => ReduceVariants(right, FromType8(left)), () => Unreachable());
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/object/from_type.mjs
@@ -47126,8 +57415,8 @@ function ConvertToIntegerKey(value) {
 function NormalizeLiteral(value) {
   return Literal(ConvertToIntegerKey(value));
 }
-function NormalizeIndexerTypes(types2) {
-  return types2.map((type) => NormalizeIndexer(type));
+function NormalizeIndexerTypes(types3) {
+  return types3.map((type) => NormalizeIndexer(type));
 }
 function NormalizeIndexer(type) {
   return IsIntersect(type) ? Intersect(NormalizeIndexerTypes(type.allOf)) : IsUnion(type) ? Union(NormalizeIndexerTypes(type.anyOf)) : IsLiteral(type) ? NormalizeLiteral(type.const) : type;
@@ -47164,8 +57453,8 @@ function FromEnum(values) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/indexable/from_intersect.mjs
-function FromIntersect2(types2) {
-  const evaluated = EvaluateIntersect(types2);
+function FromIntersect2(types3) {
+  const evaluated = EvaluateIntersect(types3);
   const result = FromType9(evaluated);
   return result;
 }
@@ -47184,8 +57473,8 @@ function FromTemplateLiteral2(pattern) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/indexable/from_union.mjs
-function FromUnion4(types2) {
-  return types2.reduce((result, left) => {
+function FromUnion4(types3) {
+  return types3.reduce((result, left) => {
     return [...result, ...FromType9(left)];
   }, []);
 }
@@ -47202,8 +57491,8 @@ function ToIndexableKeys(type) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/this/expand_this.mjs
-function FromTypes5(properties, types2) {
-  return types2.map((type) => FromType10(properties, type));
+function FromTypes5(properties, types3) {
+  return types3.map((type) => FromType10(properties, type));
 }
 function FromType10(properties, type) {
   return IsArray3(type) ? _Array_(FromType10(properties, type.items)) : IsConstructor3(type) ? Constructor(FromTypes5(properties, type.parameters), FromType10(properties, type.instanceType)) : IsFunction3(type) ? _Function_(FromTypes5(properties, type.parameters), FromType10(properties, type.returnType)) : IsTuple(type) ? Tuple(FromTypes5(properties, type.items)) : IsUnion(type) ? Union(FromTypes5(properties, type.anyOf)) : IsIntersect(type) ? Intersect(FromTypes5(properties, type.allOf)) : IsThis(type) ? _Object_(properties) : type;
@@ -47251,32 +57540,32 @@ function FromObject5(properties, indexer) {
 function ConvertLiteral(value) {
   return Literal(ConvertToIntegerKey(value));
 }
-function ArrayIndexerTypes(types2) {
-  return types2.map((type) => FormatArrayIndexer(type));
+function ArrayIndexerTypes(types3) {
+  return types3.map((type) => FormatArrayIndexer(type));
 }
 function FormatArrayIndexer(type) {
   return IsIntersect(type) ? Intersect(ArrayIndexerTypes(type.allOf)) : IsUnion(type) ? Union(ArrayIndexerTypes(type.anyOf)) : IsLiteral(type) ? ConvertLiteral(type.const) : type;
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/indexed/from_tuple.mjs
-function IndexElementsWithIndexer(types2, indexer) {
-  return types2.reduceRight((result, right, index3) => {
+function IndexElementsWithIndexer(types3, indexer) {
+  return types3.reduceRight((result, right, index3) => {
     const check = Extends({}, Literal(index3), indexer);
     return result_exports.IsExtendsTrueLike(check) ? [right, ...result] : result;
   }, []);
 }
-function FromTupleWithIndexer(types2, indexer) {
+function FromTupleWithIndexer(types3, indexer) {
   const formattedArrayIndexer = FormatArrayIndexer(indexer);
-  const elements = IndexElementsWithIndexer(types2, formattedArrayIndexer);
+  const elements = IndexElementsWithIndexer(types3, formattedArrayIndexer);
   return EvaluateUnionFast(elements);
 }
-function FromTupleWithoutIndexer(types2) {
-  return EvaluateUnionFast(types2);
+function FromTupleWithoutIndexer(types3) {
+  return EvaluateUnionFast(types3);
 }
-function FromTuple2(types2, indexer) {
+function FromTuple2(types3, indexer) {
   return (
     // length (intrinsic)
-    IsLiteral(indexer) && guard_exports.IsEqual(indexer.const, "length") ? Literal(types2.length) : IsNumber4(indexer) || IsInteger3(indexer) ? FromTupleWithoutIndexer(types2) : FromTupleWithIndexer(types2, indexer)
+    IsLiteral(indexer) && guard_exports.IsEqual(indexer.const, "length") ? Literal(types3.length) : IsNumber4(indexer) || IsInteger3(indexer) ? FromTupleWithoutIndexer(types3) : FromTupleWithIndexer(types3, indexer)
   );
 }
 
@@ -47353,8 +57642,8 @@ function FromRecord2(type) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/keyof/from_tuple.mjs
-function FromTuple3(types2) {
-  const result = types2.map((_, index3) => Literal(index3));
+function FromTuple3(types3) {
+  const result = types3.map((_, index3) => Literal(index3));
   return EvaluateUnionFast(result);
 }
 
@@ -47387,8 +57676,8 @@ function FromTemplateLiteral3(pattern) {
   const result = FromType13(evaluated);
   return result;
 }
-function FromUnion5(types2) {
-  return types2.reduce((result, left) => {
+function FromUnion5(types3) {
+  return types3.reduce((result, left) => {
     return [...result, ...FromType13(left)];
   }, []);
 }
@@ -47576,15 +57865,15 @@ function FromDependent3(if_, then_, else_) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/partial/from_intersect.mjs
-function FromIntersect3(types2) {
-  const evaluated = EvaluateIntersect(types2);
+function FromIntersect3(types3) {
+  const evaluated = EvaluateIntersect(types3);
   const result = FromType15(evaluated);
   return result;
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/partial/from_union.mjs
-function FromUnion6(types2) {
-  const result = types2.map((type) => FromType15(type));
+function FromUnion6(types3) {
+  const result = types3.map((type) => FromType15(type));
   return Union(result);
 }
 
@@ -47670,8 +57959,8 @@ function FromDependent4(if_, then_, else_) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/readonly_object/from_intersect.mjs
-function FromIntersect4(types2) {
-  const evaluated = EvaluateIntersect(types2);
+function FromIntersect4(types3) {
+  const evaluated = EvaluateIntersect(types3);
   const result = FromType17(evaluated);
   return result;
 }
@@ -47686,14 +57975,14 @@ function FromObject8(properties) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/readonly_object/from_tuple.mjs
-function FromTuple4(types2) {
-  const result = AddImmutable(Tuple(types2));
+function FromTuple4(types3) {
+  const result = AddImmutable(Tuple(types3));
   return result;
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/readonly_object/from_union.mjs
-function FromUnion7(types2) {
-  const result = types2.map((type) => FromType17(type));
+function FromUnion7(types3) {
+  const result = types3.map((type) => FromType17(type));
   return Union(result);
 }
 
@@ -47733,15 +58022,15 @@ function FromDependent5(if_, then_, else_) {
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/required/from_intersect.mjs
-function FromIntersect5(types2) {
-  const evaluated = EvaluateIntersect(types2);
+function FromIntersect5(types3) {
+  const evaluated = EvaluateIntersect(types3);
   const result = FromType18(evaluated);
   return result;
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/type/engine/required/from_union.mjs
-function FromUnion8(types2) {
-  const result = types2.map((type) => FromType18(type));
+function FromUnion8(types3) {
+  const result = types3.map((type) => FromType18(type));
   return Union(result);
 }
 
@@ -47815,8 +58104,8 @@ function SpreadElement(type) {
   const result = IsRest(type) ? IsTuple(type.items) ? RestSpread(type.items.items) : IsInfer(type.items) ? [type] : IsRef(type.items) ? [type] : [Never()] : [type];
   return result;
 }
-function RestSpread(types2) {
-  const result = types2.reduce((result2, left) => {
+function RestSpread(types3) {
+  const result = types3.reduce((result2, left) => {
     return [...result2, ...SpreadElement(left)];
   }, []);
   return result;
@@ -47826,21 +58115,21 @@ function RestSpread(types2) {
 function State(callstack, visited2) {
   return { callstack, visited: visited2 };
 }
-function CanInstantiate(types2) {
-  return guard_exports.ShiftLeft(types2, (left, right) => IsRef(left) ? false : CanInstantiate(right), () => true);
+function CanInstantiate(types3) {
+  return guard_exports.ShiftLeft(types3, (left, right) => IsRef(left) ? false : CanInstantiate(right), () => true);
 }
 function InstantiateProperties(context, state3, properties) {
   return guard_exports.Keys(properties).reduce((result, key) => {
     return { ...result, [key]: InstantiateType(context, state3, properties[key]) };
   }, {});
 }
-function InstantiateElements(context, state3, types2) {
-  const elements = InstantiateTypes(context, state3, types2);
+function InstantiateElements(context, state3, types3) {
+  const elements = InstantiateTypes(context, state3, types3);
   const result = RestSpread(elements);
   return result;
 }
-function InstantiateTypes(context, state3, types2) {
-  return types2.map((type) => InstantiateType(context, state3, type));
+function InstantiateTypes(context, state3, types3) {
+  return types3.map((type) => InstantiateType(context, state3, type));
 }
 function WithModifiers(type, instantiatedType) {
   const withOptional = IsOptional(type) ? AddOptionalAction(instantiatedType, {}) : instantiatedType;
@@ -47898,14 +58187,14 @@ function Comparer(left, right) {
   const compareResult = Compare(left, right);
   return guard_exports.IsEqual(compareResult, CompareResultRightInside) ? 1 : guard_exports.IsEqual(compareResult, CompareResultDisjoint) ? 1 : 0;
 }
-function Insert(type, types2, result = []) {
-  return guard_exports.ShiftLeft(types2, (left, right) => guard_exports.IsEqual(Comparer(type, left), 1) ? Insert(type, right, [...result, left]) : [...result, type, ...types2], () => [...result, type]);
+function Insert(type, types3, result = []) {
+  return guard_exports.ShiftLeft(types3, (left, right) => guard_exports.IsEqual(Comparer(type, left), 1) ? Insert(type, right, [...result, left]) : [...result, type, ...types3], () => [...result, type]);
 }
-function Sort(types2, result = []) {
-  return guard_exports.ShiftLeft(types2, (left, right) => Sort(right, Insert(left, result)), () => result);
+function Sort(types3, result = []) {
+  return guard_exports.ShiftLeft(types3, (left, right) => Sort(right, Insert(left, result)), () => result);
 }
-function Priority(types2) {
-  const result = Sort(types2);
+function Priority(types3) {
+  const result = Sort(types3);
   return result;
 }
 
@@ -49945,8 +60234,8 @@ function CheckTypeName(_stack, _context, type, _schema, value) {
 function BuildTypeNames(stack, context, typenames, value) {
   return emit_exports.ReduceOr(typenames.map((type) => BuildTypeName(stack, context, type, value)));
 }
-function CheckTypeNames(stack, context, types2, schema2, value) {
-  return guard_exports.Some(types2, (type) => CheckTypeName(stack, context, type, schema2, value));
+function CheckTypeNames(stack, context, types3, schema2, value) {
+  return guard_exports.Some(types3, (type) => CheckTypeName(stack, context, type, schema2, value));
 }
 function BuildType(stack, context, schema2, value) {
   return guard_exports.IsArray(schema2.type) ? BuildTypeNames(stack, context, schema2.type, value) : BuildTypeName(stack, context, schema2.type, value);
@@ -51101,11 +61390,11 @@ function FromProperties4(properties) {
     result[key] = FromType20(properties[key]);
   return result;
 }
-function FromPriorityTypes(types2) {
-  return FromTypes6(Priority(types2));
+function FromPriorityTypes(types3) {
+  return FromTypes6(Priority(types3));
 }
-function FromTypes6(types2) {
-  return types2.map((type) => FromType20(type));
+function FromTypes6(types3) {
+  return types3.map((type) => FromType20(type));
 }
 function FromType20(type) {
   const next = IsArray3(type) ? _Array_(FromType20(type.items), ArrayOptions(type)) : IsIntersect(type) ? Intersect(FromTypes6(type.allOf)) : IsUnion(type) ? Union(FromPriorityTypes(type.anyOf)) : IsObject3(type) ? _Object_(FromProperties4(type.properties)) : IsRecord(type) ? Record(RecordKey(type), FromType20(RecordValue(type))) : IsTuple(type) ? Tuple(FromTypes6(type.items)) : type;
@@ -62528,7 +72817,7 @@ var openAIResponsesApi = () => lazyApi(() => Promise.resolve().then(() => (init_
 
 // ../../packages/thinking/dist/gateway.js
 init_models();
-import { Hash as Hash3, Redacted, Schema as Schema54 } from "effect";
+import { Hash as Hash3, Redacted, Schema as Schema55 } from "effect";
 
 // ../../packages/thinking/dist/declared.js
 init_models();
@@ -62567,8 +72856,8 @@ var promptCacheKeyOf = (runId2) => {
   const key = `mischief-${runId2}`;
   return key.length <= PROMPT_CACHE_KEY_MAX ? key : `mischief-${runId2.slice(0, 40)}-${Math.abs(Hash3.string(runId2)).toString(36)}`;
 };
-var isPayload = Schema54.is(Schema54.Record(Schema54.String, Schema54.Unknown));
-var isKey = Schema54.is(Schema54.String);
+var isPayload = Schema55.is(Schema55.Record(Schema55.String, Schema55.Unknown));
+var isKey = Schema55.is(Schema55.String);
 var keyed = (options2) => {
   const key = options2.metadata?.[RUN_CACHE_KEY];
   if (!isKey(key) || options2.cacheRetention === "none") {
@@ -62603,7 +72892,44 @@ var gatewayStreams = (api, fetch2) => {
     streamSimple: (model2, context, options2) => api.streamSimple(model2, context, optionsOf(options2))
   };
 };
-var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2 }) => {
+var opusBridgeFrom = (url, key) => url === void 0 || url.trim() === "" || key === void 0 || key.trim() === "" ? void 0 : { apiKey: Redacted.make(key), baseUrl: url };
+var opusProvider = ({ apiKey, baseUrl, fetch: fetch2 }) => createProvider({
+  api: gatewayStreams(openAIResponsesApi(), fetch2),
+  auth: {
+    apiKey: {
+      name: "Mischief Opus bridge key",
+      resolve: async () => await Promise.resolve({
+        auth: {
+          apiKey: Redacted.value(apiKey),
+          headers: { Authorization: `Bearer ${Redacted.value(apiKey)}` }
+        }
+      })
+    }
+  },
+  baseUrl,
+  id: "claude-bridge",
+  models: [
+    {
+      api: "openai-responses",
+      baseUrl,
+      contextWindow: 1e6,
+      cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
+      id: "claude-opus-5-5",
+      input: ["text"],
+      maxTokens: 128e3,
+      name: "Claude Opus 5.5 review bridge",
+      provider: "claude-bridge",
+      reasoning: true,
+      thinkingLevelMap: {
+        max: "max",
+        minimal: null,
+        off: null,
+        xhigh: "xhigh"
+      }
+    }
+  ]
+});
+var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2, opusBridge }) => {
   const models = createModels();
   models.setProvider(createProvider({
     api: gatewayStreams(openAIResponsesApi(), fetch2),
@@ -62634,12 +72960,24 @@ var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2 }) => 
       ...LIMITS[id]
     }))
   }));
+  if (opusBridge !== void 0 && opusBridge.baseUrl.trim() !== "" && Redacted.value(opusBridge.apiKey).trim() !== "") {
+    models.setProvider(opusProvider(opusBridge));
+  }
+  const opus = models.getModel("claude-bridge", "claude-opus-5-5");
+  const opusRef = { modelId: "claude-opus-5-5", provider: "claude-bridge" };
   const modelRefs = Object.fromEntries(Object.entries(GATEWAY_MODELS).map(([name, modelId]) => [
     name,
     { modelId, provider: PROVIDER }
   ]));
+  if (opus !== void 0) {
+    modelRefs.opus = opusRef;
+    modelRefs["claude-opus-5-5"] = opusRef;
+  }
   return {
-    declared: declaredThinkingOf(models, modelRefs, THINK_DEFAULT.thinking),
+    declared: {
+      ...declaredThinkingOf(models, modelRefs, THINK_DEFAULT.thinking),
+      exhaustive: true
+    },
     defaults: THINK_DEFAULT,
     modelRefs,
     models,
@@ -62652,28 +72990,28 @@ var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2 }) => 
 };
 
 // ../../packages/thinking/dist/jev.js
-import { Effect as Effect40, Layer as Layer20, Predicate as Predicate6, Redacted as Redacted2, Schedule as Schedule2, Schema as Schema55 } from "effect";
+import { Effect as Effect40, Layer as Layer20, Predicate as Predicate6, Redacted as Redacted2, Schedule as Schedule2, Schema as Schema56 } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 var JEV_URL = "https://api.typesafe.ai/v1/systemone";
 var JEV_MODEL = "jev-latest";
 var JEV_PATIENCE = "2 minutes";
-var Unit = Schema55.Finite.check(Schema55.isBetween({ maximum: 1, minimum: 0 }));
-var ChoiceAnswer = Schema55.Struct({
-  choice: Schema55.String,
-  probabilities: Schema55.Record(Schema55.String, Unit),
-  type: Schema55.Literal("choice")
+var Unit = Schema56.Finite.check(Schema56.isBetween({ maximum: 1, minimum: 0 }));
+var ChoiceAnswer = Schema56.Struct({
+  choice: Schema56.String,
+  probabilities: Schema56.Record(Schema56.String, Unit),
+  type: Schema56.Literal("choice")
 });
-var NoulAnswer = Schema55.Struct({
+var NoulAnswer = Schema56.Struct({
   noul: Unit,
-  type: Schema55.Literal("noul")
+  type: Schema56.Literal("noul")
 });
-var Evaluation = Schema55.Struct({
-  answers: Schema55.Struct({
-    decision: Schema55.Union([ChoiceAnswer, NoulAnswer])
+var Evaluation = Schema56.Struct({
+  answers: Schema56.Struct({
+    decision: Schema56.Union([ChoiceAnswer, NoulAnswer])
   }),
-  usage: Schema55.Struct({
-    input_tokens: Schema55.Int,
-    output_tokens: Schema55.Int
+  usage: Schema56.Struct({
+    input_tokens: Schema56.Int,
+    output_tokens: Schema56.Int
   })
 });
 var SUM_SLACK = 0.02;
@@ -62704,8 +73042,8 @@ var answerProblem = (answer2, options2) => {
 };
 var probabilitiesOf = (answer2) => answer2.type === "noul" ? { no: 1 - answer2.noul, yes: answer2.noul } : answer2.probabilities;
 var RETRYABLE = /* @__PURE__ */ new Set([429, 529]);
-var Busy = class extends Schema55.TaggedError()("Busy", {
-  status: Schema55.Int
+var Busy = class extends Schema56.TaggedError()("Busy", {
+  status: Schema56.Int
 }) {
 };
 var advice = (status) => {
@@ -62745,7 +73083,7 @@ var jevJudge = ({ apiKey, patience = JEV_PATIENCE, retryBase = "500 millis", url
         schedule: Schedule2.exponential(retryBase),
         times: 4,
         while: Predicate6.isTagged("Busy")
-      }), Effect40.catchTag("Busy", ({ status }) => Effect40.fail(unavailable("busy", status))), Effect40.flatMap((response) => response.status === 200 ? response.json.pipe(Effect40.mapError(() => failed3("TypeSafe's answer was not JSON. Resume the run"))) : Effect40.fail(refusal2(response.status))), Effect40.flatMap((body) => Schema55.decodeUnknownEffect(Evaluation)(body).pipe(Effect40.mapError(() => failed3("TypeSafe's answer did not hold one Choice or Noul. Resume the run; if it repeats, the API has changed")))), Effect40.flatMap(({ answers, usage }) => {
+      }), Effect40.catchTag("Busy", ({ status }) => Effect40.fail(unavailable("busy", status))), Effect40.flatMap((response) => response.status === 200 ? response.json.pipe(Effect40.mapError(() => failed3("TypeSafe's answer was not JSON. Resume the run"))) : Effect40.fail(refusal2(response.status))), Effect40.flatMap((body) => Schema56.decodeUnknownEffect(Evaluation)(body).pipe(Effect40.mapError(() => failed3("TypeSafe's answer did not hold one Choice or Noul. Resume the run; if it repeats, the API has changed")))), Effect40.flatMap(({ answers, usage }) => {
         const problem = answerProblem(answers.decision, options2);
         return problem === void 0 ? Effect40.succeed({
           probabilities: probabilitiesOf(answers.decision),
@@ -62758,10 +73096,10 @@ var jevJudge = ({ apiKey, patience = JEV_PATIENCE, retryBase = "500 millis", url
 
 // ../../packages/thinking/dist/pi-thinker.js
 init_models();
-import { Clock as Clock6, Deferred as Deferred3, Effect as Effect41, Layer as Layer21, Option as Option21, Ref as Ref3, Schema as Schema57, Semaphore as Semaphore4 } from "effect";
+import { Clock as Clock6, Deferred as Deferred3, Effect as Effect41, Layer as Layer21, Option as Option22, Ref as Ref3, Schema as Schema58, Semaphore as Semaphore4 } from "effect";
 
 // ../../packages/thinking/dist/provider-status.js
-import { Option as Option20, Schema as Schema56 } from "effect";
+import { Option as Option21, Schema as Schema57 } from "effect";
 var HOLD = /* @__PURE__ */ new Set([408, 429, 502, 503]);
 var RETRY_THEN_HOLD = /* @__PURE__ */ new Set([500, 507, 520]);
 var SERVER_ERROR = 500;
@@ -62784,20 +73122,20 @@ var verdictOf2 = (status, transient) => {
 };
 var TIMEOUT = 408;
 var TOO_MANY_REQUESTS = 429;
-var CooldownBody = Schema56.Struct({
-  code: Schema56.Literal("model_cooldown"),
-  reset_seconds: Schema56.Finite.check(Schema56.isGreaterThanOrEqualTo(0))
+var CooldownBody = Schema57.Struct({
+  code: Schema57.Literal("model_cooldown"),
+  reset_seconds: Schema57.Finite.check(Schema57.isGreaterThanOrEqualTo(0))
 });
-var Cooldown = Schema56.Union([
+var Cooldown = Schema57.Union([
   CooldownBody,
-  Schema56.Struct({ error: CooldownBody })
+  Schema57.Struct({ error: CooldownBody })
 ]);
-var decodeCooldown = Schema56.decodeUnknownOption(Schema56.fromJsonString(Cooldown));
+var decodeCooldown = Schema57.decodeUnknownOption(Schema57.fromJsonString(Cooldown));
 var RETRY_AFTER = /["']?retry-after["']?\s*[:=]\s*["']?(?<value>[^\r\n"}]+)/iu;
 var retryHeaderAt = (header, now2) => /^\d+(?:\.\d+)?$/u.test(header) ? now2 + Number(header) * 1e3 : Date.parse(header);
 var retryAfterOf = (message, status, now2) => {
   const body = message.slice(message.indexOf("{"), message.lastIndexOf("}") + 1);
-  const cooldown = status === TOO_MANY_REQUESTS ? decodeCooldown(body).pipe(Option20.map((decoded) => now2 + ("error" in decoded ? decoded.error.reset_seconds : decoded.reset_seconds) * 1e3), Option20.getOrUndefined) : void 0;
+  const cooldown = status === TOO_MANY_REQUESTS ? decodeCooldown(body).pipe(Option21.map((decoded) => now2 + ("error" in decoded ? decoded.error.reset_seconds : decoded.reset_seconds) * 1e3), Option21.getOrUndefined) : void 0;
   const header = RETRY_AFTER.exec(message)?.groups?.value?.trim();
   const retryAfter = header === void 0 ? Number.NaN : retryHeaderAt(header, now2);
   const hints = [cooldown, retryAfter].filter((hint) => hint !== void 0 && Number.isFinite(hint));
@@ -62881,9 +73219,9 @@ var parkedFor = (parked, conversationId) => {
   parked.set(conversationId, signal);
   return signal;
 };
-var DecisionSchema = Schema57.fromJsonString(Schema57.Struct({
-  choice: Schema57.String,
-  confidence: Schema57.Finite.check(Schema57.isBetween({ maximum: 1, minimum: 0 }))
+var DecisionSchema = Schema58.fromJsonString(Schema58.Struct({
+  choice: Schema58.String,
+  confidence: Schema58.Finite.check(Schema58.isBetween({ maximum: 1, minimum: 0 }))
 }));
 var pi = (call, operation, run2) => Effect41.tryPromise({
   catch: (cause) => new StepFailed({
@@ -63117,7 +73455,7 @@ var thinkerOf = (options2) => Layer21.effect(Thinker, Effect41.gen(function* mak
     decide: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), `${call.question}
 
 Answer with one JSON object and nothing else: {"choice": <one of ${JSON.stringify(call.options)}>, "confidence": <0 to 1>}.`, harnessFor(call)).pipe(Effect41.map(({ receipt, text, tokens, usd }) => ({
-      decision: Schema57.decodeUnknownOption(DecisionSchema)(text.trim()).pipe(Option21.filter(({ choice }) => call.options.includes(choice))),
+      decision: Schema58.decodeUnknownOption(DecisionSchema)(text.trim()).pipe(Option22.filter(({ choice }) => call.options.includes(choice))),
       usage: { receipt, tokens, usd }
     }))),
     elaborate: (call) => Effect41.fail(new StepFailed({
@@ -63135,30 +73473,30 @@ var piThinker = (options2) => Layer21.merge(thinkerOf(options2), Layer21.succeed
 
 // src/plan-run-object.ts
 import { DurableObject as DurableObject2 } from "cloudflare:workers";
-import { Clock as Clock10, Effect as Effect50, Layer as Layer28, Option as Option34, Redacted as Redacted3, Schema as Schema73 } from "effect";
+import { Clock as Clock10, Effect as Effect50, Layer as Layer28, Option as Option35, Redacted as Redacted3, Schema as Schema74 } from "effect";
 import { FetchHttpClient as FetchHttpClient2 } from "effect/http";
 
 // src/escalation.ts
-import { Effect as Effect42, Option as Option22, Schema as Schema58 } from "effect";
+import { Effect as Effect42, Option as Option23, Schema as Schema59 } from "effect";
 var TARGET = "CREATE TABLE IF NOT EXISTS mischief_escalate_to (id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL)";
 var SEALED = "CREATE TABLE IF NOT EXISTS mischief_escalations (notice TEXT PRIMARY KEY, envelope TEXT NOT NULL, message_id TEXT NOT NULL)";
 var HOST_DEFAULT = "";
-var SubmitEscalation = Schema58.Struct({
-  escalateTo: Schema58.optionalKey(EscalateToSchema)
+var SubmitEscalation = Schema59.Struct({
+  escalateTo: Schema59.optionalKey(EscalateToSchema)
 });
-var decodeSubmit2 = Schema58.decodeUnknownOption(
-  Schema58.fromJsonString(SubmitEscalation)
+var decodeSubmit2 = Schema59.decodeUnknownOption(
+  Schema59.fromJsonString(SubmitEscalation)
 );
-var TargetRow = Schema58.Struct({ name: Schema58.String });
-var SealedRow = Schema58.Struct({
-  envelope: Schema58.String,
-  message_id: Schema58.String
+var TargetRow = Schema59.Struct({ name: Schema59.String });
+var SealedRow = Schema59.Struct({
+  envelope: Schema59.String,
+  message_id: Schema59.String
 });
 var fixEscalationAtFirstSubmit = (storage, body) => {
   storage.sql.exec(TARGET);
   const name = decodeSubmit2(body).pipe(
-    Option22.flatMap(({ escalateTo }) => Option22.fromNullishOr(escalateTo)),
-    Option22.getOrElse(() => HOST_DEFAULT)
+    Option23.flatMap(({ escalateTo }) => Option23.fromNullishOr(escalateTo)),
+    Option23.getOrElse(() => HOST_DEFAULT)
   );
   const inserted = storage.transactionSync(() => {
     const fixed = storage.sql.exec("SELECT name FROM mischief_escalate_to WHERE id = 1").toArray().length > 0;
@@ -63178,15 +73516,15 @@ var fixEscalationAtFirstSubmit = (storage, body) => {
 };
 var escalationTargetOf = (storage) => {
   storage.sql.exec(TARGET);
-  return Option22.fromNullishOr(
+  return Option23.fromNullishOr(
     storage.sql.exec("SELECT name FROM mischief_escalate_to WHERE id = 1").toArray()[0]
   ).pipe(
-    Option22.flatMap(Schema58.decodeUnknownOption(TargetRow)),
-    Option22.map(({ name }) => name),
-    Option22.filter((name) => name !== HOST_DEFAULT)
+    Option23.flatMap(Schema59.decodeUnknownOption(TargetRow)),
+    Option23.map(({ name }) => name),
+    Option23.filter((name) => name !== HOST_DEFAULT)
   );
 };
-var isText5 = Schema58.is(Schema58.String);
+var isText5 = Schema59.is(Schema59.String);
 var meaningOf = (criterion) => isText5(criterion) ? criterion : JSON.stringify(criterion);
 var escalationText = (runId2, { criteria, key, options: options2, question, reason }) => [
   `Mischief run ${runId2} is waiting on a judge that could not decide at state ${key}: ${question}`,
@@ -63221,7 +73559,7 @@ var holdAlarmTargets = (text) => [
   ...new Set(
     (text ?? "").split(",").map((name) => name.trim()).filter((name) => name !== "")
   )
-].map((name) => Schema58.decodeUnknownSync(EscalateToSchema)(name));
+].map((name) => Schema59.decodeUnknownSync(EscalateToSchema)(name));
 var heldText = (runId2, { cause, key, provider: provider2, resumeAfter: resumeAfter2, since, status }) => [
   `Mischief run ${runId2} is held at state ${key}: its model provider ${provider2} is unavailable (${cause}${status === null ? "" : `, HTTP ${status}`}). The run is waiting-for-provider, not failed.`,
   "",
@@ -63240,12 +73578,12 @@ var heldText = (runId2, { cause, key, provider: provider2, resumeAfter: resumeAf
   "",
   cause === "billing" ? `Fix: the ${provider2} account has a billing hold; tell Joel. Once it is cleared, call resumeRun {"runId": "${runId2}"} under the identity that submitted the run.` : `Fix: once ${provider2} answers again, call resumeRun {"runId": "${runId2}"} under the identity that submitted the run.`
 ].join("\n");
-var sealedFor = (storage, notice) => Option22.fromNullishOr(
+var sealedFor = (storage, notice) => Option23.fromNullishOr(
   storage.sql.exec(
     "SELECT envelope, message_id FROM mischief_escalations WHERE notice = ?",
     notice
   ).toArray()[0]
-).pipe(Option22.flatMap(Schema58.decodeUnknownOption(SealedRow)));
+).pipe(Option23.flatMap(Schema59.decodeUnknownOption(SealedRow)));
 var posted = (call) => Effect42.tryPromise({
   catch: (cause) => `the Postbox did not answer: ${String(cause)}`,
   try: call
@@ -63254,7 +73592,7 @@ var posted = (call) => Effect42.tryPromise({
     (result) => result.ok ? Effect42.succeed(result) : Effect42.fail(result.reason)
   )
 );
-var sealOnce = (storage, postbox2, objectName, to, text, notice) => Option22.match(sealedFor(storage, notice), {
+var sealOnce = (storage, postbox2, objectName, to, text, notice) => Option23.match(sealedFor(storage, notice), {
   onNone: () => posted(async () => await postbox2().seal(objectName, to, text)).pipe(
     Effect42.map(({ envelope, messageId }) => {
       storage.sql.exec(
@@ -63263,7 +73601,7 @@ var sealOnce = (storage, postbox2, objectName, to, text, notice) => Option22.mat
         envelope,
         messageId
       );
-      return Option22.getOrElse(sealedFor(storage, notice), () => ({
+      return Option23.getOrElse(sealedFor(storage, notice), () => ({
         envelope,
         message_id: messageId
       }));
@@ -63278,7 +73616,7 @@ var mailOnce = ({
 }) => (runId2, to, notice, text) => {
   storage.sql.exec(SEALED);
   const name = objectName();
-  if (Option22.isNone(name)) {
+  if (Option23.isNone(name)) {
     return Effect42.void;
   }
   return sealOnce(storage, postbox2, name.value, to, text, notice).pipe(
@@ -63295,7 +73633,7 @@ var mailOnce = ({
 };
 var mailConfirmed = (ports, runId2, to, notice, text) => {
   ports.storage.sql.exec(SEALED);
-  return Option22.match(ports.objectName(), {
+  return Option23.match(ports.objectName(), {
     onNone: () => Effect42.fail(
       `${runId2} cannot mail ${notice} to ${to}: the run object name is not stored. Check the run object routing, then redeliver its alarm`
     ),
@@ -63311,7 +73649,7 @@ var alarmOnHolds = (ports, targets) => (runId2, held, attempts, notice) => Effec
   [
     .../* @__PURE__ */ new Set([
       ...targets,
-      ...Option22.toArray(escalationTargetOf(ports.storage))
+      ...Option23.toArray(escalationTargetOf(ports.storage))
     ])
   ],
   (to) => mailConfirmed(
@@ -63325,29 +73663,29 @@ var alarmOnHolds = (ports, targets) => (runId2, held, attempts, notice) => Effec
 );
 var escalate = (ports) => (runId2, notice, text) => {
   ports.storage.sql.exec(SEALED);
-  return Option22.match(escalationTargetOf(ports.storage), {
+  return Option23.match(escalationTargetOf(ports.storage), {
     onNone: () => Effect42.void,
     onSome: (target) => mailOnce(ports)(runId2, target, notice, text)
   });
 };
 
 // src/judge-choice.ts
-import { Effect as Effect43, Layer as Layer22, Option as Option23, Schema as Schema59 } from "effect";
+import { Effect as Effect43, Layer as Layer22, Option as Option24, Schema as Schema60 } from "effect";
 var CHOICE = "CREATE TABLE IF NOT EXISTS mischief_judge (id INTEGER PRIMARY KEY CHECK (id = 1), mode TEXT NOT NULL)";
 var HOST_DEFAULT2 = "default";
-var SubmitJudge = Schema59.Struct({
-  judge: Schema59.optionalKey(JudgeModeSchema)
+var SubmitJudge = Schema60.Struct({
+  judge: Schema60.optionalKey(JudgeModeSchema)
 });
-var decodeSubmit3 = Schema59.decodeUnknownOption(
-  Schema59.fromJsonString(SubmitJudge)
+var decodeSubmit3 = Schema60.decodeUnknownOption(
+  Schema60.fromJsonString(SubmitJudge)
 );
-var ChoiceRow = Schema59.Struct({ mode: Schema59.String });
-var decodeMode = Schema59.decodeUnknownOption(JudgeModeSchema);
+var ChoiceRow = Schema60.Struct({ mode: Schema60.String });
+var decodeMode = Schema60.decodeUnknownOption(JudgeModeSchema);
 var fixJudgeAtFirstSubmit = (storage, body) => {
   storage.sql.exec(CHOICE);
   const mode = decodeSubmit3(body).pipe(
-    Option23.flatMap(({ judge }) => Option23.fromNullishOr(judge)),
-    Option23.getOrElse(() => HOST_DEFAULT2)
+    Option24.flatMap(({ judge }) => Option24.fromNullishOr(judge)),
+    Option24.getOrElse(() => HOST_DEFAULT2)
   );
   const inserted = storage.transactionSync(() => {
     const fixed = storage.sql.exec("SELECT mode FROM mischief_judge WHERE id = 1").toArray().length > 0;
@@ -63367,11 +73705,11 @@ var fixJudgeAtFirstSubmit = (storage, body) => {
 };
 var judgeModeOf = (storage) => {
   storage.sql.exec(CHOICE);
-  return Option23.fromNullishOr(
+  return Option24.fromNullishOr(
     storage.sql.exec("SELECT mode FROM mischief_judge WHERE id = 1").toArray()[0]
   ).pipe(
-    Option23.flatMap(Schema59.decodeUnknownOption(ChoiceRow)),
-    Option23.flatMap(({ mode }) => decodeMode(mode))
+    Option24.flatMap(Schema60.decodeUnknownOption(ChoiceRow)),
+    Option24.flatMap(({ mode }) => decodeMode(mode))
   );
 };
 var noJevKey = Layer22.succeed(
@@ -63399,7 +73737,7 @@ var judgeChosenPerCall = ({
   Judge,
   Effect43.gen(function* makeChosenJudge() {
     const shadow = yield* serviceOf(shadowJudge);
-    const asked = yield* serviceOf(Option23.getOrElse(jev, () => noJevKey));
+    const asked = yield* serviceOf(Option24.getOrElse(jev, () => noJevKey));
     const unwired4 = yield* serviceOf(Judge.unwired);
     const pick = (mode) => {
       if (mode === "shadow") {
@@ -63407,7 +73745,7 @@ var judgeChosenPerCall = ({
       }
       return mode === "jev" ? asked : unwired4;
     };
-    const chosen = () => pick(Option23.getOrElse(judgeModeOf(storage), () => fallback));
+    const chosen = () => pick(Option24.getOrElse(judgeModeOf(storage), () => fallback));
     return Judge.of({
       admits: (plan) => chosen().admits?.(plan) ?? [],
       choose: (call) => chosen().choose(call)
@@ -63426,7 +73764,7 @@ var forgetUnlessStored = (storage, ...forgets) => {
 };
 
 // src/postbox-mail.ts
-import { Effect as Effect44, Layer as Layer23, Option as Option24, Schema as Schema60 } from "effect";
+import { Effect as Effect44, Layer as Layer23, Option as Option25, Schema as Schema61 } from "effect";
 var OBJECT = "CREATE TABLE IF NOT EXISTS mischief_object (id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL)";
 var OBJECT_HEADER = "x-mischief-object";
 var rememberObject = (storage, name) => {
@@ -63438,14 +73776,14 @@ var rememberObject = (storage, name) => {
     );
   }
 };
-var ObjectRow = Schema60.Struct({ name: Schema60.String });
+var ObjectRow = Schema61.Struct({ name: Schema61.String });
 var objectOf = (storage) => {
   storage.sql.exec(OBJECT);
-  return Option24.fromNullishOr(
+  return Option25.fromNullishOr(
     storage.sql.exec("SELECT name FROM mischief_object WHERE id = 1").toArray()[0]
   ).pipe(
-    Option24.flatMap(Schema60.decodeUnknownOption(ObjectRow)),
-    Option24.map(({ name }) => name)
+    Option25.flatMap(Schema61.decodeUnknownOption(ObjectRow)),
+    Option25.map(({ name }) => name)
   );
 };
 var settled = (key, call) => Effect44.tryPromise({
@@ -63460,10 +73798,10 @@ var settled = (key, call) => Effect44.tryPromise({
   )
 );
 var SHADOW2 = "shadow/";
-var OutboxEnvelope = Schema60.fromJsonString(
-  Schema60.Struct({ message: Schema60.String, to: Schema60.String })
+var OutboxEnvelope = Schema61.fromJsonString(
+  Schema61.Struct({ message: Schema61.String, to: Schema61.String })
 );
-var recordOnly = (envelope) => Option24.isSome(Schema60.decodeUnknownOption(OutboxEnvelope)(envelope));
+var recordOnly = (envelope) => Option25.isSome(Schema61.decodeUnknownOption(OutboxEnvelope)(envelope));
 var postboxMail = (storage, postbox2) => Layer23.effect(
   Mail,
   Effect44.gen(function* routedMail() {
@@ -63474,7 +73812,7 @@ var postboxMail = (storage, postbox2) => Layer23.effect(
         if (to.startsWith(SHADOW2)) {
           return outbox.seal(call);
         }
-        return Option24.match(objectOf(storage), {
+        return Option25.match(objectOf(storage), {
           onNone: () => Effect44.fail(
             new StepFailed({
               key,
@@ -69845,9 +80183,9 @@ var ZodUnion = class extends ZodType {
     return this._def.options;
   }
 };
-ZodUnion.create = (types2, params2) => {
+ZodUnion.create = (types3, params2) => {
   return new ZodUnion({
-    options: types2,
+    options: types3,
     typeName: ZodFirstPartyTypeKind.ZodUnion,
     ...processCreateParams(params2)
   });
@@ -72497,13 +82835,13 @@ var Lexicons = class {
     uri2 = toLexUri(uri2);
     return this.defs.get(uri2);
   }
-  getDefOrThrow(uri2, types2) {
+  getDefOrThrow(uri2, types3) {
     const def2 = this.getDef(uri2);
     if (!def2) {
       throw new LexiconDefNotFoundError(`Lexicon not found: ${uri2}`);
     }
-    if (types2 && !types2.includes(def2.type)) {
-      throw new InvalidLexiconError(`Not a ${types2.join(" or ")} lexicon: ${uri2}`);
+    if (types3 && !types3.includes(def2.type)) {
+      throw new InvalidLexiconError(`Not a ${types3.join(" or ")} lexicon: ${uri2}`);
     }
     return def2;
   }
@@ -72620,8 +82958,8 @@ function resolveRefUris(obj, baseUri) {
 }
 
 // ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+f20dd1ba_e3ac534a69e1d33f8e16d30b94ca3b4a/node_modules/@rat-king/mailbox-client/index.js
-import { Schema as Schema61, SchemaGetter } from "effect";
-import { Effect as Effect52, Schema as Schema62 } from "effect";
+import { Schema as Schema62, SchemaGetter } from "effect";
+import { Effect as Effect52, Schema as Schema63 } from "effect";
 
 // ../../node_modules/.pnpm/cborg@6.1.3/node_modules/cborg/lib/is.js
 var objectTypeNames = [
@@ -75615,7 +85953,7 @@ import { Context as Context32 } from "effect";
 import { Schema as Schema222 } from "effect";
 import { Schema as Schema232 } from "effect";
 import { Effect as Effect102, Schema as Schema242 } from "effect";
-import { Effect as Effect112, Option as Option25, Schema as Schema252 } from "effect";
+import { Effect as Effect112, Option as Option26, Schema as Schema252 } from "effect";
 import { Schema as Schema262 } from "effect";
 import { Clock as Clock7, Effect as Effect122, Layer as Layer32, Result as Result22, Schema as Schema272 } from "effect";
 import { HttpClient as HttpClient2, HttpClientRequest as HttpClientRequest2 } from "effect/http";
@@ -75625,7 +85963,7 @@ import {
   Context as Context52,
   Duration as Duration4,
   Effect as Effect142,
-  Option as Option26,
+  Option as Option27,
   Predicate as Predicate7,
   Schedule as Schedule3,
   Schema as Schema292,
@@ -75655,67 +85993,72 @@ import {
   Schema as Schema332,
   Stream as Stream22
 } from "effect";
-var Cid = Schema61.declare(
+
+// ../../node_modules/.pnpm/xstate@6.0.0-alpha.65/node_modules/xstate/dist/xstate.cjs.mjs
+var import_xstate_cjs2 = __toESM(require_xstate_cjs2(), 1);
+
+// ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+f20dd1ba_e3ac534a69e1d33f8e16d30b94ca3b4a/node_modules/@rat-king/mailbox-client/index.js
+var Cid = Schema62.declare(
   (value) => isCid(value, { flavor: "dasl" })
 );
-var CidText = Schema61.String.check(
-  Schema61.makeFilter(
+var CidText = Schema62.String.check(
+  Schema62.makeFilter(
     (value) => parseCidSafe(value, { flavor: "dasl" }) !== null,
     { expected: "CIDv1, raw or DAG-CBOR, SHA-256" }
   )
 );
-var Link = Schema61.StructWithRest(Schema61.Struct({ $link: CidText }), [
-  Schema61.Record(Schema61.String, Schema61.String)
+var Link = Schema62.StructWithRest(Schema62.Struct({ $link: CidText }), [
+  Schema62.Record(Schema62.String, Schema62.String)
 ]).check(
-  Schema61.makeFilter((value) => Object.keys(value).length === 1, {
+  Schema62.makeFilter((value) => Object.keys(value).length === 1, {
     expected: "one link wrapper key"
   })
 ).pipe(
-  Schema61.decodeTo(Cid, {
+  Schema62.decodeTo(Cid, {
     decode: SchemaGetter.transform(
       (value) => parseCid(value.$link, { flavor: "dasl" })
     ),
     encode: SchemaGetter.transform((value) => ({ $link: value.toString() }))
   })
 );
-var Bytes2 = Schema61.StructWithRest(
-  Schema61.Struct({ $bytes: Schema61.String }),
-  [Schema61.Record(Schema61.String, Schema61.String)]
+var Bytes2 = Schema62.StructWithRest(
+  Schema62.Struct({ $bytes: Schema62.String }),
+  [Schema62.Record(Schema62.String, Schema62.String)]
 ).check(
-  Schema61.makeFilter((value) => Object.keys(value).length === 1, {
+  Schema62.makeFilter((value) => Object.keys(value).length === 1, {
     expected: "one byte wrapper key"
   })
-).pipe(Schema61.decodeTo(Schema61.Struct({ $bytes: Schema61.Uint8ArrayFromBase64 }))).pipe(
-  Schema61.decodeTo(Schema61.Uint8Array, {
+).pipe(Schema62.decodeTo(Schema62.Struct({ $bytes: Schema62.Uint8ArrayFromBase64 }))).pipe(
+  Schema62.decodeTo(Schema62.Uint8Array, {
     decode: SchemaGetter.transform((value) => value.$bytes),
     encode: SchemaGetter.transform((value) => ({ $bytes: value }))
   })
 );
-var Data9 = Schema61.suspend(
-  () => Schema61.Union([
-    Schema61.Null,
-    Schema61.Boolean,
-    Schema61.Int,
-    Schema61.String,
+var Data9 = Schema62.suspend(
+  () => Schema62.Union([
+    Schema62.Null,
+    Schema62.Boolean,
+    Schema62.Int,
+    Schema62.String,
     Bytes2,
     Link,
-    Schema61.Array(Data9),
-    Schema61.Record(Schema61.String, Data9).check(
-      Schema61.makeFilter(
+    Schema62.Array(Data9),
+    Schema62.Record(Schema62.String, Data9).check(
+      Schema62.makeFilter(
         (value) => !("$bytes" in value) && !("$link" in value),
         { expected: "data map, not a malformed byte or link wrapper" }
       )
     )
   ])
 );
-var DataMap = Schema61.Record(Schema61.String, Data9).check(
-  Schema61.makeFilter((value) => !("$bytes" in value) && !("$link" in value), {
+var DataMap = Schema62.Record(Schema62.String, Data9).check(
+  Schema62.makeFilter((value) => !("$bytes" in value) && !("$link" in value), {
     expected: "data-model map"
   })
 );
-var TaggedMap = Schema61.StructWithRest(
-  Schema61.Struct({ $type: Schema61.String }),
-  [Schema61.Record(Schema61.String, Data9)]
+var TaggedMap = Schema62.StructWithRest(
+  Schema62.Struct({ $type: Schema62.String }),
+  [Schema62.Record(Schema62.String, Data9)]
 );
 var lexString2 = (definition) => {
   const validators = new Lexicons([
@@ -75731,28 +86074,28 @@ var lexString2 = (definition) => {
       lexicon: 1
     }
   ]);
-  return Schema61.String.check(
-    Schema61.makeFilter(
+  return Schema62.String.check(
+    Schema62.makeFilter(
       (value) => validators.validate("sh.mschf.ratking.lexgen", { value }).success,
       { expected: "Lexicon string constraints" }
     )
   );
 };
-var Blob2 = Schema61.StructWithRest(
-  Schema61.Struct({
-    $type: Schema61.Literal("blob"),
-    mimeType: Schema61.String,
+var Blob2 = Schema62.StructWithRest(
+  Schema62.Struct({
+    $type: Schema62.Literal("blob"),
+    mimeType: Schema62.String,
     ref: Link,
-    size: Schema61.Int.check(Schema61.isGreaterThanOrEqualTo(0))
+    size: Schema62.Int.check(Schema62.isGreaterThanOrEqualTo(0))
   }),
-  [Schema61.Record(Schema61.String, Data9)]
+  [Schema62.Record(Schema62.String, Data9)]
 );
-var XrpcErrorBody = Schema61.StructWithRest(
-  Schema61.Struct({
-    error: Schema61.String,
-    message: Schema61.optionalKey(Schema61.String)
+var XrpcErrorBody = Schema62.StructWithRest(
+  Schema62.Struct({
+    error: Schema62.String,
+    message: Schema62.optionalKey(Schema62.String)
   }),
-  [Schema61.Record(Schema61.String, Data9)]
+  [Schema62.Record(Schema62.String, Data9)]
 );
 var Aad = Schema210.StructWithRest(
   Schema210.Struct({
@@ -76306,13 +86649,13 @@ var seal = Effect52.fn("Envelope.seal")(function* seal2(request2) {
       })
     );
   }
-  const validated = yield* Schema62.decodeUnknownEffect(
-    Schema62.toType(SigningPayload)
+  const validated = yield* Schema63.decodeUnknownEffect(
+    Schema63.toType(SigningPayload)
   )(payload);
   const bytes2 = signingBytes(validated);
   const signature = yield* sign(request2.signingKey, bytes2);
-  const signed = yield* Schema62.decodeUnknownEffect(
-    Schema62.toType(SignedMessage)
+  const signed = yield* Schema63.decodeUnknownEffect(
+    Schema63.toType(SignedMessage)
   )({
     appSignature: {
       algorithm: "ES256",
@@ -76322,8 +86665,8 @@ var seal = Effect52.fn("Envelope.seal")(function* seal2(request2) {
     canonicalSigningBytes: bytes2
   });
   if (plaintext(payload)) {
-    return yield* Schema62.decodeUnknownEffect(
-      Schema62.toType(EncryptedEnvelope)
+    return yield* Schema63.decodeUnknownEffect(
+      Schema63.toType(EncryptedEnvelope)
     )({
       aad: payload.aad,
       ciphertext: canonical2(signed),
@@ -76344,13 +86687,13 @@ var seal = Effect52.fn("Envelope.seal")(function* seal2(request2) {
   const ciphertext = yield* cryptoOperation(
     () => context.seal(canonical2(signed), aadBytes(header))
   );
-  return yield* Schema62.decodeUnknownEffect(
-    Schema62.toType(EncryptedEnvelope)
+  return yield* Schema63.decodeUnknownEffect(
+    Schema63.toType(EncryptedEnvelope)
   )({ ...header, ciphertext: new Uint8Array(ciphertext) });
 });
 var open = Effect52.fn("Envelope.open")(function* open2(request2) {
-  const envelope = yield* Schema62.decodeUnknownEffect(
-    Schema62.toType(EncryptedEnvelope)
+  const envelope = yield* Schema63.decodeUnknownEffect(
+    Schema63.toType(EncryptedEnvelope)
   )(request2.envelope);
   if (!supported2(envelope) || envelope.aad.recipientDid !== request2.recipientDid || envelope.aad.recipientKeyId !== request2.recipientKeyId || !request2.recipientKeyId.startsWith(`${request2.recipientDid}#`)) {
     return yield* Effect52.fail(
@@ -77923,7 +88266,7 @@ var watch = (config, poll, afterSeq, fence) => Stream3.suspend(() => {
                 kind: "Unknown"
               })
             }),
-            try: () => Option26.isSome(port) ? port.value.connect(url.href) : new globalThis.WebSocket(url.href)
+            try: () => Option27.isSome(port) ? port.value.connect(url.href) : new globalThis.WebSocket(url.href)
           }),
           (ws) => Effect142.sync(() => {
             ws.close(1e3);
@@ -78295,7 +88638,7 @@ var Method12 = {
   params: Params13,
   path: "/xrpc/sh.mschf.ratking.mailbox.getPeerDocument"
 };
-var consumerMachine = (0, import_xstate_cjs.createMachine)({
+var consumerMachine = (0, import_xstate_cjs2.createMachine)({
   context: {},
   id: "mailbox-consumer",
   initial: "acquiring",
@@ -78315,9 +88658,9 @@ var expiredRefusal = (error) => error.error === "InvalidTransition" && error.rea
 var settledRefusal = (error) => error.error === "InvalidTransition";
 var consume2 = (mailbox, did2, handler, options2) => Effect182.scoped(
   Effect182.gen(function* runConsumer() {
-    let [state3] = (0, import_xstate_cjs.initialTransition)(consumerMachine);
+    let [state3] = (0, import_xstate_cjs2.initialTransition)(consumerMachine);
     const step = (event) => Effect182.sync(() => {
-      [state3] = (0, import_xstate_cjs.transition)(consumerMachine, state3, { type: event });
+      [state3] = (0, import_xstate_cjs2.transition)(consumerMachine, state3, { type: event });
     });
     const acquire = Effect182.gen(function* acquire2() {
       const now2 = yield* Clock42.currentTimeMillis;
@@ -78812,14 +89155,14 @@ var prepare2 = Effect192.fn("Mailbox.prepare")(function* prepare22(options2) {
 
 // src/postbox-object.ts
 import { DurableObject } from "cloudflare:workers";
-import { Clock as Clock9, Effect as Effect49, Exit as Exit4, Layer as Layer27, Option as Option33, Schema as Schema71, Scope as Scope2 } from "effect";
+import { Clock as Clock9, Effect as Effect49, Exit as Exit4, Layer as Layer27, Option as Option34, Schema as Schema73, Scope as Scope2 } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 // src/mailroom.ts
-import { Clock as Clock8, Effect as Effect48, Layer as Layer26, Option as Option29, Predicate as Predicate8, Schema as Schema68 } from "effect";
+import { Clock as Clock8, Effect as Effect48, Layer as Layer26, Option as Option30, Predicate as Predicate8, Schema as Schema69 } from "effect";
 
 // src/fleet-names.ts
-import { Option as Option27, Schema as Schema63 } from "effect";
+import { Option as Option28, Schema as Schema64 } from "effect";
 var FLEET_TEMPLATE = "did:web:{agent}.pi.ratking-fleet.invalid";
 var RESERVED = {
   "claude-bridge-owner": {
@@ -78850,59 +89193,59 @@ var RESERVED = {
   }
 };
 var reserved = Object.entries(RESERVED);
-var isName = Schema63.is(AgentName);
+var isName = Schema64.is(AgentName);
 var canonicalName = (name) => reserved.find(([, entry2]) => entry2.aliases?.includes(name) === true)?.[0] ?? name;
 var didFor = (name) => {
   if (!isName(name)) {
-    return Option27.none();
+    return Option28.none();
   }
-  return Option27.some(
+  return Option28.some(
     reserved.find(([key]) => key === canonicalName(name))?.[1].did ?? FLEET_TEMPLATE.replace("{agent}", name.replace("/", "."))
   );
 };
 var nameFor = (did2) => {
   const fixed = reserved.find(([, entry2]) => entry2.did === did2);
   if (fixed !== void 0) {
-    return Option27.some(fixed[0]);
+    return Option28.some(fixed[0]);
   }
   const [prefix = "", suffix = ""] = FLEET_TEMPLATE.split("{agent}");
   if (!did2.startsWith(prefix) || !did2.endsWith(suffix) || did2.length <= prefix.length + suffix.length) {
-    return Option27.none();
+    return Option28.none();
   }
   const name = did2.slice(prefix.length, did2.length - suffix.length).replace(".", "/");
-  return Option27.filter(
-    Option27.some(name),
-    (candidate) => Option27.contains(didFor(candidate), did2)
+  return Option28.filter(
+    Option28.some(name),
+    (candidate) => Option28.contains(didFor(candidate), did2)
   );
 };
 
 // src/mailroom-port.ts
-import { Context as Context26, Schema as Schema64 } from "effect";
-var SendVerdict = Schema64.TaggedUnion({
+import { Context as Context26, Schema as Schema65 } from "effect";
+var SendVerdict = Schema65.TaggedUnion({
   Accepted: {},
   Conflict: {},
-  Refused: { reason: Schema64.String },
-  Uncertain: { reason: Schema64.String }
+  Refused: { reason: Schema65.String },
+  Uncertain: { reason: Schema65.String }
 });
 var Mailroom = class extends Context26.Service()("@mischief/worker/Mailroom") {
 };
 
 // src/postbox-failed.ts
-import { Schema as Schema65 } from "effect";
-var PostboxFailed = class extends Schema65.TaggedError()(
+import { Schema as Schema66 } from "effect";
+var PostboxFailed = class extends Schema66.TaggedError()(
   "PostboxFailed",
-  { reason: Schema65.String }
+  { reason: Schema66.String }
 ) {
 };
 
 // src/postbox.ts
-import { Duration as Duration5, Effect as Effect47, Option as Option28, Schedule as Schedule4, Schema as Schema67 } from "effect";
+import { Duration as Duration5, Effect as Effect47, Option as Option29, Schedule as Schedule4, Schema as Schema68 } from "effect";
 
 // src/runs-port.ts
-import { Context as Context27, Schema as Schema66 } from "effect";
-var Delivered = Schema66.TaggedUnion({
+import { Context as Context27, Schema as Schema67 } from "effect";
+var Delivered = Schema67.TaggedUnion({
   Journaled: {},
-  Refused: { reason: Schema66.String }
+  Refused: { reason: Schema67.String }
 });
 var Runs3 = class extends Context27.Service()("@mischief/worker/Runs") {
 };
@@ -78917,11 +89260,11 @@ var DELIVERED = "CREATE TABLE IF NOT EXISTS postbox_delivered (message_id TEXT P
 var CURSOR = "CREATE TABLE IF NOT EXISTS postbox_cursor (id INTEGER PRIMARY KEY CHECK (id = 1), seq INTEGER NOT NULL)";
 var OWN_NAME = "mischief/worker";
 var DESK = "pi-durable/desk";
-var RunRow = Schema67.Struct({ run_id: Schema67.String });
-var SeqRow = Schema67.Struct({ seq: Schema67.Number });
-var Addressed = Schema67.fromJsonString(Schema67.Struct({ to: Schema67.String }));
-var addressedElsewhere = (body) => Option28.exists(
-  Schema67.decodeUnknownOption(Addressed)(body),
+var RunRow = Schema68.Struct({ run_id: Schema68.String });
+var SeqRow = Schema68.Struct({ seq: Schema68.Number });
+var Addressed = Schema68.fromJsonString(Schema68.Struct({ to: Schema68.String }));
+var addressedElsewhere = (body) => Option29.exists(
+  Schema68.decodeUnknownOption(Addressed)(body),
   ({ to }) => to !== OWN_NAME
 );
 var settle3 = (verdict) => SendVerdict.match(verdict, {
@@ -78955,14 +89298,14 @@ var postbox = (storage) => {
     "SELECT message_id FROM postbox_delivered WHERE message_id = ?",
     messageId
   ).toArray().length > 0;
-  const runOf = (messageId) => Option28.fromNullishOr(
+  const runOf = (messageId) => Option29.fromNullishOr(
     storage.sql.exec(
       "SELECT run_id FROM postbox_threads WHERE message_id = ?",
       messageId
     ).toArray()[0]
   ).pipe(
-    Option28.flatMap(Schema67.decodeUnknownOption(RunRow)),
-    Option28.map(({ run_id }) => run_id)
+    Option29.flatMap(Schema68.decodeUnknownOption(RunRow)),
+    Option29.map(({ run_id }) => run_id)
   );
   const park = (message, sender, reason, quiet = false) => Effect47.gen(function* parkMessage() {
     const fresh = storage.sql.exec(
@@ -78984,7 +89327,7 @@ ${message.body}`
     }
   });
   const prompt = (message, sender) => Effect47.gen(function* promptSender() {
-    const asks = [...new Set(message.body.match(MENTIONED_IDS))].filter((id) => id !== message.messageId && Option28.isSome(runOf(id))).slice(0, PROMPTS_PER_MESSAGE);
+    const asks = [...new Set(message.body.match(MENTIONED_IDS))].filter((id) => id !== message.messageId && Option29.isSome(runOf(id))).slice(0, PROMPTS_PER_MESSAGE);
     const fresh = asks.filter(
       (askId) => storage.sql.exec(
         "INSERT INTO postbox_prompted (ask_id, sender) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING ask_id",
@@ -79031,18 +89374,18 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
     const named2 = yield* Mailroom.use(
       (mailroom) => mailroom.nameOf(message.senderDid)
     );
-    const sender = Option28.getOrElse(named2, () => message.senderDid);
-    const runId2 = message.replyTo.pipe(Option28.flatMap(runOf));
+    const sender = Option29.getOrElse(named2, () => message.senderDid);
+    const runId2 = message.replyTo.pipe(Option29.flatMap(runOf));
     if (delivered(message.messageId)) {
       return;
     }
-    if (Option28.isNone(runId2)) {
-      const prompted = Option28.isSome(named2) ? yield* prompt(message, named2.value) : [];
+    if (Option29.isNone(runId2)) {
+      const prompted = Option29.isSome(named2) ? yield* prompt(message, named2.value) : [];
       const told = prompted.length === 0 ? "" : `; ${sender} was told how to reply to ${prompted.join(", ")}`;
       yield* park(
         message,
         sender,
-        Option28.match(message.replyTo, {
+        Option29.match(message.replyTo, {
           onNone: () => `it is not a reply to anything Mischief sent${told}`,
           onSome: (replyTo) => `it replies to ${replyTo}, which no Mischief run sent${told}`
         }),
@@ -79054,7 +89397,7 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
           body: message.body,
           from: sender,
           messageId: message.messageId,
-          replyTo: Option28.getOrElse(message.replyTo, () => "")
+          replyTo: Option29.getOrElse(message.replyTo, () => "")
         })
       );
       if (Delivered.guards.Refused(outcome)) {
@@ -79075,21 +89418,21 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
       seq
     );
   });
-  const cursor = () => Option28.fromNullishOr(
+  const cursor = () => Option29.fromNullishOr(
     storage.sql.exec("SELECT seq FROM postbox_cursor WHERE id = 1").toArray()[0]
   ).pipe(
-    Option28.flatMap(Schema67.decodeUnknownOption(SeqRow)),
-    Option28.match({ onNone: () => 0, onSome: ({ seq }) => seq })
+    Option29.flatMap(Schema68.decodeUnknownOption(SeqRow)),
+    Option29.match({ onNone: () => 0, onSome: ({ seq }) => seq })
   );
   return { cursor, receive, seal: seal5, send: send2 };
 };
 
 // src/mailroom.ts
 var failed2 = (reason) => new PostboxFailed({ reason });
-var StoredEnvelope = Schema68.fromJsonString(
-  Schema68.StructWithRest(
-    Schema68.Struct({ ciphertext: Schema68.String, enc: Schema68.String }),
-    [Schema68.Record(Schema68.String, Schema68.Json)]
+var StoredEnvelope = Schema69.fromJsonString(
+  Schema69.StructWithRest(
+    Schema69.Struct({ ciphertext: Schema69.String, enc: Schema69.String }),
+    [Schema69.Record(Schema69.String, Schema69.Json)]
   )
 );
 var encodeEnvelope = (envelope) => JSON.stringify({
@@ -79097,7 +89440,7 @@ var encodeEnvelope = (envelope) => JSON.stringify({
   ciphertext: base64url22(envelope.ciphertext),
   enc: base64url22(envelope.enc)
 });
-var decodeEnvelope = (text) => Schema68.decodeUnknownEffect(StoredEnvelope)(text).pipe(
+var decodeEnvelope = (text) => Schema69.decodeUnknownEffect(StoredEnvelope)(text).pipe(
   Effect48.map((stored2) => {
     const restored = {
       ...stored2,
@@ -79127,7 +89470,7 @@ var verdictOf3 = (outcome) => {
 var inboundOf = (message) => ({
   body: message.body,
   messageId: message.tid,
-  replyTo: Option29.fromNullishOr(message.replyTo?.messageId),
+  replyTo: Option30.fromNullishOr(message.replyTo?.messageId),
   senderDid: message.senderDid
 });
 var openMailroom = (config) => Effect48.gen(function* openMailroomFor() {
@@ -79139,8 +89482,8 @@ var openMailroom = (config) => Effect48.gen(function* openMailroomFor() {
   const known = /* @__PURE__ */ new Set();
   const fence = Clock8.currentTimeMillis.pipe(
     Effect48.map(
-      (now2) => Option29.getOrUndefined(
-        Option29.map(
+      (now2) => Option30.getOrUndefined(
+        Option30.map(
           config.leases.held(now2),
           ({ did: did2, generation, leaseId }) => ({
             did: did2,
@@ -79172,7 +89515,7 @@ var openMailroom = (config) => Effect48.gen(function* openMailroomFor() {
   );
   const seal5 = (to, body) => Effect48.gen(function* sealFor() {
     const name = canonicalName(to);
-    const did2 = yield* Option29.match(didFor(name), {
+    const did2 = yield* Option30.match(didFor(name), {
       onNone: () => Effect48.fail(
         failed2(
           `${to} is not a Rat King name. Names look like project/desk, such as pi-durable/desk`
@@ -79247,8 +89590,8 @@ ${body}`).pipe(
           Effect48.matchEffect({
             onFailure: (failure5) => Effect48.logWarning(
               `Postbox could not open message ${event.seq} from ${event.envelope.aad.senderDid}: ${failure5.reason}`
-            ).pipe(Effect48.as(Option29.none())),
-            onSuccess: (opened) => Effect48.succeed(Option29.some(opened))
+            ).pipe(Effect48.as(Option30.none())),
+            onSuccess: (opened) => Effect48.succeed(Option30.some(opened))
           })
         )
       };
@@ -79262,29 +89605,29 @@ ${body}`).pipe(
 });
 
 // src/postbox-lease.ts
-import { Option as Option30, Schema as Schema69 } from "effect";
+import { Option as Option31, Schema as Schema70 } from "effect";
 var LEASE = "CREATE TABLE IF NOT EXISTS postbox_lease (id INTEGER PRIMARY KEY CHECK (id = 1), did TEXT NOT NULL, lease_id TEXT NOT NULL, generation INTEGER NOT NULL, expires_at INTEGER NOT NULL)";
-var Row = Schema69.Struct({
-  did: Schema69.String,
-  expires_at: Schema69.Number,
-  generation: Schema69.Number,
-  lease_id: Schema69.String
+var Row = Schema70.Struct({
+  did: Schema70.String,
+  expires_at: Schema70.Number,
+  generation: Schema70.Number,
+  lease_id: Schema70.String
 });
 var leaseBook = (storage) => {
   storage.sql.exec(LEASE);
   return {
-    held: (now2) => Option30.filter(
-      Option30.map(
-        Option30.fromNullishOr(
+    held: (now2) => Option31.filter(
+      Option31.map(
+        Option31.fromNullishOr(
           storage.sql.exec(
             "SELECT did, lease_id, generation, expires_at FROM postbox_lease WHERE id = 1"
           ).toArray()[0]
         ),
-        (row2) => Schema69.decodeUnknownOption(Row)(row2)
-      ).pipe(Option30.flatten),
+        (row2) => Schema70.decodeUnknownOption(Row)(row2)
+      ).pipe(Option31.flatten),
       (row2) => row2.expires_at > now2
     ).pipe(
-      Option30.map((row2) => ({
+      Option31.map((row2) => ({
         did: row2.did,
         expiresAt: row2.expires_at,
         generation: row2.generation,
@@ -79304,24 +89647,24 @@ var leaseBook = (storage) => {
 };
 
 // src/think-tally.ts
-import { DateTime as DateTime2, Option as Option31, Schema as Schema70 } from "effect";
+import { DateTime as DateTime2, Option as Option33, Schema as Schema71 } from "effect";
 var DAY_WARN_FLOOR_TOKENS = 15e5;
 var DAY_WARN_HISTORY_DAYS = 7;
 var DAY_WARN_MEDIAN_MULTIPLE = 2;
 var RUN_WARN_TOKENS = 1e5;
 var DAYS2 = "CREATE TABLE IF NOT EXISTS mischief_think_days (day TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
 var RUNS = "CREATE TABLE IF NOT EXISTS mischief_think_runs (run_id TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
-var Totals = Schema70.Struct({ calls: Schema70.Finite, tokens: Schema70.Finite });
-var totalsOf = (rows) => Option31.getOrElse(
-  Option31.fromNullishOr(rows[0]).pipe(
-    Option31.flatMap(Schema70.decodeUnknownOption(Totals))
+var Totals = Schema71.Struct({ calls: Schema71.Finite, tokens: Schema71.Finite });
+var totalsOf = (rows) => Option33.getOrElse(
+  Option33.fromNullishOr(rows[0]).pipe(
+    Option33.flatMap(Schema71.decodeUnknownOption(Totals))
   ),
   () => ({ calls: 0, tokens: 0 })
 );
 var crossedAt = (before, after, line) => before < line && after >= line;
 var dayWarning = (storage, day) => {
   storage.sql.exec(DAYS2);
-  const history = Schema70.decodeUnknownSync(Schema70.Array(Totals))(
+  const history = Schema71.decodeUnknownSync(Schema71.Array(Totals))(
     storage.sql.exec(
       "SELECT calls, tokens FROM mischief_think_days WHERE day < ? ORDER BY day DESC LIMIT ?",
       day,
@@ -79427,10 +89770,10 @@ var warnText = (crossing, runId2, key, {
 var POSTBOX_NAME = "mischief/worker";
 var WATCHDOG_MS = 6e4;
 var NOT_WIRED = "Rat King mail is not wired on this host: set MISCHIEF_IDENTITY (the mischief/worker identity, from the host's 0600 bindings file), MISCHIEF_MAILBOX_URL and MISCHIEF_MAILBOX_DID, then redeploy";
-var Refusal = Schema71.fromJsonString(
-  Schema71.Struct({
-    _tag: Schema71.Literal("ReplyRefused"),
-    reason: Schema71.String
+var Refusal = Schema73.fromJsonString(
+  Schema73.Struct({
+    _tag: Schema73.Literal("ReplyRefused"),
+    reason: Schema73.String
   })
 );
 var posted2 = async (effect) => {
@@ -79438,7 +89781,7 @@ var posted2 = async (effect) => {
   return Exit4.match(exit, {
     onFailure: () => ({
       ok: false,
-      reason: Option33.match(Exit4.findErrorOption(exit), {
+      reason: Option34.match(Exit4.findErrorOption(exit), {
         onNone: () => "the Postbox failed unexpectedly; see the celld journal",
         onSome: ({ reason }) => reason
       })
@@ -79457,15 +89800,15 @@ var Postbox = class extends DurableObject {
     this.box = postbox(ctx.storage);
   }
   wired() {
-    const identity = Schema71.decodeUnknownOption(
-      Schema71.fromJsonString(Identity)
+    const identity = Schema73.decodeUnknownOption(
+      Schema73.fromJsonString(Identity)
     )(this.env.MISCHIEF_IDENTITY ?? "");
     const endpoint = this.env.MISCHIEF_MAILBOX_URL ?? "";
     const serviceDid = this.env.MISCHIEF_MAILBOX_DID ?? "";
     if (this.mailroom !== void 0) {
       return Effect49.succeed(this.mailroom);
     }
-    if (Option33.isNone(identity) || endpoint === "" || serviceDid === "") {
+    if (Option34.isNone(identity) || endpoint === "" || serviceDid === "") {
       return Effect49.fail(new PostboxFailed({ reason: NOT_WIRED }));
     }
     return openMailroom({
@@ -79510,7 +89853,7 @@ var Postbox = class extends DurableObject {
             if (status === 200) {
               return Effect49.succeed(Delivered.cases.Journaled.make({}));
             }
-            return Option33.match(Schema71.decodeUnknownOption(Refusal)(body), {
+            return Option34.match(Schema73.decodeUnknownOption(Refusal)(body), {
               onNone: () => Effect49.fail(
                 new PostboxFailed({
                   reason: `run ${objectName} answered HTTP ${status}`
@@ -79594,7 +89937,7 @@ var Postbox = class extends DurableObject {
 
 // src/plan-run-object.ts
 var TELEMETRY_DESK = "pi-durable/desk";
-var decodeHostJudge = Schema73.decodeUnknownOption(JudgeModeSchema);
+var decodeHostJudge = Schema74.decodeUnknownOption(JudgeModeSchema);
 var thinkerFor = (env, storageFor) => {
   if (env.MISCHIEF_MODEL === "faux") {
     return piThinker(fauxThinkerOptions(storageFor));
@@ -79604,15 +89947,19 @@ var thinkerFor = (env, storageFor) => {
   return env.MISCHIEF_MODEL === "cliproxy" && key !== "" && baseUrl !== "" ? piThinker(
     gatewayThinkerOptions(storageFor, {
       apiKey: Redacted3.make(key),
-      baseUrl
+      baseUrl,
+      opusBridge: opusBridgeFrom(
+        env.MISCHIEF_OPUS_BRIDGE_URL,
+        env.MISCHIEF_OPUS_BRIDGE_KEY
+      )
     })
   ) : Thinker.unwired;
 };
 var judgeFor = (env, storage) => {
   const key = env.MISCHIEF_JEV_KEY ?? "";
   return judgeChosenPerCall({
-    fallback: Option34.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
-    jev: key === "" ? Option34.none() : Option34.some(
+    fallback: Option35.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
+    jev: key === "" ? Option35.none() : Option35.some(
       jevJudge({ apiKey: Redacted3.make(key) }).pipe(
         Layer28.provide(FetchHttpClient2.layer)
       )
@@ -79754,8 +90101,8 @@ var planRunClass = (callables) => {
 };
 
 // src/registered-callables.ts
-import { Schema as Schema74 } from "effect";
-var validName = Schema74.is(CapabilityName);
+import { Schema as Schema75 } from "effect";
+var validName = Schema75.is(CapabilityName);
 var registeredCallables = (entries2) => {
   const registry = /* @__PURE__ */ new Map();
   for (const [name, capability] of entries2) {
@@ -79776,12 +90123,12 @@ var registeredCallables = (entries2) => {
 
 // src/schedule-object.ts
 import { DurableObject as DurableObject3 } from "cloudflare:workers";
-import { Effect as Effect51, Option as Option35, Schema as Schema75 } from "effect";
+import { Effect as Effect51, Option as Option36, Schema as Schema76 } from "effect";
 var SUBMIT_WAIT_MS = 5e3;
 var ownerOf = (objectName) => objectName.slice(0, objectName.lastIndexOf("/"));
-var decodeReport = Schema75.decodeUnknownOption(RunReportSchema);
-var decodeRefused = Schema75.decodeUnknownOption(PlanRefused);
-var decodeUnknown = Schema75.decodeUnknownOption(UnknownRun);
+var decodeReport = Schema76.decodeUnknownOption(RunReportSchema);
+var decodeRefused = Schema76.decodeUnknownOption(PlanRefused);
+var decodeUnknown = Schema76.decodeUnknownOption(UnknownRun);
 var bodyOf = async (response) => {
   try {
     return await response.json();
@@ -79791,7 +90138,7 @@ var bodyOf = async (response) => {
 };
 var wakeRuns = (env, storage, keepAlive) => {
   const ownerFor = Effect51.suspend(
-    () => Option35.match(objectOf(storage), {
+    () => Option36.match(objectOf(storage), {
       onNone: () => Effect51.die(
         "this schedule never learned its owner's DID; create it again through the Mischief worker"
       ),
@@ -79821,7 +90168,7 @@ var wakeRuns = (env, storage, keepAlive) => {
         )
       ),
       Effect51.flatMap(
-        ({ body, status }) => status === 200 || Option35.isSome(decodeUnknown(body)) ? Effect51.void : Effect51.die(`abortRun ${runId2} answered ${String(status)}`)
+        ({ body, status }) => status === 200 || Option36.isSome(decodeUnknown(body)) ? Effect51.void : Effect51.die(`abortRun ${runId2} answered ${String(status)}`)
       )
     ),
     inspect: (runId2) => ownerFor.pipe(
@@ -79832,14 +90179,14 @@ var wakeRuns = (env, storage, keepAlive) => {
       ),
       Effect51.flatMap(({ body, status }) => {
         if (status === 200) {
-          return Option35.match(decodeReport(body), {
+          return Option36.match(decodeReport(body), {
             onNone: () => Effect51.die(
               `inspectRun ${runId2} answered 200 with no run report`
             ),
-            onSome: (report2) => Effect51.succeed(Option35.some(report2))
+            onSome: (report2) => Effect51.succeed(Option36.some(report2))
           });
         }
-        return Option35.isSome(decodeUnknown(body)) ? Effect51.succeedNone : Effect51.die(`inspectRun ${runId2} answered ${String(status)}`);
+        return Option36.isSome(decodeUnknown(body)) ? Effect51.succeedNone : Effect51.die(`inspectRun ${runId2} answered ${String(status)}`);
       })
     ),
     submit: (runId2, plan, docs, { escalateTo, judge }) => ownerFor.pipe(
@@ -79856,13 +90203,13 @@ var wakeRuns = (env, storage, keepAlive) => {
         );
       }),
       Effect51.flatMap(
-        Option35.match({
+        Option36.match({
           onNone: () => Effect51.void,
           onSome: ({ body, status }) => {
             if (status === 200) {
               return Effect51.void;
             }
-            return Option35.match(decodeRefused(body), {
+            return Option36.match(decodeRefused(body), {
               onNone: () => Effect51.die(`submitPlan ${runId2} answered ${String(status)}`),
               onSome: Effect51.fail
             });
@@ -79948,7 +90295,7 @@ var ServiceTokenLedger = class extends DurableObject4 {
 
 // ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+f20dd1ba_e3ac534a69e1d33f8e16d30b94ca3b4a/node_modules/@rat-king/mailbox-client/auth.js
 import { Effect as Effect211 } from "effect";
-import { Schema as Schema76 } from "effect";
+import { Schema as Schema77 } from "effect";
 import { Effect as Effect53 } from "effect";
 import { Context as Context28, Effect as Effect311, Layer as Layer29, Schema as Schema311 } from "effect";
 import { Schema as Schema211 } from "effect";
@@ -79964,9 +90311,9 @@ var concatenate2 = (...parts2) => {
   }
   return result;
 };
-var EnvelopeFailure2 = class extends Schema76.TaggedError()(
+var EnvelopeFailure2 = class extends Schema77.TaggedError()(
   "EnvelopeFailure",
-  { reason: Schema76.String }
+  { reason: Schema77.String }
 ) {
 };
 var cryptoOperation2 = (operation) => Effect53.tryPromise({
@@ -80174,7 +90521,7 @@ var serviceToken3 = Effect311.fn("ServiceAuth.sign")(
 );
 
 // src/worker-handler.ts
-import { Clock as Clock12, Effect as Effect56, Layer as Layer31, Option as Option38, Result as Result10, Schema as Schema80 } from "effect";
+import { Clock as Clock12, Effect as Effect56, Layer as Layer31, Option as Option39, Result as Result10, Schema as Schema81 } from "effect";
 
 // src/replay-ledger.ts
 import { Effect as Effect55, Layer as Layer30 } from "effect";
@@ -80183,10 +90530,10 @@ import { Effect as Effect55, Layer as Layer30 } from "effect";
 import { Clock as Clock11, Effect as Effect54 } from "effect";
 
 // src/auth-refused.ts
-import { Schema as Schema77 } from "effect";
-var AuthRefused = class extends Schema77.TaggedError()(
+import { Schema as Schema78 } from "effect";
+var AuthRefused = class extends Schema78.TaggedError()(
   "AuthRefused",
-  { reason: Schema77.String }
+  { reason: Schema78.String }
 ) {
 };
 
@@ -80258,49 +90605,49 @@ var replayLedger = (ledgerFor, readOnly) => Layer30.succeed(
 );
 
 // src/run-address.ts
-import { Option as Option36, Schema as Schema78 } from "effect";
-var decodeAddress = Schema78.decodeUnknownOption(
-  Schema78.fromJsonString(
-    Schema78.Struct({
-      replyTo: Schema78.optionalKey(Schema78.String),
-      runId: Schema78.optionalKey(Schema78.String)
+import { Option as Option37, Schema as Schema79 } from "effect";
+var decodeAddress = Schema79.decodeUnknownOption(
+  Schema79.fromJsonString(
+    Schema79.Struct({
+      replyTo: Schema79.optionalKey(Schema79.String),
+      runId: Schema79.optionalKey(Schema79.String)
     })
   )
 );
 var runIdOf = (body) => decodeAddress(body).pipe(
-  Option36.flatMap(
-    ({ replyTo, runId: runId2 }) => Option36.orElse(
-      Option36.fromUndefinedOr(runId2),
-      () => Option36.fromUndefinedOr(
+  Option37.flatMap(
+    ({ replyTo, runId: runId2 }) => Option37.orElse(
+      Option37.fromUndefinedOr(runId2),
+      () => Option37.fromUndefinedOr(
         replyTo?.includes("/") === true ? replyTo.split("/")[0] : void 0
       )
     )
   ),
-  Option36.filter((runId2) => runId2 !== "")
+  Option37.filter((runId2) => runId2 !== "")
 );
 var NO_RUN_ID = "this request names no run. Every run capability takes a JSON body with runId. deliverReply can find its run from replyTo only when replyTo is <runId>/<step>#<visit>; a Rat King message id (an ask sent as real mail, like 3mxoabjvtfwka) has no run in it, so add the run's runId (inspectRun shows the ask under awaiting). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 // src/schedule-address.ts
-import { Option as Option37, Schema as Schema79 } from "effect";
+import { Option as Option38, Schema as Schema80 } from "effect";
 var SCHEDULE_CAPABILITIES = /* @__PURE__ */ new Set([
   "createSchedule",
   "inspectSchedule",
   "completeSchedule"
 ]);
-var decodeAddress2 = Schema79.decodeUnknownOption(
-  Schema79.fromJsonString(
-    Schema79.Struct({ scheduleId: Schema79.optionalKey(Schema79.String) })
+var decodeAddress2 = Schema80.decodeUnknownOption(
+  Schema80.fromJsonString(
+    Schema80.Struct({ scheduleId: Schema80.optionalKey(Schema80.String) })
   )
 );
 var scheduleIdOf = (body) => decodeAddress2(body).pipe(
-  Option37.flatMap(({ scheduleId: scheduleId2 }) => Option37.fromUndefinedOr(scheduleId2)),
-  Option37.filter((scheduleId2) => scheduleId2 !== "")
+  Option38.flatMap(({ scheduleId: scheduleId2 }) => Option38.fromUndefinedOr(scheduleId2)),
+  Option38.filter((scheduleId2) => scheduleId2 !== "")
 );
 var NO_SCHEDULE_ID = "this request names no schedule. createSchedule, inspectSchedule and completeSchedule each take a JSON body with scheduleId; add it and send the request again. GET /openapi.json lists every capability";
 
 // src/worker-handler.ts
 var NOT_CONFIGURED = "this Mischief host has no MISCHIEF_DID or no valid MISCHIEF_CALLERS (a JSON array of the allowed callers' DID documents), so it serves nobody. Ask the Mischief desk (pi-durable/desk) to deploy it with both";
-var CallersFromJson = Schema80.fromJsonString(Documents2);
+var CallersFromJson = Schema81.fromJsonString(Documents2);
 var servicesFor = (env, callers) => Layer31.merge(
   staticResolver2(callers),
   replayLedger((issuer) => env.SERVICE_TOKENS.getByName(issuer), READ_ONLY)
@@ -80337,10 +90684,10 @@ var worker_handler_default = {
         version: __BUNDLE_VERSION__
       });
     }
-    const callers = Schema80.decodeUnknownOption(CallersFromJson)(
+    const callers = Schema81.decodeUnknownOption(CallersFromJson)(
       env.MISCHIEF_CALLERS ?? ""
     );
-    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option38.isNone(callers)) {
+    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option39.isNone(callers)) {
       return Response.json({ error: NOT_CONFIGURED }, { status: 503 });
     }
     const { pathname } = new URL(request2.url);
@@ -80364,7 +90711,7 @@ var worker_handler_default = {
     const body = await request2.text();
     if (SCHEDULE_CAPABILITIES.has(capability)) {
       const scheduleId2 = scheduleIdOf(body);
-      if (Option38.isNone(scheduleId2)) {
+      if (Option39.isNone(scheduleId2)) {
         return Response.json({ error: NO_SCHEDULE_ID }, { status: 400 });
       }
       const name = `${caller.success.iss}/${scheduleId2.value}`;
@@ -80380,7 +90727,7 @@ var worker_handler_default = {
       );
     }
     const runId2 = runIdOf(body);
-    if (Option38.isNone(runId2)) {
+    if (Option39.isNone(runId2)) {
       return Response.json({ error: NO_RUN_ID }, { status: 400 });
     }
     const run2 = env.PLAN_RUN.get(

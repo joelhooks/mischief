@@ -20,6 +20,7 @@ import type { PlanRun as Runtime } from "@mischief/plan-run";
 import {
   fauxThinkerOptions,
   gatewayThinkerOptions,
+  opusBridgeFrom,
   jevJudge,
   piThinker,
 } from "@mischief/thinking";
@@ -64,6 +65,8 @@ export interface Env {
   readonly MISCHIEF_MODEL: string;
   readonly MISCHIEF_CLIPROXY_URL?: string;
   readonly MISCHIEF_CLIPROXY_KEY?: string;
+  readonly MISCHIEF_OPUS_BRIDGE_URL?: string;
+  readonly MISCHIEF_OPUS_BRIDGE_KEY?: string;
   readonly MISCHIEF_GUARD_MS: string;
   readonly MISCHIEF_REDRIVE_ATTEMPTS?: string;
   readonly MISCHIEF_RESUME_ATTEMPTS?: string;
@@ -100,6 +103,10 @@ const thinkerFor = (
         gatewayThinkerOptions(storageFor, {
           apiKey: Redacted.make(key),
           baseUrl,
+          opusBridge: opusBridgeFrom(
+            env.MISCHIEF_OPUS_BRIDGE_URL,
+            env.MISCHIEF_OPUS_BRIDGE_KEY
+          ),
         })
       )
     : Thinker.unwired;

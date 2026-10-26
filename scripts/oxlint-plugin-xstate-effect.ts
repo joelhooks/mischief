@@ -4,6 +4,9 @@ import type { ESTree } from "@oxlint/plugins";
 const ENQUEUE_NAMES = new Set(["enq", "enqueue"]);
 
 const EFFECT_LOGIC_CONSTRUCTORS = new Set([
+  "createEffectLogic",
+  "createEffectStreamLogic",
+  "createEffectEventStreamLogic",
   "fromEffect",
   "fromEffectStream",
   "fromEffectEventStream",

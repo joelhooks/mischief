@@ -1,7 +1,7 @@
 import { watchActor } from "@mischief/capability/actor-watch";
 import {
   createEffectActor,
-  fromEffect,
+  createEffectLogic,
   join,
   setupEffect,
 } from "@xstate/effect";
@@ -23,7 +23,7 @@ interface InspectContext {
   readonly path: string;
 }
 
-const readStats = fromEffect({
+const readStats = createEffectLogic({
   effect: ({ input }) =>
     FileInspector.use((inspector) => inspector.inspect(input.path)),
   schemas: { input: Schema.Struct({ path: Schema.String }) },

@@ -95,7 +95,7 @@ Atoms hold observable client values. A property test checks a rule across genera
 ### Lifecycle encoded in scattered flags
 
 - Look for status strings and booleans that encode modes, retries, cancellation, or legal event sequences.
-- Use a machine under `packages/core/src/`. Copy `packages/core/src/inspect-machine.ts`. Declare `fromEffect` actors; start only with `createEffectActor`.
+- Use a machine under `packages/core/src/`. Copy `packages/core/src/inspect-machine.ts`. Declare `createEffectLogic` actors; start only with `createEffectActor`.
 - `xstate-effect/no-inline-effect` and `rat-stack-patterns/watch-effect-actors` check how actors are declared and observed. `packages/core/test/inspect-machine.model.test.ts` checks histories. **No fence yet** banning ordinary actor startup; candidate: an Effect-machine startup rule.
 
 ### Two places approving writes

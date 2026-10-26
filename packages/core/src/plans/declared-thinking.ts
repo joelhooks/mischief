@@ -7,6 +7,7 @@ import { thinkingLevels } from "./schema.js";
 export type ThinkingLevel = (typeof thinkingLevels)[number];
 
 export interface ThinkingDeclaration {
+  readonly exhaustive?: boolean;
   readonly fallback: ThinkingLevel;
   readonly models: Readonly<Record<string, readonly ThinkingLevel[]>>;
 }
@@ -117,7 +118,15 @@ export const undeclaredThinking = (
     const asked = askedBy(plan, declaration, asker);
     const declared = declaration.models[asked.model];
 
-    return declared === undefined || declared.includes(asked.level)
+    if (declared === undefined) {
+      return declaration.exhaustive === true
+        ? [
+            `${asked.where}: model "${asked.model}" has no registered route on this host. Mapped: ${Object.keys(declaration.models).join(", ") || "none"}. Fix: set ${asked.field}.model to a mapped model, or configure the host route before submitPlan.`,
+          ]
+        : [];
+    }
+
+    return declared.includes(asked.level)
       ? []
       : [refusal(declaration, asked, declared)];
   });

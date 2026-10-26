@@ -26,7 +26,11 @@ import { cloudflare } from "./alchemy.run.ts";
 import { liveNode, liveServices, STAGE, teardownProbe } from "./celld-ops.ts";
 import { celldStack } from "./celld.ts";
 import { reviewRows } from "./plan-review.ts";
-import { mischiefMaintenanceScript, mischiefUnits } from "./units.ts";
+import {
+  mischiefMaintenanceScript,
+  mischiefUnits,
+  renderOpusBridgeUnit,
+} from "./units.ts";
 
 const refuse = (reason: string) => Effect.die(new Error(reason));
 
@@ -198,7 +202,22 @@ export const renderUnitsCelld = Effect.gen(function* renderUnitsCelld() {
   const out = path.resolve(yield* Config.String("MISCHIEF_UNITS_DIR"));
   const node = yield* liveNode.pipe(Effect.orDie);
 
-  const units = [...mischiefUnits(node), mischiefMaintenanceScript(node)];
+  const opusBridgeUrl = yield* Config.String("MISCHIEF_OPUS_BRIDGE_URL").pipe(
+    Config.withDefault("")
+  );
+
+  const units = [
+    ...mischiefUnits(node),
+    mischiefMaintenanceScript(node),
+    ...(opusBridgeUrl === ""
+      ? []
+      : [
+          renderOpusBridgeUnit(
+            node,
+            yield* Config.String("MISCHIEF_OPUS_BRIDGE_ENTRY")
+          ),
+        ]),
+  ];
 
   yield* fs.makeDirectory(out, { mode: 0o700, recursive: true });
 

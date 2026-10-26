@@ -1,5 +1,9 @@
 import { watchActor } from "@mischief/capability/actor-watch";
-import { createEffectActor, fromEffect, setupEffect } from "@xstate/effect";
+import {
+  createEffectActor,
+  createEffectLogic,
+  setupEffect,
+} from "@xstate/effect";
 import { Context, Effect } from "effect";
 import { types } from "xstate";
 
@@ -24,11 +28,11 @@ interface ReaderContext {
   readonly mailroom: OpenMailroom | undefined;
 }
 
-const wire = fromEffect({
+const wire = createEffectLogic({
   effect: () => PostboxReader.use((reader) => reader.wire),
 });
 
-const consume = fromEffect({
+const consume = createEffectLogic({
   effect: ({ input }) => PostboxReader.use((reader) => reader.consume(input)),
   schemas: { input: types<OpenMailroom>() },
 });

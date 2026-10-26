@@ -42,7 +42,7 @@ it.effect(
 );
 
 it.effect(
-  "the optional user unit uses a private EnvironmentFile and kills its process group without changing celld's slice",
+  "the optional user unit uses a private EnvironmentFile, caps its own memory and kills its process group without changing celld's slice",
   () =>
     Effect.sync(() => {
       const host = { home: "/home/operator" };
@@ -61,6 +61,9 @@ it.effect(
         EnvironmentFile: '"/home/operator/.config/mischief/opus-bridge.env"',
         ExecStart: `/usr/local/bin/node "${entry}"`,
         KillMode: "control-group",
+        MemoryHigh: "3.5G",
+        MemoryMax: "4G",
+        MemorySwapMax: "0",
         UMask: "0077",
       });
       expect(sections.Service).not.toHaveProperty("Slice");

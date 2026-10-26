@@ -38,7 +38,7 @@ The supported efforts are `low`, `medium`, `high`, `xhigh` and `max`. `off` and 
 
 Nothing enables or deploys this service automatically. The celld stack declares its user unit only when the bridge URL is set. `MISCHIEF_OPUS_BRIDGE_ENTRY` names an already-built entry on that host. The unit reads a private `opus-bridge.env` under the instance's configuration directory. The operator must stage the built bridge and supply that file before applying the plan. Worker bearer keys stay in the private bindings file, never Alchemy state or plain deployment vars.
 
-The bridge unit does not change celld's slice limits. Start with a same-host loopback listener. The inspected celld fetch implementation delegates outbound HTTP to reqwest without a loopback/private-address filter. This is source evidence only: confirm `/healthz` from the actual deployed isolate before enabling reviews. A deployment on another host needs its own approved private route.
+The bridge unit does not change celld's slice limits. It runs outside `mischief.slice` with its own cap: `MemoryHigh=3.5G`, `MemoryMax=4G` and no swap, shared by up to four Pi and Claude Code children. Start with a same-host loopback listener. The inspected celld fetch implementation delegates outbound HTTP to reqwest without a loopback/private-address filter. This is source evidence only: confirm `/healthz` from the actual deployed isolate before enabling reviews. A deployment on another host needs its own approved private route.
 
 Rollback removes the gateway URL/key and redeploys the worker, then stops the bridge unit. This refuses new Opus plans; it does not silently route them to another model. Inspect in-flight reviews before stopping the bridge.
 

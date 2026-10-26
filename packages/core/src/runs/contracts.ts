@@ -81,6 +81,7 @@ export const abortRunContract = defineContract("abortRun", {
   description: "End a run for good; its checkpoint and documents stay readable",
   failure: UnknownRun,
   input: Schema.Struct({
+    reason: Schema.optionalKey(Schema.String),
     runId,
     supersededBy: Schema.optionalKey(
       RunId.annotate({

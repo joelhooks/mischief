@@ -3,6 +3,7 @@ import { Duration, Effect, Option, Schedule, Schema } from "effect";
 
 import { Mailroom, SendVerdict } from "./mailroom-port.js";
 import type { Inbound, SendVerdictValue } from "./mailroom-port.js";
+import { postboxAborts } from "./postbox-aborts.js";
 import { PostboxFailed } from "./postbox-failed.js";
 import { Delivered, Runs } from "./runs-port.js";
 
@@ -181,6 +182,8 @@ export const postbox = (storage: SqlStorage) => {
       })
     );
 
+  const aborts = postboxAborts(storage, send);
+
   const receive = (message: Inbound, seq: number) =>
     Effect.gen(function* receiveMessage() {
       const named = yield* Mailroom.use((mailroom) =>
@@ -233,8 +236,10 @@ export const postbox = (storage: SqlStorage) => {
           );
         } else {
           storage.sql.exec(
-            "INSERT INTO postbox_delivered (message_id) VALUES (?) ON CONFLICT (message_id) DO NOTHING",
-            message.messageId
+            "INSERT INTO postbox_delivered (message_id, run_id, sender) VALUES (?, ?, ?) ON CONFLICT (message_id) DO NOTHING",
+            message.messageId,
+            runId.value,
+            sender
           );
         }
       }
@@ -255,5 +260,13 @@ export const postbox = (storage: SqlStorage) => {
       Option.match({ onNone: () => 0, onSome: ({ seq }) => seq })
     );
 
-  return { cursor, receive, seal, send };
+  return {
+    abort: aborts.abort,
+    cursor,
+    flushAbortNotices: aborts.flush,
+    markAborted: aborts.markAborted,
+    receive,
+    seal,
+    send,
+  };
 };

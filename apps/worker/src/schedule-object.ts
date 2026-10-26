@@ -71,11 +71,17 @@ const wakeRuns = (
   };
 
   return {
-    abort: (runId) =>
+    abort: (runId, reason) =>
       ownerFor.pipe(
         Effect.flatMap((owner) =>
           Effect.promise(
-            async () => await call(owner, runId, "abortRun", { runId })
+            async () =>
+              await call(
+                owner,
+                runId,
+                "abortRun",
+                reason === undefined ? { runId } : { reason, runId }
+              )
           )
         ),
         Effect.flatMap(({ body, status }) =>

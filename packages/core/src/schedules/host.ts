@@ -276,7 +276,12 @@ export const wakeSchedule = Effect.fn("wakeSchedule")(function* wakeSchedule() {
   if (decision.abort !== null) {
     const { abort } = decision;
 
-    yield* WakeRuns.use((runs) => runs.abort(abort));
+    yield* WakeRuns.use((runs) =>
+      runs.abort(
+        abort,
+        decision.state.aborts.findLast(({ runId }) => runId === abort)?.reason
+      )
+    );
   }
 
   if (decision.start !== null) {

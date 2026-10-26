@@ -3,6 +3,7 @@ import {
   Context,
   Crypto,
   Effect,
+  Exit,
   Layer,
   Option,
   Result,
@@ -71,7 +72,8 @@ export class RunHost extends Context.Service<
     readonly resume: (runId: string) => Effect.Effect<RunReport, UnknownRun>;
     readonly abort: (
       runId: string,
-      supersededBy?: string
+      supersededBy?: string,
+      reason?: string
     ) => Effect.Effect<RunReport, UnknownRun>;
   }
 >()("@mischief/core/RunHost", {
@@ -172,8 +174,43 @@ export class RunHost extends Context.Service<
         yield* store.commit(runId);
       });
 
+    const announceAbort = Effect.fn("RunHost.announceAbort")(
+      function* announceAbort(runId: string) {
+        const journal = yield* store.readJournal(runId);
+
+        if (journal.has("done:abort-notices")) {
+          return;
+        }
+
+        const reason = Option.getOrElse(
+          Schema.decodeUnknownOption(Schema.String)(
+            journal.get("abort-reason")
+          ),
+          () => "abortRun was requested"
+        );
+
+        const sent = yield* Effect.exit(
+          operator.aborted?.(runId, reason) ?? Effect.void
+        );
+
+        if (Exit.isSuccess(sent)) {
+          yield* store.writeJournal(runId, "done:abort-notices", true);
+          yield* store.commit(runId);
+        } else {
+          yield* Effect.logWarning(
+            `${runId} abort reply notices remain unconfirmed`,
+            sent.cause
+          );
+        }
+      }
+    );
+
     const drive = Effect.fn("RunHost.drive")(function* drive(runId: string) {
       const opened = yield* loadRun(runId);
+
+      if (opened.state.status === "aborted") {
+        yield* announceAbort(runId);
+      }
 
       if (
         terminalStatuses.has(opened.state.status) ||
@@ -388,11 +425,16 @@ export class RunHost extends Context.Service<
 
     const abort = Effect.fn("RunHost.abort")(function* abort(
       runId: string,
-      supersededBy?: string
+      supersededBy?: string,
+      reason?: string
     ) {
       const { plan, state } = yield* loadRun(runId);
 
       if (terminalStatuses.has(state.status)) {
+        if (state.status === "aborted") {
+          yield* announceAbort(runId);
+        }
+
         return yield* reportOf(runId, plan, state).pipe(
           Effect.provideContext(context)
         );
@@ -403,7 +445,17 @@ export class RunHost extends Context.Service<
       );
 
       const aborted: RunState = { ...state, status: "aborted" };
+      yield* store.writeJournal(
+        runId,
+        "abort-reason",
+        reason ??
+          (supersededBy === undefined
+            ? "abortRun was requested"
+            : `superseded by run ${supersededBy}`)
+      );
       yield* store.writeRun(runId, aborted);
+      yield* store.commit(runId);
+      yield* announceAbort(runId);
 
       return yield* reportOf(runId, plan, aborted).pipe(
         Effect.provideContext(context)
@@ -646,7 +698,8 @@ export class RunHost extends Context.Service<
       );
 
     return {
-      abort: (runId, supersededBy) => unit(runId)(abort(runId, supersededBy)),
+      abort: (runId, supersededBy, reason) =>
+        unit(runId)(abort(runId, supersededBy, reason)),
       advance: (runId) => unit(runId)(advance(runId)),
       answer: (runId, reply) => afterStored(unit(runId)(answer(runId, reply))),
       deliver: (line) =>

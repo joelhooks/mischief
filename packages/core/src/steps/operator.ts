@@ -8,6 +8,7 @@ import type { ThinkReceipt } from "./receipt.js";
 export class Operator extends Context.Service<
   Operator,
   {
+    readonly aborted?: (runId: string, reason: string) => Effect.Effect<void>;
     readonly notify: (
       runId: string,
       question: QuestionInput,

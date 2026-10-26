@@ -66,7 +66,7 @@ const decodeState = Schema.decodeUnknownOption(
 const runsOf = (storage: SqlStorage) =>
   storage.sql
     .exec(
-      "SELECT run_id, state FROM mischief_runs WHERE run_id NOT IN (SELECT run_id FROM mischief_paused WHERE paused = 1) ORDER BY run_id"
+      "SELECT run_id, state FROM mischief_runs WHERE run_id NOT IN (SELECT run_id FROM mischief_paused WHERE paused = 1) OR run_id IN (SELECT run_id FROM mischief_journal WHERE key = 'abort-reason' AND run_id NOT IN (SELECT run_id FROM mischief_journal WHERE key = 'done:abort-notices')) ORDER BY run_id"
     )
     .toArray()
     .flatMap((row) => {
@@ -95,6 +95,15 @@ const alarmPending = (storage: SqlStorage, runId: string) =>
     )
     .toArray().length === 0;
 
+const abortNoticePending = (storage: SqlStorage, runId: string) =>
+  storage.sql
+    .exec(
+      "SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = 'abort-reason' AND NOT EXISTS (SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = 'done:abort-notices')",
+      runId,
+      runId
+    )
+    .toArray().length > 0;
+
 const wakeAt = (
   storage: SqlStorage,
   now: number,
@@ -103,6 +112,10 @@ const wakeAt = (
   runningAt: number
 ) => {
   const times = runsOf(storage).flatMap(({ runId, state }) => {
+    if (state.status === "aborted" && abortNoticePending(storage, runId)) {
+      return [now + guardMs];
+    }
+
     if (state.status === "running") {
       return [runningAt];
     }
@@ -355,6 +368,8 @@ export const makePlanRun = ({
                   runsOf(storage).filter(
                     ({ runId, state }) =>
                       state.status === "running" ||
+                      (state.status === "aborted" &&
+                        abortNoticePending(storage, runId)) ||
                       (state.status === "waiting-for-provider" &&
                         ((state.resumeAttempts < policy.attempts &&
                           state.held.some(

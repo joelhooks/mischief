@@ -219,6 +219,26 @@ export class Postbox extends DurableObject<Env> {
     );
   }
 
+  async aborted(objectName: string, reason: string) {
+    this.box.markAborted(objectName, reason);
+    await this.start();
+
+    this.ctx.waitUntil(
+      Effect.runPromise(
+        this.wired().pipe(
+          Effect.flatMap(({ layer }) =>
+            this.box.flushAbortNotices.pipe(Effect.provide(layer))
+          ),
+          Effect.catchCause((cause) =>
+            Effect.logWarning("abort reply notices remain pending", cause)
+          )
+        )
+      )
+    );
+
+    return { ok: true as const };
+  }
+
   async send(envelope: string) {
     return await posted(
       this.wired().pipe(
@@ -250,6 +270,19 @@ export class Postbox extends DurableObject<Env> {
 
   override async alarm() {
     await this.ctx.storage.setAlarm(now() + WATCHDOG_MS);
+
+    this.ctx.waitUntil(
+      Effect.runPromise(
+        this.wired().pipe(
+          Effect.flatMap(({ layer }) =>
+            this.box.flushAbortNotices.pipe(Effect.provide(layer))
+          ),
+          Effect.catchCause((cause) =>
+            Effect.logWarning("abort reply notices remain pending", cause)
+          )
+        )
+      )
+    );
 
     const wake = postboxReaderWatchdog(await this.reader);
 

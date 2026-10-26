@@ -12,7 +12,7 @@ export interface WakeChoices {
 export class WakeRuns extends Context.Service<
   WakeRuns,
   {
-    readonly abort: (runId: string) => Effect.Effect<void>;
+    readonly abort: (runId: string, reason?: string) => Effect.Effect<void>;
     readonly inspect: (
       runId: string
     ) => Effect.Effect<Option.Option<RunReport>>;

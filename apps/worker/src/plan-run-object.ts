@@ -28,6 +28,7 @@ import { DurableObject } from "cloudflare:workers";
 import { Clock, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 
+import { abortNotices } from "./abort-notices.js";
 import {
   escalate,
   escalationText,
@@ -205,6 +206,9 @@ export class PlanRun extends DurableObject<Env> {
     const operator = Layer.succeed(
       Operator,
       Operator.of({
+        aborted: mailWired
+          ? abortNotices(ctx.storage, postbox)
+          : () => Effect.void,
         failed: (runId, failures, notice) =>
           Effect.logWarning(
             `${runId} failed at ${failures.map(({ key }) => key).join(", ")}`

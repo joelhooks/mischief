@@ -4,6 +4,7 @@ import type { Effect } from "effect";
 import type { PostboxFailed } from "./postbox-failed.js";
 
 export const Delivered = Schema.TaggedUnion({
+  AlreadyJournaled: {},
   Journaled: {},
   Refused: { reason: Schema.String },
 });

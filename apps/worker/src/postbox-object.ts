@@ -6,6 +6,7 @@ import { DurableObject } from "cloudflare:workers";
 import { Clock, Effect, Exit, Layer, Option, Schema, Scope } from "effect";
 import { FetchHttpClient } from "effect/http";
 
+import { decodeDelivery } from "./decode-delivery.js";
 import { openMailroom } from "./mailroom.js";
 import type { Env } from "./plan-run-object.js";
 import { PostboxFailed } from "./postbox-failed.js";
@@ -15,8 +16,8 @@ import { postboxReaderWatchdog } from "./postbox-reader-watchdog.js";
 import { PostboxReader, startPostboxReader } from "./postbox-reader.js";
 import type { OpenMailroom } from "./postbox-reader.js";
 import { postbox } from "./postbox.js";
-import { Delivered, Runs } from "./runs-port.js";
-import type { DeliveredValue, ReplyLine } from "./runs-port.js";
+import { Runs } from "./runs-port.js";
+import type { ReplyLine } from "./runs-port.js";
 import { dayTotals, dayWarning, tally } from "./think-tally.js";
 
 export const POSTBOX_NAME = "mischief/worker";
@@ -29,13 +30,6 @@ export type Posted<A> =
 
 const NOT_WIRED =
   "Rat King mail is not wired on this host: set MISCHIEF_IDENTITY (the mischief/worker identity, from the host's 0600 bindings file), MISCHIEF_MAILBOX_URL and MISCHIEF_MAILBOX_DID, then redeploy";
-
-const Refusal = Schema.fromJsonString(
-  Schema.Struct({
-    _tag: Schema.Literal("ReplyRefused"),
-    reason: Schema.String,
-  })
-);
 
 const posted = async <A extends object>(
   effect: Effect.Effect<A, PostboxFailed>
@@ -182,26 +176,8 @@ export class Postbox extends DurableObject<Env> {
             return { body: await response.text(), status: response.status };
           },
         }).pipe(
-          Effect.flatMap(
-            ({
-              body,
-              status,
-            }): Effect.Effect<DeliveredValue, PostboxFailed> => {
-              if (status === 200) {
-                return Effect.succeed(Delivered.cases.Journaled.make({}));
-              }
-
-              return Option.match(Schema.decodeUnknownOption(Refusal)(body), {
-                onNone: () =>
-                  Effect.fail(
-                    new PostboxFailed({
-                      reason: `run ${objectName} answered HTTP ${status}`,
-                    })
-                  ),
-                onSome: ({ reason }) =>
-                  Effect.succeed(Delivered.cases.Refused.make({ reason })),
-              });
-            }
+          Effect.flatMap(({ body, status }) =>
+            decodeDelivery(objectName, status, body)
           )
         ),
     })

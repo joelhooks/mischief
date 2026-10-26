@@ -2,6 +2,7 @@ import { defineContract } from "@mischief/capability/contract";
 import { Schema } from "effect";
 
 import { PlanRefused } from "../plans/validate.js";
+import { AlreadyJournaled } from "./already-journaled.js";
 import { AnswerRefused } from "./answer-refused.js";
 import { ExtendRefused } from "./extend-refused.js";
 import { ReplyRefused } from "./reply-refused.js";
@@ -109,7 +110,7 @@ export const deliverReplyContract = defineContract("deliverReply", {
   annotations: { openWorld: true },
   description:
     "Store a Rat King reply for the run whose ask sent the message it answers. Worker hosts return once stored; the alarm writes its doc and drives the run on. The local CLI drives in-process before returning. Poll inspectRun for progress. Takes a drained mailbox line as-is; extra fields are ignored.",
-  failure: ReplyRefused,
+  failure: Schema.Union([AlreadyJournaled, ReplyRefused]),
   input: ReplyLineSchema,
   output: RunReportSchema,
 });

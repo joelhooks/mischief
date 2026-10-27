@@ -24,7 +24,11 @@ export const ThinkStatusSchema = Schema.Struct({
   today: Schema.Struct({
     ...ThinkDaySchema.fields,
     day: Schema.String,
-    warnAt: Schema.Struct({ day: Schema.Finite, run: Schema.Finite }),
+    warnAt: Schema.Struct({
+      call: Schema.Finite,
+      day: Schema.Finite,
+      stepRepeats: Schema.Finite,
+    }),
   }),
 });
 

@@ -63,11 +63,11 @@ it.effect(
 
       expect(empty.status).toBe(200);
       expect(empty.text).toBe(
-        '{"default":{"model":"gpt-6.1-sol","thinking":"medium","review":"2026-11-15","source":"THINK_DEFAULT in @mischief/thinking; design ledger 2026-10-16"},"host":{"model":"faux","wired":true},"today":{"calls":0,"tokens":0,"warning":{"line":1500000,"median":null,"multiple":2,"sampleDays":0},"day":"1970-01-01","warnAt":{"day":1500000,"run":100000}}}'
+        '{"default":{"model":"gpt-6.1-sol","thinking":"medium","review":"2026-11-15","source":"THINK_DEFAULT in @mischief/thinking; design ledger 2026-10-16"},"host":{"model":"faux","wired":true},"today":{"calls":0,"tokens":0,"warning":{"line":1500000,"median":null,"multiple":2,"sampleDays":0},"day":"1970-01-01","warnAt":{"call":150000,"day":1500000,"stepRepeats":3}}}'
       );
-      tally(storage, "1969-12-30", "previous", 2_000_000);
-      tally(storage, "1969-12-31", "previous", 4_000_000);
-      tally(storage, "1970-01-01", "current", 42);
+      tally(storage, "1969-12-30", "previous", "think", 2_000_000);
+      tally(storage, "1969-12-31", "previous", "think", 4_000_000);
+      tally(storage, "1970-01-01", "current", "think", 42);
 
       const populated = yield* projected(
         thinkTelemetry({ model: "faux", readDay: readDay(storage) })
@@ -75,7 +75,7 @@ it.effect(
 
       expect(populated.status).toBe(200);
       expect(populated.text).toBe(
-        '{"default":{"model":"gpt-6.1-sol","thinking":"medium","review":"2026-11-15","source":"THINK_DEFAULT in @mischief/thinking; design ledger 2026-10-16"},"host":{"model":"faux","wired":true},"today":{"calls":1,"tokens":42,"warning":{"line":6000000,"median":3000000,"multiple":2,"sampleDays":2},"day":"1970-01-01","warnAt":{"day":6000000,"run":100000}}}'
+        '{"default":{"model":"gpt-6.1-sol","thinking":"medium","review":"2026-11-15","source":"THINK_DEFAULT in @mischief/thinking; design ledger 2026-10-16"},"host":{"model":"faux","wired":true},"today":{"calls":1,"tokens":42,"warning":{"line":6000000,"median":3000000,"multiple":2,"sampleDays":2},"day":"1970-01-01","warnAt":{"call":150000,"day":6000000,"stepRepeats":3}}}'
       );
     })
 );
@@ -97,10 +97,10 @@ it.effect.prop(
       const storage = nodeSqlStorage(":memory:");
 
       for (const [index, amount] of history.entries()) {
-        tally(storage, `1969-12-${10 + index}`, "history", amount);
+        tally(storage, `1969-12-${10 + index}`, "history", "think", amount);
       }
 
-      tally(storage, "1970-01-01", "current", tokens);
+      tally(storage, "1970-01-01", "current", "think", tokens);
 
       const warning = dayWarning(storage, "1970-01-01");
 
@@ -118,8 +118,9 @@ it.effect.prop(
       expect(status.today.tokens).toBe(tokens);
       expect(status.today.warning).toStrictEqual(warning);
       expect(status.today.warnAt).toStrictEqual({
+        call: 150_000,
         day: warning.line,
-        run: 100_000,
+        stepRepeats: 3,
       });
       expect(status.today.day).toBe("1970-01-01");
     }),

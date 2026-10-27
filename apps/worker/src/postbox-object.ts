@@ -226,8 +226,8 @@ export class Postbox extends DurableObject<Env> {
   }
 
   // oxlint-disable-next-line require-await -- a Durable Object RPC method returns a Promise; the tally is synchronous SQLite.
-  async tallyThink(day: string, runId: string, tokens: number) {
-    return tally(this.ctx.storage, day, runId, tokens);
+  async tallyThink(day: string, runId: string, key: string, tokens: number) {
+    return tally(this.ctx.storage, day, runId, key, tokens);
   }
 
   // oxlint-disable-next-line require-await -- a Durable Object RPC method returns a Promise; the read is synchronous SQLite.

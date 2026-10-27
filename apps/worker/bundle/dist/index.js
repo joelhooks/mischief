@@ -38291,7 +38291,11 @@ var ThinkStatusSchema = Schema4.Struct({
   today: Schema4.Struct({
     ...ThinkDaySchema.fields,
     day: Schema4.String,
-    warnAt: Schema4.Struct({ day: Schema4.Finite, run: Schema4.Finite })
+    warnAt: Schema4.Struct({
+      call: Schema4.Finite,
+      day: Schema4.Finite,
+      stepRepeats: Schema4.Finite
+    })
   })
 });
 var thinkStatusContract = defineContract("thinkStatus", {
@@ -82423,9 +82427,12 @@ import { DateTime as DateTime3, Option as Option38, Schema as Schema79 } from "e
 var DAY_WARN_FLOOR_TOKENS = 15e5;
 var DAY_WARN_HISTORY_DAYS = 7;
 var DAY_WARN_MEDIAN_MULTIPLE = 2;
-var RUN_WARN_TOKENS = 1e5;
+var RUN_WARN_CALL_TOKENS = 15e4;
+var RUN_WARN_STEP_REPEATS = 3;
 var DAYS2 = "CREATE TABLE IF NOT EXISTS mischief_think_days (day TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
 var RUNS = "CREATE TABLE IF NOT EXISTS mischief_think_runs (run_id TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
+var STEPS = "CREATE TABLE IF NOT EXISTS mischief_think_steps (run_id TEXT NOT NULL, key TEXT NOT NULL, calls INTEGER NOT NULL, PRIMARY KEY (run_id, key))";
+var BIG_CALLS = "CREATE TABLE IF NOT EXISTS mischief_think_big_calls (run_id TEXT PRIMARY KEY)";
 var Totals = Schema79.Struct({ calls: Schema79.Finite, tokens: Schema79.Finite });
 var totalsOf = (rows) => Option38.getOrElse(
   Option38.fromNullishOr(rows[0]).pipe(
@@ -82433,7 +82440,11 @@ var totalsOf = (rows) => Option38.getOrElse(
   ),
   () => ({ calls: 0, tokens: 0 })
 );
-var crossedAt = (before, after, line) => before < line && after >= line;
+var dedupeKey = (crossing, day, runId2, key) => ({
+  call: `think-call:${runId2}`,
+  day: `think-day:${day}`,
+  repeat: `think-repeat:${runId2}:${key}`
+})[crossing];
 var dayWarning = (storage, day) => {
   storage.sql.exec(DAYS2);
   const history = Schema79.decodeUnknownSync(Schema79.Array(Totals))(
@@ -82456,9 +82467,11 @@ var dayWarning = (storage, day) => {
     sampleDays: history.length
   };
 };
-var tally = (storage, day, runId2, tokens) => storage.transactionSync(() => {
+var tally = (storage, day, runId2, key, tokens) => storage.transactionSync(() => {
   storage.sql.exec(DAYS2);
   storage.sql.exec(RUNS);
+  storage.sql.exec(STEPS);
+  storage.sql.exec(BIG_CALLS);
   const warning = dayWarning(storage, day);
   const dayBefore = totalsOf(
     storage.sql.exec(
@@ -82482,6 +82495,22 @@ var tally = (storage, day, runId2, tokens) => storage.transactionSync(() => {
     runId2,
     tokens
   );
+  storage.sql.exec(
+    "INSERT INTO mischief_think_steps (run_id, key, calls) VALUES (?, ?, 1) ON CONFLICT (run_id, key) DO UPDATE SET calls = calls + 1",
+    runId2,
+    key
+  );
+  const stepCalls = totalsOf(
+    storage.sql.exec(
+      "SELECT calls, 0 AS tokens FROM mischief_think_steps WHERE run_id = ? AND key = ?",
+      runId2,
+      key
+    ).toArray()
+  ).calls;
+  const bigCall = tokens >= RUN_WARN_CALL_TOKENS && storage.sql.exec(
+    "INSERT OR IGNORE INTO mischief_think_big_calls (run_id) VALUES (?) RETURNING run_id",
+    runId2
+  ).toArray().length > 0;
   const dayAfter = {
     calls: dayBefore.calls + 1,
     tokens: dayBefore.tokens + tokens
@@ -82493,11 +82522,14 @@ var tally = (storage, day, runId2, tokens) => storage.transactionSync(() => {
   return {
     crossed: [
       ...dayBefore.tokens <= warning.line && dayAfter.tokens > warning.line ? ["day"] : [],
-      ...crossedAt(runBefore.tokens, runAfter.tokens, RUN_WARN_TOKENS) ? ["run"] : []
+      ...stepCalls === RUN_WARN_STEP_REPEATS ? ["repeat"] : [],
+      ...bigCall ? ["call"] : []
     ],
     day: dayAfter,
     dayWarning: warning,
-    run: runAfter
+    run: runAfter,
+    step: { calls: stepCalls },
+    tokens
   };
 });
 var dayTotals = (storage, day) => {
@@ -82510,33 +82542,44 @@ var utcDay = (millis) => DateTime3.formatIsoDateUtc(DateTime3.makeUnsafe(millis)
 var warnText = (crossing, runId2, key, {
   day,
   dayWarning: warning,
-  run: run2
-}, today) => crossing === "day" ? [
-  `Mischief think telemetry: ${today} (UTC) has passed ${warning.line.toLocaleString("en-US")} tokens: ${day.tokens.toLocaleString("en-US")} over ${day.calls} calls, last at ${runId2} state ${key}.`,
-  `Daily line: max(${DAY_WARN_FLOOR_TOKENS.toLocaleString("en-US")} floor, ${warning.multiple} \xD7 trailing median ${warning.median?.toLocaleString("en-US") ?? "unavailable (no history)"} tokens from ${warning.sampleDays} earlier days with data, up to ${DAY_WARN_HISTORY_DAYS}).`,
-  "This is a warning only; no run is held.",
-  "",
-  JSON.stringify({
-    calls: day.calls,
-    day: today,
-    ...warning,
-    tokens: day.tokens
-  }),
-  "",
-  "Check: inspectRun on the busiest runs, and the mischief-celld meter in the cliproxy dashboard."
-].join("\n") : [
-  `Mischief think telemetry: run ${runId2} has passed ${RUN_WARN_TOKENS.toLocaleString("en-US")} tokens: ${run2.tokens.toLocaleString("en-US")} over ${run2.calls} calls, last at state ${key}.`,
-  "This is a warning only; the run continues.",
-  "",
-  JSON.stringify({
-    calls: run2.calls,
-    line: RUN_WARN_TOKENS,
-    runId: runId2,
-    tokens: run2.tokens
-  }),
-  "",
-  `Check: inspectRun {"runId": "${runId2}"} for a loop; abortRun stops it if it is one.`
-].join("\n");
+  run: run2,
+  step,
+  tokens
+}, today) => {
+  if (crossing === "day") {
+    return [
+      `Mischief think telemetry: ${today} (UTC) has passed ${warning.line.toLocaleString("en-US")} tokens: ${day.tokens.toLocaleString("en-US")} over ${day.calls} calls, last at ${runId2} state ${key}.`,
+      `Daily line: max(${DAY_WARN_FLOOR_TOKENS.toLocaleString("en-US")} floor, ${warning.multiple} \xD7 trailing median ${warning.median?.toLocaleString("en-US") ?? "unavailable (no history)"} tokens from ${warning.sampleDays} earlier days with data, up to ${DAY_WARN_HISTORY_DAYS}).`,
+      "This is a warning only; no run is held.",
+      "",
+      JSON.stringify({
+        calls: day.calls,
+        day: today,
+        ...warning,
+        tokens: day.tokens
+      }),
+      "",
+      "Check: inspectRun on the busiest runs, and the mischief-celld meter in the cliproxy dashboard."
+    ].join("\n");
+  }
+  const signal = crossing === "repeat" ? `step ${key} has thought ${step.calls} times` : `one call at state ${key} used ${tokens.toLocaleString("en-US")} tokens`;
+  return [
+    `Mischief think telemetry: run ${runId2}: ${signal}. Run totals: ${run2.tokens.toLocaleString("en-US")} tokens over ${run2.calls} calls.`,
+    "This is a warning only; the run continues.",
+    "",
+    JSON.stringify({
+      callTokens: tokens,
+      calls: run2.calls,
+      runId: runId2,
+      signal: crossing,
+      state: key,
+      stepCalls: step.calls,
+      tokens: run2.tokens
+    }),
+    "",
+    `Check: inspectRun {"runId": "${runId2}"} for a loop; abortRun stops it if it is one.`
+  ].join("\n");
+};
 
 // src/postbox-object.ts
 var POSTBOX_NAME = "mischief/worker";
@@ -82701,8 +82744,8 @@ var Postbox = class extends DurableObject {
     );
   }
   // oxlint-disable-next-line require-await -- a Durable Object RPC method returns a Promise; the tally is synchronous SQLite.
-  async tallyThink(day, runId2, tokens) {
-    return tally(this.ctx.storage, day, runId2, tokens);
+  async tallyThink(day, runId2, key, tokens) {
+    return tally(this.ctx.storage, day, runId2, key, tokens);
   }
   // oxlint-disable-next-line require-await -- a Durable Object RPC method returns a Promise; the read is synchronous SQLite.
   async thinkDay(day) {
@@ -82798,14 +82841,14 @@ var PlanRun = class extends DurableObject2 {
     const thought2 = (runId2, key, receipt) => Effect57.gen(function* tallied() {
       const today = utcDay(yield* Clock10.currentTimeMillis);
       const totals = yield* Effect57.tryPromise(
-        async () => await postbox2().tallyThink(today, runId2, receipt.tokens.total)
+        async () => await postbox2().tallyThink(today, runId2, key, receipt.tokens.total)
       );
       yield* Effect57.forEach(
         totals.crossed,
         (crossing) => mailDesk(
           runId2,
           TELEMETRY_DESK,
-          `think-${crossing}:${crossing === "day" ? today : runId2}`,
+          dedupeKey(crossing, today, runId2, key),
           warnText(crossing, runId2, key, totals, today)
         ),
         { discard: true }
@@ -83547,7 +83590,11 @@ var thinkTelemetry = ({
       today: {
         ...today,
         day,
-        warnAt: { day: today.warning.line, run: RUN_WARN_TOKENS }
+        warnAt: {
+          call: RUN_WARN_CALL_TOKENS,
+          day: today.warning.line,
+          stepRepeats: RUN_WARN_STEP_REPEATS
+        }
       }
     };
   })

@@ -54,7 +54,7 @@ import { POSTBOX_NAME } from "./postbox-object.js";
 import type { Postbox } from "./postbox-object.js";
 import type { Schedule } from "./schedule-object.js";
 import type { ServiceTokenLedger } from "./service-tokens.js";
-import { utcDay, warnText } from "./think-tally.js";
+import { dedupeKey, utcDay, warnText } from "./think-tally.js";
 
 const TELEMETRY_DESK = "pi-durable/desk";
 
@@ -179,7 +179,7 @@ export class PlanRun extends DurableObject<Env> {
 
         const totals = yield* Effect.tryPromise(
           async () =>
-            await postbox().tallyThink(today, runId, receipt.tokens.total)
+            await postbox().tallyThink(today, runId, key, receipt.tokens.total)
         );
 
         yield* Effect.forEach(
@@ -188,7 +188,7 @@ export class PlanRun extends DurableObject<Env> {
             mailDesk(
               runId,
               TELEMETRY_DESK,
-              `think-${crossing}:${crossing === "day" ? today : runId}`,
+              dedupeKey(crossing, today, runId, key),
               warnText(crossing, runId, key, totals, today)
             ),
           { discard: true }

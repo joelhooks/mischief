@@ -82,8 +82,9 @@ it.live(
       expect(status.host).toStrictEqual({ model: "faux", wired: true });
       expect(status.today.calls).toBe(4);
       expect(status.today.warnAt).toStrictEqual({
+        call: 150_000,
         day: status.today.warning.line,
-        run: 100_000,
+        stepRepeats: 3,
       });
     }).pipe(Effect.scoped, Effect.provide(services)),
   60_000

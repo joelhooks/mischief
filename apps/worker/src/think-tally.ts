@@ -7,13 +7,21 @@ export const DAY_WARN_HISTORY_DAYS = 7;
 
 export const DAY_WARN_MEDIAN_MULTIPLE = 2;
 
-export const RUN_WARN_TOKENS = 100_000;
+export const RUN_WARN_CALL_TOKENS = 150_000;
+
+export const RUN_WARN_STEP_REPEATS = 3;
 
 const DAYS =
   "CREATE TABLE IF NOT EXISTS mischief_think_days (day TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
 
 const RUNS =
   "CREATE TABLE IF NOT EXISTS mischief_think_runs (run_id TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
+
+const STEPS =
+  "CREATE TABLE IF NOT EXISTS mischief_think_steps (run_id TEXT NOT NULL, key TEXT NOT NULL, calls INTEGER NOT NULL, PRIMARY KEY (run_id, key))";
+
+const BIG_CALLS =
+  "CREATE TABLE IF NOT EXISTS mischief_think_big_calls (run_id TEXT PRIMARY KEY)";
 
 const Totals = Schema.Struct({ calls: Schema.Finite, tokens: Schema.Finite });
 
@@ -25,17 +33,28 @@ const totalsOf = (rows: readonly Readonly<Record<string, SqlStorageValue>>[]) =>
     () => ({ calls: 0, tokens: 0 })
   );
 
-export type Crossing = "day" | "run";
+export type Crossing = "call" | "day" | "repeat";
 
 export interface Tallied {
   readonly crossed: readonly Crossing[];
   readonly day: { readonly calls: number; readonly tokens: number };
   readonly dayWarning: ReturnType<typeof dayWarning>;
   readonly run: { readonly calls: number; readonly tokens: number };
+  readonly step: { readonly calls: number };
+  readonly tokens: number;
 }
 
-const crossedAt = (before: number, after: number, line: number) =>
-  before < line && after >= line;
+export const dedupeKey = (
+  crossing: Crossing,
+  day: string,
+  runId: string,
+  key: string
+) =>
+  ({
+    call: `think-call:${runId}`,
+    day: `think-day:${day}`,
+    repeat: `think-repeat:${runId}:${key}`,
+  })[crossing];
 
 export const dayWarning = (storage: SqlStorage, day: string) => {
   storage.sql.exec(DAYS);
@@ -75,11 +94,14 @@ export const tally = (
   storage: SqlStorage,
   day: string,
   runId: string,
+  key: string,
   tokens: number
 ): Tallied =>
   storage.transactionSync(() => {
     storage.sql.exec(DAYS);
     storage.sql.exec(RUNS);
+    storage.sql.exec(STEPS);
+    storage.sql.exec(BIG_CALLS);
 
     const warning = dayWarning(storage, day);
 
@@ -113,6 +135,31 @@ export const tally = (
       tokens
     );
 
+    storage.sql.exec(
+      "INSERT INTO mischief_think_steps (run_id, key, calls) VALUES (?, ?, 1) ON CONFLICT (run_id, key) DO UPDATE SET calls = calls + 1",
+      runId,
+      key
+    );
+
+    const stepCalls = totalsOf(
+      storage.sql
+        .exec(
+          "SELECT calls, 0 AS tokens FROM mischief_think_steps WHERE run_id = ? AND key = ?",
+          runId,
+          key
+        )
+        .toArray()
+    ).calls;
+
+    const bigCall =
+      tokens >= RUN_WARN_CALL_TOKENS &&
+      storage.sql
+        .exec(
+          "INSERT OR IGNORE INTO mischief_think_big_calls (run_id) VALUES (?) RETURNING run_id",
+          runId
+        )
+        .toArray().length > 0;
+
     const dayAfter = {
       calls: dayBefore.calls + 1,
       tokens: dayBefore.tokens + tokens,
@@ -128,13 +175,14 @@ export const tally = (
         ...(dayBefore.tokens <= warning.line && dayAfter.tokens > warning.line
           ? ["day" as const]
           : []),
-        ...(crossedAt(runBefore.tokens, runAfter.tokens, RUN_WARN_TOKENS)
-          ? ["run" as const]
-          : []),
+        ...(stepCalls === RUN_WARN_STEP_REPEATS ? ["repeat" as const] : []),
+        ...(bigCall ? ["call" as const] : []),
       ],
       day: dayAfter,
       dayWarning: warning,
       run: runAfter,
+      step: { calls: stepCalls },
+      tokens,
     };
   });
 
@@ -159,34 +207,47 @@ export const warnText = (
     day,
     dayWarning: warning,
     run,
-  }: Pick<Tallied, "day" | "dayWarning" | "run">,
+    step,
+    tokens,
+  }: Pick<Tallied, "day" | "dayWarning" | "run" | "step" | "tokens">,
   today: string
-) =>
-  crossing === "day"
-    ? [
-        `Mischief think telemetry: ${today} (UTC) has passed ${warning.line.toLocaleString("en-US")} tokens: ${day.tokens.toLocaleString("en-US")} over ${day.calls} calls, last at ${runId} state ${key}.`,
-        `Daily line: max(${DAY_WARN_FLOOR_TOKENS.toLocaleString("en-US")} floor, ${warning.multiple} × trailing median ${warning.median?.toLocaleString("en-US") ?? "unavailable (no history)"} tokens from ${warning.sampleDays} earlier days with data, up to ${DAY_WARN_HISTORY_DAYS}).`,
-        "This is a warning only; no run is held.",
-        "",
-        JSON.stringify({
-          calls: day.calls,
-          day: today,
-          ...warning,
-          tokens: day.tokens,
-        }),
-        "",
-        "Check: inspectRun on the busiest runs, and the mischief-celld meter in the cliproxy dashboard.",
-      ].join("\n")
-    : [
-        `Mischief think telemetry: run ${runId} has passed ${RUN_WARN_TOKENS.toLocaleString("en-US")} tokens: ${run.tokens.toLocaleString("en-US")} over ${run.calls} calls, last at state ${key}.`,
-        "This is a warning only; the run continues.",
-        "",
-        JSON.stringify({
-          calls: run.calls,
-          line: RUN_WARN_TOKENS,
-          runId,
-          tokens: run.tokens,
-        }),
-        "",
-        `Check: inspectRun {"runId": "${runId}"} for a loop; abortRun stops it if it is one.`,
-      ].join("\n");
+) => {
+  if (crossing === "day") {
+    return [
+      `Mischief think telemetry: ${today} (UTC) has passed ${warning.line.toLocaleString("en-US")} tokens: ${day.tokens.toLocaleString("en-US")} over ${day.calls} calls, last at ${runId} state ${key}.`,
+      `Daily line: max(${DAY_WARN_FLOOR_TOKENS.toLocaleString("en-US")} floor, ${warning.multiple} × trailing median ${warning.median?.toLocaleString("en-US") ?? "unavailable (no history)"} tokens from ${warning.sampleDays} earlier days with data, up to ${DAY_WARN_HISTORY_DAYS}).`,
+      "This is a warning only; no run is held.",
+      "",
+      JSON.stringify({
+        calls: day.calls,
+        day: today,
+        ...warning,
+        tokens: day.tokens,
+      }),
+      "",
+      "Check: inspectRun on the busiest runs, and the mischief-celld meter in the cliproxy dashboard.",
+    ].join("\n");
+  }
+
+  const signal =
+    crossing === "repeat"
+      ? `step ${key} has thought ${step.calls} times`
+      : `one call at state ${key} used ${tokens.toLocaleString("en-US")} tokens`;
+
+  return [
+    `Mischief think telemetry: run ${runId}: ${signal}. Run totals: ${run.tokens.toLocaleString("en-US")} tokens over ${run.calls} calls.`,
+    "This is a warning only; the run continues.",
+    "",
+    JSON.stringify({
+      callTokens: tokens,
+      calls: run.calls,
+      runId,
+      signal: crossing,
+      state: key,
+      stepCalls: step.calls,
+      tokens: run.tokens,
+    }),
+    "",
+    `Check: inspectRun {"runId": "${runId}"} for a loop; abortRun stops it if it is one.`,
+  ].join("\n");
+};

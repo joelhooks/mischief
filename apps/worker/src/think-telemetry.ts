@@ -3,7 +3,11 @@ import type { ThinkDaySchema } from "@mischief/core";
 import { THINK_DEFAULT, THINK_DEFAULT_REVIEW } from "@mischief/thinking";
 import { Clock, Effect } from "effect";
 
-import { RUN_WARN_TOKENS, utcDay } from "./think-tally.js";
+import {
+  RUN_WARN_CALL_TOKENS,
+  RUN_WARN_STEP_REPEATS,
+  utcDay,
+} from "./think-tally.js";
 
 export interface HostTelemetry {
   readonly model: string;
@@ -41,7 +45,11 @@ export const thinkTelemetry = ({
         today: {
           ...today,
           day,
-          warnAt: { day: today.warning.line, run: RUN_WARN_TOKENS },
+          warnAt: {
+            call: RUN_WARN_CALL_TOKENS,
+            day: today.warning.line,
+            stepRepeats: RUN_WARN_STEP_REPEATS,
+          },
         },
       };
     }),

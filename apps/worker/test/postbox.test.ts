@@ -157,11 +157,9 @@ const play = (world: World) =>
         break;
       }
 
-      for (const [offset, message] of pending.entries()) {
+      for (const message of pending) {
         const handled = yield* Effect.result(
-          box
-            .receive(message, offset)
-            .pipe(Effect.provide(Layer.merge(mailroom, runs)))
+          box.receive(message).pipe(Effect.provide(Layer.merge(mailroom, runs)))
         );
 
         if (Result.isFailure(handled)) {

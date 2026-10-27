@@ -1,19 +1,19 @@
 // @effect-diagnostics asyncFunction:off -- a Durable Object's RPC methods and alarm handler are Promise APIs.
 import { webCrypto } from "@mischief/plan-run";
 import { Identity } from "@rat-king/mailbox-client";
-import { send, waitFor } from "@xstate/effect";
 import { DurableObject } from "cloudflare:workers";
-import { Clock, Effect, Exit, Layer, Option, Schema, Scope } from "effect";
+import { Effect, Exit, Layer, Option, Schema, Scope } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 import { decodeDelivery } from "./decode-delivery.js";
 import { openMailroom } from "./mailroom.js";
 import type { Env } from "./plan-run-object.js";
 import { PostboxFailed } from "./postbox-failed.js";
+import { readBatch } from "./postbox-inbox.js";
 import { leaseBook } from "./postbox-lease.js";
 import { PostboxReaderFailed } from "./postbox-reader-failed.js";
-import { postboxReaderWatchdog } from "./postbox-reader-watchdog.js";
-import { PostboxReader, startPostboxReader } from "./postbox-reader.js";
+import { readerHost } from "./postbox-reader-host.js";
+import { PostboxReader } from "./postbox-reader.js";
 import type { OpenMailroom } from "./postbox-reader.js";
 import { postbox } from "./postbox.js";
 import { Runs } from "./runs-port.js";
@@ -21,8 +21,6 @@ import type { ReplyLine } from "./runs-port.js";
 import { dayTotals, dayWarning, tally } from "./think-tally.js";
 
 export const POSTBOX_NAME = "mischief/worker";
-
-const WATCHDOG_MS = 60_000;
 
 export type Posted<A> =
   | ({ readonly ok: true } & A)
@@ -48,89 +46,82 @@ const posted = async <A extends object>(
   });
 };
 
-const now = () => Effect.runSync(Clock.currentTimeMillis);
-
 export class Postbox extends DurableObject<Env> {
   private readonly box;
+  private readonly leases;
+  private readonly host;
+  private readonly mailWired;
   private readonly scope = Effect.runSync(Scope.make());
-  private readonly reader;
+  private opened: OpenMailroom | undefined;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.box = postbox(ctx.storage);
-    this.reader = Effect.runPromise(
-      startPostboxReader().pipe(
-        Effect.provideService(PostboxReader, {
-          consume: ({ consume, layer }) =>
-            Effect.suspend(() =>
-              consume(
-                (message, seq) =>
-                  this.box
-                    .receive(message, seq)
-                    .pipe(Effect.provide(Layer.merge(layer, this.runs))),
-                this.box.cursor()
-              )
-            ).pipe(
-              Effect.catchCause((cause) =>
-                Effect.logWarning(
-                  "the Postbox reader stopped; the watchdog restarts it",
-                  cause
-                ).pipe(
-                  Effect.andThen(
-                    Effect.fail(PostboxReaderFailed.fromCause(cause))
-                  )
-                )
-              )
-            ),
-          wire: Effect.suspend(() => this.open()).pipe(
-            Effect.catchCause((cause) =>
-              Effect.fail(PostboxReaderFailed.fromCause(cause))
-            )
-          ),
-        }),
-        Scope.provide(this.scope)
-      )
+    this.leases = leaseBook(ctx.storage);
+    this.mailWired =
+      env.MISCHIEF_IDENTITY !== undefined && env.MISCHIEF_IDENTITY !== "";
+    this.host = readerHost(
+      {
+        get: Effect.promise(async () => await ctx.storage.getAlarm()).pipe(
+          Effect.map(Option.fromNullishOr)
+        ),
+        set: (at) =>
+          Effect.promise(async () => {
+            await ctx.storage.setAlarm(at);
+          }),
+      },
+      (turn) => this.readerIn(turn)
     );
+    void ctx.blockConcurrencyWhile(async () => {
+      await this.start();
+    });
   }
 
-  private wired(): Effect.Effect<OpenMailroom, PostboxFailed> {
-    return Effect.promise(async () => await this.reader).pipe(
-      Effect.flatMap((actor) => {
-        const current = actor.getSnapshot().context;
-
-        if (current.mailroom !== undefined) {
-          return Effect.succeed(actor.getSnapshot());
-        }
-
-        const previousFailure = current.failure;
-
-        return send(actor, { type: "START" }).pipe(
-          Effect.andThen(
-            waitFor(
-              actor,
-              (snapshot) =>
-                snapshot.context.mailroom !== undefined ||
-                (snapshot.context.failure !== undefined &&
-                  snapshot.context.failure !== previousFailure) ||
-                snapshot.status === "done"
-            )
-          )
-        );
-      }),
-      Effect.orDie,
-      Effect.flatMap(({ context }) =>
-        context.mailroom === undefined
-          ? Effect.fail(
-              new PostboxFailed({
-                reason: context.failure?.reason ?? NOT_WIRED,
+  private sender(): Effect.Effect<OpenMailroom, PostboxFailed> {
+    return Effect.suspend(() =>
+      this.opened === undefined
+        ? this.open().pipe(
+            Scope.provide(this.scope),
+            Effect.tap((opened) =>
+              Effect.sync(() => {
+                this.opened = opened;
               })
             )
-          : Effect.succeed(context.mailroom)
-      )
+          )
+        : Effect.succeed(this.opened)
     );
   }
 
-  private open(): Effect.Effect<OpenMailroom, PostboxFailed> {
+  private readerIn(scope: Scope.Scope) {
+    return PostboxReader.of({
+      read: ({ inbox, layer }) =>
+        Effect.suspend(() =>
+          readBatch(inbox, {
+            advance: (seq) => {
+              this.box.advance(seq);
+            },
+            cursor: () => this.box.cursor(),
+            leases: this.leases,
+            receive: (message) =>
+              this.box
+                .receive(message)
+                .pipe(Effect.provide(Layer.merge(layer, this.runs))),
+          })
+        ).pipe(
+          Effect.catchCause((cause) =>
+            Effect.fail(PostboxReaderFailed.fromCause(cause))
+          )
+        ),
+      wire: Effect.suspend(() => this.open()).pipe(
+        Scope.provide(scope),
+        Effect.catchCause((cause) =>
+          Effect.fail(PostboxReaderFailed.fromCause(cause))
+        )
+      ),
+    });
+  }
+
+  private open(): Effect.Effect<OpenMailroom, PostboxFailed, Scope.Scope> {
     const identity = Schema.decodeUnknownOption(
       Schema.fromJsonString(Identity)
     )(this.env.MISCHIEF_IDENTITY ?? "");
@@ -145,12 +136,9 @@ export class Postbox extends DurableObject<Env> {
     return openMailroom({
       endpoint,
       identity: identity.value,
-      leases: leaseBook(this.ctx.storage),
+      leases: this.leases,
       serviceDid,
-    }).pipe(
-      Scope.provide(this.scope),
-      Effect.provide(Layer.merge(FetchHttpClient.layer, webCrypto))
-    );
+    }).pipe(Effect.provide(Layer.merge(FetchHttpClient.layer, webCrypto)));
   }
 
   private readonly runs = Layer.succeed(
@@ -187,7 +175,7 @@ export class Postbox extends DurableObject<Env> {
     await this.start();
 
     return await posted(
-      this.wired().pipe(
+      this.sender().pipe(
         Effect.flatMap(({ layer }) =>
           this.box.seal(objectName, to, body).pipe(Effect.provide(layer))
         )
@@ -201,7 +189,7 @@ export class Postbox extends DurableObject<Env> {
 
     this.ctx.waitUntil(
       Effect.runPromise(
-        this.wired().pipe(
+        this.sender().pipe(
           Effect.flatMap(({ layer }) =>
             this.box.flushAbortNotices.pipe(Effect.provide(layer))
           ),
@@ -217,7 +205,7 @@ export class Postbox extends DurableObject<Env> {
 
   async send(envelope: string) {
     return await posted(
-      this.wired().pipe(
+      this.sender().pipe(
         Effect.flatMap(({ layer }) =>
           this.box.send(envelope).pipe(Effect.provide(layer), Effect.as({}))
         )
@@ -239,17 +227,19 @@ export class Postbox extends DurableObject<Env> {
   }
 
   async start() {
-    if ((await this.ctx.storage.getAlarm()) === null) {
-      await this.ctx.storage.setAlarm(now());
+    if (this.mailWired) {
+      await Effect.runPromise(this.host.start);
     }
   }
 
   override async alarm() {
-    await this.ctx.storage.setAlarm(now() + WATCHDOG_MS);
+    if (!this.mailWired) {
+      return;
+    }
 
     this.ctx.waitUntil(
       Effect.runPromise(
-        this.wired().pipe(
+        this.sender().pipe(
           Effect.flatMap(({ layer }) =>
             this.box.flushAbortNotices.pipe(Effect.provide(layer))
           ),
@@ -260,12 +250,6 @@ export class Postbox extends DurableObject<Env> {
       )
     );
 
-    const wake = postboxReaderWatchdog(await this.reader);
-
-    if (Option.isNone(wake)) {
-      return;
-    }
-
-    this.ctx.waitUntil(Effect.runPromise(wake.value));
+    await Effect.runPromise(this.host.alarm);
   }
 }

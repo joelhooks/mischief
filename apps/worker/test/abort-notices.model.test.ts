@@ -74,7 +74,7 @@ const historyHolds = (history: typeof History.Type) =>
         .pipe(Effect.provide(mailroom));
     }
 
-    for (const [seq, event] of history.entries()) {
+    for (const event of history) {
       const runId = `run-${event.run}`;
       const id = `reply-${event.run}-${event.reply}`;
 
@@ -85,15 +85,12 @@ const historyHolds = (history: typeof History.Type) =>
           }
 
           yield* box
-            .receive(
-              {
-                body: id,
-                messageId: id,
-                replyTo: Option.some(`ask-${event.run}`),
-                senderDid: "sender",
-              },
-              seq
-            )
+            .receive({
+              body: id,
+              messageId: id,
+              replyTo: Option.some(`ask-${event.run}`),
+              senderDid: "sender",
+            })
             .pipe(Effect.provide(layer));
           break;
         }

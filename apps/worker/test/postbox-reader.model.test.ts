@@ -1,52 +1,54 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { EffectActor } from "@xstate/effect";
 import { createEffectActor, send, waitFor } from "@xstate/effect";
-import { Cause, Deferred, Effect, Layer, Option, Schema } from "effect";
+import { Cause, Deferred, Effect, Layer, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import { TestClock } from "effect/testing";
 import type { SnapshotFrom } from "xstate";
 import { getPathsFromEvents, getShortestPaths } from "xstate/graph";
 
 import { Mailroom } from "../src/mailroom-port.js";
 import { PostboxFailed } from "../src/postbox-failed.js";
+import type { BatchOutcome } from "../src/postbox-inbox.js";
 import { PostboxReaderFailed } from "../src/postbox-reader-failed.js";
-import { postboxReaderWatchdog } from "../src/postbox-reader-watchdog.js";
-import { PostboxReader, postboxReaderMachine } from "../src/postbox-reader.js";
+import {
+  PostboxReader,
+  postboxReaderMachine,
+  READ_DEADLINE_MS,
+} from "../src/postbox-reader.js";
 import type { OpenMailroom } from "../src/postbox-reader.js";
 
 const Command = Schema.Literals([
-  "start",
-  "watchdog",
   "wired",
   "wireFailed",
   "dbWireFailed",
-  "consumed",
-  "consumeFailed",
-  "dbConsumeFailed",
-  "stop",
+  "readMore",
+  "readIdle",
+  "readFailed",
+  "dbReadFailed",
+  "deadline",
   "probe",
 ]);
 
 type ReaderCommand = typeof Command.Type;
 
-type State =
-  | "idle"
-  | "wiring"
-  | "consuming"
-  | "ready"
-  | "retrying"
-  | "dbMissing"
-  | "stopped";
+type State = "wiring" | "reading" | "read" | "failed" | "stalled";
 
 interface Model {
-  readonly readRequested: boolean;
+  readonly failure: PostboxReaderFailed["kind"] | undefined;
   readonly hasMailroom: boolean;
+  readonly outcome: BatchOutcome | undefined;
   readonly state: State;
 }
 
-const commands = Arbitrary.array(Arbitrary.schema(Command), { maxLength: 40 });
+const commands = Arbitrary.array(Arbitrary.schema(Command), { maxLength: 20 });
 
-const mailroom: OpenMailroom = {
-  consume: () => Effect.never,
+const opened = (): OpenMailroom => ({
+  inbox: {
+    acquire: () => Effect.die("unused"),
+    page: () => Effect.die("unused"),
+    wait: () => Effect.die("unused"),
+  },
   layer: Layer.succeed(
     Mailroom,
     Mailroom.of({
@@ -57,7 +59,9 @@ const mailroom: OpenMailroom = {
       tell: () => Effect.void,
     })
   ),
-};
+});
+
+const mailroom = opened();
 
 const unavailable = new PostboxReaderFailed({
   kind: "Unavailable",
@@ -69,83 +73,67 @@ const dbMissing = PostboxReaderFailed.fromCause(
 );
 
 const initialModel: Model = {
+  failure: undefined,
   hasMailroom: false,
-  readRequested: false,
-  state: "idle",
+  outcome: undefined,
+  state: "wiring",
 };
 
-const completedModel = (model: Model, command: ReaderCommand): Model => {
+const finals = new Set<State>(["read", "failed", "stalled"]);
+
+const failedWith = (
+  model: Model,
+  kind: PostboxReaderFailed["kind"]
+): Model => ({ ...model, failure: kind, state: "failed" });
+
+const nextModel = (model: Model, command: ReaderCommand): Model => {
   const { state } = model;
+
+  if (finals.has(state)) {
+    return model;
+  }
+
+  if (command === "deadline") {
+    return { ...model, state: "stalled" };
+  }
 
   if (state === "wiring") {
     if (command === "wired") {
-      return {
-        ...model,
-        hasMailroom: true,
-        state: model.readRequested ? "consuming" : "ready",
-      };
+      return { ...model, hasMailroom: true, state: "reading" };
     }
 
-    if (command === "wireFailed" || command === "dbWireFailed") {
-      return {
-        ...model,
-        state: command === "dbWireFailed" ? "dbMissing" : "retrying",
-      };
+    if (command === "wireFailed") {
+      return failedWith(model, "Unavailable");
+    }
+
+    if (command === "dbWireFailed") {
+      return failedWith(model, "DatabaseMissing");
     }
   }
 
-  if (
-    state === "consuming" &&
-    (command === "consumed" ||
-      command === "consumeFailed" ||
-      command === "dbConsumeFailed")
-  ) {
-    return {
-      ...model,
-      state: command === "dbConsumeFailed" ? "dbMissing" : "retrying",
-    };
+  if (state === "reading") {
+    if (command === "readMore" || command === "readIdle") {
+      return {
+        ...model,
+        outcome: command === "readMore" ? "more" : "idle",
+        state: "read",
+      };
+    }
+
+    if (command === "readFailed") {
+      return failedWith(model, "Unavailable");
+    }
+
+    if (command === "dbReadFailed") {
+      return failedWith(model, "DatabaseMissing");
+    }
   }
 
   return model;
 };
 
-const nextModel = (model: Model, command: ReaderCommand): Model => {
-  const { state, hasMailroom } = model;
-
-  if (state === "stopped") {
-    return model;
-  }
-
-  if (command === "stop") {
-    return { ...model, state: "stopped" };
-  }
-
-  if (command === "watchdog" && state === "wiring") {
-    return { ...model, readRequested: true };
-  }
-
-  if (command === "watchdog" && state === "ready") {
-    return { ...model, state: "consuming" };
-  }
-
-  if (
-    (command === "start" || command === "watchdog") &&
-    (state === "idle" || state === "retrying" || state === "dbMissing")
-  ) {
-    const destination = command === "watchdog" ? "consuming" : "ready";
-
-    return {
-      ...model,
-      readRequested: command === "watchdog",
-      state: hasMailroom ? destination : "wiring",
-    };
-  }
-
-  return completedModel(model, command);
-};
-
-const invocation = (state: "wiring" | "consuming") => {
-  const invoked = postboxReaderMachine.states[state]?.invoke[0];
+const invocation = (state: "wiring" | "reading") => {
+  const invoked = postboxReaderMachine.states.turn?.states[state]?.invoke[0];
 
   if (invoked === undefined) {
     throw new Error(`Postbox ${state} must invoke its work`);
@@ -155,18 +143,8 @@ const invocation = (state: "wiring" | "consuming") => {
 };
 
 const events = () => ({
-  consumeFailed: {
-    actorId: invocation("consuming"),
-    error: unavailable,
-    type: "xstate.error.actor",
-  },
-  consumed: {
-    actorId: invocation("consuming"),
-    output: undefined,
-    type: "xstate.done.actor",
-  },
-  dbConsumeFailed: {
-    actorId: invocation("consuming"),
+  dbReadFailed: {
+    actorId: invocation("reading"),
     error: dbMissing,
     type: "xstate.error.actor",
   },
@@ -175,10 +153,23 @@ const events = () => ({
     error: dbMissing,
     type: "xstate.error.actor",
   },
+  deadline: { stateId: "postboxReader.turn", type: "xstate.timeout.state" },
   probe: { type: "UNHANDLED" },
-  start: { type: "START" },
-  stop: { type: "STOP" },
-  watchdog: { type: "WATCHDOG" },
+  readFailed: {
+    actorId: invocation("reading"),
+    error: unavailable,
+    type: "xstate.error.actor",
+  },
+  readIdle: {
+    actorId: invocation("reading"),
+    output: "idle",
+    type: "xstate.done.actor",
+  },
+  readMore: {
+    actorId: invocation("reading"),
+    output: "more",
+    type: "xstate.done.actor",
+  },
   wireFailed: {
     actorId: invocation("wiring"),
     error: unavailable,
@@ -191,27 +182,24 @@ const events = () => ({
   },
 });
 
+const stateOf = (snapshot: SnapshotFrom<typeof postboxReaderMachine>) =>
+  (["wiring", "reading"] as const).find((nested) =>
+    snapshot.matches({ turn: nested })
+  ) ?? snapshot.value;
+
 const assertSnapshot = (
   snapshot: SnapshotFrom<typeof postboxReaderMachine>,
   model: Model
 ) => {
-  expect(snapshot.value).toBe(model.state);
-  expect(snapshot.status).toBe(model.state === "stopped" ? "done" : "active");
+  expect(stateOf(snapshot)).toBe(model.state);
+  expect(snapshot.status).toBe(finals.has(model.state) ? "done" : "active");
   expect(snapshot.context.mailroom !== undefined).toBe(model.hasMailroom);
-
-  if (model.state === "dbMissing") {
-    expect(Schema.is(PostboxReaderFailed)(snapshot.context.failure)).toBe(true);
-    expect(snapshot.context.failure?.kind).toBe("DatabaseMissing");
-  }
+  expect(snapshot.context.outcome).toBe(model.outcome);
+  expect(snapshot.context.failure?.kind).toBe(model.failure);
 };
 
-const replayGraph = (generated: readonly ReaderCommand[]) => {
+const replayGraph = (history: readonly ReaderCommand[]) => {
   const eventFor = events();
-  const terminal = generated.indexOf("stop");
-
-  const history =
-    terminal === -1 ? generated : generated.slice(0, terminal + 1);
-
   let graphModel = initialModel;
 
   const paths = getPathsFromEvents(
@@ -239,30 +227,18 @@ const replayGraph = (generated: readonly ReaderCommand[]) => {
   }
 };
 
-const commandEvent = (command: ReaderCommand) => {
-  if (command === "start") {
-    return { type: "START" };
-  }
-
-  if (command === "watchdog") {
-    return { type: "WATCHDOG" };
-  }
-
-  if (command === "stop") {
-    return { type: "STOP" };
-  }
-
-  return { type: "UNHANDLED" };
-};
-
 const performCommand = Effect.fn("performReaderCommand")(
   function* performReaderCommand(
     actor: EffectActor<typeof postboxReaderMachine>,
     state: State,
     command: ReaderCommand,
     wire: Deferred.Deferred<OpenMailroom, PostboxReaderFailed> | undefined,
-    consumer: Deferred.Deferred<boolean, PostboxReaderFailed> | undefined
+    reader: Deferred.Deferred<BatchOutcome, PostboxReaderFailed> | undefined
   ) {
+    if (command === "deadline") {
+      return yield* TestClock.adjust(READ_DEADLINE_MS);
+    }
+
     if (state === "wiring" && wire !== undefined) {
       if (command === "wired") {
         return yield* Deferred.succeed(wire, mailroom);
@@ -276,219 +252,132 @@ const performCommand = Effect.fn("performReaderCommand")(
       }
     }
 
-    if (state === "consuming" && consumer !== undefined) {
-      if (command === "consumed") {
-        return yield* Deferred.succeed(consumer, true);
+    if (state === "reading" && reader !== undefined) {
+      if (command === "readMore" || command === "readIdle") {
+        return yield* Deferred.succeed(
+          reader,
+          command === "readMore" ? "more" : "idle"
+        );
       }
 
-      if (command === "consumeFailed" || command === "dbConsumeFailed") {
+      if (command === "readFailed" || command === "dbReadFailed") {
         return yield* Deferred.fail(
-          consumer,
-          command === "dbConsumeFailed" ? dbMissing : unavailable
+          reader,
+          command === "dbReadFailed" ? dbMissing : unavailable
         );
       }
     }
 
-    return yield* send(actor, commandEvent(command));
+    return yield* send(actor, { type: "UNHANDLED" });
   }
 );
 
 const replayActor = Effect.fn("replayPostboxReader")(
-  function* replayPostboxReader(generated: readonly ReaderCommand[]) {
+  function* replayPostboxReader(history: readonly ReaderCommand[]) {
     const wires: Deferred.Deferred<OpenMailroom, PostboxReaderFailed>[] = [];
-    const consumers: Deferred.Deferred<boolean, PostboxReaderFailed>[] = [];
+    const readers: Deferred.Deferred<BatchOutcome, PostboxReaderFailed>[] = [];
     let wiring = 0;
-    let consuming = 0;
-    let maximumOwners = 0;
+    let reading = 0;
 
-    const operations = PostboxReader.of({
-      consume: (opened) =>
-        Effect.acquireUseRelease(
-          Effect.sync(() => {
-            expect(opened).toBe(mailroom);
-            consuming += 1;
-            maximumOwners = Math.max(maximumOwners, consuming);
-
-            const result = Deferred.makeUnsafe<boolean, PostboxReaderFailed>();
-
-            consumers.push(result);
-
-            return result;
-          }),
-          (result) => Deferred.await(result).pipe(Effect.asVoid),
-          () =>
-            Effect.sync(() => {
-              consuming -= 1;
-            })
-        ),
-      wire: Effect.acquireUseRelease(
-        Effect.sync(() => {
-          wiring += 1;
-
-          const result = Deferred.makeUnsafe<
-            OpenMailroom,
-            PostboxReaderFailed
-          >();
-
-          wires.push(result);
-
-          return result;
-        }),
-        Deferred.await,
-        () =>
-          Effect.sync(() => {
-            wiring -= 1;
-          })
-      ),
-    });
-
-    const actor = yield* createEffectActor(postboxReaderMachine).pipe(
-      Effect.provideService(PostboxReader, operations)
-    );
-
-    let model = initialModel;
-    yield* waitFor(actor, (snapshot) => snapshot.matches("idle"));
-
-    for (const command of [
-      ...generated,
-      "stop",
-    ] satisfies readonly ReaderCommand[]) {
-      const before = model;
-      model = nextModel(model, command);
-      yield* performCommand(
-        actor,
-        before.state,
-        command,
-        wires.at(-1),
-        consumers.at(-1)
-      );
-      const expectedState = model.state;
-
-      if (before.state !== model.state) {
-        yield* waitFor(actor, (snapshot) => snapshot.value === expectedState);
-      }
-
-      yield* Effect.yieldNow;
-      assertSnapshot(actor.getSnapshot(), model);
-      expect(
-        maximumOwners,
-        "ownership is never duplicated"
-      ).toBeLessThanOrEqual(1);
-      expect(consuming, "only fully wired readers own consumption").toBe(
-        model.state === "consuming" ? 1 : 0
-      );
-      expect(wiring).toBe(model.state === "wiring" ? 1 : 0);
-    }
-
-    const started = { consumers: consumers.length, wires: wires.length };
-    yield* send(actor, { type: "WATCHDOG" });
-    yield* send(actor, { type: "START" });
-    yield* Effect.yieldNow;
-    expect({ consumers: consumers.length, wires: wires.length }).toStrictEqual(
-      started
-    );
-    expect(consuming + wiring).toBe(0);
-  },
-  Effect.scoped
-);
-
-describe("Postbox reader ownership", () => {
-  it.effect.prop(
-    "watchdog bursts keep one consumer and one original lifetime waiter",
-    {
-      burst: Arbitrary.array(Arbitrary.schema(Schema.Literal("WATCHDOG")), {
-        maxLength: 100,
-        minLength: 1,
-      }),
-    },
-    ({ burst }) =>
-      Effect.gen(function* watchdogBursts() {
-        const wired = yield* Deferred.make<OpenMailroom, PostboxReaderFailed>();
-        const wiringStarted = yield* Deferred.make<boolean>();
-        const consumingStarted = yield* Deferred.make<boolean>();
-        let consumers = 0;
-        let pendingWaiters = 0;
-        let wiringStarts = 0;
-
+    yield* Effect.scoped(
+      Effect.gen(function* turn() {
         const actor = yield* createEffectActor(postboxReaderMachine).pipe(
-          Effect.provideService(PostboxReader, {
-            consume: () =>
-              Effect.acquireUseRelease(
-                Effect.sync(() => {
-                  consumers += 1;
-                }).pipe(
-                  Effect.andThen(Deferred.succeed(consumingStarted, true))
+          Effect.provideService(
+            PostboxReader,
+            PostboxReader.of({
+              read: (given) =>
+                Effect.acquireUseRelease(
+                  Effect.sync(() => {
+                    expect(given, "a turn reads only what it wired").toBe(
+                      mailroom
+                    );
+                    reading += 1;
+
+                    const result = Deferred.makeUnsafe<
+                      BatchOutcome,
+                      PostboxReaderFailed
+                    >();
+
+                    readers.push(result);
+
+                    return result;
+                  }),
+                  Deferred.await,
+                  () =>
+                    Effect.sync(() => {
+                      reading -= 1;
+                    })
                 ),
-                () => Effect.never,
+              wire: Effect.acquireUseRelease(
+                Effect.sync(() => {
+                  wiring += 1;
+
+                  const result = Deferred.makeUnsafe<
+                    OpenMailroom,
+                    PostboxReaderFailed
+                  >();
+
+                  wires.push(result);
+
+                  return result;
+                }),
+                Deferred.await,
                 () =>
                   Effect.sync(() => {
-                    consumers -= 1;
+                    wiring -= 1;
                   })
               ),
-            wire: Effect.sync(() => {
-              wiringStarts += 1;
-            }).pipe(
-              Effect.andThen(Deferred.succeed(wiringStarted, true)),
-              Effect.andThen(Deferred.await(wired))
-            ),
-          })
+            })
+          )
         );
 
-        const tick = Effect.fn("registerPostboxWatchdog")(
-          function* registerPostboxWatchdog() {
-            const waiting = postboxReaderWatchdog(actor);
+        const started = (state: State) =>
+          Effect.yieldNow.pipe(
+            Effect.repeat({
+              until: () =>
+                wiring === (state === "wiring" ? 1 : 0) &&
+                reading === (state === "reading" ? 1 : 0),
+            })
+          );
 
-            if (Option.isNone(waiting)) {
-              return;
-            }
+        let model = initialModel;
 
-            pendingWaiters += 1;
-            yield* waiting.value.pipe(
-              Effect.ensuring(
-                Effect.sync(() => {
-                  pendingWaiters -= 1;
-                })
-              ),
-              Effect.forkScoped
-            );
+        for (const command of history) {
+          const before = model;
+          yield* started(before.state);
+          model = nextModel(model, command);
+          yield* performCommand(
+            actor,
+            before.state,
+            command,
+            wires.at(-1),
+            readers.at(-1)
+          );
+
+          if (before.state !== model.state) {
+            const expected = model.state;
+            yield* waitFor(actor, (snapshot) => stateOf(snapshot) === expected);
           }
-        );
 
-        yield* waitFor(actor, (snapshot) => snapshot.matches("idle"));
-        yield* tick();
-        yield* waitFor(actor, (snapshot) => snapshot.matches("wiring"));
-        yield* Deferred.await(wiringStarted);
-
-        for (const _event of burst) {
-          yield* tick();
+          yield* Effect.yieldNow;
+          assertSnapshot(actor.getSnapshot(), model);
+          expect(wires.length, "a turn wires once").toBeLessThanOrEqual(1);
+          expect(readers.length, "a turn reads once").toBeLessThanOrEqual(1);
+          expect(wiring, "wiring runs only while wiring").toBe(
+            model.state === "wiring" ? 1 : 0
+          );
+          expect(reading, "a read runs only while reading").toBe(
+            model.state === "reading" ? 1 : 0
+          );
         }
+      })
+    );
 
-        expect(wiringStarts).toBe(1);
-        expect(consumers).toBe(0);
-        expect(pendingWaiters).toBe(1);
+    expect(wiring + reading, "closing the turn's scope stops its work").toBe(0);
+  }
+);
 
-        yield* Deferred.succeed(wired, mailroom);
-        yield* waitFor(actor, (snapshot) => snapshot.matches("consuming"));
-        yield* Deferred.await(consumingStarted);
-
-        for (const _event of burst) {
-          yield* tick();
-        }
-
-        expect(consumers).toBe(1);
-        expect(
-          pendingWaiters,
-          "active watchdogs must not register extra lifetime waiters"
-        ).toBe(1);
-        yield* send(actor, { type: "STOP" });
-        yield* waitFor(actor, (snapshot) => snapshot.matches("stopped"));
-        yield* Effect.yieldNow;
-        expect(consumers).toBe(0);
-        expect(pendingWaiters).toBe(0);
-      }).pipe(Effect.scoped),
-    { arbitrary: { runs: 200 } }
-  );
-
+describe("Postbox reader turn", () => {
   it.prop(
     "typed mailroom failures preserve the caller's refusal reason",
     { reason: Schema.String },
@@ -498,70 +387,67 @@ describe("Postbox reader ownership", () => {
       );
 
       expect(failure.reason).toBe(reason);
-      expect(Schema.is(PostboxReaderFailed)(failure)).toBe(true);
+      expect(failure.kind).toBe(
+        reason.includes("no db for Postbox:")
+          ? "DatabaseMissing"
+          : "Unavailable"
+      );
     }
   );
 
   it.prop(
-    "graph histories follow an independent ownership model",
-    { generated: commands },
-    ({ generated }) => {
-      replayGraph(generated);
+    "graph histories follow an independent turn model",
+    { history: commands },
+    ({ history }) => {
+      replayGraph(history);
     },
     { arbitrary: { runs: 200 } }
   );
 
   it.effect.prop(
-    "real actor serializes wiring, consumption, retries and stop",
-    { generated: commands },
-    ({ generated }) =>
-      Effect.gen(function* replayFromIdleAndConsuming() {
-        yield* replayActor(["watchdog", "wired", ...generated]);
-        yield* replayActor(generated);
-      }),
+    "the real actor wires once, reads once, and its work stops at its ending or when its turn closes",
+    { history: commands },
+    ({ history }) => replayActor(history),
     { arbitrary: { runs: 200 } }
   );
 
-  it.effect("shortest paths reach every stable state and stop from each", () =>
-    Effect.gen(function* coverStableStates() {
+  it.effect("shortest paths reach every ending", () =>
+    Effect.gen(function* coverEndings() {
       const eventFor = events();
 
       const paths = getShortestPaths(postboxReaderMachine, {
         events: (snapshot) => {
-          if (snapshot.matches("wiring")) {
+          if (snapshot.matches({ turn: "wiring" })) {
             return [
-              eventFor.stop,
               eventFor.wired,
               eventFor.wireFailed,
               eventFor.dbWireFailed,
+              eventFor.deadline,
             ];
           }
 
-          if (snapshot.matches("consuming")) {
+          if (snapshot.matches({ turn: "reading" })) {
             return [
-              eventFor.stop,
-              eventFor.consumed,
-              eventFor.consumeFailed,
-              eventFor.dbConsumeFailed,
+              eventFor.readMore,
+              eventFor.readIdle,
+              eventFor.readFailed,
+              eventFor.dbReadFailed,
+              eventFor.deadline,
             ];
           }
 
-          return [eventFor.start, eventFor.watchdog, eventFor.stop];
+          return [];
         },
         serializeState: (snapshot) =>
-          `${snapshot.value}:${snapshot.context.mailroom !== undefined}:${snapshot.context.afterWiring}`,
+          JSON.stringify([
+            stateOf(snapshot),
+            snapshot.context.outcome,
+            snapshot.context.failure?.kind,
+          ]),
       });
 
-      expect(new Set(paths.map((path) => path.state.value))).toStrictEqual(
-        new Set([
-          "idle",
-          "wiring",
-          "consuming",
-          "ready",
-          "dbMissing",
-          "retrying",
-          "stopped",
-        ])
+      expect(new Set(paths.map((path) => stateOf(path.state)))).toStrictEqual(
+        new Set(["wiring", "reading", "read", "failed", "stalled"])
       );
 
       for (const path of paths) {
@@ -573,23 +459,9 @@ describe("Postbox reader ownership", () => {
           return Schema.decodeUnknownSync(Command)(found?.[0]);
         });
 
-        replayGraph([...history, "stop"]);
-        yield* replayActor([...history, "stop"]);
+        replayGraph(history);
+        yield* replayActor(history);
       }
     })
-  );
-
-  it.effect(
-    "db-missing failures remain typed and recover on the next watchdog",
-    () =>
-      Effect.gen(function* recoverDatabase() {
-        for (const history of [
-          ["watchdog", "dbWireFailed", "watchdog", "wired"],
-          ["watchdog", "wired", "dbConsumeFailed", "watchdog"],
-        ] satisfies ReaderCommand[][]) {
-          replayGraph(history);
-          yield* replayActor(history);
-        }
-      })
   );
 });

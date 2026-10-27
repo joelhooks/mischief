@@ -5345,9 +5345,9 @@ var require_createActor_54296cf2_cjs = __commonJS({
         if (this._restored) {
           const timers = this._snapshot.timers ?? [];
           const wallClock = !this.system._clock.now;
-          const now2 = Date.now();
+          const now = Date.now();
           for (const timer of timers) {
-            const delay = wallClock && timer.scheduledAt !== void 0 ? Math.min(timer.delay, Math.max(0, timer.scheduledAt + timer.delay - now2)) : timer.delay;
+            const delay = wallClock && timer.scheduledAt !== void 0 ? Math.min(timer.delay, Math.max(0, timer.scheduledAt + timer.delay - now)) : timer.delay;
             this.system.scheduleTimer(this, getTimerKey(timer), delay);
           }
           this._restored = false;
@@ -10112,12 +10112,12 @@ var require_xstate_cjs = __commonJS({
       }
     };
     function initialSystemTransition2(systemLogic, options2 = {}) {
-      const now2 = options2.time ?? 0;
-      if (!Number.isFinite(now2) || now2 < 0) throw new Error("Initial system time must be finite and nonnegative.");
+      const now = options2.time ?? 0;
+      if (!Number.isFinite(now) || now < 0) throw new Error("Initial system time must be finite and nonnegative.");
       const reduction = new SystemReduction(systemLogic, {
         root: "",
         executionId: options2.executionId ?? "system",
-        now: now2,
+        now,
         actors: {},
         registry: {},
         messages: [],
@@ -10297,7 +10297,7 @@ var require_xstate_durable_cjs = __commonJS({
       let nextTransitionIndex = adapter.transitionIndex ?? 0;
       const startingTransitionIndex = nextTransitionIndex;
       let restored = false;
-      const now2 = () => adapter.now?.() ?? Date.now();
+      const now = () => adapter.now?.() ?? Date.now();
       const observedRoots = /* @__PURE__ */ new WeakSet();
       let lastTransitionIndex = nextTransitionIndex === 0 ? void 0 : nextTransitionIndex - 1;
       const restoredTimerDeadlines = /* @__PURE__ */ new WeakMap();
@@ -10375,7 +10375,7 @@ var require_xstate_durable_cjs = __commonJS({
           if (impl) {
             wrapped[operation] = (...args) => dispatch(() => {
               if (operation === "scheduleTimer" && timerDeadline) {
-                args[2] = Math.min(timerDeadline.delay, Math.max(0, timerDeadline.deadline - now2()));
+                args[2] = Math.min(timerDeadline.delay, Math.max(0, timerDeadline.deadline - now()));
               }
               if (operation === "scheduleTimer") {
                 const source = args[0];
@@ -10384,15 +10384,15 @@ var require_xstate_durable_cjs = __commonJS({
                 if (timer) {
                   const previousStart = createActor2.getTimerStart(timer);
                   if (previousStart !== void 0 && !timerDeadline) {
-                    args[2] = Math.min(timer.delay, Math.max(0, previousStart + timer.delay - now2()));
+                    args[2] = Math.min(timer.delay, Math.max(0, previousStart + timer.delay - now()));
                   }
                   const result = impl(...args);
                   if (result) {
                     return Promise.resolve(result).then(() => {
-                      createActor2.recordTimerStart(timer, previousStart ?? now2());
+                      createActor2.recordTimerStart(timer, previousStart ?? now());
                     });
                   }
-                  createActor2.recordTimerStart(timer, previousStart ?? now2());
+                  createActor2.recordTimerStart(timer, previousStart ?? now());
                   return;
                 }
               }
@@ -14785,13 +14785,13 @@ function calculateExpiresAt(expiresIn, exchangeStartedAt) {
   if (typeof expiresIn !== "number" || !Number.isFinite(expiresIn) || expiresIn <= 0) {
     throw new OpenAIError("Token exchange response has invalid 'expires_in' field");
   }
-  const now2 = Date.now();
-  const fullLifetimeDeadline = now2 + expiresIn * 1e3;
-  if (!Number.isSafeInteger(fullLifetimeDeadline) || fullLifetimeDeadline <= now2) {
+  const now = Date.now();
+  const fullLifetimeDeadline = now + expiresIn * 1e3;
+  if (!Number.isSafeInteger(fullLifetimeDeadline) || fullLifetimeDeadline <= now) {
     throw new OpenAIError("Token exchange response has invalid 'expires_in' field");
   }
   const expiresAt = fullLifetimeDeadline - (performance.now() - exchangeStartedAt);
-  if (expiresAt <= now2) {
+  if (expiresAt <= now) {
     throw new OpenAIError("Workload identity token expired before its exchange completed.");
   }
   return expiresAt;
@@ -37102,7 +37102,7 @@ function applyOps(target, ops) {
     const write2 = (value) => {
       Object.defineProperty(parent, key, { value, writable: true, enumerable: true, configurable: true });
     };
-    const read5 = () => Object.hasOwn(parent, key) ? parent[key] : void 0;
+    const read6 = () => Object.hasOwn(parent, key) ? parent[key] : void 0;
     switch (op[0]) {
       case "s":
         write2(op[2]);
@@ -37116,14 +37116,14 @@ function applyOps(target, ops) {
           delete parent[key];
         break;
       case "a": {
-        const current = read5();
+        const current = read6();
         if (typeof current !== "string")
           throw new PathError(path2);
         write2(`${current}${op[2]}`);
         break;
       }
       case "t": {
-        const current = read5();
+        const current = read6();
         if (typeof current !== "string")
           throw new PathError(path2);
         write2(current.slice(op[2]));
@@ -37881,11 +37881,11 @@ var SqliteStorage = class _SqliteStorage {
    * Run a read that issues several queries. Close waits for admitted reads, so their later queries never reach a
    * closed database. Single-query reads and transactions are already ordered before close by the database.
    */
-  async admitRead(read5) {
+  async admitRead(read6) {
     this.assertOpen();
     this.admittedReads++;
     try {
-      return await read5();
+      return await read6();
     } finally {
       if (--this.admittedReads === 0)
         this.readsDrained?.();
@@ -42768,7 +42768,7 @@ var RunHost = class extends Context21.Service()("@mischief/core/RunHost", {
       const { plan, state: state3 } = yield* loadRun(runId2);
       return yield* reportOf(runId2, plan, state3);
     }, Effect28.provideContext(context));
-    const read5 = Effect28.fn("RunHost.read")(function* read6(runId2) {
+    const read6 = Effect28.fn("RunHost.read")(function* read7(runId2) {
       const { plan, state: state3 } = yield* loadRun(runId2);
       const journal = yield* store.readJournal(runId2);
       return {
@@ -42859,8 +42859,8 @@ var RunHost = class extends Context21.Service()("@mischief/core/RunHost", {
       if (opened.state.status !== "waiting-for-provider") {
         return yield* drive(runId2);
       }
-      const now2 = yield* Clock3.currentTimeMillis;
-      const due2 = opened.state.held.filter((held) => overloadHeld(held) && held.resumeAfter !== null && held.resumeAfter <= now2);
+      const now = yield* Clock3.currentTimeMillis;
+      const due2 = opened.state.held.filter((held) => overloadHeld(held) && held.resumeAfter !== null && held.resumeAfter <= now);
       if (due2.length === 0 || opened.state.resumeAttempts >= resumePolicy.attempts || (yield* store.readPaused(runId2))) {
         const report2 = yield* reportOf(runId2, opened.plan, opened.state).pipe(Effect28.provideContext(context));
         if (!(yield* store.readPaused(runId2))) {
@@ -43046,7 +43046,7 @@ ${refusals.map((error) => `- ${error}`).join("\n")}`);
       extend: (runId2, maxSteps) => afterStored(unit(runId2)(extend(runId2, maxSteps))),
       inspect,
       pause: (runId2) => unit(runId2)(pause(runId2)),
-      read: read5,
+      read: read6,
       resume: (runId2) => afterStored(unit(runId2)(resume(runId2))),
       revise: (runId2, input, dryRun) => unit(runId2)(revise(runId2, input, dryRun)).pipe(Effect28.flatMap((revision) => dryRun ? Effect28.succeed(revision) : afterStored(Effect28.succeed(revision.run)).pipe(Effect28.map((run2) => ({ ...revision, run: run2 }))))),
       submit: (runId2, input, docs) => afterStored(unit(runId2)(submit(runId2, input, docs)))
@@ -43268,16 +43268,16 @@ var alarmFor = (state3) => {
   }
   return state3.endsAt === null ? state3.nextAt : Math.min(state3.nextAt, state3.endsAt);
 };
-var confirming = (state3, now2) => {
+var confirming = (state3, now) => {
   const at = alarmFor(state3);
-  return at === null ? null : Math.min(at, now2 + CONFIRM_MS);
+  return at === null ? null : Math.min(at, now + CONFIRM_MS);
 };
 var recent = (items, item) => [...items, item].slice(-HISTORY);
-var end = (state3, now2, reason, detail) => ({
+var end = (state3, now, reason, detail) => ({
   abort: null,
   alarmAt: null,
   start: null,
-  state: { ...state3, ended: { at: now2, detail, reason } }
+  state: { ...state3, ended: { at: now, detail, reason } }
 });
 var stay = (state3) => ({
   abort: null,
@@ -43306,78 +43306,78 @@ var carried = (state3, report2) => {
     }))
   });
 };
-var wake = (state3, now2, docs, abort = null) => {
+var wake = (state3, now, docs, abort = null) => {
   const n = state3.wakeCount + 1;
   const runId2 = wakeRunId(state3.scheduleId, n);
   const woken = {
     ...state3,
     aborting: abort,
-    nextAt: slotAfter(state3.cadence, state3.createdAt, now2),
+    nextAt: slotAfter(state3.cadence, state3.createdAt, now),
     pendingDocs: docs,
     wakeCount: n,
-    wakes: recent(state3.wakes, { at: now2, due: state3.nextAt, n, runId: runId2 })
+    wakes: recent(state3.wakes, { at: now, due: state3.nextAt, n, runId: runId2 })
   };
   return {
     abort,
-    alarmAt: confirming(woken, now2),
+    alarmAt: confirming(woken, now),
     start: { docs, runId: runId2 },
     state: woken
   };
 };
 var minutes = (ms) => `${String(Math.round(ms / 6e4))} min`;
-var replace = (state3, now2, report2) => {
+var replace = (state3, now, report2) => {
   const stuck = lastWake(state3);
   const runId2 = stuck?.runId ?? "";
   return wake({
     ...state3,
     abortCount: state3.abortCount + 1,
     aborts: recent(state3.aborts, {
-      at: now2,
+      at: now,
       reason: `${named(state3)} was still ${report2.status} past its wakeTimeout of ${minutes(state3.wakeTimeoutMs ?? 0)}; aborted, and the next wake starts from the docs it started with`,
       runId: runId2
     })
-  }, now2, state3.pendingDocs, runId2);
+  }, now, state3.pendingDocs, runId2);
 };
-var overdue = (state3, now2) => {
+var overdue = (state3, now) => {
   const stuck = lastWake(state3);
-  return state3.wakeTimeoutMs !== null && stuck !== void 0 && now2 - stuck.at >= state3.wakeTimeoutMs;
+  return state3.wakeTimeoutMs !== null && stuck !== void 0 && now - stuck.at >= state3.wakeTimeoutMs;
 };
-var skip = (state3, now2, report2) => stay({
+var skip = (state3, now, report2) => stay({
   ...state3,
-  nextAt: slotAfter(state3.cadence, state3.createdAt, now2),
+  nextAt: slotAfter(state3.cadence, state3.createdAt, now),
   skipCount: state3.skipCount + 1,
   skips: recent(state3.skips, {
-    at: now2,
+    at: now,
     due: state3.nextAt,
     reason: `${named(state3)} is still ${report2.status}`
   })
 });
-var due = (state3, now2, seen) => previous.$match(seen, {
-  Missing: () => wake(state3, now2, state3.docs),
-  None: () => wake(state3, now2, state3.docs),
+var due = (state3, now, seen) => previous.$match(seen, {
+  Missing: () => wake(state3, now, state3.docs),
+  None: () => wake(state3, now, state3.docs),
   Reported: ({ report: report2 }) => {
     if (!terminalStatuses.has(report2.status)) {
-      return overdue(state3, now2) ? replace(state3, now2, report2) : skip(state3, now2, report2);
+      return overdue(state3, now) ? replace(state3, now, report2) : skip(state3, now, report2);
     }
     return Result7.match(carried(state3, report2), {
-      onFailure: (detail) => end(state3, now2, "failed", detail),
-      onSuccess: (docs) => wake(state3, now2, docs)
+      onFailure: (detail) => end(state3, now, "failed", detail),
+      onSuccess: (docs) => wake(state3, now, docs)
     });
   }
 });
-var limited = (state3, now2, seen) => {
-  if (state3.endsAt !== null && now2 >= state3.endsAt) {
-    return end(state3, now2, "timeout", `reached its timeout after ${String(state3.wakeCount)} wakes`);
+var limited = (state3, now, seen) => {
+  if (state3.endsAt !== null && now >= state3.endsAt) {
+    return end(state3, now, "timeout", `reached its timeout after ${String(state3.wakeCount)} wakes`);
   }
   if (Predicate3.isTagged(seen, "Reported") && Object.hasOwn(seen.report.docs, DONE_DOC)) {
-    return end(state3, now2, "done", `${named(state3)} wrote the "${DONE_DOC}" doc`);
+    return end(state3, now, "done", `${named(state3)} wrote the "${DONE_DOC}" doc`);
   }
   if (state3.maxWakes !== null && state3.wakeCount >= state3.maxWakes) {
-    return end(state3, now2, "cap", `ran all ${String(state3.maxWakes)} wakes`);
+    return end(state3, now, "cap", `ran all ${String(state3.maxWakes)} wakes`);
   }
   return null;
 };
-var decide = (state3, now2, seen) => {
+var decide = (state3, now, seen) => {
   const last = lastWake(state3);
   if (state3.ended !== null) {
     return stay(state3);
@@ -43385,16 +43385,16 @@ var decide = (state3, now2, seen) => {
   if (Predicate3.isTagged(seen, "Missing") && last !== void 0) {
     return {
       abort: state3.aborting,
-      alarmAt: confirming(state3, now2),
+      alarmAt: confirming(state3, now),
       start: { docs: state3.pendingDocs, runId: last.runId },
       state: state3
     };
   }
-  const ended = limited(state3, now2, seen);
+  const ended = limited(state3, now, seen);
   if (ended !== null) {
     return ended;
   }
-  return now2 < state3.nextAt ? stay(state3) : due(state3, now2, seen);
+  return now < state3.nextAt ? stay(state3) : due(state3, now, seen);
 };
 
 // ../../packages/core/dist/schedules/schedule-alarm.js
@@ -43514,21 +43514,21 @@ var createSchedule = Effect32.fn("createSchedule")(function* createSchedule2(inp
   if (errors.length > 0 || Result8.isFailure(cadence) || Result8.isFailure(limit2) || Result8.isFailure(wakeLimit)) {
     return yield* refuse(input.scheduleId, errors);
   }
-  const now2 = yield* Clock4.currentTimeMillis;
+  const now = yield* Clock4.currentTimeMillis;
   const state3 = {
     abortCount: 0,
     aborting: null,
     aborts: [],
     cadence: cadence.success,
     carry: [...input.carry ?? []],
-    createdAt: now2,
+    createdAt: now,
     docs,
     ended: null,
-    endsAt: limit2.success === null ? null : now2 + limit2.success,
+    endsAt: limit2.success === null ? null : now + limit2.success,
     escalateTo: input.escalateTo ?? null,
     judge: input.judge ?? null,
     maxWakes: input.maxWakes ?? null,
-    nextAt: firstSlot(cadence.success, now2),
+    nextAt: firstSlot(cadence.success, now),
     pendingDocs: {},
     plan: input.plan,
     scheduleId: input.scheduleId,
@@ -43550,11 +43550,11 @@ var completeSchedule = Effect32.fn("completeSchedule")(function* completeSchedul
   if (state3.ended !== null) {
     return reportOf2(state3);
   }
-  const now2 = yield* Clock4.currentTimeMillis;
+  const now = yield* Clock4.currentTimeMillis;
   const ended = {
     ...state3,
     ended: {
-      at: now2,
+      at: now,
       detail: `completed by its owner after ${String(state3.wakeCount)} wakes`,
       reason: "completed"
     }
@@ -43579,9 +43579,9 @@ var wakeSchedule = Effect32.fn("wakeSchedule")(function* wakeSchedule2() {
   if (Option16.isNone(found)) {
     return yield* ScheduleAlarm.use((alarm) => alarm.set(null));
   }
-  const now2 = yield* Clock4.currentTimeMillis;
+  const now = yield* Clock4.currentTimeMillis;
   const seen = yield* previousOf(found.value);
-  const decision = decide(found.value, now2, seen);
+  const decision = decide(found.value, now, seen);
   yield* store.save(decision.state);
   if (decision.abort !== null) {
     const { abort } = decision;
@@ -43597,7 +43597,7 @@ var wakeSchedule = Effect32.fn("wakeSchedule")(function* wakeSchedule2() {
       const ended = {
         ...decision.state,
         ended: {
-          at: now2,
+          at: now,
           detail: `wake ${runId2} was refused: ${refused3.value.errors.join("; ")}. The pinned plan no longer validates on this host; create a new schedule with a fixed plan`,
           reason: "failed"
         }
@@ -44013,11 +44013,11 @@ var driveLease = (storage) => {
   storage.sql.exec("CREATE TABLE IF NOT EXISTS mischief_drive_lease (id INTEGER PRIMARY KEY CHECK (id = 1), epoch INTEGER NOT NULL, holder TEXT, lease_until INTEGER NOT NULL)");
   storage.sql.exec("INSERT OR IGNORE INTO mischief_drive_lease VALUES (1, 0, NULL, 0)");
   const peek = () => decode2(storage.sql.exec("SELECT epoch, holder, lease_until AS leaseUntil FROM mischief_drive_lease WHERE id = 1").toArray()[0]);
-  const take = (holder, now2, ttl) => storage.transactionSync(() => {
-    const rows = storage.sql.exec("UPDATE mischief_drive_lease SET epoch = epoch + 1, holder = ?, lease_until = ? WHERE id = 1 AND (holder IS NULL OR lease_until <= ?) RETURNING epoch, holder, lease_until AS leaseUntil", holder, now2 + ttl, now2).toArray();
+  const take2 = (holder, now, ttl) => storage.transactionSync(() => {
+    const rows = storage.sql.exec("UPDATE mischief_drive_lease SET epoch = epoch + 1, holder = ?, lease_until = ? WHERE id = 1 AND (holder IS NULL OR lease_until <= ?) RETURNING epoch, holder, lease_until AS leaseUntil", holder, now + ttl, now).toArray();
     return rows.length === 0 ? Option18.none() : Option18.some(decode2(rows[0]));
   });
-  const renew = (lease, now2, ttl) => storage.sql.exec("UPDATE mischief_drive_lease SET lease_until = ? WHERE id = 1 AND epoch = ? AND holder = ? AND lease_until > ? RETURNING epoch", now2 + ttl, lease.epoch, lease.holder, now2).toArray().length === 1;
+  const renew = (lease, now, ttl) => storage.sql.exec("UPDATE mischief_drive_lease SET lease_until = ? WHERE id = 1 AND epoch = ? AND holder = ? AND lease_until > ? RETURNING epoch", now + ttl, lease.epoch, lease.holder, now).toArray().length === 1;
   const release = (lease) => {
     storage.sql.exec("UPDATE mischief_drive_lease SET holder = NULL, lease_until = 0 WHERE id = 1 AND epoch = ? AND holder = ?", lease.epoch, lease.holder);
   };
@@ -44034,7 +44034,7 @@ var driveLease = (storage) => {
       return write2();
     })
   });
-  return { fenced, peek, release, renew, take };
+  return { fenced, peek, release, renew, take: take2 };
 };
 
 // ../../packages/plan-run/dist/plan-run.js
@@ -44048,16 +44048,16 @@ var decodeSubmit = Schema57.decodeUnknownOption(Schema57.Struct({ runId: Schema5
 var stored = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_runs WHERE run_id = ?", runId2).toArray().length > 0;
 var alarmPending = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = ?", runId2, "done:hold-alarm").toArray().length === 0;
 var abortNoticePending = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = 'abort-reason' AND NOT EXISTS (SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = 'done:abort-notices')", runId2, runId2).toArray().length > 0;
-var wakeAt = (storage, now2, guardMs, attempts, runningAt) => {
+var wakeAt = (storage, now, guardMs, attempts, runningAt) => {
   const times = runsOf(storage).flatMap(({ runId: runId2, state: state3 }) => {
     if (state3.status === "aborted" && abortNoticePending(storage, runId2)) {
-      return [now2 + guardMs];
+      return [now + guardMs];
     }
     if (state3.status === "running") {
       return [runningAt];
     }
     if (state3.status === "waiting-for-provider" && state3.resumeAttempts >= attempts) {
-      return state3.held.some(overloadHeld) && alarmPending(storage, runId2) ? [now2 + guardMs] : [];
+      return state3.held.some(overloadHeld) && alarmPending(storage, runId2) ? [now + guardMs] : [];
     }
     const resume = state3.status === "waiting-for-provider" ? providerWakeAt(state3.held) : null;
     return resume === null ? [] : [resume];
@@ -44066,8 +44066,8 @@ var wakeAt = (storage, now2, guardMs, attempts, runningAt) => {
 };
 var makePlanRun = ({ alarms, guardMs, services, storage }) => {
   const lease = driveLease(storage);
-  const wake2 = Clock5.currentTimeMillis.pipe(Effect37.flatMap((now2) => Effect37.promise(async () => {
-    await alarms.set(now2);
+  const wake2 = Clock5.currentTimeMillis.pipe(Effect37.flatMap((now) => Effect37.promise(async () => {
+    await alarms.set(now);
   })));
   const host = Layer19.effect(RunHost, Effect37.gen(function* readHost() {
     const reads = yield* RunHost.make;
@@ -44082,19 +44082,19 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
   let driving;
   const interval = Math.max(1, Math.floor(guardMs / 3));
   const writerHost = (token) => Effect37.promise(async () => await runtime.runPromise(RunHost.make.pipe(Effect37.provideServiceEffect(RunStore, runStoreSql(lease.fenced(token))))));
-  const armGuard = Clock5.currentTimeMillis.pipe(Effect37.flatMap((now2) => Effect37.promise(async () => {
+  const armGuard = Clock5.currentTimeMillis.pipe(Effect37.flatMap((now) => Effect37.promise(async () => {
     const pending = await alarms.get();
-    if (pending === null || pending <= now2 || pending > now2 + guardMs) {
-      await alarms.set(now2 + guardMs);
+    if (pending === null || pending <= now || pending > now + guardMs) {
+      await alarms.set(now + guardMs);
     }
   })));
   const reconcile = (immediate) => Effect37.gen(function* nextAlarm() {
-    const now2 = yield* Clock5.currentTimeMillis;
+    const now = yield* Clock5.currentTimeMillis;
     const policy = yield* ProviderResume;
     yield* Effect37.promise(async () => {
       const pending = await alarms.get();
       const holder = lease.peek();
-      const next = holder.holder !== null && holder.leaseUntil > now2 ? holder.leaseUntil : wakeAt(storage, now2, guardMs, policy.attempts, immediate ? now2 : now2 + guardMs);
+      const next = holder.holder !== null && holder.leaseUntil > now ? holder.leaseUntil : wakeAt(storage, now, guardMs, policy.attempts, immediate ? now : now + guardMs);
       if (next === null) {
         await alarms.clear();
       } else if (next !== pending) {
@@ -44105,17 +44105,17 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
   const exclusive = (effect, wait2, acquired = constVoid3) => Effect37.gen(function* leasedWrite() {
     yield* armGuard;
     const holder = yield* Crypto4.Crypto.use((crypto2) => crypto2.randomUUIDv4()).pipe(Effect37.provide(webCrypto), Effect37.orDie);
-    const take = Clock5.currentTimeMillis.pipe(Effect37.map((now2) => lease.take(holder, now2, guardMs)));
-    const held = yield* wait2 ? take.pipe(Effect37.repeat({
+    const take2 = Clock5.currentTimeMillis.pipe(Effect37.map((now) => lease.take(holder, now, guardMs)));
+    const held = yield* wait2 ? take2.pipe(Effect37.repeat({
       schedule: Schedule.spaced(interval),
       while: Option19.isNone
-    })) : take;
+    })) : take2;
     if (Option19.isNone(held)) {
       return Option19.none();
     }
     return yield* Effect37.acquireUseRelease(Effect37.succeed(held.value), (token) => Effect37.gen(function* holdingLease() {
       acquired();
-      const keepAlive = Effect37.sleep(interval).pipe(Effect37.andThen(Clock5.currentTimeMillis), Effect37.flatMap((now2) => Effect37.sync(() => lease.renew(token, now2, guardMs))), Effect37.flatMap((renewed) => renewed ? Effect37.void : Effect37.die(new DriveLeaseLost({
+      const keepAlive = Effect37.sleep(interval).pipe(Effect37.andThen(Clock5.currentTimeMillis), Effect37.flatMap((now) => Effect37.sync(() => lease.renew(token, now, guardMs))), Effect37.flatMap((renewed) => renewed ? Effect37.void : Effect37.die(new DriveLeaseLost({
         owner: holder,
         reason: `Drive epoch ${token.epoch} expired or was replaced. Work stopped; the alarm's next holder continues from the committed checkpoint. Poll inspectRun to see driveLease and progress.`
       }))), Effect37.forever);
@@ -44142,9 +44142,9 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
       }
       try {
         await runtime.runPromise(exclusive(RunHost.use((runs) => Effect37.gen(function* wakeRuns2() {
-          const now2 = yield* Clock5.currentTimeMillis;
+          const now = yield* Clock5.currentTimeMillis;
           const policy = yield* ProviderResume;
-          yield* Effect37.forEach(runsOf(storage).filter(({ runId: runId2, state: state3 }) => state3.status === "running" || state3.status === "aborted" && abortNoticePending(storage, runId2) || state3.status === "waiting-for-provider" && (state3.resumeAttempts < policy.attempts && state3.held.some(({ resumeAfter: resumeAfter2 }) => resumeAfter2 !== null && resumeAfter2 <= now2) || state3.resumeAttempts >= policy.attempts && state3.held.some(overloadHeld) && alarmPending(storage, runId2))), ({ runId: runId2 }) => runs.advance(runId2).pipe(Effect37.ignore), { discard: true });
+          yield* Effect37.forEach(runsOf(storage).filter(({ runId: runId2, state: state3 }) => state3.status === "running" || state3.status === "aborted" && abortNoticePending(storage, runId2) || state3.status === "waiting-for-provider" && (state3.resumeAttempts < policy.attempts && state3.held.some(({ resumeAfter: resumeAfter2 }) => resumeAfter2 !== null && resumeAfter2 <= now) || state3.resumeAttempts >= policy.attempts && state3.held.some(overloadHeld) && alarmPending(storage, runId2))), ({ runId: runId2 }) => runs.advance(runId2).pipe(Effect37.ignore), { discard: true });
         })), false, () => {
           driving?.abort();
           driving = controller;
@@ -54541,12 +54541,12 @@ var Transaction = class {
     operation.then(settle4, settle4);
     return operation;
   }
-  #read(method, read5) {
+  #read(method, read6) {
     try {
       this.#assertOpen();
       if (this.#hasTableWrite)
         throw new ReadAfterWrite(method);
-      return this.#track(read5());
+      return this.#track(read6());
     } catch (error) {
       return Promise.reject(error);
     }
@@ -54573,9 +54573,9 @@ var Transaction = class {
    */
   #stampTimes(value, candidate) {
     const status = value.state.status;
-    const now2 = (stamps) => stamps ? this.#host.now() : void 0;
-    const startedAt = candidate?.startedAt ?? value.startedAt ?? now2(status === "running");
-    const endedAt = candidate?.endedAt ?? value.endedAt ?? now2(status === "terminal");
+    const now = (stamps) => stamps ? this.#host.now() : void 0;
+    const startedAt = candidate?.startedAt ?? value.startedAt ?? now(status === "running");
+    const endedAt = candidate?.endedAt ?? value.endedAt ?? now(status === "terminal");
     if (startedAt === value.startedAt && endedAt === value.endedAt)
       return value;
     return {
@@ -54692,14 +54692,14 @@ var SessionImpl = class {
   get failed() {
     return this.#failed.promise;
   }
-  constructor(storage, now2 = Date.now, documentRetentionMs = () => void 0, setTimer) {
+  constructor(storage, now = Date.now, documentRetentionMs = () => void 0, setTimer) {
     this.#failed.promise.catch(() => {
     });
     this.#storage = new GuardedStorage(storage, this);
     this.#timers = hostTimers(setTimer, (error) => this.report(error, { type: "host_error", callback: "setTimer" }));
     this.#clock = () => {
       try {
-        return now2();
+        return now();
       } catch {
         return Date.now();
       }
@@ -54713,7 +54713,7 @@ var SessionImpl = class {
     };
     this.#host = {
       storage: this.#storage,
-      now: now2,
+      now,
       cached: (id) => {
         const cached = this.#documents.get(id);
         if (cached !== void 0)
@@ -55017,13 +55017,13 @@ var SessionImpl = class {
     const cached = this.#documents.get(addressId2);
     if (cached === void 0 || this.#attachedDocuments.has(cached.record.id))
       return;
-    const now2 = this.#clock();
+    const now = this.#clock();
     const since = this.#idleDocuments.get(addressId2);
-    if (since !== void 0 && now2 - since < Math.min(1e3, this.#documentRetentionMs() / 10))
+    if (since !== void 0 && now - since < Math.min(1e3, this.#documentRetentionMs() / 10))
       return;
     this.#idleDocuments.delete(addressId2);
-    this.#idleDocuments.set(addressId2, now2);
-    if (this.#documentSweep === void 0 || this.#documentSweep.at > now2 + this.#documentRetentionMs()) {
+    this.#idleDocuments.set(addressId2, now);
+    if (this.#documentSweep === void 0 || this.#documentSweep.at > now + this.#documentRetentionMs()) {
       this.#scheduleDocumentSweep();
     }
   }
@@ -55365,7 +55365,7 @@ var GuardedStorage = class {
    * exempts their errors: once a batch is admitted, whether it committed is unknown. A call still underway when another
    * fails the Session ends with `SessionFailed` too, whatever it returns: nothing it read or wrote is used.
    */
-  async #call(read5, run2) {
+  async #call(read6, run2) {
     this.#assertHealthy();
     if (this.#closing)
       throw new Error("Session is closed");
@@ -55376,7 +55376,7 @@ var GuardedStorage = class {
       result = await call;
     } catch (error) {
       this.#assertHealthy();
-      const exempt = read5 !== void 0 && (error instanceof StorageRequestError2 || read5.abortSignal?.aborted === true);
+      const exempt = read6 !== void 0 && (error instanceof StorageRequestError2 || read6.abortSignal?.aborted === true);
       if (!exempt)
         this.#latch.fail(error);
       throw error;
@@ -56086,7 +56086,7 @@ async function prepareBoundary(tx, conversationId, modes) {
     head
   };
 }
-async function applyBoundary(tx, boundary, at, now2) {
+async function applyBoundary(tx, boundary, at, now) {
   const { conversationId, inbox } = boundary;
   const items = inbox.items;
   const reset = hasQueuedReset(items);
@@ -56113,7 +56113,7 @@ async function applyBoundary(tx, boundary, at, now2) {
   const placed = [];
   for (const index3 of users) {
     const item = items[index3];
-    const entry3 = await appendInput(tx, conversationId, item.content, item.entry, now2);
+    const entry3 = await appendInput(tx, conversationId, item.content, item.entry, now);
     tx.placeSubmission(item.id, entry3.id);
     placed.push(item.id);
   }
@@ -56122,8 +56122,8 @@ async function applyBoundary(tx, boundary, at, now2) {
     items.splice(index3, 1);
   return { users: placed, reset };
 }
-function appendInput(tx, conversationId, content, entry3, now2) {
-  const message = { role: "user", content, timestamp: now2 };
+function appendInput(tx, conversationId, content, entry3, now) {
+  const message = { role: "user", content, timestamp: now };
   if (entry3 === void 0)
     return tx.appendEntry(UserEntry, conversationId, { model: [message] });
   return tx.appendEntry(conversationId, { ...pickInputEntry(entry3), model: [message] });
@@ -56459,30 +56459,30 @@ var OutputBuffer = class {
    * Accept a chunk; returns whether anything was accepted. `skipped` is output omitted right before the chunk, which
    * must be more than the tail window by at least one byte or line; only tail retention accepts it.
    */
-  push(chunk, skipped) {
-    const pending = typeof chunk === "string" || skipped !== void 0 ? this.#decoder.decode() : "";
+  push(chunk, skipped2) {
+    const pending = typeof chunk === "string" || skipped2 !== void 0 ? this.#decoder.decode() : "";
     let text = typeof chunk === "string" ? chunk : this.#decoder.decode(chunk, { stream: true });
-    const first = !this.#started && pending === "" && skipped === void 0;
-    if (pending !== "" || text !== "" || skipped !== void 0)
+    const first = !this.#started && pending === "" && skipped2 === void 0;
+    if (pending !== "" || text !== "" || skipped2 !== void 0)
       this.#started = true;
     if (first && typeof chunk !== "string" && text.startsWith("\uFEFF"))
       text = text.slice(1);
-    if (skipped === void 0)
+    if (skipped2 === void 0)
       return this.#accept(pending + text);
     if (this.#limits.retain !== "tail")
       throw new Error("Skipped output requires tail retention");
     this.#accept(pending);
-    this.#skip(skipped);
+    this.#skip(skipped2);
     this.#accept(text);
     return true;
   }
   /** Count omitted output; nothing stored before it can be in the window once the text after it arrives. */
-  #skip(skipped) {
-    if (skipped.bytes === 0)
+  #skip(skipped2) {
+    if (skipped2.bytes === 0)
       return;
-    this.#totalBytes += skipped.bytes;
-    this.#totalNewlines += skipped.newlines;
-    this.#endsWithNewline = skipped.endsWithNewline;
+    this.#totalBytes += skipped2.bytes;
+    this.#totalNewlines += skipped2.newlines;
+    this.#endsWithNewline = skipped2.endsWithNewline;
     this.#chunks = [];
     this.#storedBytes = 0;
     this.#storedNewlines = 0;
@@ -57329,9 +57329,9 @@ async function run(runtime, input, call, tool, args, context) {
       return env;
     },
     now: () => runtime.now(),
-    output: (chunk, skipped) => {
+    output: (chunk, skipped2) => {
       assertLive();
-      if (reported.output.push(chunk, skipped))
+      if (reported.output.push(chunk, skipped2))
         progress.mark();
     },
     outputWindow: limits.retain === "tail" ? {
@@ -58247,19 +58247,19 @@ async function finishToolRound(runtime, assistant, tools, context) {
     if (added.length > 0)
       await addTools(tx, conversationId, added);
     const live = await tx.doc(LiveDoc, conversationId);
-    const now2 = runtime.now();
+    const now = runtime.now();
     if (terminate || handoff !== void 0) {
       if (handoff !== void 0) {
-        const message = { role: "user", content: handoff, timestamp: now2 };
+        const message = { role: "user", content: handoff, timestamp: now };
         const entry3 = await tx.appendEntry(ResetEntry, conversationId, { head: "self", model: [message] });
         boundary.head = entry3.id;
       }
-      const { users } = await applyBoundary(tx, boundary, "final", now2);
+      const { users } = await applyBoundary(tx, boundary, "final", now);
       endRun(tx, live, runtime.taskId, { status: "done", answer: assistant });
       if (users.length > 0)
         await startRun(tx, conversationId, live, users);
     } else {
-      const { users, reset } = await applyBoundary(tx, boundary, "postTools", now2);
+      const { users, reset } = await applyBoundary(tx, boundary, "postTools", now);
       if (reset) {
         endRun(tx, live, runtime.taskId, { status: "unanswered", reason: "reset" });
         if (users.length > 0)
@@ -58560,11 +58560,11 @@ var Submissions = class {
   #resume;
   #waiters = new Waiters();
   #closed = false;
-  constructor(session, storage, now2, queueModes, resume, telemetry = NOOP_TELEMETRY_CONTEXT) {
+  constructor(session, storage, now, queueModes, resume, telemetry = NOOP_TELEMETRY_CONTEXT) {
     this.#telemetry = telemetry;
     this.#session = session;
     this.#storage = storage;
-    this.#now = now2;
+    this.#now = now;
     this.#queueModes = queueModes;
     this.#resume = resume;
     session.observeCommits((publication) => this.#observe(publication));
@@ -58670,7 +58670,7 @@ function checkInputEntry(entry3) {
     throw new TypeError(`An input entry's kind must be a non-empty string not starting with "pi.", got ${String(kind)}`);
   }
 }
-async function admitSubmission(tx, conversationId, draft, now2, queueModes, span) {
+async function admitSubmission(tx, conversationId, draft, now, queueModes, span) {
   if (draft.type === "input" && draft.entry !== void 0)
     checkInputEntry(draft.entry);
   if (draft.requestId !== void 0) {
@@ -58718,7 +58718,7 @@ async function admitSubmission(tx, conversationId, draft, now2, queueModes, span
     }
     if (boundary === void 0)
       return { id: id2, status: "queued" };
-    const { users } = await applyBoundary(tx, boundary, "final", now2);
+    const { users } = await applyBoundary(tx, boundary, "final", now);
     if (users.length > 0)
       await startRun(tx, conversationId, live, users);
     return { id: id2, status: draft.type === "write" ? "done" : users.at(-1) === id2 ? "placed" : "queued" };
@@ -58735,7 +58735,7 @@ async function admitSubmission(tx, conversationId, draft, now2, queueModes, span
     const write2 = { ...fields, type: "write", status: "done", entry: entry4.id };
     return { id: (await tx.createSubmission(write2)).id, status: "done" };
   }
-  const entry3 = await appendInput(tx, conversationId, draft.content, draft.entry, now2);
+  const entry3 = await appendInput(tx, conversationId, draft.content, draft.entry, now);
   const input = { ...fields, type: "input", status: "placed", entry: entry3.id };
   const { id } = await tx.createSubmission(input);
   await startRun(tx, conversationId, live, [id]);
@@ -58836,13 +58836,13 @@ var CompactionTask = defineTask({
         return failNoModel2(runtime, ref, context);
       const view = await runtime.context(runtime.conversationId, context, { at: tail });
       const cut = view.entries.findIndex((entry3) => entry3.id === firstKept);
-      const now2 = runtime.now();
+      const now = runtime.now();
       const messages = [
-        { role: "system", content: SUMMARIZATION_SYSTEM_PROMPT, timestamp: now2 },
+        { role: "system", content: SUMMARIZATION_SYSTEM_PROMPT, timestamp: now },
         {
           role: "user",
           content: [{ type: "text", text: summaryPrompt(summarizedMessages(view, cut), task.input.instructions) }],
-          timestamp: now2
+          timestamp: now
         }
       ];
       const { deferred: _deferred, ...forwarded } = streamOptions;
@@ -59358,12 +59358,12 @@ function translate(conversationId, before, after, viewOps, publication, held) {
     return [];
   submissions.sort((a, b) => a.id - b.id);
   const was = parts(before);
-  const now2 = parts(after);
+  const now = parts(after);
   const events = [];
   const slotsBefore = new Map((was.live.tools ?? []).map((slot) => [slot.callId, slot]));
-  const slots = now2.live.tools ?? [];
+  const slots = now.live.tools ?? [];
   const nestedBefore = new Map((was.live.nestedTools ?? []).map((slot) => [slot.taskId, slot]));
-  const nested = now2.live.nestedTools ?? [];
+  const nested = now.live.nestedTools ?? [];
   for (const slot of [...slots, ...nested]) {
     const previous2 = "parentCallId" in slot ? nestedBefore.get(slot.taskId) : slotsBefore.get(slot.callId);
     if (slot.status !== "running" || previous2?.status === "running")
@@ -59373,7 +59373,7 @@ function translate(conversationId, before, after, viewOps, publication, held) {
     events.push({ type: "tool_execution_start", ...callOf(slot), args });
   }
   const partialBefore = was.live.generation?.message;
-  const partial = now2.live.generation?.message;
+  const partial = now.live.generation?.message;
   if (partial !== void 0 && partialBefore === void 0)
     events.push({ type: "message_start", message: partial });
   else if (partial !== void 0 && partial !== partialBefore) {
@@ -59397,7 +59397,7 @@ function translate(conversationId, before, after, viewOps, publication, held) {
       continue;
     events.push({ type: "tool_execution_update", ...callOf(slot), ...update });
   }
-  const generation = now2.live.generation;
+  const generation = now.live.generation;
   const generationBefore = was.live.generation;
   if (generation?.retry !== void 0 && generationBefore?.retry === void 0) {
     const { at, error } = generation.retry;
@@ -59460,8 +59460,8 @@ function translate(conversationId, before, after, viewOps, publication, held) {
   }
   events.push(...toolEnds.filter((end2) => end2.entry === void 0));
   const compactionsBefore = was.live.compactions ?? [];
-  const compactions = now2.live.compactions ?? [];
-  const failure5 = now2.live.compactionFailure;
+  const compactions = now.live.compactions ?? [];
+  const failure5 = now.live.compactionFailure;
   for (const { taskId, reason } of compactionsBefore) {
     if (!compactions.some((status) => status.taskId === taskId)) {
       const error = failure5?.taskId === taskId ? failure5.error : void 0;
@@ -59487,20 +59487,20 @@ function translate(conversationId, before, after, viewOps, publication, held) {
   }
   if (turnEnded)
     events.push({ type: "turn_end" });
-  const run2 = now2.live.run;
+  const run2 = now.live.run;
   const runBefore = was.live.run;
   const runChanged = run2?.inputs[0] !== runBefore?.inputs[0];
   if (runBefore !== void 0 && runChanged)
     events.push({ type: "run_end", inputs: runBefore.inputs });
   for (const record of submissions)
     events.push({ type: "submission", record });
-  if (now2.inbox !== was.inbox)
-    events.push({ type: "inbox_update", items: queued(now2.inbox) });
-  if (now2.agent !== was.agent) {
-    events.push({ type: "agent_changed", agent: now2.agent ?? AgentDoc.definition.initial() });
+  if (now.inbox !== was.inbox)
+    events.push({ type: "inbox_update", items: queued(now.inbox) });
+  if (now.agent !== was.agent) {
+    events.push({ type: "agent_changed", agent: now.agent ?? AgentDoc.definition.initial() });
   }
-  if (now2.usage !== was.usage)
-    events.push({ type: "usage_changed", usage: now2.usage ?? UsageDoc.definition.initial() });
+  if (now.usage !== was.usage)
+    events.push({ type: "usage_changed", usage: now.usage ?? UsageDoc.definition.initial() });
   for (const { taskId, reason, blocking } of compactions) {
     if (!compactionsBefore.some((status) => status.taskId === taskId)) {
       events.push({ type: "compaction_start", taskId, reason, blocking });
@@ -59937,7 +59937,7 @@ var TaskScheduler = class {
    * sleep not yet due. Synchronous, from memory; a task whose chain is not loaded yet counts as it would alone.
    */
   wake() {
-    const now2 = this.#now();
+    const now = this.#now();
     let active = this.#invocations.size > 0 || this.#reconcilingWork > 0 || this.#reconcileWork();
     let at;
     let snapshot;
@@ -59948,7 +59948,7 @@ var TaskScheduler = class {
         continue;
       if (state3.status === "waiting" && !record.abortRequested && state3.on.some((id) => this.#live.has(id)))
         continue;
-      if (state3.status === "sleeping" && !record.abortRequested && state3.until > now2) {
+      if (state3.status === "sleeping" && !record.abortRequested && state3.until > now) {
         at = at === void 0 ? state3.until : Math.min(at, state3.until);
         continue;
       }
@@ -60184,15 +60184,15 @@ var TaskScheduler = class {
       if (this.#idle(conversationId))
         this.#idleWaiters.resolve(conversationId);
     }
-    const now2 = this.#now();
+    const now = this.#now();
     const retention = this.#contextRetentionMs();
     for (const [conversationId, kept] of this.#contexts) {
-      if (kept.idleSince !== void 0 && now2 - kept.idleSince >= retention) {
+      if (kept.idleSince !== void 0 && now - kept.idleSince >= retention) {
         this.#contexts.delete(conversationId);
       } else if (!this.#idle(conversationId)) {
         kept.idleSince = void 0;
       } else if (retention > 0) {
-        kept.idleSince ??= now2;
+        kept.idleSince ??= now;
       } else {
         this.#contexts.delete(conversationId);
       }
@@ -61641,10 +61641,10 @@ var TaskScheduler = class {
     };
   }
   /** Run a committed-state read unless the invocation has ended. */
-  async #read(invocation, read5) {
+  async #read(invocation, read6) {
     if (invocation.ended)
       throw endedError(invocation);
-    return read5();
+    return read6();
   }
   /** Commit after rereading the task on the line and gating the invocation. */
   #gated(invocation, change, context) {
@@ -62055,9 +62055,9 @@ var HarnessImpl = class extends SessionImpl {
   #taskGraph;
   constructor(rawStorage, options2, context) {
     const report2 = safeReport(options2.onReport, options2.telemetry ?? NOOP_TELEMETRY_CONTEXT);
-    const now2 = safeNow(options2.now, report2);
+    const now = safeNow(options2.now, report2);
     const hostSettings = currentSettings(options2.settings);
-    super(rawStorage, now2, () => hostSettings()?.documentRetentionMs, options2.setTimer);
+    super(rawStorage, now, () => hostSettings()?.documentRetentionMs, options2.setTimer);
     const storage = this.storage;
     this.#options = options2;
     this.#report = report2;
@@ -62072,7 +62072,7 @@ var HarnessImpl = class extends SessionImpl {
       agent: (id, snapshot, callContext) => this.resolveAgent(id, snapshot, callContext),
       settings: settings2,
       env: (id, callContext) => this.buildEnv(id, callContext),
-      now: now2,
+      now,
       onWake: options2.onWake,
       timers: hostTimers(options2.setTimer, (error) => report2(error, { type: "host_error", callback: "setTimer" })),
       writeAtClose: (writes) => this.writeAtClose(writes),
@@ -62085,7 +62085,7 @@ var HarnessImpl = class extends SessionImpl {
       },
       context: withoutAbortSignal(context)
     });
-    this.#submissions = new Submissions(this, storage, now2, settings2, () => this.#tasks.resume(), options2.telemetry);
+    this.#submissions = new Submissions(this, storage, now, settings2, () => this.#tasks.resume(), options2.telemetry);
     this.#taskGraph = new TaskGraphView(this, storage, {
       blocked: (record) => this.#tasks.blockedReason(record),
       subscribeBlocked: (listener) => this.#tasks.subscribeBlocked(listener)
@@ -62096,7 +62096,7 @@ var HarnessImpl = class extends SessionImpl {
       tasks: this.#tasks,
       submissions: this.#submissions,
       views: new ConversationViews(this, storage),
-      now: now2,
+      now,
       create: (target, createOptions, context2) => this.#create(target, createOptions, context2)
     };
   }
@@ -62256,13 +62256,13 @@ function safeReport(onReport, telemetry) {
     context?.telemetry.addEvent("pi.durable.report", attributes);
   };
 }
-function safeNow(now2, report2) {
-  if (now2 === void 0)
+function safeNow(now, report2) {
+  if (now === void 0)
     return Date.now;
   let reported = false;
   return () => {
     try {
-      return now2();
+      return now();
     } catch (error) {
       if (!reported) {
         reported = true;
@@ -63408,14 +63408,14 @@ var Cooldown = Schema61.Union([
 ]);
 var decodeCooldown = Schema61.decodeUnknownOption(Schema61.fromJsonString(Cooldown));
 var RETRY_AFTER = /["']?retry-after["']?\s*[:=]\s*["']?(?<value>[^\r\n"}]+)/iu;
-var retryHeaderAt = (header, now2) => /^\d+(?:\.\d+)?$/u.test(header) ? now2 + Number(header) * 1e3 : Date.parse(header);
-var retryAfterOf = (message, status, now2) => {
+var retryHeaderAt = (header, now) => /^\d+(?:\.\d+)?$/u.test(header) ? now + Number(header) * 1e3 : Date.parse(header);
+var retryAfterOf = (message, status, now) => {
   const body = message.slice(message.indexOf("{"), message.lastIndexOf("}") + 1);
-  const cooldown = status === TOO_MANY_REQUESTS ? decodeCooldown(body).pipe(Option21.map((decoded) => now2 + ("error" in decoded ? decoded.error.reset_seconds : decoded.reset_seconds) * 1e3), Option21.getOrUndefined) : void 0;
+  const cooldown = status === TOO_MANY_REQUESTS ? decodeCooldown(body).pipe(Option21.map((decoded) => now + ("error" in decoded ? decoded.error.reset_seconds : decoded.reset_seconds) * 1e3), Option21.getOrUndefined) : void 0;
   const header = RETRY_AFTER.exec(message)?.groups?.value?.trim();
-  const retryAfter = header === void 0 ? Number.NaN : retryHeaderAt(header, now2);
+  const retryAfter = header === void 0 ? Number.NaN : retryHeaderAt(header, now);
   const hints = [cooldown, retryAfter].filter((hint) => hint !== void 0 && Number.isFinite(hint));
-  return hints.length === 0 ? void 0 : Math.max(now2, ...hints);
+  return hints.length === 0 ? void 0 : Math.max(now, ...hints);
 };
 var causeOf = (status) => {
   if (status === TIMEOUT) {
@@ -63749,7 +63749,7 @@ var piThinker = (options2) => Layer22.merge(thinkerOf(options2), Layer22.succeed
 
 // src/plan-run-object.ts
 import { DurableObject as DurableObject2 } from "cloudflare:workers";
-import { Clock as Clock10, Effect as Effect57, Layer as Layer29, Option as Option40, Redacted as Redacted3, Schema as Schema81 } from "effect";
+import { Clock as Clock11, Effect as Effect58, Layer as Layer29, Option as Option41, Redacted as Redacted3, Schema as Schema81 } from "effect";
 import { FetchHttpClient as FetchHttpClient2 } from "effect/http";
 
 // src/abort-notices.ts
@@ -78837,12 +78837,12 @@ var decodeDidKey = (did2) => Effect112.try({
 });
 var NonceBinding = class extends Context32.Service()("ratking/NonceBinding") {
 };
-var makeMemoryNonceBinding = (now2 = Clock7.currentTimeMillis.pipe(Effect122.map((ms) => ms / 1e3))) => Effect122.sync(() => {
+var makeMemoryNonceBinding = (now = Clock7.currentTimeMillis.pipe(Effect122.map((ms) => ms / 1e3))) => Effect122.sync(() => {
   const bindings = /* @__PURE__ */ new Map();
   return NonceBinding.of({
     bind: Effect122.fn("NonceBinding.bind")(
       function* bindNonce(deskDid, nonce, identity, until) {
-        const current = yield* now2;
+        const current = yield* now;
         if (!Number.isFinite(current) || !Number.isFinite(until) || until < current) {
           return yield* refusal2(
             "Nonce refused",
@@ -79093,10 +79093,10 @@ var epoch = (value) => Schema322.decodeUnknownEffect(Schema322.DateTimeUtcFromSt
   Effect152.map(DateTime.toEpochMillis),
   Effect152.mapError(() => new TrustFailure({ reason: "Invalid record time" }))
 );
-var lifetime = Effect152.fn("Trust.lifetime")(function* checkLifetime(createdAt, expiresAt, now2) {
+var lifetime = Effect152.fn("Trust.lifetime")(function* checkLifetime(createdAt, expiresAt, now) {
   const created = yield* epoch(createdAt);
   const expires = yield* epoch(expiresAt);
-  if (created > now2 || expires <= now2 || expires <= created) {
+  if (created > now || expires <= now || expires <= created) {
     return yield* new TrustFailure({ reason: "Record is not currently valid" });
   }
   return expires;
@@ -79140,7 +79140,7 @@ var VerifiedInvite = Schema322.Struct({
   tier: Schema322.Literal(3)
 });
 var verifyInvite = Effect152.fn("Trust.verifyInvite")(
-  function* verifyInviteRecord(signed, scope, now2) {
+  function* verifyInviteRecord(signed, scope, now) {
     const { record } = signed;
     const grant = yield* verifyIssued(
       record,
@@ -79148,7 +79148,7 @@ var verifyInvite = Effect152.fn("Trust.verifyInvite")(
       signed.keyId,
       signed.signature
     );
-    yield* lifetime(record.createdAt, record.expiresAt, now2);
+    yield* lifetime(record.createdAt, record.expiresAt, now);
     if (!grant.namespaces.includes(record.namespace) || !scope.handle.startsWith(record.namespace) || scope.subject !== record.subject || scope.subjectKey !== record.subjectKey || !record.recipients.includes(scope.recipient)) {
       return yield* new TrustFailure({
         reason: "Invite is outside the requested scope"
@@ -79166,7 +79166,7 @@ var verifyInvite = Effect152.fn("Trust.verifyInvite")(
         revoked.keyId,
         revoked.signature
       );
-      if (revoked.record.issuer !== record.issuer || (yield* epoch(revoked.record.createdAt)) > now2) {
+      if (revoked.record.issuer !== record.issuer || (yield* epoch(revoked.record.createdAt)) > now) {
         return yield* new TrustFailure({
           reason: "Invalid revocation snapshot"
         });
@@ -79200,13 +79200,13 @@ var stranger = TrustResult.make({
   subject: null,
   tier: 0
 });
-var whoami = Effect152.fn("Trust.whoami")(function* inspectIdentity(credential, recipient, now2) {
+var whoami = Effect152.fn("Trust.whoami")(function* inspectIdentity(credential, recipient, now) {
   if (credential === void 0) {
     return stranger;
   }
   const { identity } = credential;
   const { record } = identity;
-  yield* lifetime(record.createdAt, record.expiresAt, now2);
+  yield* lifetime(record.createdAt, record.expiresAt, now);
   if ((yield* epoch(record.expiresAt)) - (yield* epoch(record.createdAt)) > 3e5) {
     return yield* new TrustFailure({
       reason: "Identity credential exceeds five minutes"
@@ -79232,7 +79232,7 @@ var whoami = Effect152.fn("Trust.whoami")(function* inspectIdentity(credential, 
       subject: record.subject,
       subjectKey: fingerprint
     },
-    now2
+    now
   );
   let tier = attested ? attestation.tier : 1;
   if (invite !== null && tier !== 4) {
@@ -79270,8 +79270,8 @@ var bytes2 = (record) => Effect162.try({
   ),
   try: () => encode7({ domain: "sh.ratking.delegation.v1", record })
 });
-var lifetime2 = (iat, exp, now2, cap) => {
-  if (!Number.isSafeInteger(iat) || !Number.isSafeInteger(exp) || !Number.isFinite(now2) || exp <= iat || exp - iat > cap || now2 < iat - 60 || now2 > exp + 60) {
+var lifetime2 = (iat, exp, now, cap) => {
+  if (!Number.isSafeInteger(iat) || !Number.isSafeInteger(exp) || !Number.isFinite(now) || exp <= iat || exp - iat > cap || now < iat - 60 || now > exp + 60) {
     return Effect162.fail(
       refusal2(
         "Lifetime refused",
@@ -79339,7 +79339,7 @@ var checkDidKey = Effect162.fn("Passes.checkDidKey")(function* checkDidKey2(did2
   return yield* Effect162.void;
 });
 var verifyTicket = Effect162.fn("Passes.verifyTicket")(
-  function* verifyTicketRecord(pinnedIssuers, input, now2) {
+  function* verifyTicketRecord(pinnedIssuers, input, now) {
     const signed = yield* decode42(SignedTicket, input);
     const { record } = signed;
     const issuer = pinnedIssuers.get(record.issuer);
@@ -79350,7 +79350,7 @@ var verifyTicket = Effect162.fn("Passes.verifyTicket")(
         "obtain a ticket from a trusted host issuer"
       );
     }
-    yield* lifetime2(record.iat, record.exp, now2, 900);
+    yield* lifetime2(record.iat, record.exp, now, 900);
     if (!new Set(issuer.namespaces).has(record.namespace) || !record.name.startsWith(
       record.namespace.endsWith("/") ? record.namespace : `${record.namespace}/`
     )) {
@@ -79376,12 +79376,12 @@ var verifyTicket = Effect162.fn("Passes.verifyTicket")(
   cryptoErrors
 );
 var verified = /* @__PURE__ */ Symbol("VerifiedPass");
-var deskAuthority = Effect162.fn("Passes.deskAuthority")(function* resolveDesk(authority, now2) {
+var deskAuthority = Effect162.fn("Passes.deskAuthority")(function* resolveDesk(authority, now) {
   if ("ticket" in authority) {
     const ticket = yield* verifyTicket(
       authority.pinnedIssuers,
       authority.ticket,
-      now2
+      now
     );
     return {
       did: ticket.record.did,
@@ -79395,11 +79395,11 @@ var deskAuthority = Effect162.fn("Passes.deskAuthority")(function* resolveDesk(a
   return { ...knownDesk, key };
 });
 var verifyPass = Effect162.fn("Passes.verifyPass")(
-  function* verifyPassRecord(authority, input, now2) {
+  function* verifyPassRecord(authority, input, now) {
     const signed = yield* decode42(SignedPass2, input);
     const { record } = signed;
-    const desk = yield* deskAuthority(authority, now2);
-    yield* lifetime2(record.iat, record.exp, now2, 600);
+    const desk = yield* deskAuthority(authority, now);
+    yield* lifetime2(record.iat, record.exp, now, 600);
     if (record.desk !== desk.name || record.deskDid !== desk.did || record.worker === record.deskDid) {
       return yield* refusal2(
         "Pass refused",
@@ -79727,8 +79727,8 @@ var authenticateClaims = Effect192.fn("ServiceAuth.authenticateClaims")(
     )(yield* json(claimsText)).pipe(
       Effect192.mapError(() => authFailure("AuthRequired", 401))
     );
-    const now2 = Math.floor(request2.now / 1e3);
-    if (claims.aud !== request2.audience || claims.lxm !== request2.nsid || claims.iat > now2 + (request2.skewSeconds ?? 0) || claims.exp <= now2 || claims.exp <= claims.iat || claims.exp - claims.iat > 60 || now2 - claims.iat > 60) {
+    const now = Math.floor(request2.now / 1e3);
+    if (claims.aud !== request2.audience || claims.lxm !== request2.nsid || claims.iat > now + (request2.skewSeconds ?? 0) || claims.exp <= now || claims.exp <= claims.iat || claims.exp - claims.iat > 60 || now - claims.iat > 60) {
       return yield* Effect192.fail(
         authFailure("AuthRequired", 401, "Invalid service-auth claims")
       );
@@ -79930,15 +79930,15 @@ var transportLayer = (endpoint, audience, identity) => Layer42.effect(
     return Transport.of({
       request: Effect242.fn("MailboxCli.request")(
         function* requestCall(request2) {
-          const now2 = Math.floor((yield* Clock22.currentTimeMillis) / 1e3);
+          const now = Math.floor((yield* Clock22.currentTimeMillis) / 1e3);
           const nonce = yield* Effect242.sync(
             () => base64url22(crypto.getRandomValues(new Uint8Array(16)))
           );
           const token = yield* serviceToken(
             {
               aud: audience,
-              exp: now2 + 60,
-              iat: now2,
+              exp: now + 60,
+              iat: now,
               iss: identity.did,
               jti: nonce,
               lxm: request2.nsid
@@ -80129,12 +80129,12 @@ var watch = (config, poll, afterSeq, fence) => Stream3.suspend(() => {
       );
       const reader = yield* socket.reader.pipe(Effect262.mapError(socketError));
       const writer = yield* socket.writer;
-      const now2 = Math.floor((yield* Clock32.currentTimeMillis) / 1e3);
+      const now = Math.floor((yield* Clock32.currentTimeMillis) / 1e3);
       const token = yield* serviceToken(
         {
           aud: config.serviceDid.replace(/(?:#mailbox)?$/u, "#mailbox"),
-          exp: now2 + 60,
-          iat: now2,
+          exp: now + 60,
+          iat: now,
           iss: config.identity.did,
           jti: base64url22(crypto.getRandomValues(new Uint8Array(16))),
           lxm: Method15.nsid
@@ -80468,8 +80468,8 @@ var layer = (config, resolverLayer = staticResolver(config.documents)) => Layer5
             reason: "Send fence DID differs from sender"
           });
         }
-        const now2 = yield* Clock42.currentTimeMillis;
-        const messageId = yield* Effect272.sync(() => randomTid(now2));
+        const now = yield* Clock42.currentTimeMillis;
+        const messageId = yield* Effect272.sync(() => randomTid(now));
         const aad = {
           messageId,
           recipientDid: to,
@@ -80628,10 +80628,10 @@ var consume2 = (mailbox, did2, handler, options2) => Effect292.scoped(
       [state3] = (0, import_xstate_cjs.transition)(consumerMachine, state3, { type: event });
     });
     const acquire = Effect292.gen(function* acquire2() {
-      const now2 = yield* Clock52.currentTimeMillis;
+      const now = yield* Clock52.currentTimeMillis;
       const input = {
         did: did2,
-        expiresAt: DateTime2.formatIso(DateTime2.makeUnsafe(now2 + 3e5)),
+        expiresAt: DateTime2.formatIso(DateTime2.makeUnsafe(now + 3e5)),
         harness: options2.harness
       };
       if (options2.renders !== void 0) {
@@ -80751,9 +80751,9 @@ var consume2 = (mailbox, did2, handler, options2) => Effect292.scoped(
         Effect292.option,
         Effect292.map(Option42.getOrUndefined)
       );
-      const now2 = yield* Clock52.currentTimeMillis;
+      const now = yield* Clock52.currentTimeMillis;
       let reason = "LeaseRenewalFailed";
-      if (Date.parse(current.expiresAt) <= now2) {
+      if (Date.parse(current.expiresAt) <= now) {
         reason = "LeaseExpired";
       }
       if (actual !== void 0 && (actual.leaseId !== current.leaseId || actual.generation !== current.generation)) {
@@ -80770,8 +80770,8 @@ var consume2 = (mailbox, did2, handler, options2) => Effect292.scoped(
     });
     let timedOut = false;
     const renew = Effect292.gen(function* renew2() {
-      const now2 = yield* Clock52.currentTimeMillis;
-      const remaining = Date.parse(current.expiresAt) - now2;
+      const now = yield* Clock52.currentTimeMillis;
+      const remaining = Date.parse(current.expiresAt) - now;
       if (remaining <= 0) {
         return yield* new MailboxClientError({
           error: "LeaseExpired",
@@ -81439,8 +81439,8 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
   let consuming = false;
   const sealEnvelopeForPeer = Effect342.fn("Mailbox.seal")(
     function* sealEnvelopeForPeer2(to, body, opts) {
-      const now2 = yield* Clock62.currentTimeMillis;
-      const messageId = randomTid(now2);
+      const now = yield* Clock62.currentTimeMillis;
+      const messageId = randomTid(now);
       const text = yield* Effect342.try({
         catch: () => new MailboxClientError({ reason: "Invalid message body factory" }),
         try: () => Match32.value(body).pipe(
@@ -81675,7 +81675,7 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
 
 // src/postbox-object.ts
 import { DurableObject } from "cloudflare:workers";
-import { Clock as Clock9, Effect as Effect56, Exit as Exit5, Layer as Layer28, Option as Option39, Schema as Schema80, Scope as Scope2 } from "effect";
+import { Effect as Effect57, Exit as Exit5, Layer as Layer28, Option as Option40, Schema as Schema80, Scope as Scope2 } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 // src/decode-delivery.ts
@@ -81720,7 +81720,16 @@ var decodeDelivery = (objectName, status, body) => {
 };
 
 // src/mailroom.ts
-import { Clock as Clock8, Effect as Effect53, Layer as Layer27, Option as Option34, Predicate as Predicate9, Schema as Schema76 } from "effect";
+import {
+  Clock as Clock8,
+  DateTime as DateTime3,
+  Effect as Effect53,
+  Layer as Layer27,
+  Option as Option34,
+  Predicate as Predicate9,
+  Schema as Schema76,
+  Stream as Stream4
+} from "effect";
 
 // src/fleet-names.ts
 import { Option as Option30, Schema as Schema71 } from "effect";
@@ -82004,7 +82013,7 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
     })
   );
   const aborts = postboxAborts(storage, send2);
-  const receive = (message, seq) => Effect51.gen(function* receiveMessage() {
+  const receive = (message) => Effect51.gen(function* receiveMessage() {
     const named2 = yield* Mailroom.use(
       (mailroom) => mailroom.nameOf(message.senderDid)
     );
@@ -82049,11 +82058,13 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
         );
       }
     }
+  });
+  const advance3 = (seq) => {
     storage.sql.exec(
-      "INSERT INTO postbox_cursor (id, seq) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET seq = excluded.seq",
+      "INSERT INTO postbox_cursor (id, seq) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET seq = MAX(seq, excluded.seq)",
       seq
     );
-  });
+  };
   const cursor = () => Option33.fromNullishOr(
     storage.sql.exec("SELECT seq FROM postbox_cursor WHERE id = 1").toArray()[0]
   ).pipe(
@@ -82062,6 +82073,7 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
   );
   return {
     abort: aborts.abort,
+    advance: advance3,
     cursor,
     flushAbortNotices: aborts.flush,
     markAborted: aborts.markAborted,
@@ -82072,7 +82084,31 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
 };
 
 // src/mailroom.ts
+var MESSAGE_EVENT = "sh.mschf.ratking.defs#messageEvent";
+var isMessage = (event) => event.$type === MESSAGE_EVENT && "envelope" in event && "receipt" in event;
+var seqOf = Schema76.decodeUnknownOption(Schema76.Struct({ seq: Schema76.Int }));
 var failed2 = (reason) => new PostboxFailed({ reason });
+var ATTEMPT_MS2 = 3e3;
+var HARNESS = {
+  $type: "sh.mschf.ratking.runtime.lease#other",
+  kind: "mischief-postbox"
+};
+var clientFailed = (call) => ({ error, reason }) => failed2(
+  `the mailbox ${call} failed${error === void 0 ? "" : ` (${error})`}: ${reason}`
+);
+var fenceOf = ({ did: did2, generation, leaseId }) => ({
+  did: did2,
+  generation,
+  leaseId
+});
+var expiredRefusal2 = ({ error, reason }) => error === "InvalidTransition" && reason === "Expired message";
+var settledRefusal2 = ({ error }) => error === "InvalidTransition";
+var skipOf = (state3) => {
+  if (state3 === "expired") {
+    return Option34.some("expired");
+  }
+  return state3 === "acked" ? Option34.some("settled") : Option34.none();
+};
 var StoredEnvelope = Schema76.fromJsonString(
   Schema76.StructWithRest(
     Schema76.Struct({ ciphertext: Schema76.String, enc: Schema76.String }),
@@ -82126,9 +82162,9 @@ var openMailroom = (config) => Effect53.gen(function* openMailroomFor() {
   const known = /* @__PURE__ */ new Set();
   const fence = Clock8.currentTimeMillis.pipe(
     Effect53.map(
-      (now2) => Option34.getOrUndefined(
+      (now) => Option34.getOrUndefined(
         Option34.map(
-          config.leases.held(now2),
+          config.leases.held(now),
           ({ did: did2, generation, leaseId }) => ({
             did: did2,
             generation,
@@ -82209,47 +82245,152 @@ ${body}`).pipe(
       tell
     })
   );
-  const consume4 = (handler, afterSeq) => fence.pipe(
-    Effect53.flatMap((resume) => {
-      const options2 = {
-        afterSeq,
-        harness: {
-          $type: "sh.mschf.ratking.runtime.lease#other",
-          kind: "mischief-postbox"
-        },
-        onLease: (lease) => Effect53.sync(() => {
-          config.leases.save({
-            did: config.identity.did,
-            expiresAt: Date.parse(lease.expiresAt),
-            generation: lease.generation,
-            leaseId: lease.leaseId
-          });
+  const { mailbox } = prepared;
+  const letter = (event, held) => {
+    const input = {
+      generation: held.generation,
+      leaseId: held.leaseId,
+      message: event.receipt.message
+    };
+    const { senderDid } = event.envelope.aad;
+    return {
+      ack: event.receipt.delegatedTo === void 0 ? mailbox.ack(input).pipe(
+        Effect53.catchIf(settledRefusal2, () => Effect53.void),
+        Effect53.asVoid,
+        Effect53.mapError(clientFailed("ack"))
+      ) : Effect53.void,
+      deliver: mailbox.deliver(input).pipe(
+        Effect53.map(({ receipt }) => skipOf(receipt.state)),
+        Effect53.catchIf(
+          expiredRefusal2,
+          () => Effect53.succeedSome("expired")
+        ),
+        Effect53.catchIf(
+          settledRefusal2,
+          () => Effect53.succeedSome("settled")
+        ),
+        Effect53.mapError(clientFailed("deliver"))
+      ),
+      open: mailbox.open(event.envelope, event.receipt).pipe(
+        Effect53.catchTag(
+          "MailboxClientError",
+          () => prepared.refresh(senderDid).pipe(
+            Effect53.tap(() => Effect53.sync(() => known.add(senderDid))),
+            Effect53.flatMap(() => prepared.open(event.envelope))
+          )
+        ),
+        Effect53.matchEffect({
+          onFailure: (failure5) => Effect53.logWarning(
+            `Postbox could not open message ${event.seq} from ${senderDid}: ${failure5.reason}`
+          ).pipe(Effect53.as(Option34.none())),
+          onSuccess: (opened) => Effect53.succeedSome(inboundOf(opened))
+        })
+      )
+    };
+  };
+  const inbox = {
+    acquire: (resume, expiresAt) => mailbox.lease.acquire(
+      Option34.match(resume, {
+        onNone: () => ({
+          did: config.identity.did,
+          expiresAt: DateTime3.formatIso(DateTime3.makeUnsafe(expiresAt)),
+          harness: HARNESS
         }),
-        onSkip: ({ reason, seq }) => Effect53.logWarning(`Postbox skipped message ${seq}: ${reason}`),
-        unopenable: (event) => prepared.refresh(event.envelope.aad.senderDid).pipe(
-          Effect53.tap(
-            () => Effect53.sync(() => known.add(event.envelope.aad.senderDid))
-          ),
-          Effect53.flatMap(() => prepared.open(event.envelope)),
-          Effect53.matchEffect({
-            onFailure: (failure5) => Effect53.logWarning(
-              `Postbox could not open message ${event.seq} from ${event.envelope.aad.senderDid}: ${failure5.reason}`
-            ).pipe(Effect53.as(Option34.none())),
-            onSuccess: (opened) => Effect53.succeed(Option34.some(opened))
+        onSome: ({ generation, leaseId }) => ({
+          did: config.identity.did,
+          expiresAt: DateTime3.formatIso(DateTime3.makeUnsafe(expiresAt)),
+          generation,
+          harness: HARNESS,
+          leaseId
+        })
+      })
+    ).pipe(
+      Effect53.timeoutOrElse({
+        duration: ATTEMPT_MS2,
+        orElse: () => Effect53.fail(failed2(`acquire: no answer in ${ATTEMPT_MS2} ms`))
+      }),
+      Effect53.map((lease) => ({
+        did: config.identity.did,
+        expiresAt: Date.parse(lease.expiresAt),
+        generation: lease.generation,
+        leaseId: lease.leaseId
+      })),
+      Effect53.mapError(
+        (failure5) => Schema76.is(PostboxFailed)(failure5) ? failure5 : clientFailed("acquire")(failure5)
+      )
+    ),
+    page: (held, afterSeq, limit2) => mailbox.list({ afterSeq, limit: limit2 }).pipe(
+      Effect53.map(
+        ({ events }) => events.flatMap(
+          (event) => isMessage(event) ? [{ letter: Option34.some(letter(event, held)), seq: event.seq }] : Option34.match(seqOf(event), {
+            onNone: () => [],
+            onSome: ({ seq }) => [{ letter: Option34.none(), seq }]
           })
         )
-      };
-      return prepared.consume(
-        (message, { seq }) => handler(inboundOf(message), seq),
-        resume === void 0 ? options2 : { ...options2, resume }
-      );
+      ),
+      Effect53.mapError(clientFailed("list"))
+    ),
+    wait: (held, afterSeq, within) => mailbox.watch(afterSeq, fenceOf(held)).pipe(
+      Stream4.runHead,
+      Effect53.timeoutOption(within),
+      Effect53.map((woken) => Option34.isSome(Option34.flatten(woken))),
+      Effect53.mapError(clientFailed("watch"))
+    )
+  };
+  return { inbox, layer: layer2 };
+});
+
+// src/postbox-inbox.ts
+import { Clock as Clock9, Effect as Effect54, Option as Option35 } from "effect";
+var LEASE_TTL_MS = 3e5;
+var LONG_POLL_MS = 2e4;
+var PAGE_LIMIT = 10;
+var leaseFor = Effect54.fn("postboxLease")(function* postboxLease(inbox, leases) {
+  const now = yield* Clock9.currentTimeMillis;
+  const lease = yield* inbox.acquire(leases.held(now), now + LEASE_TTL_MS);
+  leases.save(lease);
+  return lease;
+});
+var skipped = (seq, reason) => Effect54.logWarning(`Postbox skipped message ${seq}: ${reason}`);
+var take = (event, inlet) => Option35.match(event.letter, {
+  onNone: () => Effect54.void,
+  onSome: (letter) => Effect54.gen(function* takeLetter() {
+    const opened = yield* letter.open;
+    if (Option35.isNone(opened)) {
+      return yield* skipped(event.seq, "unopenable");
+    }
+    const settled2 = yield* letter.deliver;
+    if (Option35.isSome(settled2)) {
+      return yield* skipped(event.seq, settled2.value);
+    }
+    yield* inlet.receive(opened.value);
+    return yield* letter.ack;
+  })
+}).pipe(
+  Effect54.andThen(
+    Effect54.sync(() => {
+      inlet.advance(event.seq);
     })
-  );
-  return { consume: consume4, layer: layer2 };
+  )
+);
+var readBatch = Effect54.fn("readPostboxBatch")(function* readBatch2(inbox, inlet) {
+  const lease = yield* leaseFor(inbox, inlet.leases);
+  const afterSeq = inlet.cursor();
+  const events = yield* inbox.page(lease, afterSeq, PAGE_LIMIT);
+  if (events.length === 0) {
+    const woken = yield* inbox.wait(lease, afterSeq, LONG_POLL_MS);
+    const outcome2 = woken ? "more" : "idle";
+    return outcome2;
+  }
+  yield* Effect54.forEach(events, (event) => take(event, inlet), {
+    discard: true
+  });
+  const outcome = "more";
+  return outcome;
 });
 
 // src/postbox-lease.ts
-import { Option as Option35, Schema as Schema77 } from "effect";
+import { Option as Option36, Schema as Schema77 } from "effect";
 var LEASE = "CREATE TABLE IF NOT EXISTS postbox_lease (id INTEGER PRIMARY KEY CHECK (id = 1), did TEXT NOT NULL, lease_id TEXT NOT NULL, generation INTEGER NOT NULL, expires_at INTEGER NOT NULL)";
 var Row = Schema77.Struct({
   did: Schema77.String,
@@ -82260,18 +82401,18 @@ var Row = Schema77.Struct({
 var leaseBook = (storage) => {
   storage.sql.exec(LEASE);
   return {
-    held: (now2) => Option35.filter(
-      Option35.map(
-        Option35.fromNullishOr(
+    held: (now) => Option36.filter(
+      Option36.map(
+        Option36.fromNullishOr(
           storage.sql.exec(
             "SELECT did, lease_id, generation, expires_at FROM postbox_lease WHERE id = 1"
           ).toArray()[0]
         ),
         (row2) => Schema77.decodeUnknownOption(Row)(row2)
-      ).pipe(Option35.flatten),
-      (row2) => row2.expires_at > now2
+      ).pipe(Option36.flatten),
+      (row2) => row2.expires_at > now
     ).pipe(
-      Option35.map((row2) => ({
+      Option36.map((row2) => ({
         did: row2.did,
         expiresAt: row2.expires_at,
         generation: row2.generation,
@@ -82291,7 +82432,7 @@ var leaseBook = (storage) => {
 };
 
 // src/postbox-reader-failed.ts
-import { Cause as Cause4, Option as Option36, Schema as Schema78 } from "effect";
+import { Cause as Cause4, Option as Option37, Schema as Schema78 } from "effect";
 var PostboxReaderFailed = class _PostboxReaderFailed extends Schema78.TaggedError()(
   "PostboxReaderFailed",
   {
@@ -82300,7 +82441,7 @@ var PostboxReaderFailed = class _PostboxReaderFailed extends Schema78.TaggedErro
   }
 ) {
   static fromCause(cause) {
-    const reason = Option36.match(Cause4.findErrorOption(cause), {
+    const reason = Option37.match(Cause4.findErrorOption(cause), {
       onNone: () => Cause4.pretty(cause),
       onSome: (error) => Schema78.is(PostboxFailed)(error) ? error.reason : Cause4.pretty(cause)
     });
@@ -82311,119 +82452,133 @@ var PostboxReaderFailed = class _PostboxReaderFailed extends Schema78.TaggedErro
   }
 };
 
-// src/postbox-reader-watchdog.ts
-import { Effect as Effect54, Option as Option37 } from "effect";
-var postboxReaderWatchdog = (actor) => {
-  const before = actor.getSnapshot();
-  if (before.matches("consuming") || before.matches("wiring") || before.status === "done") {
-    return Option37.none();
-  }
-  return Option37.some(
-    send(actor, { type: "WATCHDOG" }).pipe(
-      Effect54.andThen(
-        waitFor2(
-          actor,
-          (snapshot) => snapshot !== before && (snapshot.matches("dbMissing") || snapshot.matches("retrying") || snapshot.matches("stopped"))
-        )
-      ),
-      Effect54.asVoid
-    )
-  );
-};
+// src/postbox-reader-host.ts
+import { Clock as Clock10, Effect as Effect56, Option as Option38 } from "effect";
 
 // src/postbox-reader.ts
 import { Context as Context29, Effect as Effect55 } from "effect";
+var READ_DEADLINE_MS = 2 * LONG_POLL_MS + 5e3;
 var PostboxReader = class extends Context29.Service()("@mischief/worker/PostboxReader") {
 };
 var wire = createEffectLogic({
   effect: () => PostboxReader.use((reader) => reader.wire)
 });
-var consume3 = createEffectLogic({
-  effect: ({ input }) => PostboxReader.use((reader) => reader.consume(input)),
+var read5 = createEffectLogic({
+  effect: ({ input }) => PostboxReader.use((reader) => reader.read(input)),
   schemas: { input: (0, import_xstate_cjs.types)() }
 });
 var postboxReaderMachine = setupEffect({
-  actors: { consume: consume3, wire },
+  actors: { read: read5, wire },
   schemas: {
     context: (0, import_xstate_cjs.types)()
   }
 }).createMachine({
-  context: { afterWiring: "ready", failure: void 0, mailroom: void 0 },
-  initial: "idle",
-  on: { STOP: { target: ".stopped" } },
+  context: { failure: void 0, mailroom: void 0, outcome: void 0 },
+  id: "postboxReader",
+  initial: "turn",
   states: {
-    consuming: {
-      invoke: {
-        input: ({ context }) => {
-          if (context.mailroom === void 0) {
-            throw new Error(
-              "Postbox reader cannot consume before wiring finishes"
-            );
+    failed: { type: "final" },
+    read: { type: "final" },
+    stalled: { type: "final" },
+    turn: {
+      initial: "wiring",
+      onTimeout: { target: "stalled" },
+      states: {
+        reading: {
+          invoke: {
+            input: ({ context }) => {
+              if (context.mailroom === void 0) {
+                throw new Error(
+                  "Postbox reader cannot read before this turn's wiring finishes"
+                );
+              }
+              return context.mailroom;
+            },
+            onDone: ({ event }) => ({
+              context: { outcome: event.output },
+              target: "#postboxReader.read"
+            }),
+            onError: ({ event }) => ({
+              context: { failure: event.error },
+              target: "#postboxReader.failed"
+            }),
+            src: "read"
           }
-          return context.mailroom;
         },
-        onDone: { target: "retrying" },
-        onError: ({ event }) => ({
-          context: { failure: event.error },
-          target: event.error.kind === "DatabaseMissing" ? "dbMissing" : "retrying"
-        }),
-        src: "consume"
-      }
-    },
-    dbMissing: {
-      on: {
-        START: { context: { afterWiring: "ready" }, target: "resuming" },
-        WATCHDOG: { context: { afterWiring: "consuming" }, target: "resuming" }
-      }
-    },
-    idle: {
-      on: {
-        START: { target: "wiring" },
-        WATCHDOG: { context: { afterWiring: "consuming" }, target: "wiring" }
-      }
-    },
-    ready: {
-      on: { WATCHDOG: { target: "consuming" } }
-    },
-    resuming: {
-      always: ({ context }) => ({
-        context: { failure: void 0 },
-        target: context.mailroom === void 0 ? "wiring" : context.afterWiring
-      })
-    },
-    retrying: {
-      on: {
-        START: { context: { afterWiring: "ready" }, target: "resuming" },
-        WATCHDOG: { context: { afterWiring: "consuming" }, target: "resuming" }
-      }
-    },
-    stopped: { type: "final" },
-    wiring: {
-      invoke: {
-        onDone: ({ context, event }) => ({
-          context: { mailroom: event.output },
-          target: context.afterWiring
-        }),
-        onError: ({ event }) => ({
-          context: { failure: event.error },
-          target: event.error.kind === "DatabaseMissing" ? "dbMissing" : "retrying"
-        }),
-        src: "wire"
+        wiring: {
+          invoke: {
+            onDone: ({ event }) => ({
+              context: { mailroom: event.output },
+              target: "reading"
+            }),
+            onError: ({ event }) => ({
+              context: { failure: event.error },
+              target: "#postboxReader.failed"
+            }),
+            src: "wire"
+          }
+        }
       },
-      on: { WATCHDOG: { context: { afterWiring: "consuming" } } }
+      timeout: READ_DEADLINE_MS
     }
   }
 });
-var startPostboxReader = Effect55.fn("startPostboxReader")(
-  function* startPostboxReader2() {
+var endingOf = (snapshot) => {
+  if (snapshot.matches("read")) {
+    return snapshot.context.outcome ?? "idle";
+  }
+  return snapshot.matches("stalled") ? "stalled" : "failed";
+};
+var STALLED = `the Postbox reader made no progress in ${READ_DEADLINE_MS / 1e3} s (twice the ${LONG_POLL_MS / 1e3} s long-poll plus margin), so this alarm stopped it; the next alarm wires a fresh client. Next check: if this repeats, look in the celld journal for a lease acquire-attempt with no answer, then probe MISCHIEF_MAILBOX_URL from the celld host`;
+var readerTurn = Effect55.fn("postboxReaderTurn")(
+  function* postboxReaderTurn() {
     const actor = yield* createEffectActor(postboxReaderMachine);
     yield* watchActor("postboxReaderMachine", actor);
-    return actor;
-  }
+    const ended = yield* waitFor2(
+      actor,
+      (snapshot) => snapshot.status === "done"
+    );
+    const { context } = ended;
+    const ending = endingOf(ended);
+    if (ending === "stalled") {
+      yield* Effect55.logWarning(STALLED);
+    }
+    if (ending === "failed") {
+      yield* Effect55.logWarning(
+        `the Postbox reader stopped (${context.failure?.kind ?? "Unavailable"}: ${context.failure?.reason ?? "no reason"}); the next alarm wires a fresh client`
+      );
+    }
+    return ending;
+  },
+  Effect55.scoped
 );
 
+// src/postbox-reader-host.ts
+var readerHost = (alarms, reader) => {
+  const turn = Effect56.scopedWith(
+    (scope) => readerTurn().pipe(Effect56.provideService(PostboxReader, reader(scope)))
+  );
+  return {
+    alarm: Effect56.gen(function* postboxAlarm() {
+      const started = yield* Clock10.currentTimeMillis;
+      yield* alarms.set(started + LONG_POLL_MS);
+      const ending = yield* turn;
+      if (ending === "more") {
+        yield* alarms.set(yield* Clock10.currentTimeMillis);
+      }
+      return ending;
+    }),
+    start: Effect56.gen(function* ensureReaderAlarm() {
+      const armed = yield* alarms.get;
+      if (Option38.isNone(armed)) {
+        yield* alarms.set(yield* Clock10.currentTimeMillis);
+      }
+    })
+  };
+};
+
 // src/think-tally.ts
-import { DateTime as DateTime3, Option as Option38, Schema as Schema79 } from "effect";
+import { DateTime as DateTime4, Option as Option39, Schema as Schema79 } from "effect";
 var DAY_WARN_FLOOR_TOKENS = 15e5;
 var DAY_WARN_HISTORY_DAYS = 7;
 var DAY_WARN_MEDIAN_MULTIPLE = 2;
@@ -82434,9 +82589,9 @@ var RUNS = "CREATE TABLE IF NOT EXISTS mischief_think_runs (run_id TEXT PRIMARY 
 var STEPS = "CREATE TABLE IF NOT EXISTS mischief_think_steps (run_id TEXT NOT NULL, key TEXT NOT NULL, calls INTEGER NOT NULL, PRIMARY KEY (run_id, key))";
 var BIG_CALLS = "CREATE TABLE IF NOT EXISTS mischief_think_big_calls (run_id TEXT PRIMARY KEY)";
 var Totals = Schema79.Struct({ calls: Schema79.Finite, tokens: Schema79.Finite });
-var totalsOf = (rows) => Option38.getOrElse(
-  Option38.fromNullishOr(rows[0]).pipe(
-    Option38.flatMap(Schema79.decodeUnknownOption(Totals))
+var totalsOf = (rows) => Option39.getOrElse(
+  Option39.fromNullishOr(rows[0]).pipe(
+    Option39.flatMap(Schema79.decodeUnknownOption(Totals))
   ),
   () => ({ calls: 0, tokens: 0 })
 );
@@ -82538,7 +82693,7 @@ var dayTotals = (storage, day) => {
     storage.sql.exec("SELECT calls, tokens FROM mischief_think_days WHERE day = ?", day).toArray()
   );
 };
-var utcDay = (millis) => DateTime3.formatIsoDateUtc(DateTime3.makeUnsafe(millis));
+var utcDay = (millis) => DateTime4.formatIsoDateUtc(DateTime4.makeUnsafe(millis));
 var warnText = (crossing, runId2, key, {
   day,
   dayWarning: warning,
@@ -82583,14 +82738,13 @@ var warnText = (crossing, runId2, key, {
 
 // src/postbox-object.ts
 var POSTBOX_NAME = "mischief/worker";
-var WATCHDOG_MS = 6e4;
 var NOT_WIRED = "Rat King mail is not wired on this host: set MISCHIEF_IDENTITY (the mischief/worker identity, from the host's 0600 bindings file), MISCHIEF_MAILBOX_URL and MISCHIEF_MAILBOX_DID, then redeploy";
 var posted2 = async (effect) => {
-  const exit = await Effect56.runPromiseExit(effect);
+  const exit = await Effect57.runPromiseExit(effect);
   return Exit5.match(exit, {
     onFailure: () => ({
       ok: false,
-      reason: Option39.match(Exit5.findErrorOption(exit), {
+      reason: Option40.match(Exit5.findErrorOption(exit), {
         onNone: () => "the Postbox failed unexpectedly; see the celld journal",
         onSome: ({ reason }) => reason
       })
@@ -82598,70 +82752,68 @@ var posted2 = async (effect) => {
     onSuccess: (value) => ({ ok: true, ...value })
   });
 };
-var now = () => Effect56.runSync(Clock9.currentTimeMillis);
 var Postbox = class extends DurableObject {
   box;
-  scope = Effect56.runSync(Scope2.make());
-  reader;
+  leases;
+  host;
+  mailWired;
+  scope = Effect57.runSync(Scope2.make());
+  opened;
   constructor(ctx, env) {
     super(ctx, env);
     this.box = postbox(ctx.storage);
-    this.reader = Effect56.runPromise(
-      startPostboxReader().pipe(
-        Effect56.provideService(PostboxReader, {
-          consume: ({ consume: consume4, layer: layer2 }) => Effect56.suspend(
-            () => consume4(
-              (message, seq) => this.box.receive(message, seq).pipe(Effect56.provide(Layer28.merge(layer2, this.runs))),
-              this.box.cursor()
-            )
-          ).pipe(
-            Effect56.catchCause(
-              (cause) => Effect56.logWarning(
-                "the Postbox reader stopped; the watchdog restarts it",
-                cause
-              ).pipe(
-                Effect56.andThen(
-                  Effect56.fail(PostboxReaderFailed.fromCause(cause))
-                )
-              )
-            )
-          ),
-          wire: Effect56.suspend(() => this.open()).pipe(
-            Effect56.catchCause(
-              (cause) => Effect56.fail(PostboxReaderFailed.fromCause(cause))
-            )
-          )
-        }),
-        Scope2.provide(this.scope)
-      )
+    this.leases = leaseBook(ctx.storage);
+    this.mailWired = env.MISCHIEF_IDENTITY !== void 0 && env.MISCHIEF_IDENTITY !== "";
+    this.host = readerHost(
+      {
+        get: Effect57.promise(async () => await ctx.storage.getAlarm()).pipe(
+          Effect57.map(Option40.fromNullishOr)
+        ),
+        set: (at) => Effect57.promise(async () => {
+          await ctx.storage.setAlarm(at);
+        })
+      },
+      (turn) => this.readerIn(turn)
+    );
+    void ctx.blockConcurrencyWhile(async () => {
+      await this.start();
+    });
+  }
+  sender() {
+    return Effect57.suspend(
+      () => this.opened === void 0 ? this.open().pipe(
+        Scope2.provide(this.scope),
+        Effect57.tap(
+          (opened) => Effect57.sync(() => {
+            this.opened = opened;
+          })
+        )
+      ) : Effect57.succeed(this.opened)
     );
   }
-  wired() {
-    return Effect56.promise(async () => await this.reader).pipe(
-      Effect56.flatMap((actor) => {
-        const current = actor.getSnapshot().context;
-        if (current.mailroom !== void 0) {
-          return Effect56.succeed(actor.getSnapshot());
-        }
-        const previousFailure = current.failure;
-        return send(actor, { type: "START" }).pipe(
-          Effect56.andThen(
-            waitFor2(
-              actor,
-              (snapshot) => snapshot.context.mailroom !== void 0 || snapshot.context.failure !== void 0 && snapshot.context.failure !== previousFailure || snapshot.status === "done"
-            )
-          )
-        );
-      }),
-      Effect56.orDie,
-      Effect56.flatMap(
-        ({ context }) => context.mailroom === void 0 ? Effect56.fail(
-          new PostboxFailed({
-            reason: context.failure?.reason ?? NOT_WIRED
-          })
-        ) : Effect56.succeed(context.mailroom)
+  readerIn(scope) {
+    return PostboxReader.of({
+      read: ({ inbox, layer: layer2 }) => Effect57.suspend(
+        () => readBatch(inbox, {
+          advance: (seq) => {
+            this.box.advance(seq);
+          },
+          cursor: () => this.box.cursor(),
+          leases: this.leases,
+          receive: (message) => this.box.receive(message).pipe(Effect57.provide(Layer28.merge(layer2, this.runs)))
+        })
+      ).pipe(
+        Effect57.catchCause(
+          (cause) => Effect57.fail(PostboxReaderFailed.fromCause(cause))
+        )
+      ),
+      wire: Effect57.suspend(() => this.open()).pipe(
+        Scope2.provide(scope),
+        Effect57.catchCause(
+          (cause) => Effect57.fail(PostboxReaderFailed.fromCause(cause))
+        )
       )
-    );
+    });
   }
   open() {
     const identity = Schema80.decodeUnknownOption(
@@ -82669,23 +82821,20 @@ var Postbox = class extends DurableObject {
     )(this.env.MISCHIEF_IDENTITY ?? "");
     const endpoint = this.env.MISCHIEF_MAILBOX_URL ?? "";
     const serviceDid = this.env.MISCHIEF_MAILBOX_DID ?? "";
-    if (Option39.isNone(identity) || endpoint === "" || serviceDid === "") {
-      return Effect56.fail(new PostboxFailed({ reason: NOT_WIRED }));
+    if (Option40.isNone(identity) || endpoint === "" || serviceDid === "") {
+      return Effect57.fail(new PostboxFailed({ reason: NOT_WIRED }));
     }
     return openMailroom({
       endpoint,
       identity: identity.value,
-      leases: leaseBook(this.ctx.storage),
+      leases: this.leases,
       serviceDid
-    }).pipe(
-      Scope2.provide(this.scope),
-      Effect56.provide(Layer28.merge(FetchHttpClient.layer, webCrypto))
-    );
+    }).pipe(Effect57.provide(Layer28.merge(FetchHttpClient.layer, webCrypto)));
   }
   runs = Layer28.succeed(
     Runs3,
     Runs3.of({
-      deliver: (objectName, line) => Effect56.tryPromise({
+      deliver: (objectName, line) => Effect57.tryPromise({
         catch: () => new PostboxFailed({ reason: `run ${objectName} did not answer` }),
         try: async () => {
           const run2 = this.env.PLAN_RUN.get(
@@ -82701,7 +82850,7 @@ var Postbox = class extends DurableObject {
           return { body: await response.text(), status: response.status };
         }
       }).pipe(
-        Effect56.flatMap(
+        Effect57.flatMap(
           ({ body, status }) => decodeDelivery(objectName, status, body)
         )
       )
@@ -82710,9 +82859,9 @@ var Postbox = class extends DurableObject {
   async seal(objectName, to, body) {
     await this.start();
     return await posted2(
-      this.wired().pipe(
-        Effect56.flatMap(
-          ({ layer: layer2 }) => this.box.seal(objectName, to, body).pipe(Effect56.provide(layer2))
+      this.sender().pipe(
+        Effect57.flatMap(
+          ({ layer: layer2 }) => this.box.seal(objectName, to, body).pipe(Effect57.provide(layer2))
         )
       )
     );
@@ -82721,13 +82870,13 @@ var Postbox = class extends DurableObject {
     this.box.markAborted(objectName, reason);
     await this.start();
     this.ctx.waitUntil(
-      Effect56.runPromise(
-        this.wired().pipe(
-          Effect56.flatMap(
-            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect56.provide(layer2))
+      Effect57.runPromise(
+        this.sender().pipe(
+          Effect57.flatMap(
+            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect57.provide(layer2))
           ),
-          Effect56.catchCause(
-            (cause) => Effect56.logWarning("abort reply notices remain pending", cause)
+          Effect57.catchCause(
+            (cause) => Effect57.logWarning("abort reply notices remain pending", cause)
           )
         )
       )
@@ -82736,9 +82885,9 @@ var Postbox = class extends DurableObject {
   }
   async send(envelope) {
     return await posted2(
-      this.wired().pipe(
-        Effect56.flatMap(
-          ({ layer: layer2 }) => this.box.send(envelope).pipe(Effect56.provide(layer2), Effect56.as({}))
+      this.sender().pipe(
+        Effect57.flatMap(
+          ({ layer: layer2 }) => this.box.send(envelope).pipe(Effect57.provide(layer2), Effect57.as({}))
         )
       )
     );
@@ -82755,29 +82904,27 @@ var Postbox = class extends DurableObject {
     };
   }
   async start() {
-    if (await this.ctx.storage.getAlarm() === null) {
-      await this.ctx.storage.setAlarm(now());
+    if (this.mailWired) {
+      await Effect57.runPromise(this.host.start);
     }
   }
   async alarm() {
-    await this.ctx.storage.setAlarm(now() + WATCHDOG_MS);
+    if (!this.mailWired) {
+      return;
+    }
     this.ctx.waitUntil(
-      Effect56.runPromise(
-        this.wired().pipe(
-          Effect56.flatMap(
-            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect56.provide(layer2))
+      Effect57.runPromise(
+        this.sender().pipe(
+          Effect57.flatMap(
+            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect57.provide(layer2))
           ),
-          Effect56.catchCause(
-            (cause) => Effect56.logWarning("abort reply notices remain pending", cause)
+          Effect57.catchCause(
+            (cause) => Effect57.logWarning("abort reply notices remain pending", cause)
           )
         )
       )
     );
-    const wake2 = postboxReaderWatchdog(await this.reader);
-    if (Option39.isNone(wake2)) {
-      return;
-    }
-    this.ctx.waitUntil(Effect56.runPromise(wake2.value));
+    await Effect57.runPromise(this.host.alarm);
   }
 };
 
@@ -82804,8 +82951,8 @@ var thinkerFor = (env, storageFor) => {
 var judgeFor = (env, storage) => {
   const key = env.MISCHIEF_JEV_KEY ?? "";
   return judgeChosenPerCall({
-    fallback: Option40.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
-    jev: key === "" ? Option40.none() : Option40.some(
+    fallback: Option41.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
+    jev: key === "" ? Option41.none() : Option41.some(
       jevJudge({ apiKey: Redacted3.make(key) }).pipe(
         Layer29.provide(FetchHttpClient2.layer)
       )
@@ -82818,7 +82965,7 @@ var PlanRun = class extends DurableObject2 {
   constructor(ctx, env, callables = /* @__PURE__ */ new Map()) {
     super(ctx, env);
     let opened;
-    const storageFor = () => Effect57.tryPromise({
+    const storageFor = () => Effect58.tryPromise({
       catch: (cause) => new StepFailed({
         key: "__thinking",
         reason: `could not open the thinking store in this run's Durable Object: ${String(cause)}. Resume the run; if it fails again, check the object's SQLite storage is enabled`
@@ -82836,14 +82983,14 @@ var PlanRun = class extends DurableObject2 {
       storage: ctx.storage
     };
     const mailWired = env.MISCHIEF_IDENTITY !== void 0 && env.MISCHIEF_IDENTITY !== "";
-    const mailEscalation = mailWired ? escalate(mailPorts) : () => Effect57.void;
-    const mailDesk = mailWired ? mailOnce(mailPorts) : () => Effect57.void;
-    const thought2 = (runId2, key, receipt) => Effect57.gen(function* tallied() {
-      const today = utcDay(yield* Clock10.currentTimeMillis);
-      const totals = yield* Effect57.tryPromise(
+    const mailEscalation = mailWired ? escalate(mailPorts) : () => Effect58.void;
+    const mailDesk = mailWired ? mailOnce(mailPorts) : () => Effect58.void;
+    const thought2 = (runId2, key, receipt) => Effect58.gen(function* tallied() {
+      const today = utcDay(yield* Clock11.currentTimeMillis);
+      const totals = yield* Effect58.tryPromise(
         async () => await postbox2().tallyThink(today, runId2, key, receipt.tokens.total)
       );
-      yield* Effect57.forEach(
+      yield* Effect58.forEach(
         totals.crossed,
         (crossing) => mailDesk(
           runId2,
@@ -82854,8 +83001,8 @@ var PlanRun = class extends DurableObject2 {
         { discard: true }
       );
     }).pipe(
-      Effect57.catchCause(
-        (cause) => Effect57.logWarning(
+      Effect58.catchCause(
+        (cause) => Effect58.logWarning(
           `${runId2} think telemetry for ${key} was not tallied: ${String(cause)}`
         )
       )
@@ -82864,24 +83011,24 @@ var PlanRun = class extends DurableObject2 {
     const operator = Layer29.succeed(
       Operator,
       Operator.of({
-        aborted: mailWired ? abortNotices(ctx.storage, postbox2) : () => Effect57.void,
-        failed: (runId2, failures, notice) => Effect57.logWarning(
+        aborted: mailWired ? abortNotices(ctx.storage, postbox2) : () => Effect58.void,
+        failed: (runId2, failures, notice) => Effect58.logWarning(
           `${runId2} failed at ${failures.map(({ key }) => key).join(", ")}`
         ).pipe(
-          Effect57.andThen(
+          Effect58.andThen(
             mailEscalation(runId2, notice, failedText(runId2, failures))
           )
         ),
-        held: (runId2, held, notice) => Effect57.logWarning(
+        held: (runId2, held, notice) => Effect58.logWarning(
           `${runId2} is held at ${held.key}: ${held.provider} ${held.cause}`
         ).pipe(
-          Effect57.andThen(mailEscalation(runId2, notice, heldText(runId2, held)))
+          Effect58.andThen(mailEscalation(runId2, notice, heldText(runId2, held)))
         ),
-        holdAlarm: mailWired ? alarmOnHolds(mailPorts, alarmTargets) : () => Effect57.void,
-        notify: (runId2, question, notice) => Effect57.logInfo(
+        holdAlarm: mailWired ? alarmOnHolds(mailPorts, alarmTargets) : () => Effect58.void,
+        notify: (runId2, question, notice) => Effect58.logInfo(
           `${runId2} waits on ${question.key}: ${question.question}`
         ).pipe(
-          Effect57.andThen(
+          Effect58.andThen(
             mailEscalation(runId2, notice, escalationText(runId2, question))
           )
         ),
@@ -82972,7 +83119,7 @@ var registeredCallables = (entries2) => {
 import { DurableObject as DurableObject3 } from "cloudflare:workers";
 
 // src/wake-runs.ts
-import { Effect as Effect58, Option as Option41, Schema as Schema84 } from "effect";
+import { Effect as Effect59, Option as Option43, Schema as Schema84 } from "effect";
 var SUBMIT_WAIT_MS = 5e3;
 var decodeReport = Schema84.decodeUnknownOption(RunReportSchema);
 var decodeRefused = Schema84.decodeUnknownOption(PlanRefused);
@@ -82984,7 +83131,7 @@ var bodyOf = async (response) => {
     return null;
   }
 };
-var answered = (scheduleId2, runId2, step, pending) => Effect58.tryPromise({
+var answered = (scheduleId2, runId2, step, pending) => Effect59.tryPromise({
   catch: (cause) => new WakeUnanswered({
     reason: `did not answer: ${String(cause)}`,
     runId: runId2,
@@ -82993,16 +83140,16 @@ var answered = (scheduleId2, runId2, step, pending) => Effect58.tryPromise({
   }),
   try: pending
 });
-var unanswered = (scheduleId2, runId2, step, reason) => Effect58.fail(new WakeUnanswered({ reason, runId: runId2, scheduleId: scheduleId2, step }));
+var unanswered = (scheduleId2, runId2, step, reason) => Effect59.fail(new WakeUnanswered({ reason, runId: runId2, scheduleId: scheduleId2, step }));
 var wakeRuns = (objects, storage, keepAlive) => {
-  const scheduleFor = Effect58.suspend(
-    () => Option41.match(objectOf(storage), {
-      onNone: () => Effect58.die(
+  const scheduleFor = Effect59.suspend(
+    () => Option43.match(objectOf(storage), {
+      onNone: () => Effect59.die(
         "this schedule never learned its owner's DID; create it again through the Mischief worker"
       ),
       onSome: (name) => {
         const owner = name.slice(0, name.lastIndexOf("/"));
-        return Effect58.succeed({
+        return Effect59.succeed({
           owner,
           scheduleId: name.slice(owner.length + 1)
         });
@@ -83024,7 +83171,7 @@ var wakeRuns = (objects, storage, keepAlive) => {
   };
   return {
     abort: (runId2, reason) => scheduleFor.pipe(
-      Effect58.flatMap(
+      Effect59.flatMap(
         ({ owner, scheduleId: scheduleId2 }) => answered(
           scheduleId2,
           runId2,
@@ -83036,8 +83183,8 @@ var wakeRuns = (objects, storage, keepAlive) => {
             reason === void 0 ? { runId: runId2 } : { reason, runId: runId2 }
           )
         ).pipe(
-          Effect58.flatMap(
-            ({ body, status }) => status === 200 || Option41.isSome(decodeUnknown(body)) ? Effect58.void : unanswered(
+          Effect59.flatMap(
+            ({ body, status }) => status === 200 || Option43.isSome(decodeUnknown(body)) ? Effect59.void : unanswered(
               scheduleId2,
               runId2,
               "abortRun",
@@ -83048,26 +83195,26 @@ var wakeRuns = (objects, storage, keepAlive) => {
       )
     ),
     inspect: (runId2) => scheduleFor.pipe(
-      Effect58.flatMap(
+      Effect59.flatMap(
         ({ owner, scheduleId: scheduleId2 }) => answered(
           scheduleId2,
           runId2,
           "inspectRun",
           async () => await call(owner, runId2, "inspectRun", { runId: runId2 })
         ).pipe(
-          Effect58.flatMap(({ body, status }) => {
+          Effect59.flatMap(({ body, status }) => {
             if (status === 200) {
-              return Option41.match(decodeReport(body), {
+              return Option43.match(decodeReport(body), {
                 onNone: () => unanswered(
                   scheduleId2,
                   runId2,
                   "inspectRun",
                   "answered 200 with no run report"
                 ),
-                onSome: Effect58.succeedSome
+                onSome: Effect59.succeedSome
               });
             }
-            return Option41.isSome(decodeUnknown(body)) ? Effect58.succeedNone : unanswered(
+            return Option43.isSome(decodeUnknown(body)) ? Effect59.succeedNone : unanswered(
               scheduleId2,
               runId2,
               "inspectRun",
@@ -83078,7 +83225,7 @@ var wakeRuns = (objects, storage, keepAlive) => {
       )
     ),
     submit: (runId2, plan, docs, { escalateTo, judge }) => scheduleFor.pipe(
-      Effect58.flatMap(({ owner, scheduleId: scheduleId2 }) => {
+      Effect59.flatMap(({ owner, scheduleId: scheduleId2 }) => {
         const input = Object.fromEntries(
           Object.entries({ docs, escalateTo, judge, plan, runId: runId2 }).filter(
             ([, value]) => value !== null
@@ -83092,25 +83239,25 @@ var wakeRuns = (objects, storage, keepAlive) => {
           "submitPlan",
           async () => await pending
         ).pipe(
-          Effect58.timeoutOption(SUBMIT_WAIT_MS),
-          Effect58.flatMap(
-            Option41.match({
-              onNone: () => Effect58.void,
+          Effect59.timeoutOption(SUBMIT_WAIT_MS),
+          Effect59.flatMap(
+            Option43.match({
+              onNone: () => Effect59.void,
               onSome: ({
                 body,
                 status
               }) => {
                 if (status === 200) {
-                  return Effect58.void;
+                  return Effect59.void;
                 }
-                return Option41.match(decodeRefused(body), {
+                return Option43.match(decodeRefused(body), {
                   onNone: () => unanswered(
                     scheduleId2,
                     runId2,
                     "submitPlan",
                     `answered ${String(status)}`
                   ),
-                  onSome: Effect58.fail
+                  onSome: Effect59.fail
                 });
               }
             })
@@ -83156,22 +83303,22 @@ import { DurableObject as DurableObject4 } from "cloudflare:workers";
 
 // src/token-ledger.ts
 var TOKENS = "CREATE TABLE IF NOT EXISTS tokens (jti TEXT PRIMARY KEY, exp INTEGER NOT NULL)";
-var spendToken = (storage, memory, { durable, exp, jti, now: now2 }) => {
+var spendToken = (storage, memory, { durable, exp, jti, now }) => {
   for (const [held, until] of memory) {
-    if (until < now2) {
+    if (until < now) {
       memory.delete(held);
     }
   }
   if (!durable) {
-    const seen = memory.has(jti) || storage.sql.exec("SELECT jti FROM tokens WHERE jti = ? AND exp >= ?", jti, now2).toArray().length > 0;
+    const seen = memory.has(jti) || storage.sql.exec("SELECT jti FROM tokens WHERE jti = ? AND exp >= ?", jti, now).toArray().length > 0;
     if (!seen) {
       memory.set(jti, exp);
     }
     return !seen;
   }
   return storage.transactionSync(() => {
-    storage.sql.exec("DELETE FROM tokens WHERE exp < ?", now2);
-    const seen = memory.has(jti) || storage.sql.exec("SELECT jti FROM tokens WHERE jti = ? AND exp >= ?", jti, now2).toArray().length > 0;
+    storage.sql.exec("DELETE FROM tokens WHERE exp < ?", now);
+    const seen = memory.has(jti) || storage.sql.exec("SELECT jti FROM tokens WHERE jti = ? AND exp >= ?", jti, now).toArray().length > 0;
     if (!seen) {
       storage.sql.exec("INSERT INTO tokens (jti, exp) VALUES (?, ?)", jti, exp);
     }
@@ -83186,12 +83333,12 @@ var ServiceTokenLedger = class extends DurableObject4 {
     super(ctx, env);
     ctx.storage.sql.exec(TOKENS);
   }
-  consume(jti, exp, now2, durable = true) {
+  consume(jti, exp, now, durable = true) {
     return spendToken(this.ctx.storage, this.memory, {
       durable,
       exp,
       jti,
-      now: now2
+      now
     });
   }
 };
@@ -83199,7 +83346,7 @@ var ServiceTokenLedger = class extends DurableObject4 {
 // ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+9dbd61b5_48910ba0880a1f0e1711a026bc6eafdf/node_modules/@rat-king/mailbox-client/auth.js
 import { Effect as Effect211 } from "effect";
 import { Schema as Schema85 } from "effect";
-import { Effect as Effect59 } from "effect";
+import { Effect as Effect60 } from "effect";
 import { Context as Context210, Effect as Effect311, Layer as Layer30, Schema as Schema311 } from "effect";
 import { Schema as Schema211 } from "effect";
 import { Context as Context30 } from "effect";
@@ -83219,7 +83366,7 @@ var EnvelopeFailure2 = class extends Schema85.TaggedError()(
   { reason: Schema85.String }
 ) {
 };
-var cryptoOperation2 = (operation) => Effect59.tryPromise({
+var cryptoOperation2 = (operation) => Effect60.tryPromise({
   catch: () => new EnvelopeFailure2({ reason: "Cryptographic operation rejected" }),
   try: operation
 });
@@ -83383,8 +83530,8 @@ var authenticateClaims3 = Effect311.fn("ServiceAuth.authenticateClaims")(
     )(yield* json2(claimsText)).pipe(
       Effect311.mapError(() => authFailure2("AuthRequired", 401))
     );
-    const now2 = Math.floor(request2.now / 1e3);
-    if (claims.aud !== request2.audience || claims.lxm !== request2.nsid || claims.iat > now2 + (request2.skewSeconds ?? 0) || claims.exp <= now2 || claims.exp <= claims.iat || claims.exp - claims.iat > 60 || now2 - claims.iat > 60) {
+    const now = Math.floor(request2.now / 1e3);
+    if (claims.aud !== request2.audience || claims.lxm !== request2.nsid || claims.iat > now + (request2.skewSeconds ?? 0) || claims.exp <= now || claims.exp <= claims.iat || claims.exp - claims.iat > 60 || now - claims.iat > 60) {
       return yield* Effect311.fail(
         authFailure2("AuthRequired", 401, "Invalid service-auth claims")
       );
@@ -83424,13 +83571,13 @@ var serviceToken3 = Effect311.fn("ServiceAuth.sign")(
 );
 
 // src/worker-handler.ts
-import { Effect as Effect64, Layer as Layer34, Option as Option45, Result as Result10, Schema as Schema89 } from "effect";
+import { Effect as Effect65, Layer as Layer34, Option as Option46, Result as Result10, Schema as Schema89 } from "effect";
 
 // src/replay-ledger.ts
-import { Effect as Effect61, Layer as Layer31 } from "effect";
+import { Effect as Effect63, Layer as Layer31 } from "effect";
 
 // src/service-auth.ts
-import { Clock as Clock11, Effect as Effect60 } from "effect";
+import { Clock as Clock12, Effect as Effect61 } from "effect";
 
 // src/auth-refused.ts
 import { Schema as Schema86 } from "effect";
@@ -83444,19 +83591,19 @@ var AuthRefused = class extends Schema86.TaggedError()(
 var NSID_PREFIX = "sh.mschf.mischief.";
 var SKEW_SECONDS = 5;
 var MINT = `Mint a fresh Rat King service token with serviceToken from @rat-king/mailbox-client/auth (ES256, signed with your DID's #atproto key): iss your DID, aud the host's audience, lxm ${NSID_PREFIX}<capability>, a unique jti of at least 16 characters, iat now and exp at most 60 seconds later. Send it as Authorization: Bearer <token>. A caller missing from the host's allowlist asks the Mischief desk (pi-durable/desk) to add its DID document`;
-var authenticate = Effect60.fn("Mischief.authenticate")(
+var authenticate = Effect61.fn("Mischief.authenticate")(
   function* authenticate2(request2) {
-    const now2 = yield* Clock11.currentTimeMillis;
+    const now = yield* Clock12.currentTimeMillis;
     const claims = yield* authenticateClaims3({
       audience: request2.audience,
       authorization: request2.authorization,
-      now: now2,
+      now,
       nsid: request2.lxm,
       skewSeconds: SKEW_SECONDS
     }).pipe(
-      Effect60.catchTag(
+      Effect61.catchTag(
         "XrpcFailure",
-        (failure5) => Effect60.fail(
+        (failure5) => Effect61.fail(
           new AuthRefused({
             reason: `${failure5.message ?? failure5.error} (this request calls ${request2.lxm} on ${request2.audience}). ${MINT}`
           })
@@ -83479,7 +83626,7 @@ var READ_ONLY = new Set(
 var replayLedger = (ledgerFor, readOnly) => Layer31.succeed(
   ReplayAuthority2,
   ReplayAuthority2.of({
-    consume: (claims, now2) => Effect61.tryPromise({
+    consume: (claims, now) => Effect63.tryPromise({
       catch: () => new ServiceAuthFailure2({
         error: "ReplayUnavailable",
         message: "the host could not record this token's jti, so it refuses it. Send a fresh token again shortly",
@@ -83489,12 +83636,12 @@ var replayLedger = (ledgerFor, readOnly) => Layer31.succeed(
       try: async () => await ledgerFor(claims.iss).consume(
         claims.jti,
         claims.exp,
-        Math.floor(now2 / 1e3),
+        Math.floor(now / 1e3),
         !readOnly.has(claims.lxm)
       )
     }).pipe(
-      Effect61.flatMap(
-        (fresh) => fresh ? Effect61.void : Effect61.fail(
+      Effect63.flatMap(
+        (fresh) => fresh ? Effect63.void : Effect63.fail(
           new ServiceAuthFailure2({
             error: "AuthRequired",
             message: `this token (jti ${claims.jti}) was already used. Every request needs a fresh jti`,
@@ -83508,7 +83655,7 @@ var replayLedger = (ledgerFor, readOnly) => Layer31.succeed(
 );
 
 // src/run-address.ts
-import { Option as Option43, Schema as Schema87 } from "effect";
+import { Option as Option44, Schema as Schema87 } from "effect";
 var decodeAddress = Schema87.decodeUnknownOption(
   Schema87.fromJsonString(
     Schema87.Struct({
@@ -83518,20 +83665,20 @@ var decodeAddress = Schema87.decodeUnknownOption(
   )
 );
 var runIdOf = (body) => decodeAddress(body).pipe(
-  Option43.flatMap(
-    ({ replyTo, runId: runId2 }) => Option43.orElse(
-      Option43.fromUndefinedOr(runId2),
-      () => Option43.fromUndefinedOr(
+  Option44.flatMap(
+    ({ replyTo, runId: runId2 }) => Option44.orElse(
+      Option44.fromUndefinedOr(runId2),
+      () => Option44.fromUndefinedOr(
         replyTo?.includes("/") === true ? replyTo.split("/")[0] : void 0
       )
     )
   ),
-  Option43.filter((runId2) => runId2 !== "")
+  Option44.filter((runId2) => runId2 !== "")
 );
 var NO_RUN_ID = "this request names no run. Every run capability takes a JSON body with runId. deliverReply can find its run from replyTo only when replyTo is <runId>/<step>#<visit>; a Rat King message id (an ask sent as real mail, like 3mxoabjvtfwka) has no run in it, so add the run's runId (inspectRun shows the ask under awaiting). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 // src/schedule-address.ts
-import { Option as Option44, Schema as Schema88 } from "effect";
+import { Option as Option45, Schema as Schema88 } from "effect";
 var SCHEDULE_CAPABILITIES = /* @__PURE__ */ new Set([
   "createSchedule",
   "inspectSchedule",
@@ -83543,8 +83690,8 @@ var decodeAddress2 = Schema88.decodeUnknownOption(
   )
 );
 var scheduleIdOf = (body) => decodeAddress2(body).pipe(
-  Option44.flatMap(({ scheduleId: scheduleId2 }) => Option44.fromUndefinedOr(scheduleId2)),
-  Option44.filter((scheduleId2) => scheduleId2 !== "")
+  Option45.flatMap(({ scheduleId: scheduleId2 }) => Option45.fromUndefinedOr(scheduleId2)),
+  Option45.filter((scheduleId2) => scheduleId2 !== "")
 );
 var NO_SCHEDULE_ID = "this request names no schedule. createSchedule, inspectSchedule and completeSchedule each take a JSON body with scheduleId; add it and send the request again. GET /openapi.json lists every capability";
 
@@ -83567,15 +83714,15 @@ var thinkStatusHttp = (telemetry) => HttpRouter3.toWebHandler(
 );
 
 // src/think-telemetry.ts
-import { Clock as Clock12, Effect as Effect63 } from "effect";
+import { Clock as Clock13, Effect as Effect64 } from "effect";
 var thinkTelemetry = ({
   cliproxyKey,
   cliproxyUrl,
   model: model2,
   readDay
 }) => ThinkTelemetry.of({
-  read: Effect63.gen(function* readThinkTelemetry() {
-    const day = utcDay(yield* Clock12.currentTimeMillis);
+  read: Effect64.gen(function* readThinkTelemetry() {
+    const day = utcDay(yield* Clock13.currentTimeMillis);
     const today = yield* readDay(day);
     return {
       default: {
@@ -83620,17 +83767,17 @@ var worker_handler_default = {
     const callers = Schema89.decodeUnknownOption(CallersFromJson)(
       env.MISCHIEF_CALLERS ?? ""
     );
-    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option45.isNone(callers)) {
+    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option46.isNone(callers)) {
       return Response.json({ error: NOT_CONFIGURED }, { status: 503 });
     }
     const { pathname } = new URL(request2.url);
     const capability = pathname === "/openapi.json" ? "openApi" : pathname.slice(1);
-    const caller = await Effect64.runPromise(
+    const caller = await Effect65.runPromise(
       authenticate({
         audience: `${env.MISCHIEF_DID}#mischief`,
         authorization: request2.headers.get("authorization"),
         lxm: `${NSID_PREFIX}${capability}`
-      }).pipe(Effect64.result, Effect64.provide(servicesFor(env, callers.value)))
+      }).pipe(Effect65.result, Effect65.provide(servicesFor(env, callers.value)))
     );
     if (Result10.isFailure(caller)) {
       return refused2(caller.failure);
@@ -83644,7 +83791,7 @@ var worker_handler_default = {
           cliproxyKey: env.MISCHIEF_CLIPROXY_KEY,
           cliproxyUrl: env.MISCHIEF_CLIPROXY_URL,
           model: env.MISCHIEF_MODEL,
-          readDay: (day) => Effect64.promise(
+          readDay: (day) => Effect65.promise(
             async () => await env.POSTBOX.get(
               env.POSTBOX.idFromName(POSTBOX_NAME)
             ).thinkDay(day)
@@ -83666,7 +83813,7 @@ var worker_handler_default = {
     const body = await request2.text();
     if (SCHEDULE_CAPABILITIES.has(capability)) {
       const scheduleId2 = scheduleIdOf(body);
-      if (Option45.isNone(scheduleId2)) {
+      if (Option46.isNone(scheduleId2)) {
         return Response.json({ error: NO_SCHEDULE_ID }, { status: 400 });
       }
       const name = `${caller.success.iss}/${scheduleId2.value}`;
@@ -83682,7 +83829,7 @@ var worker_handler_default = {
       );
     }
     const runId2 = runIdOf(body);
-    if (Option45.isNone(runId2)) {
+    if (Option46.isNone(runId2)) {
       return Response.json({ error: NO_RUN_ID }, { status: 400 });
     }
     const run2 = env.PLAN_RUN.get(

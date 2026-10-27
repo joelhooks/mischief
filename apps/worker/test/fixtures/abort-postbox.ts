@@ -129,15 +129,12 @@ export class Postbox extends DurableObject<Env> {
 
     const exit = await Effect.runPromiseExit(
       this.box
-        .receive(
-          {
-            body: "keep this record",
-            messageId: "reply-record",
-            replyTo: Option.some(ask),
-            senderDid: "did:web:sender",
-          },
-          1
-        )
+        .receive({
+          body: "keep this record",
+          messageId: "reply-record",
+          replyTo: Option.some(ask),
+          senderDid: "did:web:sender",
+        })
         .pipe(Effect.provide(Layer.merge(this.layer, runs)))
     );
 

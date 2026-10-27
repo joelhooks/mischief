@@ -5,14 +5,24 @@ import {
   unbase64url,
 } from "@rat-king/mailbox-client";
 import type {
-  ConsumeOptions,
+  Batch,
   IdentityValue,
   LeaseFence,
+  MailboxClientError,
   OpenedMessage,
   SealedMessage,
   SendOutcome,
 } from "@rat-king/mailbox-client";
-import { Clock, Effect, Layer, Option, Predicate, Schema } from "effect";
+import {
+  Clock,
+  DateTime,
+  Effect,
+  Layer,
+  Option,
+  Predicate,
+  Schema,
+  Stream,
+} from "effect";
 import type { Scope } from "effect";
 import type { HttpClient } from "effect/http";
 
@@ -20,8 +30,20 @@ import { canonicalName, didFor, nameFor } from "./fleet-names.js";
 import { Mailroom, SendVerdict } from "./mailroom-port.js";
 import type { Inbound, SendVerdictValue } from "./mailroom-port.js";
 import { PostboxFailed } from "./postbox-failed.js";
-import type { LeaseBook } from "./postbox-lease.js";
+import type { Inbox, InboxEvent, Letter, Skip } from "./postbox-inbox.js";
+import type { HeldLease, LeaseBook } from "./postbox-lease.js";
 import { DESK, OWN_NAME } from "./postbox.js";
+
+const MESSAGE_EVENT = "sh.mschf.ratking.defs#messageEvent";
+
+type Listed = Batch["events"][number];
+
+type MessageEvent = Extract<Listed, { readonly $type: typeof MESSAGE_EVENT }>;
+
+const isMessage = (event: Listed): event is MessageEvent =>
+  event.$type === MESSAGE_EVENT && "envelope" in event && "receipt" in event;
+
+const seqOf = Schema.decodeUnknownOption(Schema.Struct({ seq: Schema.Int }));
 
 export interface MailroomConfig {
   readonly endpoint: string;
@@ -31,6 +53,40 @@ export interface MailroomConfig {
 }
 
 const failed = (reason: string) => new PostboxFailed({ reason });
+
+const ATTEMPT_MS = 3000;
+
+const HARNESS = {
+  $type: "sh.mschf.ratking.runtime.lease#other",
+  kind: "mischief-postbox",
+} as const;
+
+const clientFailed =
+  (call: string) =>
+  ({ error, reason }: MailboxClientError) =>
+    failed(
+      `the mailbox ${call} failed${error === undefined ? "" : ` (${error})`}: ${reason}`
+    );
+
+const fenceOf = ({ did, generation, leaseId }: HeldLease): LeaseFence => ({
+  did,
+  generation,
+  leaseId,
+});
+
+const expiredRefusal = ({ error, reason }: MailboxClientError) =>
+  error === "InvalidTransition" && reason === "Expired message";
+
+const settledRefusal = ({ error }: MailboxClientError) =>
+  error === "InvalidTransition";
+
+const skipOf = (state: string): Option.Option<Skip> => {
+  if (state === "expired") {
+    return Option.some("expired");
+  }
+
+  return state === "acked" ? Option.some("settled") : Option.none();
+};
 
 type Envelope = SealedMessage["envelope"];
 
@@ -217,51 +273,113 @@ export const openMailroom = (config: MailroomConfig) =>
       })
     );
 
-    const consume = <E, R>(
-      handler: (message: Inbound, seq: number) => Effect.Effect<void, E, R>,
-      afterSeq: number
-    ) =>
-      fence.pipe(
-        Effect.flatMap((resume) => {
-          const options: ConsumeOptions = {
-            afterSeq,
-            harness: {
-              $type: "sh.mschf.ratking.runtime.lease#other",
-              kind: "mischief-postbox",
-            },
-            onLease: (lease) =>
-              Effect.sync(() => {
-                config.leases.save({
-                  did: config.identity.did,
-                  expiresAt: Date.parse(lease.expiresAt),
-                  generation: lease.generation,
-                  leaseId: lease.leaseId,
-                });
+    const { mailbox } = prepared;
+
+    const letter = (event: MessageEvent, held: HeldLease): Letter => {
+      const input = {
+        generation: held.generation,
+        leaseId: held.leaseId,
+        message: event.receipt.message,
+      };
+
+      const { senderDid } = event.envelope.aad;
+
+      return {
+        ack:
+          event.receipt.delegatedTo === undefined
+            ? mailbox.ack(input).pipe(
+                Effect.catchIf(settledRefusal, () => Effect.void),
+                Effect.asVoid,
+                Effect.mapError(clientFailed("ack"))
+              )
+            : Effect.void,
+        deliver: mailbox.deliver(input).pipe(
+          Effect.map(({ receipt }) => skipOf(receipt.state)),
+          Effect.catchIf(expiredRefusal, () =>
+            Effect.succeedSome<Skip>("expired")
+          ),
+          Effect.catchIf(settledRefusal, () =>
+            Effect.succeedSome<Skip>("settled")
+          ),
+          Effect.mapError(clientFailed("deliver"))
+        ),
+        open: mailbox.open(event.envelope, event.receipt).pipe(
+          Effect.catchTag("MailboxClientError", () =>
+            prepared.refresh(senderDid).pipe(
+              Effect.tap(() => Effect.sync(() => known.add(senderDid))),
+              Effect.flatMap(() => prepared.open(event.envelope))
+            )
+          ),
+          Effect.matchEffect({
+            onFailure: (failure) =>
+              Effect.logWarning(
+                `Postbox could not open message ${event.seq} from ${senderDid}: ${failure.reason}`
+              ).pipe(Effect.as(Option.none())),
+            onSuccess: (opened) => Effect.succeedSome(inboundOf(opened)),
+          })
+        ),
+      };
+    };
+
+    const inbox: Inbox = {
+      acquire: (resume, expiresAt) =>
+        mailbox.lease
+          .acquire(
+            Option.match(resume, {
+              onNone: () => ({
+                did: config.identity.did,
+                expiresAt: DateTime.formatIso(DateTime.makeUnsafe(expiresAt)),
+                harness: HARNESS,
               }),
-            onSkip: ({ reason, seq }) =>
-              Effect.logWarning(`Postbox skipped message ${seq}: ${reason}`),
-            unopenable: (event) =>
-              prepared.refresh(event.envelope.aad.senderDid).pipe(
-                Effect.tap(() =>
-                  Effect.sync(() => known.add(event.envelope.aad.senderDid))
-                ),
-                Effect.flatMap(() => prepared.open(event.envelope)),
-                Effect.matchEffect({
-                  onFailure: (failure) =>
-                    Effect.logWarning(
-                      `Postbox could not open message ${event.seq} from ${event.envelope.aad.senderDid}: ${failure.reason}`
-                    ).pipe(Effect.as(Option.none())),
-                  onSuccess: (opened) => Effect.succeed(Option.some(opened)),
-                })
-              ),
-          };
+              onSome: ({ generation, leaseId }) => ({
+                did: config.identity.did,
+                expiresAt: DateTime.formatIso(DateTime.makeUnsafe(expiresAt)),
+                generation,
+                harness: HARNESS,
+                leaseId,
+              }),
+            })
+          )
+          .pipe(
+            Effect.timeoutOrElse({
+              duration: ATTEMPT_MS,
+              orElse: () =>
+                Effect.fail(failed(`acquire: no answer in ${ATTEMPT_MS} ms`)),
+            }),
+            Effect.map((lease) => ({
+              did: config.identity.did,
+              expiresAt: Date.parse(lease.expiresAt),
+              generation: lease.generation,
+              leaseId: lease.leaseId,
+            })),
+            Effect.mapError((failure) =>
+              Schema.is(PostboxFailed)(failure)
+                ? failure
+                : clientFailed("acquire")(failure)
+            )
+          ),
+      page: (held, afterSeq, limit) =>
+        mailbox.list({ afterSeq, limit }).pipe(
+          Effect.map(({ events }) =>
+            events.flatMap((event): InboxEvent[] =>
+              isMessage(event)
+                ? [{ letter: Option.some(letter(event, held)), seq: event.seq }]
+                : Option.match(seqOf(event), {
+                    onNone: () => [],
+                    onSome: ({ seq }) => [{ letter: Option.none(), seq }],
+                  })
+            )
+          ),
+          Effect.mapError(clientFailed("list"))
+        ),
+      wait: (held, afterSeq, within) =>
+        mailbox.watch(afterSeq, fenceOf(held)).pipe(
+          Stream.runHead,
+          Effect.timeoutOption(within),
+          Effect.map((woken) => Option.isSome(Option.flatten(woken))),
+          Effect.mapError(clientFailed("watch"))
+        ),
+    };
 
-          return prepared.consume(
-            (message, { seq }) => handler(inboundOf(message), seq),
-            resume === undefined ? options : { ...options, resume }
-          );
-        })
-      );
-
-    return { consume, layer };
+    return { inbox, layer };
   });

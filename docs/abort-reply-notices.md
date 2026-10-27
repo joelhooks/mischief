@@ -17,7 +17,7 @@ The Postbox owns delivery receipts and notice delivery:
 
 Setup adds missing columns and creates tables and indexes. It does not rewrite or delete existing rows. Old delivery receipts lack the sender and run, so they remain deduplicated but cannot receive retroactive notices.
 
-The Postbox watchdog retries pending notices. Notice failures do not change reply routing, parking, acknowledgement or the run's aborted status. Each read fetches at most one pending receipt with keyset pagination. The run/notified index restricts the join to delivery receipts for aborted runs.
+The Postbox alarm retries pending notices on every reader turn. Notice failures do not change reply routing, parking, acknowledgement or the run's aborted status. Each read fetches at most one pending receipt with keyset pagination. The run/notified index restricts the join to delivery receipts for aborted runs.
 
 ## Proof
 

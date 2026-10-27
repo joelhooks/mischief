@@ -66,12 +66,10 @@ it.effect(
       yield* box.seal("did:web:driver/preflight", "partner/desk", "landed?");
 
       yield* box.receive(
-        inbound("3mxoskcw6iz56", `re your ${ASK}: #1246 squashed`),
-        1
+        inbound("3mxoskcw6iz56", `re your ${ASK}: #1246 squashed`)
       );
       yield* box.receive(
-        inbound("3mxoskcw7aaaa", `again, re ${ASK}: CI green`),
-        2
+        inbound("3mxoskcw7aaaa", `again, re ${ASK}: CI green`)
       );
 
       expect(told).toHaveLength(1);
@@ -93,14 +91,12 @@ it.effect(
     return Effect.gen(function* quiet() {
       yield* box.seal("did:web:driver/preflight", "partner/desk", "landed?");
 
-      yield* box.receive(inbound("3mxostrangeone", "re 3mxnotoursaks"), 1);
+      yield* box.receive(inbound("3mxostrangeone", "re 3mxnotoursaks"));
       yield* box.receive(
-        inbound("3mxoreplyrefus", `done, re ${ASK}`, Option.some(ASK)),
-        2
+        inbound("3mxoreplyrefus", `done, re ${ASK}`, Option.some(ASK))
       );
       yield* box.receive(
-        inbound("3mxoanonymous1", `re ${ASK}`, Option.none(), "did:web:anon"),
-        3
+        inbound("3mxoanonymous1", `re ${ASK}`, Option.none(), "did:web:anon")
       );
 
       expect(told).toStrictEqual([]);
@@ -120,8 +116,7 @@ it.effect(
         inbound(
           "3mxot2fxoz6lt",
           '{"body":"report is in","to":"agent-graph/desk"}'
-        ),
-        1
+        )
       );
 
       expect(surfaced).toStrictEqual([]);
@@ -130,15 +125,13 @@ it.effect(
         inbound(
           "3mxoskcw6iz56",
           `{"body":"re your ${ASK}: squashed","to":"partner/cutover"}`
-        ),
-        2
+        )
       );
       yield* box.receive(
         inbound(
           "3mxonamesmine",
           '{"body":"what is this?","to":"mischief/worker"}'
-        ),
-        3
+        )
       );
 
       expect(told).toHaveLength(1);

@@ -138,12 +138,9 @@ it.effect.prop(
           })
         );
 
-        const receive = (
-          message: Parameters<typeof box.receive>[0],
-          seq: number
-        ) =>
+        const receive = (message: Parameters<typeof box.receive>[0]) =>
           box
-            .receive(message, seq)
+            .receive(message)
             .pipe(Effect.provide(Layer.merge(mailroom, runs)));
 
         for (const [index, event] of history.entries()) {
@@ -158,7 +155,7 @@ it.effect.prop(
           };
 
           crash = true;
-          yield* Effect.exit(receive(message, index + 1));
+          yield* Effect.exit(receive(message));
           expect(
             storage.sql
               .exec(
@@ -191,7 +188,7 @@ it.effect.prop(
           }
 
           for (let retry = 0; retry < event.retries; retry += 1) {
-            yield* receive(message, index + 1);
+            yield* receive(message);
             box = postbox(storage);
           }
 

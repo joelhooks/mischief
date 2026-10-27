@@ -184,7 +184,7 @@ export const postbox = (storage: SqlStorage) => {
 
   const aborts = postboxAborts(storage, send);
 
-  const receive = (message: Inbound, seq: number) =>
+  const receive = (message: Inbound) =>
     Effect.gen(function* receiveMessage() {
       const named = yield* Mailroom.use((mailroom) =>
         mailroom.nameOf(message.senderDid)
@@ -243,12 +243,14 @@ export const postbox = (storage: SqlStorage) => {
           );
         }
       }
-
-      storage.sql.exec(
-        "INSERT INTO postbox_cursor (id, seq) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET seq = excluded.seq",
-        seq
-      );
     });
+
+  const advance = (seq: number) => {
+    storage.sql.exec(
+      "INSERT INTO postbox_cursor (id, seq) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET seq = MAX(seq, excluded.seq)",
+      seq
+    );
+  };
 
   const cursor = () =>
     Option.fromNullishOr(
@@ -262,6 +264,7 @@ export const postbox = (storage: SqlStorage) => {
 
   return {
     abort: aborts.abort,
+    advance,
     cursor,
     flushAbortNotices: aborts.flush,
     markAborted: aborts.markAborted,

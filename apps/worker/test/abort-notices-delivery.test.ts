@@ -72,15 +72,12 @@ it.effect.prop(
         .seal("run", "sender/desk", "ask")
         .pipe(Effect.provide(mailroom));
       yield* box
-        .receive(
-          {
-            body: "record",
-            messageId: "reply",
-            replyTo: Option.some("ask"),
-            senderDid: "sender",
-          },
-          1
-        )
+        .receive({
+          body: "record",
+          messageId: "reply",
+          replyTo: Option.some("ask"),
+          senderDid: "sender",
+        })
         .pipe(Effect.provide(Layer.merge(mailroom, runs)));
 
       for (const fault of interruptions) {
@@ -151,15 +148,12 @@ it.effect(
         .seal("run", "sender/desk", "ask")
         .pipe(Effect.provide(mailroom));
       yield* box
-        .receive(
-          {
-            body: "record",
-            messageId: "reply",
-            replyTo: Option.some("ask"),
-            senderDid: "sender",
-          },
-          1
-        )
+        .receive({
+          body: "record",
+          messageId: "reply",
+          replyTo: Option.some("ask"),
+          senderDid: "sender",
+        })
         .pipe(Effect.provide(Layer.merge(mailroom, runs)));
       yield* box.flushAbortNotices.pipe(Effect.provide(mailroom));
       yield* box.abort("run", "retry").pipe(Effect.provide(mailroom));

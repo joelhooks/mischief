@@ -3,6 +3,7 @@ import { toHttpApi } from "@mischief/capability/http-api";
 import {
   runCapabilities,
   ScheduleAlarm,
+  ScheduleNotices,
   ScheduleStore,
   scheduleCapabilities,
   thinkingCapabilities,
@@ -21,6 +22,7 @@ export interface ScheduleOptions {
   readonly storage: SqlStorage;
   readonly alarms: Alarms;
   readonly runs: WakeRuns["Service"];
+  readonly notices: ScheduleNotices["Service"];
 }
 
 export interface ScheduleObject {
@@ -41,12 +43,14 @@ export const mischiefApiSpec = () =>
 
 export const makeSchedule = ({
   alarms,
+  notices,
   runs,
   storage,
 }: ScheduleOptions): ScheduleObject => {
   const services = Layer.mergeAll(
     Layer.succeed(ScheduleStore, scheduleStoreSql(storage)),
     Layer.succeed(WakeRuns, runs),
+    Layer.succeed(ScheduleNotices, notices),
     Layer.succeed(
       ScheduleAlarm,
       ScheduleAlarm.of({

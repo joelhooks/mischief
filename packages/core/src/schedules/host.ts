@@ -5,7 +5,9 @@ import type { Docs, JudgeMode } from "../runs/schema.js";
 import { checkSubmission } from "../runs/submission.js";
 import { alarmFor, decide, firstSlot, parseCron, previous } from "./decide.js";
 import type { Previous } from "./decide.js";
+import { endNoticeOf } from "./end-notice.js";
 import { ScheduleAlarm } from "./schedule-alarm.js";
+import { ScheduleNotices } from "./schedule-notices.js";
 import { ScheduleRefused } from "./schedule-refused.js";
 import { ScheduleStore } from "./schedule-store.js";
 import { CronCadence, Every, reportOf } from "./schema.js";
@@ -141,6 +143,24 @@ const loaded = (scheduleId: string) =>
     )
   );
 
+const announceEnd = (before: ScheduleState, after: ScheduleState) => {
+  const { ended } = after;
+
+  if (before.ended !== null || ended === null || ended.reason === "completed") {
+    return Effect.void;
+  }
+
+  return ScheduleNotices.use((notices) =>
+    notices.ended(endNoticeOf(after, ended))
+  ).pipe(
+    Effect.catchCause((cause) =>
+      Effect.logWarning(
+        `schedule ${after.scheduleId} ended (${ended.reason}) but its notice was not sent: ${String(cause)}. inspectSchedule {"scheduleId": "${after.scheduleId}"} shows why it ended`
+      )
+    )
+  );
+};
+
 export const createSchedule = Effect.fn("createSchedule")(
   function* createSchedule(input: ScheduleInput) {
     const store = yield* ScheduleStore;
@@ -236,6 +256,7 @@ export const completeSchedule = Effect.fn("completeSchedule")(
       },
     };
 
+    yield* announceEnd(state, ended);
     yield* ScheduleStore.use((store) => store.save(ended));
     yield* ScheduleAlarm.use((alarm) => alarm.set(null));
 
@@ -272,6 +293,7 @@ export const wakeSchedule = Effect.fn("wakeSchedule")(function* wakeSchedule() {
   const seen = yield* previousOf(found.value);
   const decision = decide(found.value, now, seen);
 
+  yield* announceEnd(found.value, decision.state);
   yield* store.save(decision.state);
 
   if (decision.abort !== null) {
@@ -308,6 +330,7 @@ export const wakeSchedule = Effect.fn("wakeSchedule")(function* wakeSchedule() {
         },
       };
 
+      yield* announceEnd(decision.state, ended);
       yield* store.save(ended);
 
       return yield* ScheduleAlarm.use((alarm) => alarm.set(null));

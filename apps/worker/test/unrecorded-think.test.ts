@@ -639,10 +639,10 @@ it.effect.prop(
         steps,
       };
 
-      const backend = recording(
-        yield* runBackendSql(nodeSqlStorage(`${dir}/run.sqlite`)),
-        world
-      );
+      const runStorage = nodeSqlStorage(`${dir}/run.sqlite`);
+      runStorage.sql.exec("PRAGMA synchronous = OFF");
+
+      const backend = recording(yield* runBackendSql(runStorage), world);
 
       const { caught, report } = yield* driven(
         backend,

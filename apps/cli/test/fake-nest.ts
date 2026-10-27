@@ -3,17 +3,49 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { Schema } from "effect";
+interface Sealed {
+  readonly aad: { readonly messageId: string };
+}
 
-const SealedSchema = Schema.fromJsonString(
-  Schema.Struct({
-    aad: Schema.Struct({ messageId: Schema.String }),
-  })
-);
+interface Admitted {
+  readonly bytes: unknown;
+  readonly seq: unknown;
+}
 
-const AdmittedSchema = Schema.fromJsonString(
-  Schema.Struct({ bytes: Schema.String, seq: Schema.Finite })
-);
+const isText = (value: unknown): value is string =>
+  Object.prototype.toString.call(value) === "[object String]";
+
+const isSealed = (value: unknown): value is Sealed =>
+  value instanceof Object &&
+  "aad" in value &&
+  value.aad instanceof Object &&
+  "messageId" in value.aad &&
+  isText(value.aad.messageId);
+
+const isAdmitted = (value: unknown): value is Admitted =>
+  value instanceof Object && "bytes" in value && "seq" in value;
+
+const readSealed = (text: string): Sealed => {
+  const value: unknown = JSON.parse(text);
+
+  if (!isSealed(value)) {
+    throw new Error(
+      `sealed envelope on stdin lacks a string aad.messageId: ${text.slice(0, 200)}`
+    );
+  }
+
+  return value;
+};
+
+const readAdmitted = (file: string): Admitted => {
+  const value: unknown = JSON.parse(readFileSync(file, "utf-8"));
+
+  if (!isAdmitted(value)) {
+    throw new Error(`${file} lacks bytes or seq`);
+  }
+
+  return value;
+};
 
 const state = process.env.FAKE_NEST_STATE ?? "";
 
@@ -71,7 +103,7 @@ const seal = () => {
 
 const send = async () => {
   const bytes = await readStdin();
-  const { aad } = Schema.decodeSync(SealedSchema)(bytes);
+  const { aad } = readSealed(bytes);
   const admitted = path.join(state, "admitted", `${aad.messageId}.json`);
   const uncertain = path.join(state, "uncertain");
 
@@ -85,9 +117,7 @@ const send = async () => {
   }
 
   if (existsSync(admitted)) {
-    const stored = Schema.decodeSync(AdmittedSchema)(
-      readFileSync(admitted, "utf-8")
-    );
+    const stored = readAdmitted(admitted);
 
     if (stored.bytes !== bytes) {
       fail(5, `Conflict: ${aad.messageId} was admitted with other bytes`);

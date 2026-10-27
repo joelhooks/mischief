@@ -2,7 +2,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { RunReportSchema, RunStateSchema } from "@mischief/core";
-import { Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { build } from "esbuild";
 
@@ -144,110 +144,130 @@ const fixtureBundle = Effect.gen(function* compileProof() {
 
 const services = Layer.merge(NodeServices.layer, FetchHttpClient.layer);
 
-it.live.prop(
-  "ask and shadow-judge waits survive N object reopens and drives unchanged without a failure notice or SQLite migration; only a think after the reply opens the store, once",
-  {
-    reopens: Schema.Int.check(Schema.isBetween({ maximum: 5, minimum: 1 })),
-  },
-  ({ reopens }) =>
-    Effect.gen(function* parkedPlanIsNotParkedThink() {
-      const bundle = yield* fixtureBundle;
-      const world = yield* prepare(30_000, [], undefined, { bundle });
-      let process = yield* start(world);
+class UpgradeBundle extends Context.Service<UpgradeBundle, string>()(
+  "UpgradeBundle"
+) {}
 
-      for (const kind of KINDS) {
-        for (const thenThink of [false, true]) {
-          const runId = `${kind}-${thenThink ? "think" : "done"}`;
-          const seeded = yield* post(world, "upgradeSeed", { runId });
+const exercise = (
+  bundle: string,
+  kind: (typeof KINDS)[number],
+  thenThink: boolean,
+  reopens: number
+) =>
+  Effect.gen(function* oneCase() {
+    const world = yield* prepare(30_000, [], undefined, { bundle });
+    let process = yield* start(world);
 
-          expect(seeded.status).toBe(200);
+    const runId = `${kind}-${thenThink ? "think" : "done"}`;
+    const seeded = yield* post(world, "upgradeSeed", { runId });
 
-          const submitted = yield* post(world, "submitPlan", {
-            judge: "shadow",
-            plan: planOf(kind, thenThink),
-            runId,
-          });
+    expect(seeded.status).toBe(200);
 
-          expect(
-            submitted.status,
-            `${runId}: ${JSON.stringify(submitted.body)}`
-          ).toBe(200);
+    const submitted = yield* post(world, "submitPlan", {
+      judge: "shadow",
+      plan: planOf(kind, thenThink),
+      runId,
+    });
 
-          const waiting = yield* report(world, runId);
-          const initial = yield* audit(world, runId);
-          const checkpoint = initial.runs[0]?.state.checkpoint;
+    expect(
+      submitted.status,
+      `${runId}: ${JSON.stringify(submitted.body)}`
+    ).toBe(200);
 
-          expect(waiting.status).toBe("waiting-for-reply");
-          expect(waiting.awaiting).toHaveLength(1);
-          expect(waiting.failures ?? []).toStrictEqual([]);
-          expect(initial.runs).toHaveLength(1);
-          expect(checkpoint).toBeDefined();
-          expect(checkpoint).not.toBeNull();
-          expect(initial.failedNotices).toStrictEqual([]);
-          expect(initial.opens).toStrictEqual([{ count: 0 }]);
-          expect(initial.versions).toStrictEqual([{ version: 1 }]);
+    const waiting = yield* report(world, runId);
+    const initial = yield* audit(world, runId);
+    const checkpoint = initial.runs[0]?.state.checkpoint;
 
-          for (let reopen = 0; reopen < reopens; reopen += 1) {
-            yield* kill(process);
-            process = yield* start(world);
+    expect(waiting.status).toBe("waiting-for-reply");
+    expect(waiting.awaiting).toHaveLength(1);
+    expect(waiting.failures ?? []).toStrictEqual([]);
+    expect(initial.runs).toHaveLength(1);
+    expect(checkpoint).toBeDefined();
+    expect(checkpoint).not.toBeNull();
+    expect(initial.failedNotices).toStrictEqual([]);
+    expect(initial.opens).toStrictEqual([{ count: 0 }]);
+    expect(initial.versions).toStrictEqual([{ version: 1 }]);
 
-            const inspected = yield* report(world, runId);
+    for (let reopen = 0; reopen < reopens; reopen += 1) {
+      yield* kill(process);
+      process = yield* start(world);
 
-            expect(inspected.status).toBe("waiting-for-reply");
-            expect(inspected.awaiting).toStrictEqual(waiting.awaiting);
+      const inspected = yield* report(world, runId);
 
-            yield* post(world, "resumeRun", { runId });
+      expect(inspected.status).toBe("waiting-for-reply");
+      expect(inspected.awaiting).toStrictEqual(waiting.awaiting);
 
-            const driven = yield* report(world, runId);
-            const stored = yield* audit(world, runId);
+      yield* post(world, "resumeRun", { runId });
 
-            expect(driven.status).toBe("waiting-for-reply");
-            expect(driven.awaiting).toStrictEqual(waiting.awaiting);
-            expect(driven.failures ?? []).toStrictEqual([]);
-            expect(driven.docs).toStrictEqual(waiting.docs);
-            expect(stored.runs[0]?.state.checkpoint).toStrictEqual(checkpoint);
-            expect(stored.failedNotices).toStrictEqual([]);
-            expect(stored.opens).toStrictEqual([{ count: 0 }]);
-            expect(stored.versions).toStrictEqual([{ version: 1 }]);
-          }
+      const driven = yield* report(world, runId);
+      const stored = yield* audit(world, runId);
 
-          const replied = yield* post(world, "deliverReply", {
-            body: kind === "ask" ? "answer" : '{"choice":"go"}',
-            from: kind === "ask" ? "desk/answer" : "shadow/judge",
-            replyTo: waiting.awaiting?.[0]?.messageId ?? "missing",
-          });
+      expect(driven.status).toBe("waiting-for-reply");
+      expect(driven.awaiting).toStrictEqual(waiting.awaiting);
+      expect(driven.failures ?? []).toStrictEqual([]);
+      expect(driven.docs).toStrictEqual(waiting.docs);
+      expect(stored.runs[0]?.state.checkpoint).toStrictEqual(checkpoint);
+      expect(stored.failedNotices).toStrictEqual([]);
+      expect(stored.opens).toStrictEqual([{ count: 0 }]);
+      expect(stored.versions).toStrictEqual([{ version: 1 }]);
+    }
 
-          expect(replied.status, JSON.stringify(replied.body)).toBe(200);
+    const replied = yield* post(world, "deliverReply", {
+      body: kind === "ask" ? "answer" : '{"choice":"go"}',
+      from: kind === "ask" ? "desk/answer" : "shadow/judge",
+      replyTo: waiting.awaiting?.[0]?.messageId ?? "missing",
+    });
 
-          const done = yield* report(world, runId);
-          const migrated = yield* audit(world, runId);
+    expect(replied.status, JSON.stringify(replied.body)).toBe(200);
 
-          expect(done.status).toBe("done");
-          expect(done.failures ?? []).toStrictEqual([]);
-          expect(migrated.failedNotices).toStrictEqual([]);
-          expect(migrated.opens).toStrictEqual([{ count: thenThink ? 1 : 0 }]);
-          expect(migrated.versions).toStrictEqual([
-            { version: thenThink ? 2 : 1 },
-          ]);
+    const done = yield* report(world, runId);
+    const migrated = yield* audit(world, runId);
 
-          if (thenThink) {
-            expect(done.docs.first).toBe("faux answer to: first");
-            expect(done.docs.second).toBe("faux answer to: second");
-          }
+    expect(done.status).toBe("done");
+    expect(done.failures ?? []).toStrictEqual([]);
+    expect(migrated.failedNotices).toStrictEqual([]);
+    expect(migrated.opens).toStrictEqual([{ count: thenThink ? 1 : 0 }]);
+    expect(migrated.versions).toStrictEqual([{ version: thenThink ? 2 : 1 }]);
 
-          yield* kill(process);
-          process = yield* start(world);
+    if (thenThink) {
+      expect(done.docs.first).toBe("faux answer to: first");
+      expect(done.docs.second).toBe("faux answer to: second");
+    }
 
-          const replay = yield* report(world, runId);
-          const retained = yield* audit(world, runId);
+    yield* kill(process);
+    process = yield* start(world);
 
-          expect(replay.status).toBe("done");
-          expect(replay.docs).toStrictEqual(done.docs);
-          expect(retained.failedNotices).toStrictEqual([]);
-          expect(retained.opens).toStrictEqual(migrated.opens);
-          expect(retained.versions).toStrictEqual(migrated.versions);
-        }
-      }
-    }).pipe(Effect.scoped, Effect.provide(services)),
-  { arbitrary: { runs: 6 }, timeout: 180_000 }
-);
+    const replay = yield* report(world, runId);
+    const retained = yield* audit(world, runId);
+
+    expect(replay.status).toBe("done");
+    expect(replay.docs).toStrictEqual(done.docs);
+    expect(retained.failedNotices).toStrictEqual([]);
+    expect(retained.opens).toStrictEqual(migrated.opens);
+    expect(retained.versions).toStrictEqual(migrated.versions);
+  }).pipe(Effect.scoped);
+
+it.layer(
+  Layer.provideMerge(Layer.effect(UpgradeBundle)(fixtureBundle), services),
+  { excludeTestServices: true }
+)("pi upgrade parks", (test) => {
+  test.effect.prop(
+    "ask and shadow-judge waits survive N object reopens and drives unchanged without a failure notice or SQLite migration; only a think after the reply opens the store, once",
+    {
+      reopens: Schema.Int.check(Schema.isBetween({ maximum: 5, minimum: 1 })),
+    },
+    ({ reopens }) =>
+      Effect.gen(function* parkedPlanIsNotParkedThink() {
+        const bundle = yield* UpgradeBundle;
+
+        yield* Effect.forEach(
+          KINDS.flatMap((kind) =>
+            [false, true].map((thenThink) => ({ kind, thenThink }))
+          ),
+          ({ kind, thenThink }) => exercise(bundle, kind, thenThink, reopens),
+          { concurrency: "unbounded", discard: true }
+        );
+      }),
+    { arbitrary: { runs: 6 }, timeout: 180_000 }
+  );
+});

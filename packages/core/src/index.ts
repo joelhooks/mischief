@@ -256,6 +256,8 @@ export { ScheduleStore } from "./schedules/schedule-store.js";
 
 export { WakeRuns } from "./schedules/wake-runs.js";
 
+export { WakeUnanswered } from "./schedules/wake-unanswered.js";
+
 export { UnknownSchedule } from "./schedules/unknown-schedule.js";
 
 export { ScheduleRefused } from "./schedules/schedule-refused.js";

@@ -9,7 +9,7 @@ This file is the repo law for agents and contributors. It holds commands, valida
 Workspace `package.json` files declare the pinned stack. [README.md](./README.md#what-is-in-the-stack) summarizes it. Keep dependencies exact. Repo-local config wins. Record drift instead of silently migrating the project.
 
 - pnpm workspaces + Turborepo (`apps/*`, `packages/*`)
-- Node `>=24.18.0` and pnpm `11.3.0`; do not replace pnpm with Bun or npm for installs
+- Node `>=24.18.0` and pnpm `11.3.0`
 - Effect `4.0.0` and `@effect/platform-node` `4.0.0`, one runtime family. Bumping it is its own change.
 - XState `6.0.0-alpha.70` for finite lifecycles, retries, cancellation, and resumability
 - `@xstate/effect` `1.0.0-alpha.9` bridges the two: machines run as scoped Effects via `createEffectActor`, side effects are declared `createEffectLogic` actors. Both pins come from npm; `vendor/README.md` keeps the rules for the next unpublished pin

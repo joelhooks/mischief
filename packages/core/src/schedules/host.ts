@@ -1,5 +1,6 @@
 import { Clock, Duration, Effect, Option, Result, Schema } from "effect";
 
+import type { PlanRefused } from "../plans/validate.js";
 import type { Docs, JudgeMode } from "../runs/schema.js";
 import { checkSubmission } from "../runs/submission.js";
 import { alarmFor, decide, firstSlot, parseCron, previous } from "./decide.js";
@@ -287,19 +288,22 @@ export const wakeSchedule = Effect.fn("wakeSchedule")(function* wakeSchedule() {
   if (decision.start !== null) {
     const { docs, runId } = decision.start;
 
-    const submitted = yield* WakeRuns.use((runs) =>
+    const refused = yield* WakeRuns.use((runs) =>
       runs.submit(runId, decision.state.plan, docs, {
         escalateTo: decision.state.escalateTo,
         judge: decision.state.judge,
       })
-    ).pipe(Effect.result);
+    ).pipe(
+      Effect.as(Option.none<PlanRefused>()),
+      Effect.catchTag("PlanRefused", Effect.succeedSome)
+    );
 
-    if (Result.isFailure(submitted)) {
+    if (Option.isSome(refused)) {
       const ended: ScheduleState = {
         ...decision.state,
         ended: {
           at: now,
-          detail: `wake ${runId} was refused: ${submitted.failure.errors.join("; ")}. The pinned plan no longer validates on this host; create a new schedule with a fixed plan`,
+          detail: `wake ${runId} was refused: ${refused.value.errors.join("; ")}. The pinned plan no longer validates on this host; create a new schedule with a fixed plan`,
           reason: "failed",
         },
       };

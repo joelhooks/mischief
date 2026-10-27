@@ -252,6 +252,13 @@ export {
 
 export { ScheduleAlarm } from "./schedules/schedule-alarm.js";
 
+export {
+  ScheduleNotices,
+  type EndNotice,
+} from "./schedules/schedule-notices.js";
+
+export { endNoticeKey, endNoticeText } from "./schedules/end-notice.js";
+
 export { ScheduleStore } from "./schedules/schedule-store.js";
 
 export { WakeRuns } from "./schedules/wake-runs.js";

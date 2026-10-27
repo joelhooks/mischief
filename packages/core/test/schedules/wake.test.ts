@@ -3,6 +3,7 @@ import { Effect, Exit, Layer, Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import * as TestClock from "effect/testing/TestClock";
 
+import { PlanRefused } from "../../src/plans/validate.js";
 import { JudgeModeSchema } from "../../src/runs/schema.js";
 import type { Docs, RunReport, RunStatus } from "../../src/runs/schema.js";
 import { alarmFor } from "../../src/schedules/decide.js";
@@ -14,6 +15,8 @@ import {
 } from "../../src/schedules/host.js";
 import type { ScheduleInput } from "../../src/schedules/host.js";
 import { ScheduleAlarm } from "../../src/schedules/schedule-alarm.js";
+import { ScheduleNotices } from "../../src/schedules/schedule-notices.js";
+import type { EndNotice } from "../../src/schedules/schedule-notices.js";
 import { ScheduleStore } from "../../src/schedules/schedule-store.js";
 import { wakeRunId } from "../../src/schedules/schema.js";
 import type { ScheduleState } from "../../src/schedules/schema.js";
@@ -63,10 +66,17 @@ const StepSchema = Schema.Struct({
 
 const WorldSchema = Schema.Struct({
   carry: Schema.Boolean,
+  completeAfter: Schema.NullOr(
+    Schema.Int.check(Schema.isBetween({ maximum: 12, minimum: 0 }))
+  ),
   escalateTo: Schema.NullOr(Schema.Literal("agent-graph/desk")),
   everyMinutes: Schema.Int.check(Schema.isBetween({ maximum: 30, minimum: 1 })),
   judge: Schema.NullOr(JudgeModeSchema),
   maxWakes: Schema.NullOr(
+    Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 1 }))
+  ),
+  noticeDies: Schema.Boolean,
+  refuseAt: Schema.NullOr(
     Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 1 }))
   ),
   runs: Schema.NonEmptyArray(RunScriptSchema),
@@ -91,12 +101,17 @@ interface LiveRun {
 const makeWorld = (world: World) => {
   const runs = new Map<string, LiveRun>();
   const violations: string[] = [];
+  const refused = new Set<string>();
+  const noticeCalls: EndNotice[] = [];
+  const delivered = new Map<string, EndNotice>();
+  const endings: ScheduleState[] = [];
 
   let state: Option.Option<ScheduleState> = Option.none();
   let alarm: number | null = null;
   let step = 0;
   let calls = 0;
   let crashAt: number | null = null;
+  let crashes = 0;
 
   const port = <A, E>(effect: Effect.Effect<A, E>) =>
     Effect.suspend(() => {
@@ -152,9 +167,38 @@ const makeWorld = (world: World) => {
         save: (next) =>
           port(
             Effect.sync(() => {
+              const before = Option.getOrNull(state);
+
+              if (
+                before?.ended === null &&
+                next.ended !== null &&
+                next.ended.reason !== "completed"
+              ) {
+                endings.push(next);
+              }
+
               state = Option.some(next);
             })
           ),
+      })
+    ),
+    Layer.succeed(
+      ScheduleNotices,
+      ScheduleNotices.of({
+        ended: (notice) =>
+          Effect.suspend(() => {
+            noticeCalls.push(notice);
+
+            if (world.noticeDies) {
+              return Effect.die("the Postbox is down");
+            }
+
+            if (!delivered.has(notice.key)) {
+              delivered.set(notice.key, notice);
+            }
+
+            return Effect.void;
+          }),
       })
     ),
     Layer.succeed(
@@ -189,64 +233,77 @@ const makeWorld = (world: World) => {
           ),
         submit: (runId, _plan, docs, { escalateTo, judge }) =>
           port(
-            Effect.sync(() => {
-              if (judge !== world.judge) {
-                violations.push(
-                  `${runId} was submitted with judge ${String(judge)}, not the schedule's ${String(world.judge)}`
+            Effect.suspend(() => {
+              if (
+                world.refuseAt !== null &&
+                runId === wakeRunId(ID, world.refuseAt)
+              ) {
+                refused.add(runId);
+
+                return Effect.fail(
+                  new PlanRefused({ errors: ["the plan no longer validates"] })
                 );
               }
 
-              if (escalateTo !== world.escalateTo) {
-                violations.push(
-                  `${runId} was submitted with escalateTo ${String(escalateTo)}, not the schedule's ${String(world.escalateTo)}`
-                );
-              }
+              return Effect.sync(() => {
+                if (judge !== world.judge) {
+                  violations.push(
+                    `${runId} was submitted with judge ${String(judge)}, not the schedule's ${String(world.judge)}`
+                  );
+                }
 
-              const existing = runs.get(runId);
+                if (escalateTo !== world.escalateTo) {
+                  violations.push(
+                    `${runId} was submitted with escalateTo ${String(escalateTo)}, not the schedule's ${String(world.escalateTo)}`
+                  );
+                }
 
-              if (existing !== undefined) {
-                existing.submits += 1;
+                const existing = runs.get(runId);
 
-                return;
-              }
+                if (existing !== undefined) {
+                  existing.submits += 1;
 
-              const n = runs.size + 1;
+                  return;
+                }
 
-              if (runId !== wakeRunId(ID, n)) {
-                violations.push(
-                  `wake ${runId} was submitted as run ${String(n)}`
-                );
-              }
+                const n = runs.size + 1;
 
-              const before = runs.get(wakeRunId(ID, n - 1));
+                if (runId !== wakeRunId(ID, n)) {
+                  violations.push(
+                    `wake ${runId} was submitted as run ${String(n)}`
+                  );
+                }
 
-              if (before !== undefined && statusOf(before) === "running") {
-                violations.push(
-                  `${runId} started while ${wakeRunId(ID, n - 1)} was running`
-                );
-              }
+                const before = runs.get(wakeRunId(ID, n - 1));
 
-              const fromBefore =
-                before?.aborted === true
-                  ? before.docs[CARRY]
-                  : `from ${String(before?.n)}`;
+                if (before !== undefined && statusOf(before) === "running") {
+                  violations.push(
+                    `${runId} started while ${wakeRunId(ID, n - 1)} was running`
+                  );
+                }
 
-              const expected = before === undefined ? "seed" : fromBefore;
+                const fromBefore =
+                  before?.aborted === true
+                    ? before.docs[CARRY]
+                    : `from ${String(before?.n)}`;
 
-              if (world.carry && docs[CARRY] !== expected) {
-                violations.push(
-                  `${runId} got ${CARRY} ${JSON.stringify(docs[CARRY])}, not ${JSON.stringify(expected)}`
-                );
-              }
+                const expected = before === undefined ? "seed" : fromBefore;
 
-              runs.set(runId, {
-                aborted: false,
-                docs,
-                n,
-                script:
-                  world.runs[(n - 1) % world.runs.length] ?? world.runs[0],
-                startedStep: step,
-                submits: 1,
+                if (world.carry && docs[CARRY] !== expected) {
+                  violations.push(
+                    `${runId} got ${CARRY} ${JSON.stringify(docs[CARRY])}, not ${JSON.stringify(expected)}`
+                  );
+                }
+
+                runs.set(runId, {
+                  aborted: false,
+                  docs,
+                  n,
+                  script:
+                    world.runs[(n - 1) % world.runs.length] ?? world.runs[0],
+                  startedStep: step,
+                  submits: 1,
+                });
               });
             })
           ),
@@ -273,6 +330,10 @@ const makeWorld = (world: World) => {
       calls = 0;
       crashAt = crash;
 
+      if (crash !== null) {
+        crashes += 1;
+      }
+
       const exit = yield* Effect.exit(
         wakeSchedule().pipe(Effect.provide(layer))
       );
@@ -295,8 +356,13 @@ const makeWorld = (world: World) => {
       step += 1;
     },
     alarm: () => alarm,
+    crashes: () => crashes,
+    delivered,
+    endings,
     fire,
     layer,
+    noticeCalls,
+    refused,
     runs,
     state: () => state,
     violations,
@@ -349,11 +415,15 @@ const play = (world: World) =>
         sim.violations.push(`the alarm kept firing at ${String(now)}`);
       });
 
-    for (const step of world.steps) {
+    for (const [index, step] of world.steps.entries()) {
       sim.advance();
       now += step.gapSlots * every + step.jitter;
       yield* TestClock.setTime(now);
       yield* fireDue(step.crashAt);
+
+      if (world.completeAfter === index) {
+        yield* completeSchedule(ID).pipe(Effect.provide(sim.layer));
+      }
     }
 
     const last = sim.alarm();
@@ -365,6 +435,9 @@ const play = (world: World) =>
       yield* fireDue(null);
     }
 
+    yield* sim.fire(null);
+    yield* sim.fire(null);
+
     return sim;
   });
 
@@ -374,14 +447,14 @@ const submittedViolations = (state: ScheduleState, sim: Sim) => {
   const problems: string[] = [];
 
   for (let n = 1; n <= state.wakeCount; n += 1) {
-    if (!sim.runs.has(wakeRunId(ID, n))) {
+    if (!sim.runs.has(wakeRunId(ID, n)) && !sim.refused.has(wakeRunId(ID, n))) {
       problems.push(`wake ${String(n)} was recorded but never submitted`);
     }
   }
 
-  if (sim.runs.size !== state.wakeCount) {
+  if (sim.runs.size + sim.refused.size !== state.wakeCount) {
     problems.push(
-      `${String(sim.runs.size)} runs for ${String(state.wakeCount)} wakes`
+      `${String(sim.runs.size)} runs and ${String(sim.refused.size)} refusals for ${String(state.wakeCount)} wakes`
     );
   }
 
@@ -449,6 +522,73 @@ const endViolations = (world: World, state: ScheduleState, sim: Sim) => {
   return problems;
 };
 
+const noticeViolations = (world: World, state: ScheduleState, sim: Sim) => {
+  const problems: string[] = [];
+  const keys = new Set(sim.noticeCalls.map(({ key }) => key));
+
+  if (sim.endings.length > 1) {
+    problems.push(`the schedule ended ${String(sim.endings.length)} times`);
+  }
+
+  const wanted = sim.endings.at(-1);
+
+  if (wanted === undefined) {
+    if (sim.noticeCalls.length > 0) {
+      problems.push(
+        `${String(sim.noticeCalls.length)} notices for a schedule that ${state.ended === null ? "is still running" : "was completed by its owner"}`
+      );
+    }
+
+    return problems;
+  }
+
+  const reason = wanted.ended?.reason ?? "";
+  const key = `schedule-ended:${ID}`;
+
+  if (sim.noticeCalls.length === 0) {
+    problems.push(`a schedule that ended (${reason}) sent no notice`);
+  }
+
+  if (!world.noticeDies && sim.delivered.size !== 1) {
+    problems.push(
+      `${String(sim.delivered.size)} notices were delivered for one ending`
+    );
+  }
+
+  if ([...keys].some((other) => other !== key)) {
+    problems.push(`notices used keys ${[...keys].join(", ")}, not ${key}`);
+  }
+
+  if (sim.noticeCalls.length > 1 + sim.crashes()) {
+    problems.push(
+      `${String(sim.noticeCalls.length)} notices for one ending and ${String(sim.crashes())} crashes`
+    );
+  }
+
+  for (const notice of sim.noticeCalls) {
+    if (notice.escalateTo !== world.escalateTo) {
+      problems.push(
+        `the notice went to ${String(notice.escalateTo)}, not the schedule's escalateTo ${String(world.escalateTo)}`
+      );
+    }
+
+    for (const part of [
+      `schedule ${ID} ended (${reason})`,
+      wanted.ended?.detail ?? "",
+      `ran ${String(wanted.wakeCount)} `,
+      wanted.wakes.at(-1)?.runId ?? "none",
+      `inspectSchedule {"scheduleId": "${ID}"}`,
+      "create a new schedule",
+    ]) {
+      if (!notice.text.includes(part)) {
+        problems.push(`the notice text lacks "${part}"`);
+      }
+    }
+  }
+
+  return problems;
+};
+
 const settledViolations = (world: World, sim: Sim) => {
   const state = Option.getOrThrow(sim.state());
 
@@ -458,6 +598,7 @@ const settledViolations = (world: World, sim: Sim) => {
     ...collapseViolations(state),
     ...budgetViolations(state, sim),
     ...endViolations(world, state, sim),
+    ...noticeViolations(world, state, sim),
   ];
 };
 
@@ -479,10 +620,13 @@ const refusalOf = (input: Partial<ScheduleInput>) =>
   Effect.gen(function* refusal() {
     const sim = makeWorld({
       carry: false,
+      completeAfter: null,
       escalateTo: null,
       everyMinutes: 1,
       judge: null,
       maxWakes: 1,
+      noticeDies: false,
+      refuseAt: null,
       runs: [
         {
           done: false,
@@ -552,10 +696,13 @@ it.effect(
     Effect.gen(function* cronFirst() {
       const sim = makeWorld({
         carry: false,
+        completeAfter: null,
         escalateTo: null,
         everyMinutes: 1,
         judge: null,
         maxWakes: 2,
+        noticeDies: false,
+        refuseAt: null,
         runs: [
           {
             done: false,
@@ -590,10 +737,13 @@ it.effect(
     Effect.gen(function* lifecycle() {
       const sim = makeWorld({
         carry: false,
+        completeAfter: null,
         escalateTo: null,
         everyMinutes: 5,
         judge: null,
         maxWakes: 3,
+        noticeDies: false,
+        refuseAt: null,
         runs: [
           {
             done: false,
@@ -637,5 +787,63 @@ it.effect(
       );
 
       expect(inspected).toStrictEqual(done);
+    })
+);
+
+it.effect(
+  "a schedule that passes its endsAt tells its escalateTo once, with the reason, the wake count and the next call, and a stray alarm after that says nothing",
+  () =>
+    Effect.gen(function* timedOut() {
+      const sim = makeWorld({
+        carry: false,
+        completeAfter: null,
+        escalateTo: "agent-graph/desk",
+        everyMinutes: 10,
+        judge: null,
+        maxWakes: null,
+        noticeDies: false,
+        refuseAt: null,
+        runs: [
+          {
+            done: false,
+            life: 0,
+            status: "done",
+            stuck: false,
+            writesCarry: false,
+          },
+        ],
+        steps: [],
+        timeoutSlots: 3,
+        wakeTimeoutSlots: null,
+      });
+
+      yield* TestClock.setTime(START);
+
+      yield* createSchedule({
+        escalateTo: "agent-graph/desk",
+        every: "10 minutes",
+        plan: zeroStep,
+        scheduleId: ID,
+        timeout: "30 minutes",
+      }).pipe(Effect.provide(sim.layer));
+
+      for (const minutes of [0, 10, 20, 31, 45]) {
+        yield* TestClock.setTime(START + minutes * MINUTE);
+        yield* sim.fire(null);
+      }
+
+      expect(
+        sim.state().pipe(Option.map(({ ended }) => ended?.reason))
+      ).toStrictEqual(Option.some("timeout"));
+      expect(sim.noticeCalls).toHaveLength(1);
+
+      const [notice] = sim.noticeCalls;
+
+      expect(notice?.escalateTo).toBe("agent-graph/desk");
+      expect(notice?.key).toBe("schedule-ended:climb");
+      expect(notice?.text).toContain("schedule climb ended (timeout)");
+      expect(notice?.text).toContain("ran 3 wakes");
+      expect(notice?.text).toContain("climb-wake-3");
+      expect(notice?.text).toContain('inspectSchedule {"scheduleId": "climb"}');
     })
 );

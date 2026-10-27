@@ -2,9 +2,12 @@
 import { makeSchedule } from "@mischief/plan-run";
 import type { ScheduleObject } from "@mischief/plan-run";
 import { DurableObject } from "cloudflare:workers";
+import { Effect } from "effect";
 
 import type { Env } from "./plan-run-object.js";
-import { OBJECT_HEADER, rememberObject } from "./postbox-mail.js";
+import { OBJECT_HEADER, objectOf, rememberObject } from "./postbox-mail.js";
+import { POSTBOX_NAME } from "./postbox-object.js";
+import { scheduleNotices } from "./schedule-notices.js";
 import { wakeRuns } from "./wake-runs.js";
 
 export class Schedule extends DurableObject<Env> {
@@ -12,6 +15,9 @@ export class Schedule extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+
+    const mailWired =
+      env.MISCHIEF_IDENTITY !== undefined && env.MISCHIEF_IDENTITY !== "";
 
     this.object = makeSchedule({
       alarms: {
@@ -23,6 +29,14 @@ export class Schedule extends DurableObject<Env> {
           await ctx.storage.setAlarm(at);
         },
       },
+      notices: mailWired
+        ? scheduleNotices({
+            objectName: () => objectOf(ctx.storage),
+            postbox: () =>
+              env.POSTBOX.get(env.POSTBOX.idFromName(POSTBOX_NAME)),
+            storage: ctx.storage,
+          })
+        : { ended: () => Effect.void },
       runs: wakeRuns(env.PLAN_RUN, ctx.storage, (pending) => {
         ctx.waitUntil(pending);
       }),

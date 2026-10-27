@@ -4,6 +4,7 @@ import * as TestClock from "effect/testing/TestClock";
 
 import { createSchedule, wakeSchedule } from "../../src/schedules/host.js";
 import { ScheduleAlarm } from "../../src/schedules/schedule-alarm.js";
+import { ScheduleNotices } from "../../src/schedules/schedule-notices.js";
 import { ScheduleStore } from "../../src/schedules/schedule-store.js";
 import type { ScheduleState } from "../../src/schedules/schema.js";
 import { WakeRuns } from "../../src/schedules/wake-runs.js";
@@ -52,6 +53,10 @@ it.effect.prop(
         Layer.succeed(
           ScheduleAlarm,
           ScheduleAlarm.of({ set: () => Effect.void })
+        ),
+        Layer.succeed(
+          ScheduleNotices,
+          ScheduleNotices.of({ ended: () => Effect.void })
         ),
         Layer.succeed(
           WakeRuns,

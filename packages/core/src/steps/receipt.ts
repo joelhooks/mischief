@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 
 import { Count } from "../plans/schema.js";
 
@@ -19,6 +19,7 @@ export const ThinkReceiptSchema = Schema.Struct({
   }),
   tokens: Schema.Struct({
     cacheRead: Count,
+    cacheWrite: Count.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))),
     input: Count,
     output: Count,
     total: Count,
@@ -82,6 +83,7 @@ export const thinkTotals = (
     models: [...new Set(receipts.map(effectiveName))].toSorted(),
     tokens: {
       cacheRead: sum(({ tokens }) => tokens.cacheRead),
+      cacheWrite: sum(({ tokens }) => tokens.cacheWrite),
       input: sum(({ tokens }) => tokens.input),
       output: sum(({ tokens }) => tokens.output),
       total: sum(({ tokens }) => tokens.total),
@@ -90,4 +92,4 @@ export const thinkTotals = (
 };
 
 export const thinkLine = (totals: ThinkTotals) =>
-  `think: ${totals.models.join(", ")} · ${totals.calls} call${totals.calls === 1 ? "" : "s"} · ${totals.tokens.total.toLocaleString("en-US")} tok (${totals.tokens.cacheRead.toLocaleString("en-US")} cached)${totals.mismatched > 0 ? ` · ${totals.mismatched} served by another model` : ""}`;
+  `think: ${totals.models.join(", ")} · ${totals.calls} call${totals.calls === 1 ? "" : "s"} · ${totals.tokens.total.toLocaleString("en-US")} tok (${totals.tokens.cacheRead.toLocaleString("en-US")} cached)${totals.tokens.cacheWrite > 0 ? ` · ${totals.tokens.cacheWrite.toLocaleString("en-US")} cache-write` : ""}${totals.mismatched > 0 ? ` · ${totals.mismatched} served by another model` : ""}`;

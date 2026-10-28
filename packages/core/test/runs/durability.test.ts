@@ -52,7 +52,13 @@ const receiptFor = (tokens: number): ThinkReceipt => ({
   latencyMs: 1,
   matched: true,
   requested: { from: "plan", model: "faux", thinking: "low" },
-  tokens: { cacheRead: 0, input: tokens, output: 0, total: tokens },
+  tokens: {
+    cacheRead: 0,
+    cacheWrite: 0,
+    input: tokens,
+    output: 0,
+    total: tokens,
+  },
 });
 
 const rungTokens = (rung: string, shadow: boolean) => {

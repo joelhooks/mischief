@@ -55,15 +55,23 @@ const answerOf = (messages: readonly Message[] | undefined) =>
     (message): message is AssistantMessage => message.role === "assistant"
   );
 
-const NO_USAGE = { cacheRead: 0, input: 0, output: 0, totalTokens: 0 };
+const NO_USAGE = {
+  cacheRead: 0,
+  cacheWrite: 0,
+  input: 0,
+  output: 0,
+  totalTokens: 0,
+};
 
 const tokensOf = ({
   cacheRead,
+  cacheWrite,
   input,
   output,
   totalTokens,
 }: typeof NO_USAGE) => ({
   cacheRead,
+  cacheWrite,
   input,
   output,
   total: totalTokens,

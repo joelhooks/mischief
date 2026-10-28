@@ -119,3 +119,47 @@ it("a turn with no assistant answer is recorded as unmatched, never as the reque
   expect(receipt.matched).toBe(false);
   expect(receipt.effective).toStrictEqual({ model: null, thinking: null });
 });
+
+it.prop(
+  "the receipt carries the usage's cache reads and writes in named fields and its total is the provider's total",
+  {
+    cacheRead: Schema.Int.check(
+      Schema.isBetween({ maximum: 99_999, minimum: 0 })
+    ),
+    cacheWrite: Schema.Int.check(
+      Schema.isBetween({ maximum: 99_999, minimum: 0 })
+    ),
+    input: Schema.Int.check(Schema.isBetween({ maximum: 99_999, minimum: 0 })),
+    output: Schema.Int.check(Schema.isBetween({ maximum: 99_999, minimum: 0 })),
+  },
+  ({ cacheRead, cacheWrite, input, output }) => {
+    const base = bare(0);
+
+    const counted: AssistantMessage = {
+      ...base,
+      usage: {
+        ...base.usage,
+        cacheRead,
+        cacheWrite,
+        input,
+        output,
+        totalTokens: input + output + cacheRead + cacheWrite,
+      },
+    };
+
+    const receipt = receiptOf(
+      requestedOf({}, { model: MODEL_ID, thinking: "medium" }, "high"),
+      MODEL_ID,
+      "medium",
+      [counted]
+    );
+
+    expect(receipt.tokens).toStrictEqual({
+      cacheRead,
+      cacheWrite,
+      input,
+      output,
+      total: input + output + cacheRead + cacheWrite,
+    });
+  }
+);

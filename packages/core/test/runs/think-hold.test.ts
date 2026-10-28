@@ -45,7 +45,7 @@ const receipt: ThinkReceipt = {
   latencyMs: 1,
   matched: true,
   requested: { from: "plan", model: "sol", thinking: "low" },
-  tokens: { cacheRead: 0, input: 2, output: 3, total: 5 },
+  tokens: { cacheRead: 0, cacheWrite: 0, input: 2, output: 3, total: 5 },
 };
 
 const OutageSchema = Schema.Struct({

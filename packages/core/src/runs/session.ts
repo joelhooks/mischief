@@ -579,6 +579,7 @@ export const driveSession = (
 
         const base = {
           cacheRead: thought.cacheRead ?? 0,
+          cacheWrite: thought.cacheWrite ?? 0,
           output: thought.output,
           tokens: thought.tokens,
         };
@@ -819,6 +820,7 @@ export const driveSession = (
 
           const base = {
             cacheRead: thought.cacheRead ?? 0,
+            cacheWrite: thought.cacheWrite ?? 0,
             output,
             tokens: thought.tokens,
           };

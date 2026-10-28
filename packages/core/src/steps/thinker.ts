@@ -13,6 +13,7 @@ export interface Thought {
   readonly output: string;
   readonly tokens: number;
   readonly cacheRead?: number;
+  readonly cacheWrite?: number;
   readonly receipt?: ThinkReceipt;
 }
 

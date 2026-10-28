@@ -103,6 +103,7 @@ const parkedFor = (
 
 interface Answer {
   readonly cacheRead: number;
+  readonly cacheWrite: number;
   readonly receipt: ThinkReceipt;
   readonly text: string;
   readonly tokens: number;
@@ -184,8 +185,9 @@ const thought = <R>(
         })
       )
     ),
-    Effect.map(({ cacheRead, receipt, text, tokens }) => ({
+    Effect.map(({ cacheRead, cacheWrite, receipt, text, tokens }) => ({
       cacheRead,
+      cacheWrite,
       output: text,
       receipt,
       tokens,
@@ -702,6 +704,7 @@ const thinkerOf = (options: PiThinkerOptions) =>
 
           return {
             cacheRead: totals.reduce((sum, u) => sum + u.cacheRead, 0),
+            cacheWrite: totals.reduce((sum, u) => sum + u.cacheWrite, 0),
             receipt,
             text,
             tokens: totals.reduce((sum, u) => sum + u.totalTokens, 0),

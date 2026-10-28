@@ -111,6 +111,7 @@ it.effect.prop(
       expect(steps.map(({ entry }) => entry)).toEqual(
         STEPS.slice(0, length).map((name) => ({
           cacheRead: name.length * 7,
+          cacheWrite: 0,
           output: `${name} written`,
           tokens: name.length,
         }))

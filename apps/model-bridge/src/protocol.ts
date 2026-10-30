@@ -90,7 +90,10 @@ export const CompletionSchema = Schema.Struct({
 
 export type Completion = typeof CompletionSchema.Type;
 
-export const promptOf = ({ input, instructions }: ResponsesRequest) =>
+export const promptOf = ({
+  input,
+  instructions,
+}: Pick<ResponsesRequest, "input" | "instructions">) =>
   JSON.stringify({ instructions: instructions ?? "", messages: input });
 
 export const sseOf = ({ stopReason, text, usage }: Completion, id: string) => {

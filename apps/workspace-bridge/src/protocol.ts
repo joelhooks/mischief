@@ -9,6 +9,17 @@ export const WorkspaceSchema = Schema.Struct({ repo: Schema.String, sha: Sha });
 export const WorkspaceRequestSchema = ResponsesRequestSchema.mapFields(
   (fields) => ({
     ...fields,
+    reasoning: Schema.Struct({
+      effort: Schema.Literals([
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+      ]),
+      summary: fields.reasoning.fields.summary,
+    }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({ effort: "none" }))),
     tools: Schema.Array(
       Schema.Literals(["read", "grep", "find", "ls", "bash"])
     ).check(Schema.isMinLength(1)),

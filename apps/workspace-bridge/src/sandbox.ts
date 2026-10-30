@@ -36,14 +36,19 @@ export const ContainerName = Schema.String.check(
 
 export const OUTPUT_TOKEN_CAP = 128_000;
 
-export const thinkingOf = (effort: WorkspaceRequest["reasoning"]["effort"]) =>
-  effort === "xhigh" || effort === "max" ? "high" : effort;
+export const thinkingOf = (effort: WorkspaceRequest["reasoning"]["effort"]) => {
+  if (effort === "none") {
+    return "off";
+  }
+
+  return effort === "xhigh" || effort === "max" ? "high" : effort;
+};
 
 export const dockerArguments = (
   image: string,
   exportPath: string,
   name: string,
-  thinking: WorkspaceRequest["reasoning"]["effort"]
+  thinking: ReturnType<typeof thinkingOf>
 ) => [
   "run",
   "--rm",

@@ -62,6 +62,8 @@ Approved additions to the original fixed template:
 | Fixed `--interactive`, no TTY | Carries the capped prompt over stdin rather than argv |
 | `--thinking` | Closed Responses enum mapped to supported Pi levels; xhigh/max clamp to high for this custom model, matching the SDK default; requested and applied levels are recorded |
 
+The gateway contract is exercised through the real `gatewayThinkerOptions` workspace path in `test/gateway-contract.test.ts`, for every planner thinking level. At `off`, Pi omits `reasoning`; the workspace decoder normalizes that omission to effort `none`, which becomes Pi `--thinking off`. The planner's `minimal` level arrives as effort `low`. Unknown fields remain errors, and the ordinary Opus bridge request schema is unchanged.
+
 V1 requires exactly the five shell tools in the request. A subset or duplicate set is refused rather than silently granting more tools. The image caps each provider response at 128000 output tokens. Requests specifying a smaller `max_output_tokens` receive a 4xx naming that cap. Normal workspace routing inherits the Opus model's 128000 maximum; context-clamped callers can legitimately hit this refusal.
 
 The system prompt, tool list, cwd and agent-directory paths are fixed across leaves. The first admitted leaf becomes the cache leader once per bridge process start; there is no re-election. Followers wait for its first successful assistant `message_end` on stdout, which follows the first model response, or for that leaf's cleanup if it fails. Split stdout chunks are supported. No timer guesses cache readiness.

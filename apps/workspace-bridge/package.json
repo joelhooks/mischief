@@ -29,7 +29,10 @@
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "1.3.1-main.73f8de8",
+    "@earendil-works/pi-durable": "1.3.1-main.73f8de8",
     "@effect/vitest": "4.0.5",
+    "@mischief/core": "workspace:*",
+    "@mischief/thinking": "workspace:*",
     "@types/node": "24.13.6",
     "typescript": "7.0.2",
     "vitest": "5.0.3"

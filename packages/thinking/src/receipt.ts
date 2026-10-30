@@ -10,6 +10,7 @@ export interface ThinkDefaults {
 }
 
 export interface Requested {
+  readonly agent: AgentConfig;
   readonly from: ThinkReceipt["requested"]["from"];
   readonly model: string;
   readonly thinking: Thinking;
@@ -40,6 +41,7 @@ export const requestedOf = (
   defaults: ThinkDefaults | undefined,
   ceiling: Thinking
 ): Requested => ({
+  agent,
   from: agent.model === undefined ? "default" : "plan",
   model: agent.model ?? defaults?.model ?? "",
   ...thinkingOf(agent, defaults, ceiling),

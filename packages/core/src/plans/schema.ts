@@ -70,6 +70,21 @@ export const PlacementSchema = Schema.Union([
 
 export type Placement = typeof PlacementSchema.Type;
 
+export const WorkspaceSchema = Schema.Struct({
+  repo: Schema.String.check(
+    Schema.isPattern(/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/u, {
+      message:
+        "agent.workspace.repo must be owner/repo. Use an entry from MISCHIEF_WORKSPACE_REPOS and call submitPlan again",
+    })
+  ),
+  sha: Schema.String.check(
+    Schema.isPattern(/^[0-9a-f]{40}$/u, {
+      message:
+        "agent.workspace.sha must be 40 lowercase hex characters. Replace the branch or short sha with a full pinned commit sha and call submitPlan again",
+    })
+  ),
+});
+
 export const AgentConfigSchema = Schema.Struct({
   extensions: Schema.optionalKey(Schema.Array(ToolName)),
   model: Schema.optionalKey(ModelRef),
@@ -77,6 +92,7 @@ export const AgentConfigSchema = Schema.Struct({
   skills: Schema.optionalKey(Schema.Array(ToolName)),
   thinking: Schema.optionalKey(Thinking),
   tools: Schema.optionalKey(Schema.Array(ToolName)),
+  workspace: Schema.optionalKey(WorkspaceSchema),
 });
 
 export type AgentConfig = typeof AgentConfigSchema.Type;

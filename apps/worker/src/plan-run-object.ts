@@ -4,6 +4,8 @@ import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/stora
 import {
   CallRegistry,
   EnabledStepKinds,
+  WorkspacePolicy,
+  workspacePolicyFrom,
   JudgeModeSchema,
   Operator,
   StepFailed,
@@ -68,6 +70,10 @@ export interface Env {
   readonly MISCHIEF_CLIPROXY_KEY?: string;
   readonly MISCHIEF_OPUS_BRIDGE_URL?: string;
   readonly MISCHIEF_OPUS_BRIDGE_KEY?: string;
+  readonly MISCHIEF_WORKSPACE?: string;
+  readonly MISCHIEF_WORKSPACE_REPOS?: string;
+  readonly MISCHIEF_WORKSPACE_BRIDGE_URL?: string;
+  readonly MISCHIEF_WORKSPACE_BRIDGE_KEY?: string;
   readonly MISCHIEF_GUARD_MS: string;
   readonly MISCHIEF_REDRIVE_ATTEMPTS?: string;
   readonly MISCHIEF_RESUME_ATTEMPTS?: string;
@@ -108,6 +114,13 @@ const thinkerFor = (
             env.MISCHIEF_OPUS_BRIDGE_URL,
             env.MISCHIEF_OPUS_BRIDGE_KEY
           ),
+          workspaceBridge:
+            env.MISCHIEF_WORKSPACE === "on"
+              ? opusBridgeFrom(
+                  env.MISCHIEF_WORKSPACE_BRIDGE_URL,
+                  env.MISCHIEF_WORKSPACE_BRIDGE_KEY
+                )
+              : undefined,
         })
       )
     : Thinker.unwired;
@@ -257,6 +270,13 @@ export class PlanRun extends DurableObject<Env> {
           : postboxMail(ctx.storage, postbox),
         operator,
         Layer.succeed(CallRegistry, callables),
+        Layer.succeed(
+          WorkspacePolicy,
+          workspacePolicyFrom(
+            env.MISCHIEF_WORKSPACE,
+            env.MISCHIEF_WORKSPACE_REPOS
+          )
+        ),
         Layer.succeed(EnabledStepKinds, stepKindsFrom(env.MISCHIEF_STEP_KINDS)),
         providerResumeLayer({
           attempts: env.MISCHIEF_RESUME_ATTEMPTS,

@@ -25,6 +25,7 @@ import type {
 } from "@earendil-works/pi-durable";
 import { MemoryStorage } from "@earendil-works/pi-durable/storage/memory";
 import type {
+  AgentConfig,
   StepCall,
   ThinkingDeclaration,
   ThinkReceipt,
@@ -76,6 +77,9 @@ export interface PiThinkerOptions {
   readonly modelRefs: Readonly<Record<string, ModelRef>>;
   readonly storageFor: (runId: string) => Effect.Effect<Storage, StepFailed>;
   readonly streamFor?: (runId: string) => ConversationStreamOptions;
+  readonly workspaceModelRef?:
+    | ((agent: AgentConfig, model: ModelRef) => Option.Option<ModelRef>)
+    | undefined;
 }
 
 interface OpenRun {
@@ -315,15 +319,46 @@ const thinkerOf = (options: PiThinkerOptions) =>
         const name = requested.model;
         const ref = options.modelRefs[name];
 
-        return ref === undefined
-          ? Effect.fail(
-              new ThinkModelUnmapped({
+        if (
+          requested.agent.workspace !== undefined &&
+          options.workspaceModelRef === undefined
+        ) {
+          return Effect.fail(
+            new StepFailed({
+              key: call.key,
+              reason:
+                "agent.workspace has no enabled bridge route on this host. Set MISCHIEF_WORKSPACE=on and configure MISCHIEF_WORKSPACE_BRIDGE_URL and MISCHIEF_WORKSPACE_BRIDGE_KEY, or remove agent.workspace and its shell tools",
+            })
+          );
+        }
+
+        if (ref === undefined) {
+          return Effect.fail(
+            new ThinkModelUnmapped({
+              key: call.key,
+              mapped: Object.keys(options.modelRefs),
+              model: name,
+            })
+          );
+        }
+
+        if (requested.agent.workspace === undefined) {
+          return Effect.succeed(ref);
+        }
+
+        const workspaceRef =
+          options.workspaceModelRef?.(requested.agent, ref) ?? Option.none();
+
+        return Option.match(workspaceRef, {
+          onNone: () =>
+            Effect.fail(
+              new StepFailed({
                 key: call.key,
-                mapped: Object.keys(options.modelRefs),
-                model: name,
+                reason: `agent.workspace cannot route agent.model "${name}" (${ref.provider}/${ref.modelId}) through the workspace bridge because its source model is not registered. Register that model on this host or set agent.model to a registered model, then resume the run. The ordinary model gateway will not be used`,
               })
-            )
-          : Effect.succeed(ref);
+            ),
+          onSome: Effect.succeed,
+        });
       };
 
       const conversationFor = (

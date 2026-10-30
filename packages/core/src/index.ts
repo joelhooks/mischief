@@ -222,6 +222,12 @@ export type { StepCall } from "./steps/step-failed.js";
 export type { AgentConfig } from "./plans/schema.js";
 
 export {
+  WorkspacePolicy,
+  WORKSPACE_TOOLS,
+  workspacePolicyFrom,
+} from "./plans/workspace.js";
+
+export {
   completeSchedule,
   createSchedule,
   inspectSchedule,

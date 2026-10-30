@@ -1,6 +1,3 @@
-// @effect-diagnostics-next-line nodeBuiltinImport:off -- NodeHttpServer requires the Node HTTP server constructor at this composition boundary.
-import { createServer } from "node:http";
-
 import {
   NodeHttpServer,
   NodeRuntime,
@@ -12,6 +9,7 @@ import { HttpRouter } from "effect/http";
 import { Bridge } from "./bridge.js";
 import { bridgeRoutes } from "./http.js";
 import { PiProcess } from "./pi-process.js";
+import { createServer } from "./server.js";
 
 const program = Effect.gen(function* serveBridge() {
   const key = yield* Config.Redacted("MISCHIEF_OPUS_BRIDGE_KEY");

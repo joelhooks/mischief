@@ -1,0 +1,20 @@
+{
+  "providers": {
+    "peon": {
+      "api": "anthropic-messages",
+      "apiKey": "proxy",
+      "baseUrl": "http://172.30.211.1:28012",
+      "models": [
+        {
+          "id": "claude-opus-5-5",
+          "name": "Opus Peon",
+          "reasoning": true,
+          "input": ["text"],
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+          "contextWindow": 1000000,
+          "maxTokens": 128000
+        }
+      ]
+    }
+  }
+}

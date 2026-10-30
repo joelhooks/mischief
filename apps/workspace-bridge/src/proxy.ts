@@ -34,8 +34,16 @@ const ClientTools = Schema.Array(
   })
 );
 
+const PI_API_KEY_BETAS = new Set([
+  "fine-grained-tool-streaming-2025-05-14",
+  "interleaved-thinking-2025-05-14",
+  "server-side-fallback-2026-07-01",
+  "mid-conversation-output-config-2026-07-01",
+  "thinking-binding-controls-2026-08-01",
+  "inline-tools-2026-09-15",
+]);
+
 const MESSAGE_FIELDS = new Set([
-  "betas",
   "cache_control",
   "max_tokens",
   "messages",
@@ -150,6 +158,18 @@ export class Proxy extends Context.Service<
             );
           }
 
+          const betas =
+            request.beta.trim() === ""
+              ? []
+              : request.beta.split(",").map((value) => value.trim());
+
+          if (betas.some((value) => !PI_API_KEY_BETAS.has(value))) {
+            return yield* refusal(
+              `Unsupported anthropic-beta value. Provider feature switches are restricted to Pi's API-key path: ${[...PI_API_KEY_BETAS].join(", ")}. Remove other beta values and retry.`,
+              403
+            );
+          }
+
           if (request.body.max_tokens !== undefined) {
             yield* Schema.decodeUnknownEffect(
               Schema.Int.check(
@@ -205,13 +225,20 @@ export class Proxy extends Context.Service<
               .execute(
                 HttpClientRequest.post(upstream).pipe(
                   HttpClientRequest.setHeaders({
-                    "anthropic-beta": request.beta,
                     "anthropic-version": request.version,
                     authorization: `Bearer ${Redacted.value(config.key)}`,
                     "x-api-key": Redacted.value(config.key),
                     "x-cliproxy-client": "mischief/peons",
                   }),
-                  HttpClientRequest.bodyJsonUnsafe(request.body)
+                  HttpClientRequest.bodyJsonUnsafe(request.body),
+                  (outgoing) =>
+                    betas.length === 0
+                      ? outgoing
+                      : HttpClientRequest.setHeader(
+                          outgoing,
+                          "anthropic-beta",
+                          betas.join(",")
+                        )
                 )
               )
               .pipe(

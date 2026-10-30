@@ -71,6 +71,23 @@ it.effect(
         "proxy-placeholder"
       );
 
+      expect((yield* Ref.get(seen))[0]).not.toHaveProperty("anthropic-beta");
+
+      for (const beta of [
+        "oauth-2025-04-20",
+        "claude-code-20250219",
+        "network-feature-2026-01-01",
+        "fine-grained-tool-streaming-2025-05-14,network-feature-2026-01-01",
+        "fine-grained-tool-streaming-2025-05-14,,inline-tools-2026-09-15",
+      ]) {
+        const refused = yield* HttpClient.post("/v1/messages", {
+          body: HttpBody.jsonUnsafe({ model: "claude-opus-5-5" }),
+          headers: { "anthropic-beta": beta },
+        });
+
+        expect(refused.status).toBe(403);
+      }
+
       const query = yield* HttpClient.post("/v1/messages?other=route", {
         body: HttpBody.jsonUnsafe({ model: "claude-opus-5-5" }),
       });
@@ -78,6 +95,7 @@ it.effect(
       expect(query.status).toBe(400);
 
       for (const body of [
+        { betas: ["inline-tools-2026-09-15"], model: "claude-opus-5-5" },
         {
           mcp_servers: [{ url: "https://outside.invalid" }],
           model: "claude-opus-5-5",

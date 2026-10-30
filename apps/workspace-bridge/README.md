@@ -64,9 +64,15 @@ Approved additions to the original fixed template:
 
 V1 requires exactly the five shell tools in the request. A subset or duplicate set is refused rather than silently granting more tools. The image caps each provider response at 128000 output tokens. Requests specifying a smaller `max_output_tokens` receive a 4xx naming that cap. Normal workspace routing inherits the Opus model's 128000 maximum; context-clamped callers can legitimately hit this refusal.
 
-The system prompt, tool list, cwd and agent-directory paths are fixed across leaves. The first admitted leaf primes the cache: followers wait for its first successful assistant `message_end` on stdout, which follows the first model response, or for that leaf's cleanup if it fails. Split stdout chunks are supported. No timer guesses cache readiness.
+The system prompt, tool list, cwd and agent-directory paths are fixed across leaves. The first admitted leaf becomes the cache leader once per bridge process start; there is no re-election. Followers wait for its first successful assistant `message_end` on stdout, which follows the first model response, or for that leaf's cleanup if it fails. Split stdout chunks are supported. No timer guesses cache readiness.
 
 Source inspection of the pinned pi-ai provider confirms that `anthropic-messages` attaches `cache_control` to the system text and the last tool by default. Pi is not patched. The chosen base image and real provider cache hit still need rollout proof.
+
+## Provider feature boundary
+
+The proxy accepts only the six feature betas generated on Pi's API-key path: `fine-grained-tool-streaming-2025-05-14`, `interleaved-thinking-2025-05-14`, `server-side-fallback-2026-07-01`, `mid-conversation-output-config-2026-07-01`, `thinking-binding-controls-2026-08-01` and `inline-tools-2026-09-15`. The source is the pinned `@earendil-works/pi-ai/dist/api/anthropic-messages.js`: the six constants and `getBetaFeatures`. Its OAuth-only `claude-code-20250219` and `oauth-2025-04-20` values are refused. The image uses the literal API key `proxy`, not OAuth; a test runs that image configuration through the real Pi provider with a fake fetch boundary to verify the outgoing beta values.
+
+Unknown or malformed header values receive a 4xx before upstream access. The proxy omits `anthropic-beta` when no values are requested. A body `betas` field is not accepted, even for otherwise permitted feature names. Arbitrary beta overrides from model or caller headers do not expand the proxy allowlist.
 
 ## Image and rollout
 

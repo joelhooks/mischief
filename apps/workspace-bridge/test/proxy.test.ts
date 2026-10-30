@@ -32,7 +32,7 @@ const config = {
 };
 
 const input = {
-  beta: "tools-beta",
+  beta: "fine-grained-tool-streaming-2025-05-14",
   body: {
     messages: [],
     model: "claude-opus-5-5",
@@ -87,7 +87,7 @@ it.effect(
 
       expect(request.url).toBe("http://provider.test/peons/v1/messages");
       expect(request.headers).toMatchObject({
-        "anthropic-beta": "tools-beta",
+        "anthropic-beta": input.beta,
         "anthropic-version": input.version,
         authorization: "Bearer real-host-key",
         "x-api-key": "real-host-key",

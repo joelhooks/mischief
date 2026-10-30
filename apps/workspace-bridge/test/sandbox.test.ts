@@ -24,7 +24,7 @@ import {
 import { digest, image, name, piOutput, request, sha } from "./fixtures.js";
 
 it.effect(
-  "Servo argv: sha selects the read-only export; generated name enables teardown; thinking is a closed Pi enum; interactive carries bounded stdin; label enables crash sweep",
+  "Servo argv: sha selects the read-only export; generated name enables teardown; thinking is a closed Pi enum; interactive carries bounded stdin; label enables crash sweep; init reaps children; daemon logging is disabled",
   () =>
     Effect.sync(() => {
       expect({

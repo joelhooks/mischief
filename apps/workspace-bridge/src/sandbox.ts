@@ -52,6 +52,9 @@ export const dockerArguments = (
 ) => [
   "run",
   "--rm",
+  "--init",
+  "--log-driver",
+  "none",
   "--interactive",
   "--name",
   name,

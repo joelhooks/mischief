@@ -60,6 +60,8 @@ Approved additions to the original fixed template:
 | Generated `--name mischief-peon-<uuid>` | Validated bridge-generated identity for exact-name force-removal; never supplied by the caller |
 | Fixed `--label mischief.peon=1` | Finds orphans after a bridge crash |
 | Fixed `--interactive`, no TTY | Carries the capped prompt over stdin rather than argv |
+| Fixed `--init` | Reaps shell children and forwards termination signals |
+| Fixed `--log-driver none` | Keeps attached stdout streaming without retaining repository text in daemon logs |
 | `--thinking` | Closed Responses enum mapped to supported Pi levels; xhigh/max clamp to high for this custom model, matching the SDK default; requested and applied levels are recorded |
 
 The gateway contract is exercised through the real `gatewayThinkerOptions` workspace path in `test/gateway-contract.test.ts`, for every planner thinking level. At `off`, Pi omits `reasoning`; the workspace decoder normalizes that omission to effort `none`, which becomes Pi `--thinking off`. The planner's `minimal` level arrives as effort `low`. Unknown fields remain errors, and the ordinary Opus bridge request schema is unchanged.
@@ -78,10 +80,82 @@ Unknown or malformed header values receive a 4xx before upstream access. The pro
 
 ## Image and rollout
 
-Build context is this directory. `PI_IMAGE` must be an existing Pi image **pinned by SHA-256 digest**, with Node, Pi, bash, rg and find already installed. The Dockerfile installs no packages and rejects an unpinned base. Review the base's Pi version against the runtime protocol before approving it.
+Build context is this directory. `PI_IMAGE` must be an existing Pi image **pinned by SHA-256 digest**, with Node, Pi, bash, rg, fd and find already installed. The single build-time check also requires sh, env, mkdir, cp, chmod and which on the same fixed PATH the cell uses; it installs nothing. The Dockerfile installs no packages and rejects an unpinned base. Review the base's Pi version against the runtime protocol before approving it.
 
-The entrypoint copies only baked model/settings files to `/tmp/peon`, then executes Pi under `env -i`. There is no HOME or provider secret. The baked model uses `anthropic-messages`, provider `peon`, and the literal placeholder `proxy`; the host proxy replaces that placeholder. Both root and `/work` remain read-only. Writable configuration and scratch disappear with the tmpfs.
+The entrypoint copies only baked model/settings files to `/tmp/peon`, then executes Pi under `env -i`. HOME and the agent directory are `/tmp/peon`; no host HOME or provider secret is inherited. Only the private tmpfs copies of models/settings are changed to mode 0600, so Pi can update settings; the baked `/opt/peon` assets remain 0444. The baked model uses `anthropic-messages`, provider `peon`, and the literal placeholder `proxy`; the host proxy replaces that placeholder. Both root and `/work` remain read-only. Writable configuration and scratch disappear with the tmpfs.
+
+The source audit uses the repository-installed coding agent version 0.86.1, under `node_modules/@earendil-works/pi-coding-agent/dist/`. The same build check prints `pi --version` and refuses anything except 0.86.1. Changing the base's Pi version requires re-running the binary and writable-path audit and updating that gate together. This is not proof that an unbuilt image runs.
+
+| Tool | Fixed binary dependency | Source evidence relative to that directory |
+| --- | --- | --- |
+| read | Node filesystem APIs; no external command | `core/tools/read.js` lines 1–2 and 20; image handling calls Photon through `utils/image-convert.js` and `utils/image-resize-core.js`, not a CLI |
+| ls | Node filesystem APIs; no external command | `core/tools/ls.js` lines 1 and 19–20 |
+| grep | rg | `core/tools/grep.js` lines 52 and 101 |
+| find | fd | `core/tools/find.js` lines 119 and 161; `utils/tools-manager.js` also recognizes fdfind, but this image check requires fd |
+| bash | bash; which for PATH fallback | `core/tools/bash.js` lines 50 and 120; `utils/shell.js` lines 38 and 94–101; Linux process-tree cleanup uses Node signals at lines 203–208, not an external kill command |
+
+Commands a model chooses inside bash are not a finite dependency list. The image check covers the fixed tool infrastructure and the entrypoint commands, not arbitrary utilities.
+
+`config.js` lines 421–426 and 436–449 root agent files below `PI_CODING_AGENT_DIR`. `core/settings-manager.js` lines 60–61 and 108 place and write settings there. `main.js` lines 284–285 select in-memory sessions for `--no-session`. There is one additional writable area: output spills use the OS temporary directory, including `/tmp/pi-bash-*.log` in `core/tools/output-accumulator.js` lines 6–8 and `core/bash-executor.js` lines 34–35. The existing whole `/tmp` tmpfs already covers those files; no extra mount is needed.
+
+The image test executes the real entrypoint with only its absolute filesystem roots relocated into a disposable fixture. It verifies that baked 0444 assets become private writable 0600 copies, HOME points at the private copy directory, an incoming key is discarded, and Docker mounts only the readonly checkout and `/tmp` tmpfs. It does not run Docker or Pi from the real image.
 
 Before go-live, obtain Servo's argv/image review, create the separately owned slice/network/firewall prerequisites, provision read-only mirror access and the dedicated provider key, build and record the resulting workspace image digest, and run one pinned public-repo leaf before a real batch. Prove cancellation, deadline removal, a restart orphan sweep, network isolation and a warm-cache follower. None of those live actions is authorized by this code packet.
+
+### Go-live image completion proof
+
+Run this Bash script from the built repository root only after the image and host prerequisites are approved. Point the host Messages proxy at a controlled fake Anthropic upstream, or use the separately authorized real provider. Keep the baked cell URL unchanged: do not mount replacement configuration or pass a provider key into the cell. Set `SHA` to an already prepared export, `MISCHIEF_WORKSPACE_IMAGE` to the approved runtime digest, and `PROOF_ROOT` to an existing private artifact directory. The script uses the reviewed snapshot argv, with the prepared export path, generated name and medium thinking. The outer timeout and output redirection do not add Docker flags.
+
+```bash
+set -euo pipefail
+: "${SHA:?Set an already prepared commit SHA}"
+: "${MISCHIEF_WORKSPACE_EXPORTS_ROOT:?Set the bridge cache root}"
+: "${MISCHIEF_WORKSPACE_IMAGE:?Set the approved runtime image digest}"
+: "${PROOF_ROOT:?Set an existing private artifact directory}"
+[[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+[[ "$MISCHIEF_WORKSPACE_IMAGE" =~ ^[a-zA-Z0-9][a-zA-Z0-9./:_-]*@sha256:[0-9a-f]{64}$ ]]
+exports_root=$(realpath -- "$MISCHIEF_WORKSPACE_EXPORTS_ROOT/exports")
+export_path=$(realpath -- "$exports_root/$SHA")
+[[ "$export_path" == "$exports_root/$SHA" && -d "$export_path" ]]
+name="mischief-peon-$(node -e 'console.log(require("node:crypto").randomUUID())')"
+umask 077
+proof_dir=$(mktemp -d "${PROOF_ROOT%/}/peon-image.XXXXXX")
+cleanup() {
+  remaining=$(docker ps -aq --filter "name=^${name}$") || return 1
+  if [[ -n "$remaining" ]]; then
+    docker rm --force "$name" >/dev/null
+  fi
+}
+trap cleanup EXIT
+printf '%s\n' '{"instructions":"Return exactly PEON_PROBE_OK. Do not call tools.","messages":[{"role":"user","content":"Confirm the cell starts."}]}' |
+  timeout --signal=TERM --kill-after=10s 15m docker run \
+    --rm --init --log-driver none --interactive \
+    --name "$name" --label mischief.peon=1 \
+    --network mischief-peons --cgroup-parent mischief-peons.slice \
+    --read-only --tmpfs /tmp:size=256m --cap-drop ALL \
+    --security-opt no-new-privileges --user 65534:65534 \
+    --memory 2g --memory-swap 2g --cpus 1 --pids-limit 256 \
+    -v "$export_path:/work:ro" "$MISCHIEF_WORKSPACE_IMAGE" \
+    pi -p --no-session --tools read,grep,find,ls,bash \
+    --no-extensions --no-skills --no-prompt-templates \
+    --model peon/claude-opus-5-5 --thinking medium \
+    --system-prompt 'You are a read-only code review peon. The input is a JSON envelope with instructions and text messages. Follow those instructions. Inspect /work with read, grep, find, ls and bash. Quote file paths and reference evidence. Do not attempt writes or network access.' \
+    --mode json >"$proof_dir/stdout.jsonl" 2>"$proof_dir/stderr.log"
+node --input-type=module - "$proof_dir/stdout.jsonl" <<'NODE'
+import { readFileSync } from "node:fs";
+import { Effect } from "effect";
+import { workspaceCompletion } from "./apps/workspace-bridge/dist/pi-output.js";
+const completion = await Effect.runPromise(
+  workspaceCompletion(readFileSync(process.argv[2], "utf8"), 0)
+);
+if (completion.stopReason !== "stop" || completion.text.trim() !== "PEON_PROBE_OK") {
+  throw new Error("Pi did not complete the probe. Inspect the private artifacts.");
+}
+console.log("PASS: pi -p completed under the reviewed argv.");
+NODE
+printf 'Private proof artifacts: %s\n' "$proof_dir"
+```
+
+The artifacts can contain repository text. Keep them private; do not attach them to a public PR. This proves basic completion only. The separate cancellation, deadline, orphan-sweep, process-reaping, daemon-log and network-isolation checks still need go-live evidence. No real-image execution has been performed by the tests in this packet.
 
 Keep workspace routing off until those proofs pass. Rollback is to keep or turn routing off, stop the two user services through the owning deploy workflow, and sweep only labeled peon containers. Mirrors and exports contain no authoritative state.

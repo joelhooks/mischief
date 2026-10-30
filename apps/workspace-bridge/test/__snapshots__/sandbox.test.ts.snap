@@ -1,10 +1,13 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Servo argv: sha selects the read-only export; generated name enables teardown; thinking is a closed Pi enum; interactive carries bounded stdin; label enables crash sweep 1`] = `
+exports[`Servo argv: sha selects the read-only export; generated name enables teardown; thinking is a closed Pi enum; interactive carries bounded stdin; label enables crash sweep; init reaps children; daemon logging is disabled 1`] = `
 {
   "args": [
     "run",
     "--rm",
+    "--init",
+    "--log-driver",
+    "none",
     "--interactive",
     "--name",
     "mischief-peon-01234567-89ab-4cde-8fab-0123456789ab",

@@ -8,6 +8,7 @@ import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.l
 import { createModels, createProvider } from "@earendil-works/pi-ai/models";
 import { createRegistry } from "@earendil-works/pi-durable";
 import type { ModelRef } from "@earendil-works/pi-durable";
+import { WORKSPACE_TOOLS } from "@mischief/core";
 import { Hash, Redacted, Schema } from "effect";
 
 import { declaredThinkingOf } from "./declared.js";
@@ -125,6 +126,7 @@ export interface GatewayEndpoint {
 
 export interface GatewayConfig extends GatewayEndpoint {
   readonly opusBridge?: GatewayEndpoint | undefined;
+  readonly workspaceBridge?: GatewayEndpoint | undefined;
 }
 
 export const opusBridgeFrom = (
@@ -179,7 +181,7 @@ const opusProvider = ({ apiKey, baseUrl, fetch }: GatewayEndpoint) =>
 
 export const gatewayThinkerOptions = (
   storageFor: PiThinkerOptions["storageFor"],
-  { apiKey, baseUrl, fetch, opusBridge }: GatewayConfig
+  { apiKey, baseUrl, fetch, opusBridge, workspaceBridge }: GatewayConfig
 ): PiThinkerOptions => {
   const models = createModels();
 
@@ -252,5 +254,77 @@ export const gatewayThinkerOptions = (
     streamFor: (runId) => ({
       metadata: { [RUN_CACHE_KEY]: promptCacheKeyOf(runId) },
     }),
+    workspaceModelRef:
+      workspaceBridge === undefined
+        ? undefined
+        : (agent, ref) => {
+            const source = models.getModel(ref.provider, ref.modelId);
+            const { workspace } = agent;
+
+            if (source === undefined || workspace === undefined) {
+              return ref;
+            }
+
+            const tools = (agent.tools ?? []).filter((tool) =>
+              WORKSPACE_TOOLS.some((name) => name === tool)
+            );
+
+            const provider = `workspace-${encodeURIComponent(JSON.stringify([ref, workspace, tools]))}`;
+
+            const bridgeUrl = workspaceBridge.baseUrl.replace(
+              /\/responses\/?$/u,
+              ""
+            );
+
+            const api = gatewayStreams(
+              openAIResponsesApi(),
+              workspaceBridge.fetch
+            );
+
+            const withWorkspace = (
+              options: StreamOptions | undefined
+            ): StreamOptions => ({
+              ...options,
+              onPayload: async (payload, model) => {
+                const prior =
+                  (await options?.onPayload?.(payload, model)) ?? payload;
+
+                return isPayload(prior)
+                  ? { ...prior, tools, workspace }
+                  : prior;
+              },
+            });
+
+            models.setProvider(
+              createProvider({
+                api: {
+                  ...api,
+                  stream: (model, context, options) =>
+                    api.stream(model, context, withWorkspace(options)),
+                  streamSimple: (model, context, options) =>
+                    api.streamSimple(model, context, withWorkspace(options)),
+                },
+                auth: {
+                  apiKey: {
+                    name: "Mischief workspace bridge key",
+                    resolve: async () =>
+                      await Promise.resolve({
+                        auth: {
+                          apiKey: Redacted.value(workspaceBridge.apiKey),
+                          headers: {
+                            Authorization: `Bearer ${Redacted.value(workspaceBridge.apiKey)}`,
+                          },
+                        },
+                      }),
+                  },
+                },
+                baseUrl: bridgeUrl,
+                id: provider,
+                models: [{ ...source, baseUrl: bridgeUrl, provider }],
+              })
+            );
+
+            return { modelId: ref.modelId, provider };
+          },
   };
 };

@@ -29,6 +29,7 @@ import {
   stepKindOff,
 } from "./step-kinds.js";
 import type { GatedStepKind } from "./step-kinds.js";
+import { WorkspacePolicy, workspaceErrors } from "./workspace.js";
 
 export class PlanRefused extends Schema.TaggedError<PlanRefused>()(
   "PlanRefused",
@@ -107,7 +108,16 @@ const resolveThink = (
 ): Checked<ThinkStep> => {
   const { envelope, defaults } = plan;
   const merged: AgentConfig = { ...defaults.agent, ...step.agent };
-  const tools = [...new Set([...BASE_TOOLS, ...(merged.tools ?? [])])];
+
+  const workspace =
+    merged.workspace === undefined ? {} : { workspace: merged.workspace };
+
+  const tools = [
+    ...new Set([
+      ...(merged.workspace === undefined ? BASE_TOOLS : []),
+      ...(merged.tools ?? []),
+    ]),
+  ];
 
   const placement =
     step.agent?.placement ?? defaults.placement ?? ("child" as const);
@@ -151,8 +161,16 @@ const resolveThink = (
       ...step,
       agent:
         thinking === undefined
-          ? { extensions, model, placement, skills, tools }
-          : { extensions, model, placement, skills, thinking, tools },
+          ? { extensions, model, placement, skills, tools, ...workspace }
+          : {
+              extensions,
+              model,
+              placement,
+              skills,
+              thinking,
+              tools,
+              ...workspace,
+            },
     },
   };
 };
@@ -648,6 +666,7 @@ export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
 ) {
   const enabled = yield* EnabledStepKinds;
   const registry = yield* CallRegistry;
+  const workspacePolicy = yield* WorkspacePolicy;
   const resolved = resolveStates(plan, plan.machine.states, []);
 
   const resolvedPlan: Plan = {
@@ -657,6 +676,7 @@ export const checkPlan = Effect.fn("checkPlan")(function* checkPlan(
 
   const errors = [
     ...resolved.errors,
+    ...workspaceErrors(plan, workspacePolicy),
     ...(resolved.agents > plan.envelope.maxAgents
       ? [
           `plan has ${resolved.agents} think steps, envelope.maxAgents allows ${plan.envelope.maxAgents}. Asks to existing Rat King names do not count. Cut think steps or raise maxAgents`,

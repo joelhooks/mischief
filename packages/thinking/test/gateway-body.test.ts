@@ -235,3 +235,152 @@ it.effect("a luna think at max sends effort max and records luna/max", () =>
     });
   })
 );
+
+it.effect.prop(
+  "workspace thinks send checkout and shell tools only to the authenticated workspace endpoint; ordinary thinks keep their route, and busy bridges park",
+  {
+    model: Arbitrary.schema(Schema.Literals(["sol", "opus"])),
+    status: Arbitrary.schema(Schema.Literals([200, 400, 503])),
+    tool: Arbitrary.schema(
+      Schema.Literals(["read", "grep", "find", "ls", "bash"])
+    ),
+  },
+  ({ tool, model, status }) =>
+    Effect.gen(function* routing() {
+      const workspace = { repo: "example/project", sha: "a".repeat(40) };
+
+      const tools = [
+        tool,
+        ...["read", "grep", "find", "ls", "bash"].filter(
+          (name) => name !== tool
+        ),
+      ];
+
+      const sent: {
+        readonly url: string;
+        readonly auth: string | null;
+        readonly body: string;
+      }[] = [];
+
+      const fetch: NonNullable<GatewayConfig["fetch"]> = async (
+        input,
+        init
+      ) => {
+        const request = new Request(input, init);
+        sent.push({
+          auth: request.headers.get("authorization"),
+          body: Schema.decodeUnknownSync(Schema.String)(init?.body),
+          url: request.url,
+        });
+        const code = request.url.includes("workspace.invalid") ? status : 200;
+
+        return await Promise.resolve(
+          new Response(
+            code === 200
+              ? SSE
+              : JSON.stringify({
+                  error: {
+                    message:
+                      "agent.workspace: bridge unavailable; retry when ready",
+                  },
+                }),
+            {
+              headers: {
+                "content-type":
+                  code === 200 ? "text/event-stream" : "application/json",
+              },
+              status: code,
+            }
+          )
+        );
+      };
+
+      const options = gatewayThinkerOptions(
+        () => Effect.succeed(new MemoryStorage()),
+        {
+          apiKey: Redacted.make("gateway-key"),
+          baseUrl: "https://gateway.invalid/v1",
+          fetch,
+          opusBridge: {
+            apiKey: Redacted.make("opus-key"),
+            baseUrl: "https://opus.invalid/v1",
+            fetch,
+          },
+          workspaceBridge: {
+            apiKey: Redacted.make("workspace-key"),
+            baseUrl: "https://workspace.invalid/v1/responses",
+            fetch,
+          },
+        }
+      );
+
+      yield* Effect.gen(function* sequence() {
+        const thinker = yield* Thinker;
+
+        const call = {
+          ceiling: "high",
+          epoch: 0,
+          key: "read",
+          prompt: "Read code",
+          runId: "workspace",
+          visit: 1,
+        } as const;
+
+        const outcome = yield* thinker
+          .think({
+            ...call,
+            agent: { model, thinking: "low", tools, workspace },
+          })
+          .pipe(
+            Effect.map(({ output }) => output),
+            Effect.catchTags({
+              ProviderUnavailable: (error) =>
+                Effect.succeed(`parked:${error.status}`),
+              StepFailed: () => Effect.succeed("refused"),
+            })
+          );
+
+        expect(outcome).toBe(
+          { 200: "ok", 400: "refused", 503: "parked:503" }[status]
+        );
+        expect(sent).toHaveLength(1);
+        expect(sent[0]?.url).toBe("https://workspace.invalid/v1/responses");
+        expect(sent[0]?.auth).toBe("Bearer workspace-key");
+
+        const body = yield* Schema.decodeUnknownEffect(
+          Schema.fromJsonString(
+            Schema.Struct({
+              model: Schema.String,
+              tools: Schema.Array(Schema.String),
+              workspace: Schema.Struct({
+                repo: Schema.String,
+                sha: Schema.String,
+              }),
+            })
+          )
+        )(sent[0]?.body);
+
+        expect(body.workspace).toEqual(workspace);
+        expect(body.tools).toEqual(tools);
+        expect(body.model).toBe(
+          model === "opus" ? "claude-opus-5-5" : "gpt-6.1-sol"
+        );
+
+        const ordinary = yield* thinker.think({
+          ...call,
+          agent: { model, thinking: "low" },
+          key: "plain",
+        });
+
+        expect(ordinary.output).toBe("ok");
+        expect(sent).toHaveLength(2);
+        expect(sent[1]?.url).toBe(
+          model === "opus"
+            ? "https://opus.invalid/v1/responses"
+            : "https://gateway.invalid/v1/responses"
+        );
+        expect(sent[1]?.body).not.toContain('"workspace"');
+      }).pipe(Effect.provide(piThinker(options)));
+    }),
+  { arbitrary: { runs: 30 } }
+);

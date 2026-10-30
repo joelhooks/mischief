@@ -25,6 +25,7 @@ import type {
 } from "@earendil-works/pi-durable";
 import { MemoryStorage } from "@earendil-works/pi-durable/storage/memory";
 import type {
+  AgentConfig,
   StepCall,
   ThinkingDeclaration,
   ThinkReceipt,
@@ -76,6 +77,9 @@ export interface PiThinkerOptions {
   readonly modelRefs: Readonly<Record<string, ModelRef>>;
   readonly storageFor: (runId: string) => Effect.Effect<Storage, StepFailed>;
   readonly streamFor?: (runId: string) => ConversationStreamOptions;
+  readonly workspaceModelRef?:
+    | ((agent: AgentConfig, model: ModelRef) => ModelRef)
+    | undefined;
 }
 
 interface OpenRun {
@@ -315,6 +319,19 @@ const thinkerOf = (options: PiThinkerOptions) =>
         const name = requested.model;
         const ref = options.modelRefs[name];
 
+        if (
+          requested.agent.workspace !== undefined &&
+          options.workspaceModelRef === undefined
+        ) {
+          return Effect.fail(
+            new StepFailed({
+              key: call.key,
+              reason:
+                "agent.workspace has no enabled bridge route on this host. Set MISCHIEF_WORKSPACE=on and configure MISCHIEF_WORKSPACE_BRIDGE_URL and MISCHIEF_WORKSPACE_BRIDGE_KEY, or remove agent.workspace and its shell tools",
+            })
+          );
+        }
+
         return ref === undefined
           ? Effect.fail(
               new ThinkModelUnmapped({
@@ -323,7 +340,11 @@ const thinkerOf = (options: PiThinkerOptions) =>
                 model: name,
               })
             )
-          : Effect.succeed(ref);
+          : Effect.succeed(
+              requested.agent.workspace === undefined
+                ? ref
+                : (options.workspaceModelRef?.(requested.agent, ref) ?? ref)
+            );
       };
 
       const conversationFor = (

@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./protocol": "./dist/protocol.js",
+    "./pi-output": "./dist/pi-output.js",
+    "./bridge-failure": "./dist/bridge-failure.js",
+    "./auth": "./dist/http.js",
+    "./server": "./dist/server.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check": "pnpm run typecheck",

@@ -9,7 +9,7 @@ import { createModels, createProvider } from "@earendil-works/pi-ai/models";
 import { createRegistry } from "@earendil-works/pi-durable";
 import type { ModelRef } from "@earendil-works/pi-durable";
 import { WORKSPACE_TOOLS } from "@mischief/core";
-import { Hash, Redacted, Schema } from "effect";
+import { Hash, Option, Redacted, Schema } from "effect";
 
 import { declaredThinkingOf } from "./declared.js";
 import type { PiThinkerOptions } from "./pi-thinker.js";
@@ -262,7 +262,7 @@ export const gatewayThinkerOptions = (
             const { workspace } = agent;
 
             if (source === undefined || workspace === undefined) {
-              return ref;
+              return Option.none();
             }
 
             const tools = (agent.tools ?? []).filter((tool) =>
@@ -324,7 +324,7 @@ export const gatewayThinkerOptions = (
               })
             );
 
-            return { modelId: ref.modelId, provider };
+            return Option.some({ modelId: ref.modelId, provider });
           },
   };
 };

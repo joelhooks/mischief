@@ -2,7 +2,7 @@
 import { MemoryStorage } from "@earendil-works/pi-durable/storage/memory";
 import { expect, it } from "@effect/vitest";
 import { Thinker, thinkingLevels } from "@mischief/core";
-import { Effect, Redacted, Schema } from "effect";
+import { Effect, Option, Redacted, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import {
@@ -383,4 +383,86 @@ it.effect.prop(
       }).pipe(Effect.provide(piThinker(options)));
     }),
   { arbitrary: { runs: 30 } }
+);
+
+it.effect.prop(
+  "a workspace source model that disappears or cannot be routed fails with its model name without calling any provider",
+  {
+    missingSource: Arbitrary.schema(Schema.Boolean),
+    model: Arbitrary.schema(Schema.Literals(["sol", "gpt-6.1-sol"])),
+  },
+  ({ missingSource, model }) =>
+    Effect.gen(function* unroutableWorkspace() {
+      const sent: string[] = [];
+
+      const fetch: NonNullable<GatewayConfig["fetch"]> = async (input) => {
+        sent.push(new Request(input).url);
+
+        return await Promise.resolve(
+          new Response(SSE, {
+            headers: { "content-type": "text/event-stream" },
+          })
+        );
+      };
+
+      const options = gatewayThinkerOptions(
+        () => Effect.succeed(new MemoryStorage()),
+        {
+          apiKey: Redacted.make("gateway-key"),
+          baseUrl: "https://gateway.invalid/v1",
+          fetch,
+          workspaceBridge: {
+            apiKey: Redacted.make("workspace-key"),
+            baseUrl: "https://workspace.invalid/v1/responses",
+            fetch,
+          },
+        }
+      );
+
+      const agent = {
+        model,
+        tools: ["read", "grep", "find", "ls", "bash"],
+        workspace: { repo: "example/project", sha: "a".repeat(40) },
+      };
+
+      const missingRef = {
+        modelId: "missing-source-model",
+        provider: "cliproxy-codex",
+      };
+
+      if (missingSource) {
+        expect(options.workspaceModelRef?.(agent, missingRef)).toEqual(
+          Option.none()
+        );
+      }
+
+      const configured = missingSource
+        ? {
+            ...options,
+            modelRefs: { ...options.modelRefs, [model]: missingRef },
+          }
+        : { ...options, workspaceModelRef: () => Option.none() };
+
+      const reason = yield* Thinker.use(({ think }) =>
+        think({
+          agent,
+          ceiling: "high",
+          epoch: 0,
+          key: "read",
+          prompt: "Read code",
+          runId: "missing-source",
+          visit: 1,
+        })
+      ).pipe(
+        Effect.as("unexpected success"),
+        Effect.catchTag("StepFailed", (error) => Effect.succeed(error.reason)),
+        Effect.provide(piThinker(configured))
+      );
+
+      expect(reason).toContain("agent.workspace");
+      expect(reason).toContain(`agent.model "${model}"`);
+      expect(reason).toContain("Register that model");
+      expect(sent).toHaveLength(0);
+    }),
+  { arbitrary: { runs: 12 } }
 );

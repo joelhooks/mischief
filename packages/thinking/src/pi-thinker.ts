@@ -78,7 +78,7 @@ export interface PiThinkerOptions {
   readonly storageFor: (runId: string) => Effect.Effect<Storage, StepFailed>;
   readonly streamFor?: (runId: string) => ConversationStreamOptions;
   readonly workspaceModelRef?:
-    | ((agent: AgentConfig, model: ModelRef) => ModelRef)
+    | ((agent: AgentConfig, model: ModelRef) => Option.Option<ModelRef>)
     | undefined;
 }
 
@@ -332,19 +332,33 @@ const thinkerOf = (options: PiThinkerOptions) =>
           );
         }
 
-        return ref === undefined
-          ? Effect.fail(
-              new ThinkModelUnmapped({
+        if (ref === undefined) {
+          return Effect.fail(
+            new ThinkModelUnmapped({
+              key: call.key,
+              mapped: Object.keys(options.modelRefs),
+              model: name,
+            })
+          );
+        }
+
+        if (requested.agent.workspace === undefined) {
+          return Effect.succeed(ref);
+        }
+
+        const workspaceRef =
+          options.workspaceModelRef?.(requested.agent, ref) ?? Option.none();
+
+        return Option.match(workspaceRef, {
+          onNone: () =>
+            Effect.fail(
+              new StepFailed({
                 key: call.key,
-                mapped: Object.keys(options.modelRefs),
-                model: name,
+                reason: `agent.workspace cannot route agent.model "${name}" (${ref.provider}/${ref.modelId}) through the workspace bridge because its source model is not registered. Register that model on this host or set agent.model to a registered model, then resume the run. The ordinary model gateway will not be used`,
               })
-            )
-          : Effect.succeed(
-              requested.agent.workspace === undefined
-                ? ref
-                : (options.workspaceModelRef?.(requested.agent, ref) ?? ref)
-            );
+            ),
+          onSome: Effect.succeed,
+        });
       };
 
       const conversationFor = (

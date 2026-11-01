@@ -44,6 +44,7 @@ const fakeMailbox = () => {
   const states = new Map<string, MessageState>();
   const issued: number[] = [];
   const waits: number[] = [];
+  let acks = 0;
   let lease: HeldLease | undefined;
 
   const append = (id: Option.Option<string>) => {
@@ -67,6 +68,7 @@ const fakeMailbox = () => {
     ack: fenced(held, "ack").pipe(
       Effect.andThen(
         Effect.sync(() => {
+          acks += 1;
           states.set(id, "acked");
         })
       )
@@ -180,6 +182,7 @@ const fakeMailbox = () => {
   };
 
   return {
+    ackCalls: () => acks,
     acked: () =>
       [...states.entries()].flatMap(([id, state]) =>
         state === "acked" ? [] : [id]
@@ -203,30 +206,42 @@ const runHistory = Effect.fn("runInboxHistory")(function* runInboxHistory(
   const mailbox = fakeMailbox();
   const journal: string[] = [];
   const failures: string[] = [];
+  const emptyTurnAcks: number[] = [];
   let crash = false;
 
   const turn = Effect.fn("inboxTurn")(function* inboxTurn() {
-    const fiber = yield* readBatch(mailbox.inbox, {
-      advance: box.advance,
-      cursor: box.cursor,
-      leases: leaseBook(storage),
-      receive: (message) =>
-        Effect.suspend(() => {
-          if (!journal.includes(message.messageId)) {
-            journal.push(message.messageId);
-          }
+    const empty = box.cursor() === mailbox.watermark();
+    const acksBefore = mailbox.ackCalls();
 
-          if (!crash) {
-            return Effect.void;
-          }
+    const fiber = yield* readBatch(
+      mailbox.inbox,
+      {
+        advance: box.advance,
+        cursor: box.cursor,
+        leases: leaseBook(storage),
+        receive: (message) =>
+          Effect.suspend(() => {
+            if (!journal.includes(message.messageId)) {
+              journal.push(message.messageId);
+            }
 
-          crash = false;
+            if (!crash) {
+              return Effect.void;
+            }
 
-          return Effect.interrupt;
-        }),
-    }).pipe(Effect.forkChild);
+            crash = false;
+
+            return Effect.interrupt;
+          }),
+      },
+      LONG_POLL_MS
+    ).pipe(Effect.forkChild);
 
     const exit = yield* Fiber.await(fiber);
+
+    if (empty) {
+      emptyTurnAcks.push(mailbox.ackCalls() - acksBefore);
+    }
 
     if (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause)) {
       failures.push(Cause.pretty(exit.cause));
@@ -260,7 +275,7 @@ const runHistory = Effect.fn("runInboxHistory")(function* runInboxHistory(
     }
   }
 
-  return { box, failures, journal, mailbox };
+  return { box, emptyTurnAcks, failures, journal, mailbox };
 });
 
 describe("Postbox inbox batches", () => {
@@ -288,6 +303,19 @@ describe("Postbox inbox batches", () => {
         expect(mailbox.waits.every((within) => within === LONG_POLL_MS)).toBe(
           true
         );
+      }),
+    { arbitrary: { runs: 200 } }
+  );
+
+  it.effect.prop(
+    "a turn that starts with no mail past the cursor makes no ack call",
+    { history: histories },
+    ({ history }) =>
+      Effect.gen(function* emptyTurnsDoNotAck() {
+        const { emptyTurnAcks } = yield* runHistory(history);
+
+        expect(emptyTurnAcks.length).toBeGreaterThan(0);
+        expect(emptyTurnAcks.filter((acks) => acks > 0)).toStrictEqual([]);
       }),
     { arbitrary: { runs: 200 } }
   );

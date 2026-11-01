@@ -95,13 +95,13 @@ const take = <E, R>(event: InboxEvent, inlet: Inlet<E, R>) =>
 export const readBatch = Effect.fn("readPostboxBatch")(function* readBatch<
   E,
   R,
->(inbox: Inbox, inlet: Inlet<E, R>) {
+>(inbox: Inbox, inlet: Inlet<E, R>, window: number) {
   const lease = yield* leaseFor(inbox, inlet.leases);
   const afterSeq = inlet.cursor();
   const events = yield* inbox.page(lease, afterSeq, PAGE_LIMIT);
 
   if (events.length === 0) {
-    const woken = yield* inbox.wait(lease, afterSeq, LONG_POLL_MS);
+    const woken = yield* inbox.wait(lease, afterSeq, window);
     const outcome: BatchOutcome = woken ? "more" : "idle";
 
     return outcome;

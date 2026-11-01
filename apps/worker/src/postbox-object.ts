@@ -6,6 +6,7 @@ import { Effect, Exit, Layer, Option, Schema, Scope } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 import { decodeDelivery } from "./decode-delivery.js";
+import { Mailroom, SendVerdict } from "./mailroom-port.js";
 import { openMailroom } from "./mailroom.js";
 import type { Env } from "./plan-run-object.js";
 import { PostboxFailed } from "./postbox-failed.js";
@@ -13,9 +14,11 @@ import { readBatch } from "./postbox-inbox.js";
 import { leaseBook } from "./postbox-lease.js";
 import { PostboxReaderFailed } from "./postbox-reader-failed.js";
 import { readerHost } from "./postbox-reader-host.js";
+import type { Lookout } from "./postbox-reader-host.js";
+import { readerMarks } from "./postbox-reader-marks.js";
 import { PostboxReader } from "./postbox-reader.js";
 import type { OpenMailroom } from "./postbox-reader.js";
-import { postbox } from "./postbox.js";
+import { DESK, postbox } from "./postbox.js";
 import { Runs } from "./runs-port.js";
 import type { ReplyLine } from "./runs-port.js";
 import { dayTotals, dayWarning, tally } from "./think-tally.js";
@@ -70,6 +73,8 @@ export class Postbox extends DurableObject<Env> {
             await ctx.storage.setAlarm(at);
           }),
       },
+      readerMarks(ctx.storage),
+      this.lookout(),
       (turn) => this.readerIn(turn)
     );
     void ctx.blockConcurrencyWhile(async () => {
@@ -92,21 +97,50 @@ export class Postbox extends DurableObject<Env> {
     );
   }
 
+  private lookout(): Lookout {
+    return {
+      head: this.sender().pipe(
+        Effect.flatMap(({ head }) => head),
+        Effect.map((head) => ({ cursor: this.box.cursor(), head }))
+      ),
+      notice: (summary, body) =>
+        this.sender().pipe(
+          Effect.flatMap(({ layer }) =>
+            Mailroom.use((mailroom) =>
+              mailroom
+                .seal(DESK, `${summary}\n\n${body}`)
+                .pipe(Effect.flatMap(({ envelope }) => mailroom.send(envelope)))
+            ).pipe(Effect.provide(layer))
+          ),
+          Effect.map((verdict) => !SendVerdict.guards.Refused(verdict)),
+          Effect.catchTag("PostboxFailed", ({ reason }) =>
+            Effect.logWarning(
+              `the Postbox reader could not send its fallen-behind notice to ${DESK} (${reason}); the next failed turn tries again`
+            ).pipe(Effect.as(false))
+          )
+        ),
+    };
+  }
+
   private readerIn(scope: Scope.Scope) {
     return PostboxReader.of({
-      read: ({ inbox, layer }) =>
+      read: ({ inbox, layer }, window) =>
         Effect.suspend(() =>
-          readBatch(inbox, {
-            advance: (seq) => {
-              this.box.advance(seq);
+          readBatch(
+            inbox,
+            {
+              advance: (seq) => {
+                this.box.advance(seq);
+              },
+              cursor: () => this.box.cursor(),
+              leases: this.leases,
+              receive: (message) =>
+                this.box
+                  .receive(message)
+                  .pipe(Effect.provide(Layer.merge(layer, this.runs))),
             },
-            cursor: () => this.box.cursor(),
-            leases: this.leases,
-            receive: (message) =>
-              this.box
-                .receive(message)
-                .pipe(Effect.provide(Layer.merge(layer, this.runs))),
-          })
+            window
+          )
         ).pipe(
           Effect.catchCause((cause) =>
             Effect.fail(PostboxReaderFailed.fromCause(cause))

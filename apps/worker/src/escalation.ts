@@ -4,6 +4,8 @@ import type { Held, QuestionInput, StepFailure } from "@mischief/core";
 import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Option, Schema } from "effect";
 
+import { withDeadline } from "./call-deadline.js";
+import type { ObjectCall } from "./call-deadline.js";
 import type { PostboxRpc } from "./postbox-mail.js";
 
 const TARGET =
@@ -175,6 +177,7 @@ const sealedFor = (storage: SqlStorage, notice: string) =>
   ).pipe(Option.flatMap(Schema.decodeUnknownOption(SealedRow)));
 
 const posted = <A extends object>(
+  name: ObjectCall,
   call: () => Promise<
     | ({ readonly ok: true } & A)
     | { readonly ok: false; readonly reason: string }
@@ -184,6 +187,10 @@ const posted = <A extends object>(
     catch: (cause) => `the Postbox did not answer: ${String(cause)}`,
     try: call,
   }).pipe(
+    withDeadline(name),
+    Effect.catchTag("ObjectCallTimedOut", ({ message }) =>
+      Effect.fail(message)
+    ),
     Effect.flatMap((result) =>
       result.ok ? Effect.succeed(result) : Effect.fail(result.reason)
     )
@@ -199,7 +206,10 @@ const sealOnce = (
 ) =>
   Option.match(sealedFor(storage, notice), {
     onNone: () =>
-      posted(async () => await postbox().seal(objectName, to, text)).pipe(
+      posted(
+        "Postbox.seal",
+        async () => await postbox().seal(objectName, to, text)
+      ).pipe(
         Effect.map(({ envelope, messageId }) => {
           storage.sql.exec(
             "INSERT INTO mischief_escalations (notice, envelope, message_id) VALUES (?, ?, ?) ON CONFLICT (notice) DO NOTHING",
@@ -238,7 +248,7 @@ export const mailOnce =
 
     return sealOnce(storage, postbox, name.value, to, text, notice).pipe(
       Effect.flatMap(({ envelope }) =>
-        posted(async () => await postbox().send(envelope))
+        posted("Postbox.send", async () => await postbox().send(envelope))
       ),
       Effect.matchEffect({
         onFailure: (reason) =>
@@ -271,7 +281,10 @@ const mailConfirmed = (
     onSome: (name) =>
       sealOnce(ports.storage, ports.postbox, name, to, text, notice).pipe(
         Effect.flatMap(({ envelope }) =>
-          posted(async () => await ports.postbox().send(envelope))
+          posted(
+            "Postbox.send",
+            async () => await ports.postbox().send(envelope)
+          )
         ),
         Effect.asVoid
       ),

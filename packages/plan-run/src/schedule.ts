@@ -10,7 +10,7 @@ import {
   WakeRuns,
   wakeSchedule,
 } from "@mischief/core";
-import { Effect, Layer, ManagedRuntime, Semaphore } from "effect";
+import { Clock, Effect, Layer, ManagedRuntime, Semaphore } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder, OpenApi } from "effect/http-api";
 
@@ -23,6 +23,7 @@ export interface ScheduleOptions {
   readonly alarms: Alarms;
   readonly runs: WakeRuns["Service"];
   readonly notices: ScheduleNotices["Service"];
+  readonly guardMs: number;
 }
 
 export interface ScheduleObject {
@@ -43,6 +44,7 @@ export const mischiefApiSpec = () =>
 
 export const makeSchedule = ({
   alarms,
+  guardMs,
   notices,
   runs,
   storage,
@@ -58,6 +60,18 @@ export const makeSchedule = ({
           Effect.promise(async () => {
             await (at === null ? alarms.clear() : alarms.set(at));
           }),
+      })
+    )
+  );
+
+  const armGuard = Clock.currentTimeMillis.pipe(
+    Effect.flatMap((now) =>
+      Effect.promise(async () => {
+        const pending = await alarms.get();
+
+        if (pending === null || pending <= now) {
+          await alarms.set(now + guardMs);
+        }
       })
     )
   );
@@ -80,7 +94,9 @@ export const makeSchedule = ({
 
   return {
     alarm: async () => {
-      await runtime.runPromise(lock.withPermits(1)(wakeSchedule()));
+      await runtime.runPromise(
+        lock.withPermits(1)(armGuard.pipe(Effect.andThen(wakeSchedule())))
+      );
     },
     fetch: async (request) => await handler(request),
   };

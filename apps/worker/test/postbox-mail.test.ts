@@ -1,9 +1,20 @@
 // @effect-diagnostics asyncFunction:off -- the fake stands in for the Postbox's Promise RPC.
 import { expect, it } from "@effect/vitest";
-import { Mail } from "@mischief/core";
+import {
+  Drive,
+  Judge,
+  Mail,
+  Operator,
+  RunHost,
+  RunStore,
+  Thinker,
+} from "@mischief/core";
+import { webCrypto } from "@mischief/plan-run";
 import { nodeSqlStorage } from "@mischief/plan-run/node";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Fiber, Layer, Option, Schema } from "effect";
+import { TestClock } from "effect/testing";
 
+import { DEADLINE_MS } from "../src/call-deadline.js";
 import { postboxMail, rememberObject } from "../src/postbox-mail.js";
 import type { PostboxRpc } from "../src/postbox-mail.js";
 
@@ -94,3 +105,162 @@ it.effect(
       ]);
     })
 );
+
+const askPlan = {
+  defaults: { agent: {} },
+  envelope: {
+    maxAgents: 0,
+    maxDepth: 3,
+    maxSteps: 10,
+    maxThinking: "low",
+    models: ["sol"],
+    names: ["pi-durable/desk"],
+    thresholds: { judge: 0.8 },
+  },
+  goal: "Ask once",
+  id: "asking",
+  machine: {
+    id: "asking",
+    initial: "ask",
+    states: {
+      ask: {
+        meta: {
+          step: {
+            kind: "ask",
+            message: "ready?",
+            to: "pi-durable/desk",
+            writes: "ready",
+          },
+        },
+        on: { replied: { target: "end" } },
+      },
+      end: { type: "final" },
+    },
+  },
+};
+
+const unanswered = async <A>(): Promise<A> => {
+  await new Response(new ReadableStream()).arrayBuffer();
+
+  return await unanswered<A>();
+};
+
+const Stalls = Schema.Literals(["seal", "send"]);
+
+for (const stall of Stalls.literals) {
+  it.effect(
+    `a Postbox ${stall} that never answers fails the ask at its deadline, holds the run for the alarm, and the alarm's re-drive finishes the ask once the Postbox answers`,
+    () =>
+      Effect.gen(function* deadline() {
+        const storage = nodeSqlStorage(":memory:");
+        const calls: string[] = [];
+        const sealed: string[] = [];
+        const sent: string[] = [];
+        const postbox = { answering: false };
+
+        const rpc: PostboxRpc = {
+          seal: async (_objectName, to) => {
+            calls.push(`seal ${to}`);
+
+            if (stall === "seal" && !postbox.answering) {
+              return await unanswered();
+            }
+
+            const envelope = `{"aad":{"seal":${calls.length}},"ciphertext":"AA","enc":"AA"}`;
+            sealed.push(envelope);
+
+            return await Promise.resolve({
+              envelope,
+              messageId: "3mxtid",
+              ok: true as const,
+            });
+          },
+          send: async (envelope) => {
+            calls.push("send");
+            sent.push(envelope);
+
+            if (stall === "send" && !postbox.answering) {
+              return await unanswered();
+            }
+
+            return await Promise.resolve({ ok: true as const });
+          },
+        };
+
+        rememberObject(storage, "did:web:driver/asking");
+
+        const runs = yield* RunHost.make.pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              Drive.inline,
+              webCrypto,
+              postboxMail(storage, () => rpc),
+              Judge.unwired,
+              Thinker.unwired,
+              Layer.succeed(
+                Operator,
+                Operator.of({
+                  held: () => Effect.void,
+                  notify: () => Effect.void,
+                })
+              ),
+              Layer.fresh(RunStore.memory)
+            )
+          )
+        );
+
+        const submitted = yield* runs
+          .submit("asking", askPlan)
+          .pipe(Effect.forkChild);
+
+        yield* Effect.yieldNow.pipe(
+          Effect.repeat({
+            while: () => !calls.some((entry) => entry.startsWith(stall)),
+          })
+        );
+        yield* TestClock.adjust(DEADLINE_MS[`Postbox.${stall}`] - 1);
+
+        expect(
+          submitted.pollUnsafe(),
+          "the ask still waits one millisecond before its deadline"
+        ).toBeUndefined();
+
+        yield* TestClock.adjust(1);
+
+        const held = yield* Fiber.join(submitted);
+        const [hold] = held.held ?? [];
+
+        expect(held.status).toBe("waiting-for-provider");
+        expect(held.failures ?? []).toStrictEqual([]);
+        expect(hold?.cause).toBe("timeout");
+        expect(hold?.provider).toBe("postbox");
+        expect(hold?.error).toContain(
+          `Postbox.${stall} got no answer within ${DEADLINE_MS[`Postbox.${stall}`]} ms`
+        );
+        expect(
+          hold?.resumeAfter,
+          "an automatic resume time arms the run's alarm"
+        ).not.toBeNull();
+
+        postbox.answering = true;
+        yield* TestClock.setTime(hold?.resumeAfter ?? 0);
+
+        const redriven = yield* runs.advance("asking");
+
+        expect(redriven.status).toBe("waiting-for-reply");
+        expect(calls).toStrictEqual(
+          stall === "seal"
+            ? ["seal pi-durable/desk", "seal pi-durable/desk", "send"]
+            : ["seal pi-durable/desk", "send", "send"]
+        );
+        expect(
+          sealed,
+          "one seal completed; a re-seal would make new bytes"
+        ).toHaveLength(1);
+        expect(
+          sent,
+          "every send, including the re-drive after a lost answer, carries the one sealed envelope byte for byte, so the mailbox's (sender, messageId) replay check returns the original receipt"
+        ).toStrictEqual(sent.map(() => sealed[0]));
+      })
+  );
+}

@@ -1,9 +1,11 @@
 // @effect-diagnostics asyncFunction:off -- Durable Object RPC stubs are Promise APIs.
-import { Mail, StepFailed } from "@mischief/core";
+import { Mail, ProviderUnavailable, StepFailed } from "@mischief/core";
 import { mailOutboxSql } from "@mischief/plan-run";
 import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Layer, Option, Schema } from "effect";
 
+import { withDeadline } from "./call-deadline.js";
+import type { ObjectCall } from "./call-deadline.js";
 import type { Posted } from "./postbox-object.js";
 
 export interface PostboxRpc {
@@ -50,6 +52,7 @@ export const objectOf = (storage: SqlStorage) => {
 
 const settled = <A extends object>(
   key: string,
+  name: ObjectCall,
   call: () => Promise<Posted<A>>
 ) =>
   Effect.tryPromise({
@@ -61,6 +64,18 @@ const settled = <A extends object>(
       }),
     try: call,
   }).pipe(
+    withDeadline(name),
+    Effect.catchTag("ObjectCallTimedOut", (timedOut) =>
+      Effect.fail(
+        new ProviderUnavailable({
+          cause: "timeout",
+          error: timedOut.message,
+          key,
+          provider: "postbox",
+          status: 408,
+        })
+      )
+    ),
     Effect.flatMap((result) =>
       result.ok
         ? Effect.succeed(result)
@@ -103,6 +118,7 @@ export const postboxMail = (storage: SqlStorage, postbox: () => PostboxRpc) =>
             onSome: (name) =>
               settled(
                 key,
+                "Postbox.seal",
                 async () => await postbox().seal(name, to, message)
               ).pipe(
                 Effect.map(({ envelope, messageId }) => ({
@@ -117,6 +133,7 @@ export const postboxMail = (storage: SqlStorage, postbox: () => PostboxRpc) =>
             ? outbox.send(call, sealed)
             : settled(
                 call.key,
+                "Postbox.send",
                 async () => await postbox().send(sealed.envelope)
               ).pipe(Effect.asVoid),
       });

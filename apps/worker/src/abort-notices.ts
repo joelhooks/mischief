@@ -2,6 +2,7 @@
 import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Option } from "effect";
 
+import { withDeadline } from "./call-deadline.js";
 import { objectOf } from "./postbox-mail.js";
 import type { Posted } from "./postbox-object.js";
 
@@ -23,6 +24,8 @@ export const abortNotices =
         ),
       onSome: (name) =>
         Effect.promise(async () => await postbox().aborted(name, reason)).pipe(
+          withDeadline("Postbox.aborted"),
+          Effect.orDie,
           Effect.flatMap((result) =>
             result.ok
               ? Effect.void

@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Schema } from "effect";
 
+import type { ProviderUnavailable } from "./provider-unavailable.js";
 import { StepFailed } from "./step-failed.js";
 import type { StepCall } from "./step-failed.js";
 
@@ -23,11 +24,11 @@ export class Mail extends Context.Service<
   {
     readonly seal: (
       call: StepCall & { readonly message: string; readonly to: string }
-    ) => Effect.Effect<Sealed, StepFailed>;
+    ) => Effect.Effect<Sealed, StepFailed | ProviderUnavailable>;
     readonly send: (
       call: StepCall,
       sealed: Sealed
-    ) => Effect.Effect<void, StepFailed>;
+    ) => Effect.Effect<void, StepFailed | ProviderUnavailable>;
   }
 >()("@mischief/core/Mail") {
   static readonly unwired = Layer.succeed(this, {

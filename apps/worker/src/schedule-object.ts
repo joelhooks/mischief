@@ -29,6 +29,7 @@ export class Schedule extends DurableObject<Env> {
           await ctx.storage.setAlarm(at);
         },
       },
+      guardMs: Number(env.MISCHIEF_GUARD_MS),
       notices: mailWired
         ? scheduleNotices({
             objectName: () => objectOf(ctx.storage),

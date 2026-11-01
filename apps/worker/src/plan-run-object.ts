@@ -31,6 +31,7 @@ import { Clock, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 import { abortNotices } from "./abort-notices.js";
+import { withDeadline } from "./call-deadline.js";
 import {
   escalate,
   escalationText,
@@ -193,7 +194,7 @@ export class PlanRun extends DurableObject<Env> {
         const totals = yield* Effect.tryPromise(
           async () =>
             await postbox().tallyThink(today, runId, key, receipt.tokens.total)
-        );
+        ).pipe(withDeadline("Postbox.tallyThink"));
 
         yield* Effect.forEach(
           totals.crossed,

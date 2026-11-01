@@ -1,6 +1,8 @@
 import { Effect, Option, Result, Schema } from "effect";
 
 import { Mail, SealedSchema } from "../steps/mail.js";
+import type { ProviderUnavailable } from "../steps/provider-unavailable.js";
+import { StepFailed } from "../steps/step-failed.js";
 import { RunStore } from "./run-store.js";
 import type { Awaiting } from "./schema.js";
 
@@ -26,6 +28,12 @@ export const closeText = (
   ].join("\n");
 
 const decodeSealed = Schema.decodeUnknownOption(SealedSchema);
+
+const reasonOf = (failure: StepFailed | ProviderUnavailable) =>
+  Schema.is(StepFailed)(failure)
+    ? failure.reason
+    : (failure.error ??
+      `${failure.provider} is unavailable (${failure.cause})`);
 
 export const closeOpenAsks = (
   runId: string,
@@ -60,7 +68,7 @@ export const closeOpenAsks = (
 
       if (Result.isFailure(sealed)) {
         yield* Effect.logWarning(
-          `${runId} could not seal its closing note for ${messageId}: ${sealed.failure.reason}`
+          `${runId} could not seal its closing note for ${messageId}: ${reasonOf(sealed.failure)}`
         );
 
         continue;
@@ -79,7 +87,7 @@ export const closeOpenAsks = (
         `done:${key}`,
         Result.isSuccess(sent)
           ? true
-          : { error: `${key} failed`, reason: sent.failure.reason }
+          : { error: `${key} failed`, reason: reasonOf(sent.failure) }
       );
     }
   });

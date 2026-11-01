@@ -9,6 +9,7 @@ import type { WakeRuns } from "@mischief/core";
 import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Option, Schema } from "effect";
 
+import { withDeadline } from "./call-deadline.js";
 import { OBJECT_HEADER, objectOf } from "./postbox-mail.js";
 
 export const SUBMIT_WAIT_MS = 5000;
@@ -57,6 +58,21 @@ const answered = (
       }),
     try: pending,
   });
+
+const answeredBy = (
+  scheduleId: string,
+  runId: string,
+  step: Exclude<Step, "submitPlan">,
+  pending: () => Promise<Answer>
+) =>
+  answered(scheduleId, runId, step, pending).pipe(
+    withDeadline(`PlanRun.${step}`),
+    Effect.catchTag("ObjectCallTimedOut", ({ message }) =>
+      Effect.fail(
+        new WakeUnanswered({ reason: message, runId, scheduleId, step })
+      )
+    )
+  );
 
 const unanswered = (
   scheduleId: string,
@@ -113,7 +129,7 @@ export const wakeRuns = <Id>(
     abort: (runId, reason) =>
       scheduleFor.pipe(
         Effect.flatMap(({ owner, scheduleId }) =>
-          answered(
+          answeredBy(
             scheduleId,
             runId,
             "abortRun",
@@ -141,7 +157,7 @@ export const wakeRuns = <Id>(
     inspect: (runId) =>
       scheduleFor.pipe(
         Effect.flatMap(({ owner, scheduleId }) =>
-          answered(
+          answeredBy(
             scheduleId,
             runId,
             "inspectRun",

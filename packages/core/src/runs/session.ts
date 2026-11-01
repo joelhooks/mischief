@@ -336,9 +336,9 @@ export const driveSession = (
       }
     };
 
-    const journaled = (
+    const journaled = <E extends StepFailed | ProviderUnavailable>(
       key: string,
-      exec: Effect.Effect<Schema.Json, StepFailed>,
+      exec: Effect.Effect<Schema.Json, E>,
       fingerprint: Effect.Effect<string> = Effect.succeed(""),
       reuse: (entry: Schema.Json) => Effect.Effect<void> = () => Effect.void
     ) =>
@@ -388,16 +388,23 @@ export const driveSession = (
 
         const outcome = yield* Effect.result(exec);
 
-        const entry = Result.isSuccess(outcome)
-          ? outcome.success
-          : { error: `${key} failed`, reason: outcome.failure.reason };
+        if (Result.isSuccess(outcome)) {
+          journal.set(key, outcome.success);
+          yield* store.writeJournal(runId, key, outcome.success);
 
-        journal.set(key, entry);
-        yield* store.writeJournal(runId, key, entry);
+          return outcome.success;
+        }
 
-        return Result.isSuccess(outcome)
-          ? outcome.success
-          : yield* outcome.failure;
+        const { failure } = outcome;
+
+        if (isStepFailed(failure)) {
+          const entry = { error: `${key} failed`, reason: failure.reason };
+
+          journal.set(key, entry);
+          yield* store.writeJournal(runId, key, entry);
+        }
+
+        return yield* Effect.fail(failure);
       });
 
     const printOf = (step: Schema.Json) =>
@@ -610,8 +617,16 @@ export const driveSession = (
           ),
           printOf({ input, src: "ask" })
         ).pipe(
-          Effect.flatMap(Schema.decodeUnknownEffect(SealedSchema)),
-          Effect.mapError(() => failed(input.key, "sealed envelope refused"))
+          Effect.catchTag("StepFailed", () =>
+            Effect.fail(failed(input.key, "sealed envelope refused"))
+          ),
+          Effect.flatMap((entry) =>
+            Schema.decodeUnknownEffect(SealedSchema)(entry).pipe(
+              Effect.mapError(() =>
+                failed(input.key, "sealed envelope refused")
+              )
+            )
+          )
         );
 
         const message = yield* step(
@@ -645,16 +660,22 @@ export const driveSession = (
 
           const sent = yield* Effect.result(mail.send(call, sealed));
 
-          yield* recordJournal(
-            `done:${key}`,
-            Result.isSuccess(sent)
-              ? true
-              : { error: `${key} failed`, reason: sent.failure.reason }
-          );
-
           if (Result.isFailure(sent)) {
-            return yield* step(input.key, Effect.fail(sent.failure));
+            const { failure } = sent;
+
+            if (!isStepFailed(failure)) {
+              return yield* failure;
+            }
+
+            yield* recordJournal(`done:${key}`, {
+              error: `${key} failed`,
+              reason: failure.reason,
+            });
+
+            return yield* step(input.key, Effect.fail(failure));
           }
+
+          yield* recordJournal(`done:${key}`, true);
         }
 
         return { messageId: sealed.messageId, tokens: 0 };

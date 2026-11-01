@@ -5,6 +5,7 @@ import { DurableObject } from "cloudflare:workers";
 import { Effect, Exit, Layer, Option, Schema, Scope } from "effect";
 import { FetchHttpClient } from "effect/http";
 
+import { withDeadline } from "./call-deadline.js";
 import { decodeDelivery } from "./decode-delivery.js";
 import { openMailroom } from "./mailroom.js";
 import type { Env } from "./plan-run-object.js";
@@ -164,6 +165,12 @@ export class Postbox extends DurableObject<Env> {
             return { body: await response.text(), status: response.status };
           },
         }).pipe(
+          withDeadline("PlanRun.deliverReply"),
+          Effect.catchTag("ObjectCallTimedOut", ({ message }) =>
+            Effect.fail(
+              new PostboxFailed({ reason: `run ${objectName}: ${message}` })
+            )
+          ),
           Effect.flatMap(({ body, status }) =>
             decodeDelivery(objectName, status, body)
           )

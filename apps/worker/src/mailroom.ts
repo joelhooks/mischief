@@ -381,5 +381,18 @@ export const openMailroom = (config: MailroomConfig) =>
         ),
     };
 
-    return { inbox, layer };
+    const head = prepared.head.pipe(
+      Effect.timeoutOrElse({
+        duration: ATTEMPT_MS,
+        orElse: () =>
+          Effect.fail(failed(`head: no answer in ${ATTEMPT_MS} ms`)),
+      }),
+      Effect.mapError((failure) =>
+        Schema.is(PostboxFailed)(failure)
+          ? failure
+          : clientFailed("head")(failure)
+      )
+    );
+
+    return { head, inbox, layer };
   });

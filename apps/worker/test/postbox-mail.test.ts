@@ -154,6 +154,8 @@ for (const stall of Stalls.literals) {
       Effect.gen(function* deadline() {
         const storage = nodeSqlStorage(":memory:");
         const calls: string[] = [];
+        const sealed: string[] = [];
+        const sent: string[] = [];
         const postbox = { answering: false };
 
         const rpc: PostboxRpc = {
@@ -164,14 +166,18 @@ for (const stall of Stalls.literals) {
               return await unanswered();
             }
 
+            const envelope = `{"aad":{"seal":${calls.length}},"ciphertext":"AA","enc":"AA"}`;
+            sealed.push(envelope);
+
             return await Promise.resolve({
-              envelope: '{"aad":{},"ciphertext":"AA","enc":"AA"}',
+              envelope,
               messageId: "3mxtid",
               ok: true as const,
             });
           },
           send: async (envelope) => {
-            calls.push(`send ${envelope.slice(0, 7)}`);
+            calls.push("send");
+            sent.push(envelope);
 
             if (stall === "send" && !postbox.answering) {
               return await unanswered();
@@ -244,9 +250,17 @@ for (const stall of Stalls.literals) {
         expect(redriven.status).toBe("waiting-for-reply");
         expect(calls).toStrictEqual(
           stall === "seal"
-            ? ["seal pi-durable/desk", "seal pi-durable/desk", 'send {"aad":']
-            : ["seal pi-durable/desk", 'send {"aad":', 'send {"aad":']
+            ? ["seal pi-durable/desk", "seal pi-durable/desk", "send"]
+            : ["seal pi-durable/desk", "send", "send"]
         );
+        expect(
+          sealed,
+          "one seal completed; a re-seal would make new bytes"
+        ).toHaveLength(1);
+        expect(
+          sent,
+          "every send, including the re-drive after a lost answer, carries the one sealed envelope byte for byte, so the mailbox's (sender, messageId) replay check returns the original receipt"
+        ).toStrictEqual(sent.map(() => sealed[0]));
       })
   );
 }

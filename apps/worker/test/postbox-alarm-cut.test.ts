@@ -4,12 +4,14 @@ import * as Arbitrary from "effect/Arbitrary";
 
 import { Mailroom } from "../src/mailroom-port.js";
 import { readerHost } from "../src/postbox-reader-host.js";
+import type { ReaderMarks } from "../src/postbox-reader-marks.js";
 import { PostboxReader } from "../src/postbox-reader.js";
 import type { OpenMailroom } from "../src/postbox-reader.js";
 import { cutAt, cutEffect, neverCut } from "./alarm-cut.js";
 import type { Cut } from "./alarm-cut.js";
 
 const mailroom: OpenMailroom = {
+  head: Effect.die("unused"),
   inbox: {
     acquire: () => Effect.die("unused"),
     page: () => Effect.die("unused"),
@@ -35,6 +37,7 @@ interface Inbox {
 
 interface Cell {
   pending: Option.Option<number>;
+  marks: Option.Option<ReaderMarks>;
 }
 
 const hostOn = (cell: Cell, inbox: Inbox, cut: Cut) =>
@@ -49,6 +52,22 @@ const hostOn = (cell: Cell, inbox: Inbox, cut: Cut) =>
             cell.pending = Option.some(at);
           })
         ),
+    },
+    {
+      get: Effect.sync(() => cell.marks),
+      set: (marks) =>
+        cutEffect(
+          cut,
+          "marks.set",
+          Effect.sync(() => {
+            cell.marks = Option.some(marks);
+            cut.landed += 1;
+          })
+        ),
+    },
+    {
+      head: Effect.die("a more or idle turn never probes the mailbox head"),
+      notice: () => Effect.die("a more or idle turn never sends a notice"),
     },
     () =>
       PostboxReader.of({
@@ -106,7 +125,7 @@ it.live.prop(
   },
   ({ batches, cut }) =>
     Effect.gen(function* cutTurn() {
-      const cell: Cell = { pending: Option.some(0) };
+      const cell: Cell = { marks: Option.none(), pending: Option.some(0) };
       const inbox: Inbox = { batches, cursor: 0, read: [] };
       const cutting = cutAt(cut);
 

@@ -10,6 +10,7 @@ import { getPathsFromEvents, getShortestPaths } from "xstate/graph";
 import { Mailroom } from "../src/mailroom-port.js";
 import { PostboxFailed } from "../src/postbox-failed.js";
 import type { BatchOutcome } from "../src/postbox-inbox.js";
+import { LONG_POLL_MS } from "../src/postbox-inbox.js";
 import { PostboxReaderFailed } from "../src/postbox-reader-failed.js";
 import {
   PostboxReader,
@@ -43,7 +44,10 @@ interface Model {
 
 const commands = Arbitrary.array(Arbitrary.schema(Command), { maxLength: 20 });
 
+const input = { window: LONG_POLL_MS };
+
 const opened = (): OpenMailroom => ({
+  head: Effect.die("unused"),
   inbox: {
     acquire: () => Effect.die("unused"),
     page: () => Effect.die("unused"),
@@ -210,7 +214,8 @@ const replayGraph = (history: readonly ReaderCommand[]) => {
       graphModel = next;
 
       return event;
-    })
+    }),
+    { input }
   );
 
   expect(paths).toHaveLength(1);
@@ -281,16 +286,19 @@ const replayActor = Effect.fn("replayPostboxReader")(
 
     yield* Effect.scoped(
       Effect.gen(function* turn() {
-        const actor = yield* createEffectActor(postboxReaderMachine).pipe(
+        const actor = yield* createEffectActor(postboxReaderMachine, {
+          input,
+        }).pipe(
           Effect.provideService(
             PostboxReader,
             PostboxReader.of({
-              read: (given) =>
+              read: (given, window) =>
                 Effect.acquireUseRelease(
                   Effect.sync(() => {
                     expect(given, "a turn reads only what it wired").toBe(
                       mailroom
                     );
+                    expect(window).toBe(LONG_POLL_MS);
                     reading += 1;
 
                     const result = Deferred.makeUnsafe<
@@ -438,6 +446,7 @@ describe("Postbox reader turn", () => {
 
           return [];
         },
+        input,
         serializeState: (snapshot) =>
           JSON.stringify([
             stateOf(snapshot),

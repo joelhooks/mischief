@@ -16,13 +16,16 @@ import type { PostboxReaderFailed } from "./postbox-reader-failed.js";
 
 export type OpenMailroom = Effect.Success<ReturnType<typeof openMailroom>>;
 
-export const READ_DEADLINE_MS = 2 * LONG_POLL_MS + 5000;
+export const deadlineFor = (window: number) => 2 * window + 5000;
+
+export const READ_DEADLINE_MS = deadlineFor(LONG_POLL_MS);
 
 export class PostboxReader extends Context.Service<
   PostboxReader,
   {
     readonly read: (
-      mailroom: OpenMailroom
+      mailroom: OpenMailroom,
+      window: number
     ) => Effect.Effect<BatchOutcome, PostboxReaderFailed>;
     readonly wire: Effect.Effect<OpenMailroom, PostboxReaderFailed>;
   }
@@ -32,6 +35,12 @@ interface ReaderContext {
   readonly failure: PostboxReaderFailed | undefined;
   readonly mailroom: OpenMailroom | undefined;
   readonly outcome: BatchOutcome | undefined;
+  readonly window: number;
+}
+
+interface ReadInput {
+  readonly mailroom: OpenMailroom;
+  readonly window: number;
 }
 
 const wire = createEffectLogic({
@@ -39,17 +48,24 @@ const wire = createEffectLogic({
 });
 
 const read = createEffectLogic({
-  effect: ({ input }) => PostboxReader.use((reader) => reader.read(input)),
-  schemas: { input: types<OpenMailroom>() },
+  effect: ({ input }) =>
+    PostboxReader.use((reader) => reader.read(input.mailroom, input.window)),
+  schemas: { input: types<ReadInput>() },
 });
 
 export const postboxReaderMachine = setupEffect({
   actors: { read, wire },
   schemas: {
     context: types<ReaderContext>(),
+    input: types<{ readonly window: number }>(),
   },
 }).createMachine({
-  context: { failure: undefined, mailroom: undefined, outcome: undefined },
+  context: ({ input }) => ({
+    failure: undefined,
+    mailroom: undefined,
+    outcome: undefined,
+    window: input.window,
+  }),
   id: "postboxReader",
   initial: "turn",
   states: {
@@ -69,7 +85,7 @@ export const postboxReaderMachine = setupEffect({
                 );
               }
 
-              return context.mailroom;
+              return { mailroom: context.mailroom, window: context.window };
             },
             onDone: ({ event }) => ({
               context: { outcome: event.output },
@@ -96,7 +112,7 @@ export const postboxReaderMachine = setupEffect({
           },
         },
       },
-      timeout: READ_DEADLINE_MS,
+      timeout: ({ context }) => deadlineFor(context.window),
     },
   },
 });
@@ -113,11 +129,20 @@ const endingOf = (
   return snapshot.matches("stalled") ? "stalled" : "failed";
 };
 
-const STALLED = `the Postbox reader made no progress in ${READ_DEADLINE_MS / 1000} s (twice the ${LONG_POLL_MS / 1000} s long-poll plus margin), so this alarm stopped it; the next alarm wires a fresh client. Next check: if this repeats, look in the celld journal for a lease acquire-attempt with no answer, then probe MISCHIEF_MAILBOX_URL from the celld host`;
+const stalled = (window: number) =>
+  `the Postbox reader made no progress in ${deadlineFor(window) / 1000} s (twice the ${window / 1000} s long-poll plus margin), so this alarm stopped it; the next alarm wires a fresh client. Next check: if this repeats, look in the celld journal for a lease acquire-attempt with no answer, then probe MISCHIEF_MAILBOX_URL from the celld host`;
+
+export interface TurnReport {
+  readonly ending: ReaderEnding;
+  readonly problem: string;
+}
 
 export const readerTurn = Effect.fn("postboxReaderTurn")(
-  function* postboxReaderTurn() {
-    const actor = yield* createEffectActor(postboxReaderMachine);
+  function* postboxReaderTurn(window: number) {
+    const actor = yield* createEffectActor(postboxReaderMachine, {
+      input: { window },
+    });
+
     yield* watchActor("postboxReaderMachine", actor);
 
     const ended = yield* waitFor(
@@ -129,16 +154,20 @@ export const readerTurn = Effect.fn("postboxReaderTurn")(
     const ending = endingOf(ended);
 
     if (ending === "stalled") {
-      yield* Effect.logWarning(STALLED);
+      const problem = stalled(window);
+      yield* Effect.logWarning(problem);
+
+      return { ending, problem } satisfies TurnReport;
     }
 
     if (ending === "failed") {
-      yield* Effect.logWarning(
-        `the Postbox reader stopped (${context.failure?.kind ?? "Unavailable"}: ${context.failure?.reason ?? "no reason"}); the next alarm wires a fresh client`
-      );
+      const problem = `the Postbox reader stopped (${context.failure?.kind ?? "Unavailable"}: ${context.failure?.reason ?? "no reason"}); the next alarm wires a fresh client`;
+      yield* Effect.logWarning(problem);
+
+      return { ending, problem } satisfies TurnReport;
     }
 
-    return ending;
+    return { ending, problem: "" } satisfies TurnReport;
   },
   Effect.scoped
 );

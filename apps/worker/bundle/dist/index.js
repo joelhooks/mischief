@@ -59944,12 +59944,12 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect29.gen(f
     }));
   }));
   const observed = (key, receipt) => receipt === void 0 ? Effect29.void : (operator.thought?.(runId2, key, receipt) ?? Effect29.void).pipe(Effect29.ignoreCause);
-  const attempt = (key, agent, effect) => Effect29.acquireUseRelease(crypto2.randomUUIDv4().pipe(Effect29.orDie, Effect29.flatMap((id) => callerShare.acquire({
+  const attempt = (key, agent, effect) => permitted(Effect29.acquireUseRelease(callerShare.acquire({
     epoch: epochOf(),
     key,
     runId: runId2,
     visit: visitOf(key)
-  }, id))), ({ durationMs }) => permitted(attemptedThink({
+  }, `${runId2}/${key}#${visitOf(key)}@${epochOf()}`), ({ durationMs }) => attemptedThink({
     agent: {
       model: run2.plan.envelope.models[0],
       ...run2.plan.defaults.agent,
@@ -59966,7 +59966,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect29.gen(f
       options: ["reviseRun"],
       question: reason
     }
-  }))))).pipe(Effect29.provideService(RunStore, store))).pipe(Effect29.timeoutOrElse({
+  }))))).pipe(Effect29.provideService(RunStore, store), Effect29.timeoutOrElse({
     duration: durationMs,
     orElse: () => (thinker.abort?.({
       epoch: epochOf(),
@@ -59989,7 +59989,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect29.gen(f
     key,
     provider: "caller-share",
     status: 408
-  })));
+  }))));
   const recordedThink = (input) => Effect29.gen(function* thinkStep() {
     const thought2 = yield* step(input.key, withDocs(input.key, input.prompt).pipe(Effect29.flatMap((prompt) => attempt(input.key, input.agent ?? {}, thinker.think({
       agent: input.agent ?? {},

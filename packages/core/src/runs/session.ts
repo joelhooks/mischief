@@ -537,23 +537,18 @@ export const driveSession = (
       agent: AgentConfig,
       effect: Effect.Effect<A, E>
     ) =>
-      Effect.acquireUseRelease(
-        crypto.randomUUIDv4().pipe(
-          Effect.orDie,
-          Effect.flatMap((id) =>
-            callerShare.acquire(
-              {
-                epoch: epochOf(),
-                key,
-                runId,
-                visit: visitOf(key),
-              },
-              id
-            )
-          )
-        ),
-        ({ durationMs }) =>
-          permitted(
+      permitted(
+        Effect.acquireUseRelease(
+          callerShare.acquire(
+            {
+              epoch: epochOf(),
+              key,
+              runId,
+              visit: visitOf(key),
+            },
+            `${runId}/${key}#${visitOf(key)}@${epochOf()}`
+          ),
+          ({ durationMs }) =>
             attemptedThink(
               {
                 agent: {
@@ -587,61 +582,62 @@ export const driveSession = (
                     )
                   )
                 )
-            ).pipe(Effect.provideService(RunStore, store))
-          ).pipe(
-            Effect.timeoutOrElse({
-              duration: durationMs,
-              orElse: () =>
-                (
-                  thinker.abort?.({
-                    epoch: epochOf(),
-                    key,
-                    runId,
-                    visit: visitOf(key),
-                  }) ?? Effect.void
-                ).pipe(
-                  Effect.mapError(
-                    (failure) =>
-                      new ThinkAbortUnconfirmed({
-                        key,
-                        reason: failure.message,
-                      })
-                  ),
-                  Effect.andThen(
-                    Effect.fail(
-                      new ProviderUnavailable({
-                        cause: "timeout",
-                        error:
-                          "the caller think lease's work deadline elapsed; the run's alarm retries with a fresh lease",
-                        key,
-                        provider: "caller-share",
-                        status: 408,
-                      })
+            ).pipe(
+              Effect.provideService(RunStore, store),
+              Effect.timeoutOrElse({
+                duration: durationMs,
+                orElse: () =>
+                  (
+                    thinker.abort?.({
+                      epoch: epochOf(),
+                      key,
+                      runId,
+                      visit: visitOf(key),
+                    }) ?? Effect.void
+                  ).pipe(
+                    Effect.mapError(
+                      (failure) =>
+                        new ThinkAbortUnconfirmed({
+                          key,
+                          reason: failure.message,
+                        })
+                    ),
+                    Effect.andThen(
+                      Effect.fail(
+                        new ProviderUnavailable({
+                          cause: "timeout",
+                          error:
+                            "the caller think lease's work deadline elapsed; the run's alarm retries with a fresh lease",
+                          key,
+                          provider: "caller-share",
+                          status: 408,
+                        })
+                      )
                     )
-                  )
-                ),
-            })
-          ),
-        ({ release }, outcome) =>
-          Exit.isFailure(outcome) &&
-          (Cause.hasInterrupts(outcome.cause) ||
-            Option.exists(
-              Cause.findErrorOption(outcome.cause),
-              Schema.is(ThinkAbortUnconfirmed)
-            ))
-            ? Effect.void
-            : release
-      ).pipe(
-        Effect.catchIf(
-          Schema.is(ThinkAbortUnconfirmed),
-          ({ reason }) =>
-            new ProviderUnavailable({
-              cause: "timeout",
-              error: `the leased think could not confirm its conversation stopped (${reason}); its lease remains held until expiry, and the run's alarm retries`,
-              key,
-              provider: "caller-share",
-              status: 408,
-            })
+                  ),
+              })
+            ),
+          ({ release }, outcome) =>
+            Exit.isFailure(outcome) &&
+            (Cause.hasInterrupts(outcome.cause) ||
+              Option.exists(
+                Cause.findErrorOption(outcome.cause),
+                Schema.is(ThinkAbortUnconfirmed)
+              ))
+              ? Effect.void
+              : release
+        ).pipe(
+          Effect.catchIf(
+            Schema.is(ThinkAbortUnconfirmed),
+            ({ reason }) =>
+              new ProviderUnavailable({
+                cause: "timeout",
+                error: `the leased think could not confirm its conversation stopped (${reason}); its lease remains held until expiry, and the run's alarm retries`,
+                key,
+                provider: "caller-share",
+                status: 408,
+              })
+          )
         )
       );
 

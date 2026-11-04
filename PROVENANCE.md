@@ -17,6 +17,12 @@ rat-stack bans comments in code (see AGENTS.md). Credit for borrowed code lives 
 | `apps/mischief/scripts/document-html.ts` (`arrowIcon`) | [Heroicons](https://heroicons.com) v2 24px outline `arrow-right`, MIT, Copyright (c) Tailwind Labs, Inc. | The arrow path is inlined as SVG; the package is not a dependency. |
 | `apps/mischief/scripts/document-html.ts` (copy prompt) | [Hugeicons](https://hugeicons.com) `@hugeicons/core-free-icons@4.3.5`, `Tick02Icon`, MIT, Copyright (c) 2025 Hugeicons | The checkmark path is inlined as SVG; the package is not a dependency. |
 
+## Mischief HTTP client
+
+`packages/client` adapts the existing client in `agent-graph-desk`, `prototype/src/shadow/remote.ts` and `prototype/scripts/reclaim/call.mjs`, inspected at `2f04d95a67390771231d21391293a2f53e72e181`.
+
+It keeps per-request ES256 service tokens, the capability-specific NSID, unique token ids, the host audience, origin validation, redirect refusal, schema-decoded responses and declared failures. The shared package replaces driver-specific identity configuration with discovery of the caller's existing Rat King identity. HTTP transport uses Effect's HttpClient. Shadow-plan rewriting, fixed driver DIDs, mode guards and polling stay with the original caller. The opt-in Pi adapter, project policy format and desk-run proof script are new here.
+
 ## OpenCode code-mode ideas (MIT)
 
 `packages/capability/src/catalog.ts`, `to-code-mode.ts`, the sandbox adapters, and their tests adapt discovery and execution ideas from [anomalyco/opencode](https://github.com/anomalyco/opencode/tree/dev/packages/codemode), inspected 2026-10-09. Sources: `README.md`, `src/codemode.ts`, and `src/tool-runtime.ts` (blob `f4ccc61d4c49a4f7572906559e5a4e2a11acdec9`).

@@ -27,7 +27,7 @@ export class Postbox extends DurableObject<Env> {
         seal: (to, body) =>
           Effect.succeed({
             envelope: JSON.stringify({ body, to }),
-            messageId: body,
+            messageId: body.split("\n")[0] ?? body,
           }),
         send: (envelope) =>
           Effect.sync(() => {

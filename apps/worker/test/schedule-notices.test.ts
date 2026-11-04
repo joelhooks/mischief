@@ -84,6 +84,13 @@ it.effect.prop(
       const box = fakePostbox();
 
       const notices = scheduleNotices({
+        mailReach: () =>
+          JSON.stringify({
+            [objectNameOf(owner).slice(
+              0,
+              objectNameOf(owner).lastIndexOf("/")
+            )]: ["agent-graph/desk", "pi-durable/desk"],
+          }),
         objectName: () => Option.some(objectNameOf(owner)),
         postbox: box.postbox,
         storage: nodeSqlStorage(":memory:"),
@@ -98,26 +105,24 @@ it.effect.prop(
         yield* notices.ended({ escalateTo, key: KEY, scheduleId: ID, text });
       }
 
-      const want = escalateTo ?? (owner === "not-a-fleet-did" ? null : owner);
+      const want = owner === "not-a-fleet-did" ? null : (escalateTo ?? owner);
 
-      if (want === null) {
-        expect(box.seals, "no mailbox to tell").toStrictEqual([]);
-        expect(box.sent).toStrictEqual([]);
-
-        return;
-      }
+      const targets = new Set([
+        "pi-durable/desk",
+        ...(want === null ? [] : [want]),
+      ]);
 
       for (const { body, to } of box.seals) {
-        expect(to).toBe(want);
+        expect(targets.has(to)).toBe(true);
         expect(body).toBe(text);
       }
 
       expect(
         box.seals.length,
         "sealed at most once per key, however often the end is announced"
-      ).toBeLessThanOrEqual(1);
+      ).toBeLessThanOrEqual(targets.size);
 
-      expect(new Set(box.sent).size).toBeLessThanOrEqual(1);
+      expect(new Set(box.sent).size).toBeLessThanOrEqual(targets.size);
 
       let sealed = false;
       let delivered = false;
@@ -130,6 +135,43 @@ it.effect.prop(
       expect(box.sent.length > 0).toBe(delivered);
     }),
   { arbitrary: { runs: 200 } }
+);
+
+it.effect.prop(
+  "a persisted schedule target loses reach after revocation but its desk copy still goes out with unchanged sealed bytes",
+  { target: Schema.Literals(["agent-graph/desk", "joel-phone"]) },
+  ({ target }) =>
+    Effect.gen(function* revokedSchedule() {
+      const box = fakePostbox();
+      const did = "did:web:agent-graph.driver.pi.ratking-fleet.invalid";
+      let config = JSON.stringify({ [did]: [target] });
+
+      const notices = scheduleNotices({
+        mailReach: () => config,
+        objectName: () => Option.some(`${did}/${ID}`),
+        postbox: box.postbox,
+        storage: nodeSqlStorage(":memory:"),
+      });
+
+      const input = {
+        escalateTo: target,
+        key: KEY,
+        scheduleId: ID,
+        text: "ended",
+      };
+
+      yield* notices.ended(input);
+      expect(box.seals.map(({ to }) => to)).toStrictEqual([
+        target,
+        "pi-durable/desk",
+      ]);
+      const originals = [...box.sent];
+
+      config = JSON.stringify({ [did]: [] });
+      yield* notices.ended(input);
+      expect(box.sent).toStrictEqual([...originals, originals[1]]);
+      expect(box.seals).toHaveLength(2);
+    })
 );
 
 it("a schedule object name of <caller DID>/<scheduleId> names the caller's mailbox, and a DID outside the fleet names none", () => {

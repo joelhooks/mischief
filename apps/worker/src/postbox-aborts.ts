@@ -1,6 +1,7 @@
 import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Option, Schema, Semaphore } from "effect";
 
+import { attributeMail } from "./mail-attribution.js";
 import { Mailroom } from "./mailroom-port.js";
 import type { PostboxFailed } from "./postbox-failed.js";
 
@@ -85,7 +86,10 @@ export const postboxAborts = (
         const sealed = yield* Mailroom.use((mailroom) =>
           mailroom.seal(
             row.sender,
-            abortReplyText(row.run_id, row.message_id, row.reason)
+            attributeMail(
+              row.run_id,
+              abortReplyText(row.run_id, row.message_id, row.reason)
+            )
           )
         );
 

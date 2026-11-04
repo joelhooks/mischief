@@ -54,13 +54,13 @@ const sectionsIn = (text: string) =>
 
 const CALLERS = [
   {
-    authentication: ["did:web:driver.example.invalid#atproto"],
-    id: "did:web:driver.example.invalid",
+    authentication: ["did:web:driver.ratking-fleet.invalid#atproto"],
+    id: "did:web:driver.ratking-fleet.invalid",
     keyAgreement: [],
     verificationMethod: [
       {
-        controller: "did:web:driver.example.invalid",
-        id: "did:web:driver.example.invalid#atproto",
+        controller: "did:web:driver.ratking-fleet.invalid",
+        id: "did:web:driver.ratking-fleet.invalid#atproto",
         publicKeyJwk: {
           crv: "P-256",
           kty: "EC",
@@ -307,6 +307,7 @@ it.effect(
       expect(vars).toMatchObject({
         MISCHIEF_CALLERS: JSON.stringify(CALLERS),
         MISCHIEF_DID: "did:web:mischief.example.invalid",
+        MISCHIEF_MAIL_REACH: "{}",
       });
 
       const paths = [...text.matchAll(/\/(?:home|data)\/[\w./-]+/gu)].map(

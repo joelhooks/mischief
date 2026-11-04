@@ -63,7 +63,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
       const commit = yield* Config.String("MISCHIEF_COMMIT");
       const version = yield* Config.String("MISCHIEF_VERSION");
 
-      const { callers, did } = yield* callersFromConfig;
+      const { callers, did, mailReach } = yield* callersFromConfig;
 
       const mailbox = {
         did: yield* Config.String("MISCHIEF_MAILBOX_DID"),
@@ -111,6 +111,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         commit,
         did,
         judge,
+        mailReach,
         mailbox,
         opusBridgeUrl: opusBridgeUrl === "" ? undefined : opusBridgeUrl,
         thinker,

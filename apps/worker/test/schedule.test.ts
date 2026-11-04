@@ -172,7 +172,9 @@ it.live(
   "a schedule's judge and escalateTo are stored and reach every wake: jev on a host without a key fails the wake's gate, the host default parks it on shadow/judge",
   () =>
     Effect.gen(function* judged() {
-      const world = yield* prepare(30_000);
+      const world = yield* prepare(30_000, [], undefined, {
+        mayMail: ["agent-graph/desk"],
+      });
 
       yield* start(world);
 

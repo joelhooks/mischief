@@ -54,7 +54,21 @@ it.effect.prop(
 
       const announce = () =>
         alarmOnHolds(
-          { objectName: () => Option.some("object-1"), postbox, storage },
+          {
+            mailReach: () =>
+              JSON.stringify({
+                "did:web:fixture.desk.pi.ratking-fleet.invalid": [
+                  "desk/owner",
+                  "desk/host",
+                ],
+              }),
+            objectName: () =>
+              Option.some(
+                "did:web:fixture.desk.pi.ratking-fleet.invalid/object-1"
+              ),
+            postbox,
+            storage,
+          },
           holdAlarmTargets(" desk/host,desk/backup,desk/host, ")
         );
 

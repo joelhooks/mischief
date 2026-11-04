@@ -27,6 +27,7 @@ export const declaration: typeof Declaration.Type = {
 
 export interface BuildInput {
   readonly callers: string;
+  readonly mailReach?: string;
   readonly commit: string;
   readonly did: string;
   readonly entry?: string;
@@ -48,6 +49,7 @@ const thinkerVars = (thinker: Thinker): Record<string, string> =>
 
 export const buildWorker = ({
   callers,
+  mailReach = "{}",
   commit,
   did,
   entry,
@@ -69,6 +71,7 @@ export const buildWorker = ({
       MISCHIEF_JUDGE: judge,
       MISCHIEF_MAILBOX_DID: mailbox.did,
       MISCHIEF_MAILBOX_URL: mailbox.url,
+      MISCHIEF_MAIL_REACH: mailReach,
       MISCHIEF_THINK_CONCURRENCY: "16",
       ...thinkerVars(thinker),
     };

@@ -1,4 +1,5 @@
 // @effect-diagnostics asyncFunction:off -- the Worker's fetch handler is a Promise API.
+import { submitMailReachReason } from "@mischief/core";
 import { mischiefApiSpec } from "@mischief/plan-run";
 import { Documents, staticResolver } from "@rat-king/mailbox-client/auth";
 import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
@@ -114,6 +115,18 @@ export default {
     }
 
     const body = await request.text();
+
+    if (capability === "submitPlan" || capability === "createSchedule") {
+      const reason = submitMailReachReason(
+        caller.success.iss,
+        body,
+        env.MISCHIEF_MAIL_REACH
+      );
+
+      if (reason !== undefined) {
+        return Response.json({ error: reason }, { status: 403 });
+      }
+    }
 
     if (SCHEDULE_CAPABILITIES.has(capability)) {
       const scheduleId = scheduleIdOf(body);

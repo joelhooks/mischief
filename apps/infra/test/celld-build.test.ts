@@ -70,6 +70,7 @@ it.effect(
         "MISCHIEF_JUDGE",
         "MISCHIEF_MAILBOX_DID",
         "MISCHIEF_MAILBOX_URL",
+        "MISCHIEF_MAIL_REACH",
         "MISCHIEF_MODEL",
         "MISCHIEF_THINK_CONCURRENCY",
       ]);

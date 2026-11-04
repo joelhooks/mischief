@@ -133,7 +133,12 @@ it.live(
             platform: "neutral",
           })
       );
-      const world = yield* prepare(1000, [], undefined, { bundle });
+
+      const world = yield* prepare(1000, [], undefined, {
+        bundle,
+        mayMail: ["desk/test"],
+      });
+
       yield* start(world);
       const authorization = yield* bearer(world.driver, "submitPlan");
 

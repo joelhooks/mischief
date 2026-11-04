@@ -77,7 +77,10 @@ it.effect.prop(
         Mailroom.of({
           nameOf: () => Effect.succeedSome("sender/desk"),
           seal: (to, body) =>
-            Effect.succeed({ envelope: `${to}:${body}`, messageId: body }),
+            Effect.succeed({
+              envelope: `${to}:${body}`,
+              messageId: body.split("\n")[0] ?? body,
+            }),
           send: (envelope) =>
             Effect.sync(() => {
               notices.push(envelope);

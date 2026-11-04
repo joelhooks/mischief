@@ -1,3 +1,12 @@
+export {
+  callerName,
+  callerReach,
+  escalationMailReachReason,
+  MailReachSchema,
+  mailReachReason,
+  submitMailReachReason,
+} from "./comms/mail-reach.js";
+
 export { AppConfig } from "./app-config.js";
 
 export { thinkStatus, thinkingCapabilities } from "./thinking/capabilities.js";

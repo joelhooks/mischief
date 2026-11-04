@@ -174,6 +174,40 @@ The SDK also wraps the API's three schedule calls: `createSchedule`, `inspectSch
 
 These rollout values remain subject to their host changes' review. Neither policy changes the requirement for approval before sending a message to a person.
 
+### Host mail reach configuration
+
+Merge this fragment into the agent-graph driver's existing public DID document in `MISCHIEF_CALLERS_FILE`. Keep its authentication, keyAgreement and verificationMethod fields. This sample grants exactly the ten recipients confirmed by the agent-graph desk for its live plans and enabled schedule on 2026-11-04:
+
+```json
+{
+  "id": "did:web:agent-graph.driver.pi.ratking-fleet.invalid",
+  "mischief": {
+    "mayMail": [
+      "agent-graph/desk",
+      "agent-graph/nest-feed",
+      "agent-graph/nest-views-a",
+      "agent-graph/nest-views-b",
+      "aih-support-sweep/desk",
+      "drovr/copy-tool",
+      "drovr/drovr-desk-2",
+      "front-desk/front-desk-desk",
+      "rats-nest/rats-nest-desk",
+      "switchboard"
+    ]
+  }
+}
+```
+
+The deploy reads each document's optional `mischief.mayMail` into `MISCHIEF_MAIL_REACH`, a JSON map keyed by caller DID. It sends only public DID documents through `MISCHIEF_CALLERS`. Missing grants mean self only; an explicit empty array means no mail. Malformed config or an unrecognised caller DID never grants access.
+
+`did:web:<project>.<desk>.pi.ratking-fleet.invalid` derives `<project>/<desk>`. `did:web:<name>.ratking-fleet.invalid` derives `<name>`. Agent-graph submits as `agent-graph/driver`, not `agent-graph/desk`.
+
+Submit checks every envelope name, including unused names. Delivery checks the recipient of the stored sealed envelope against current host config. Removing a grant can therefore refuse a pending step in an old run, without re-sealing its message. Caller-supplied `escalateTo` on submit and schedule creation must also be inside reach, and every escalation delivery re-checks the persisted target. A denied schedule notice logs the refusal but still sends the host-owned copy to `pi-durable/desk`. Host-configured alarm and telemetry recipients remain host-owned.
+
+Run messages end with one line: `Mischief caller: <caller name>; run: <run id>`. Attribution is added before sealing, including for host notices sent on a run's behalf. Retries preserve the stored sealed bytes. Already-sealed envelopes from before rollout keep their original text without a footer; send-time reach still applies. The pinned mailbox client's text sealing API has no record-attribution fields.
+
+Before deploying, merge the grants into the real callers file and check stored live envelopes against them. Count outstanding sealed mail in each PlanRun checkpoint's `pending` directives and journaled sealed records; `mischief_outbox` per PlanRun holds record-only deliveries, not the real-mail pending queue. Postbox abort notifications also retain sealed bytes in `postbox_delivered.envelope` where `notified = 0`. This sample is not a deploy or a grant on the running host.
+
 ## Desk-run live proof
 
 The repository test exercises submit, inspect, receipt read and abort against the in-repo workerd harness. That is not a live-host result.

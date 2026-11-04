@@ -90,7 +90,11 @@ it.live(
           })
       );
 
-      const world = yield* prepare(1000, [], undefined, { bundle });
+      const world = yield* prepare(1000, [], undefined, {
+        bundle,
+        mayMail: ["sender/desk"],
+      });
+
       const child = yield* start(world);
 
       const created = yield* post(world, "createSchedule", {

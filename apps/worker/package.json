@@ -29,6 +29,7 @@
     "@cloudflare/workers-types": "5.20261001.1",
     "@effect/platform-node": "4.0.5",
     "@effect/vitest": "4.0.5",
+    "@mischief/client": "workspace:*",
     "@types/node": "24.13.6",
     "esbuild": "0.25.12",
     "typescript": "7.0.2",

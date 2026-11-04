@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "allowedUnstableApis": [
+          "@effect/vitest",
+          "effect/http",
+          "effect/process",
+          "effect/Crypto",
+          "effect/Arbitrary",
+          "effect/FileSystem",
+          "effect/Path",
+          "@effect/platform-node/NodeServices",
+          "@effect/platform-node/NodeRuntime"
+        ]
+      }
+    ]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

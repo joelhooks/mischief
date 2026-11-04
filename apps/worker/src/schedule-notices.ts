@@ -2,11 +2,12 @@ import { ScheduleNotices } from "@mischief/core";
 import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Option } from "effect";
 
-import { mailOnce } from "./escalation.js";
+import { callerMailOnce, mailOnce } from "./escalation.js";
 import { nameFor } from "./fleet-names.js";
 import type { PostboxRpc } from "./postbox-mail.js";
 
 export interface NoticePorts {
+  readonly mailReach?: () => string | undefined;
   readonly objectName: () => Option.Option<string>;
   readonly postbox: () => Pick<PostboxRpc, "seal" | "send">;
   readonly storage: SqlStorage;
@@ -27,7 +28,17 @@ export const scheduleNotices = (ports: NoticePorts) =>
           Effect.logWarning(
             `schedule ${scheduleId} ended but has no mailbox to tell: it has no escalateTo and its caller's DID names no Rat King mailbox. inspectSchedule {"scheduleId": "${scheduleId}"} shows why it ended; create it with escalateTo to be told next time`
           ),
-        onSome: (target) => mailOnce(ports)(scheduleId, target, key, text),
-      });
+        onSome: (target) =>
+          callerMailOnce(ports)(scheduleId, target, key, text),
+      }).pipe(
+        Effect.andThen(
+          mailOnce(ports)(
+            scheduleId,
+            "pi-durable/desk",
+            Option.contains(to, "pi-durable/desk") ? key : `${key}:desk`,
+            text
+          )
+        )
+      );
     },
   });

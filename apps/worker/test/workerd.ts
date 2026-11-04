@@ -96,7 +96,8 @@ const configOf = (
   guardMs: number,
   callers: DocumentsValue,
   jevKey: string | undefined,
-  stepKinds: string
+  stepKinds: string,
+  mailReach: string
 ) => `using Workerd = import "/workerd/workerd.capnp";
 const config :Workerd.Config = (
   services = [
@@ -124,6 +125,7 @@ const worker :Workerd.Worker = (
     (name = "CALLER_THINKS", durableObjectNamespace = "CallerThinks"),
     (name = "MISCHIEF_DID", text = "${MISCHIEF_DID}"),
     (name = "MISCHIEF_CALLERS", text = ${JSON.stringify(JSON.stringify(callers))}),
+    (name = "MISCHIEF_MAIL_REACH", text = ${JSON.stringify(mailReach)}),
     (name = "MISCHIEF_MODEL", text = "faux"),
     (name = "MISCHIEF_GUARD_MS", text = "${guardMs}"),
     (name = "MISCHIEF_STEP_KINDS", text = ${JSON.stringify(stepKinds)}),
@@ -140,7 +142,12 @@ export const prepare = (
   guardMs: number,
   others: readonly Caller[] = [],
   jevKey?: string,
-  options: { readonly bundle?: string; readonly stepKinds?: string } = {}
+  options: {
+    readonly bundle?: string;
+    readonly stepKinds?: string;
+    readonly mayMail?: readonly string[];
+    readonly mailReach?: string;
+  } = {}
 ) =>
   Effect.gen(function* prepareWorkerd() {
     const driver = yield* freshCaller("driver");
@@ -163,7 +170,13 @@ export const prepare = (
         guardMs,
         [driver, ...others].map(({ document }) => document),
         jevKey,
-        options.stepKinds ?? ""
+        options.stepKinds ?? "",
+        options.mailReach ??
+          JSON.stringify(
+            options.mayMail === undefined
+              ? {}
+              : { [driver.did]: options.mayMail }
+          )
       )
     );
 

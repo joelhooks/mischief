@@ -54,7 +54,7 @@ const fakes = (world: World, trace: Trace, parkedIds: () => Set<string>) => {
       seal: (to, body) =>
         Effect.succeed({
           envelope: `${to} ${body}`,
-          messageId: `tid-${body}`,
+          messageId: `tid-${body.split("\n")[0] ?? body}`,
         }),
       send: (): Effect.Effect<SendVerdictValue> =>
         Effect.succeed(SendVerdict.cases.Accepted.make({})),

@@ -12,19 +12,25 @@ const PUBLIC_JWK = {
 };
 
 const documentWith = (publicKeyJwk: Record<string, string>) => ({
-  authentication: ["did:web:driver.example.invalid#atproto"],
-  id: "did:web:driver.example.invalid",
+  authentication: [
+    "did:web:agent-graph.driver.pi.ratking-fleet.invalid#atproto",
+  ],
+  id: "did:web:agent-graph.driver.pi.ratking-fleet.invalid",
   keyAgreement: [],
   verificationMethod: [
     {
-      controller: "did:web:driver.example.invalid",
-      id: "did:web:driver.example.invalid#atproto",
+      controller: "did:web:agent-graph.driver.pi.ratking-fleet.invalid",
+      id: "did:web:agent-graph.driver.pi.ratking-fleet.invalid#atproto",
       publicKeyJwk,
     },
   ],
 });
 
-const callersFrom = (documents: readonly ReturnType<typeof documentWith>[]) =>
+const callersFrom = (
+  documents: readonly (ReturnType<typeof documentWith> & {
+    readonly mischief?: { readonly mayMail?: readonly string[] };
+  })[]
+) =>
   Effect.gen(function* written() {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -57,13 +63,41 @@ it.effect(
 
       expect(Exit.isFailure(leaked)).toBe(true);
       expect(String(Exit.isFailure(leaked) ? leaked.cause : "")).toMatch(
-        /private key for did:web:driver\.example\.invalid.*rotate/u
+        /private key for did:web:agent-graph\.driver\.pi\.ratking-fleet\.invalid.*rotate/u
       );
 
       const clean = yield* callersFrom([documentWith(PUBLIC_JWK)]);
+      expect(Exit.isSuccess(clean) ? clean.value.mailReach : "").toBe("{}");
 
       expect(Exit.isSuccess(clean) ? clean.value.callers : "").toBe(
         JSON.stringify([documentWith(PUBLIC_JWK)])
       );
+    })
+);
+
+it.effect(
+  "caller grants go only to the reach map, while omitted grants default to self and unknown DIDs fail closed",
+  () =>
+    Effect.gen(function* configured() {
+      const doc = documentWith(PUBLIC_JWK);
+
+      const granted = yield* callersFrom([
+        { ...doc, mischief: { mayMail: ["other/desk"] } },
+      ]);
+
+      expect(Exit.isSuccess(granted)).toBe(true);
+
+      if (Exit.isSuccess(granted)) {
+        expect(JSON.parse(granted.value.mailReach)).toStrictEqual({
+          [doc.id]: ["other/desk"],
+        });
+        expect(granted.value.callers).toBe(JSON.stringify([doc]));
+      }
+
+      const invalid = yield* callersFrom([
+        { ...doc, id: "did:web:unknown.example.invalid" },
+      ]);
+
+      expect(Exit.isFailure(invalid)).toBe(true);
     })
 );

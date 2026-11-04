@@ -306,6 +306,9 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.5
         version: 4.0.5(effect@4.0.5)(redis@6.2.1)
+      '@mischief/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@rat-king/alchemy-nest':
         specifier: github:joelhooks/rat-king#b191804a7c358a35188e2faaacf3edbc39d9313d&path:/packages/alchemy-nest
         version: https://codeload.github.com/joelhooks/rat-king/tar.gz/b191804a7c358a35188e2faaacf3edbc39d9313d#path:/packages/alchemy-nest(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.3(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))))(@types/node@24.13.6)(hono@4.11.4)(redis@6.2.1)(typescript@7.0.2)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(ws@8.22.0)

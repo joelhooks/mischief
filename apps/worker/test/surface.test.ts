@@ -81,7 +81,9 @@ it.live.prop(
   },
   ({ runIds }) =>
     Effect.gen(function* property() {
-      const world = yield* prepare(30_000);
+      const world = yield* prepare(30_000, [], undefined, {
+        mayMail: DESKS.map((desk) => `desk/${desk}`),
+      });
 
       yield* start(world);
 

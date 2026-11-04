@@ -1,3 +1,4 @@
+import { callerReach, MailReachSchema } from "@mischief/core";
 import { Documents } from "@rat-king/mailbox-client/auth";
 import { Config, Effect, FileSystem, Schema } from "effect";
 
@@ -59,5 +60,40 @@ export const callersFromConfig = Effect.gen(function* callersFromConfig() {
     );
   }
 
-  return { callers: JSON.stringify(callers), did };
+  const grants = yield* Schema.decodeUnknownEffect(
+    Schema.fromJsonString(
+      Schema.Array(
+        Schema.Struct({
+          id: Schema.String,
+          mischief: Schema.optionalKey(
+            Schema.Struct({
+              mayMail: Schema.optionalKey(Schema.Array(Schema.String)),
+            })
+          ),
+        })
+      )
+    )
+  )(text);
+
+  const mailReach = JSON.stringify(
+    Object.fromEntries(
+      grants.flatMap(({ id, mischief }) =>
+        mischief?.mayMail === undefined ? [] : [[id, mischief.mayMail]]
+      )
+    )
+  );
+
+  yield* Schema.decodeUnknownEffect(Schema.fromJsonString(MailReachSchema))(
+    mailReach
+  );
+
+  for (const { id } of callers) {
+    const reach = callerReach(id, mailReach);
+
+    if (reach.reason !== undefined) {
+      return yield* Effect.die(new Error(reach.reason));
+    }
+  }
+
+  return { callers: JSON.stringify(callers), did, mailReach };
 });

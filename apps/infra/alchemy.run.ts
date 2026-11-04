@@ -13,7 +13,7 @@ export const cloudflare = Stack(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    const { callers, did } = yield* callersFromConfig;
+    const { callers, did, mailReach } = yield* callersFromConfig;
 
     const script = yield* fs.readFileString(
       path.resolve(import.meta.dirname, "../worker/dist/worker.js")
@@ -29,6 +29,7 @@ export const cloudflare = Stack(
         MISCHIEF_CALLERS: callers,
         MISCHIEF_DID: did,
         MISCHIEF_GUARD_MS: "30000",
+        MISCHIEF_MAIL_REACH: mailReach,
         MISCHIEF_MODEL: "faux",
         PLAN_RUN: Cloudflare.DurableObject("PLAN_RUN", {
           className: "PlanRun",

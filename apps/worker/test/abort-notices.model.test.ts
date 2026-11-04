@@ -41,7 +41,7 @@ const historyHolds = (history: typeof History.Type) =>
             const envelope = `${bodies.size}:${to}:${body}`;
             bodies.set(envelope, body);
 
-            return { envelope, messageId: body };
+            return { envelope, messageId: body.split("\n")[0] ?? body };
           }),
         send: (envelope) =>
           Effect.sync(() => {

@@ -152,7 +152,14 @@ it.live.prop(
   ({ reopens }) =>
     Effect.gen(function* parkedPlanIsNotParkedThink() {
       const bundle = yield* fixtureBundle;
-      const world = yield* prepare(30_000, [], undefined, { bundle });
+
+      const world = yield* prepare(30_000, [], undefined, {
+        bundle,
+        mailReach: JSON.stringify({
+          "did:web:upgrade.fixture.pi.ratking-fleet.invalid": ["desk/answer"],
+        }),
+      });
+
       let process = yield* start(world);
 
       for (const kind of KINDS) {

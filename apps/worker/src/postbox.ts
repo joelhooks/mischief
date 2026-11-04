@@ -1,6 +1,7 @@
 import type { SqlStorage } from "@mischief/plan-run";
 import { Duration, Effect, Option, Schedule, Schema } from "effect";
 
+import { attributeMail } from "./mail-attribution.js";
 import { Mailroom, SendVerdict } from "./mailroom-port.js";
 import type { Inbound, SendVerdictValue } from "./mailroom-port.js";
 import { postboxAborts } from "./postbox-aborts.js";
@@ -161,7 +162,9 @@ export const postbox = (storage: SqlStorage) => {
     });
 
   const seal = (runId: string, to: string, body: string) =>
-    Mailroom.use((mailroom) => mailroom.seal(to, body)).pipe(
+    Mailroom.use((mailroom) =>
+      mailroom.seal(to, attributeMail(runId, body))
+    ).pipe(
       Effect.tap(({ messageId }) =>
         Effect.sync(() => {
           storage.sql.exec(

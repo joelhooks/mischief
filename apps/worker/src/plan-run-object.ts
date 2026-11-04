@@ -17,6 +17,7 @@ import {
   redriveAttemptsLayer,
   stepKindsFrom,
   thinkConcurrencyLayer,
+  submitMailReachReason,
 } from "@mischief/core";
 import type { Callable, ThinkReceipt } from "@mischief/core";
 import { makePlanRun, mailOutboxSql } from "@mischief/plan-run";
@@ -52,6 +53,7 @@ import {
   forgetUnlessStored,
   judgeChosenPerCall,
 } from "./judge-choice.js";
+import { reachableMail } from "./mail-reach.js";
 import {
   OBJECT_HEADER,
   objectOf,
@@ -73,6 +75,7 @@ export interface Env {
   readonly SERVICE_TOKENS: DurableObjectNamespace<ServiceTokenLedger>;
   readonly MISCHIEF_DID?: string;
   readonly MISCHIEF_CALLERS?: string;
+  readonly MISCHIEF_MAIL_REACH?: string;
   readonly MISCHIEF_MODEL: string;
   readonly MISCHIEF_CLIPROXY_URL?: string;
   readonly MISCHIEF_CLIPROXY_KEY?: string;
@@ -248,6 +251,7 @@ export class PlanRun extends DurableObject<Env> {
     const postbox = () => env.POSTBOX.get(env.POSTBOX.idFromName(POSTBOX_NAME));
 
     const mailPorts = {
+      mailReach: () => env.MISCHIEF_MAIL_REACH,
       objectName: () => objectOf(ctx.storage),
       postbox,
       storage: ctx.storage,
@@ -344,9 +348,16 @@ export class PlanRun extends DurableObject<Env> {
         thinker,
         callerShare,
         judgeFor(env, ctx.storage),
-        env.MISCHIEF_IDENTITY === undefined || env.MISCHIEF_IDENTITY === ""
-          ? mailOutboxSql(ctx.storage)
-          : postboxMail(ctx.storage, postbox),
+        reachableMail(
+          () => objectOf(ctx.storage),
+          () => env.MISCHIEF_MAIL_REACH
+        ).pipe(
+          Layer.provide(
+            env.MISCHIEF_IDENTITY === undefined || env.MISCHIEF_IDENTITY === ""
+              ? mailOutboxSql(ctx.storage)
+              : postboxMail(ctx.storage, postbox)
+          )
+        ),
         operator,
         Layer.succeed(CallRegistry, callables),
         Layer.succeed(
@@ -378,6 +389,23 @@ export class PlanRun extends DurableObject<Env> {
     }
 
     const body = await request.clone().text();
+    const object = objectOf(this.ctx.storage);
+
+    const reason = Option.match(object, {
+      onNone: () =>
+        "this run has no submitting caller identity. Resubmit it through the Worker so mail reach can be checked",
+      onSome: (name) =>
+        submitMailReachReason(
+          name.slice(0, name.lastIndexOf("/")),
+          body,
+          this.env.MISCHIEF_MAIL_REACH
+        ),
+    });
+
+    if (reason !== undefined) {
+      return Response.json({ error: reason }, { status: 403 });
+    }
+
     const forgetJudge = fixJudgeAtFirstSubmit(this.ctx.storage, body);
     const forgetEscalation = fixEscalationAtFirstSubmit(this.ctx.storage, body);
 

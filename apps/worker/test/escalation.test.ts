@@ -6,6 +6,7 @@ import { Effect, Option, Schema } from "effect";
 
 import {
   escalate,
+  alarmOnHolds,
   escalationTargetOf,
   escalationText,
   failedText,
@@ -98,7 +99,14 @@ const play = (attempts: readonly Attempt[], target: string) =>
       box.faults.sendFails = attempt.sendFails;
 
       const notify = escalate({
-        objectName: () => Option.some("object-1"),
+        mailReach: () =>
+          JSON.stringify({
+            "did:web:fixture.desk.pi.ratking-fleet.invalid": [
+              "agent-graph/desk",
+            ],
+          }),
+        objectName: () =>
+          Option.some("did:web:fixture.desk.pi.ratking-fleet.invalid/object-1"),
         postbox: box.postbox,
         storage,
       });
@@ -112,6 +120,42 @@ const play = (attempts: readonly Attempt[], target: string) =>
 
     return box;
   });
+
+it.effect.prop(
+  "caller-selected escalation targets are checked again before sending cached notices, while host-configured targets remain independent",
+  { target: Schema.Literals(["agent-graph/desk", "joel-phone"]) },
+  ({ target }) =>
+    Effect.gen(function* revokedNotice() {
+      const storage = nodeSqlStorage(":memory:");
+      const did = "did:web:fixture.desk.pi.ratking-fleet.invalid";
+      let config = JSON.stringify({ [did]: [target] });
+      const box = fakePostbox();
+
+      const ports = {
+        mailReach: () => config,
+        objectName: () => Option.some(`${did}/${RUN}`),
+        postbox: box.postbox,
+        storage,
+      };
+
+      fixEscalationAtFirstSubmit(storage, submitted(target));
+      yield* escalate(ports)(RUN, "notice", "hello");
+      expect(box.sent).toHaveLength(1);
+      const original = box.sent[0]?.envelope;
+
+      config = JSON.stringify({ [did]: [] });
+      yield* escalate(ports)(RUN, "notice", "hello");
+      expect(box.sent).toHaveLength(1);
+      expect(box.sent[0]?.envelope).toBe(original);
+      expect(box.seals).toHaveLength(1);
+
+      yield* alarmOnHolds(ports, ["pi-durable/desk"])(RUN, [], 1, "cap");
+      expect(box.seals.map(({ to }) => to)).toStrictEqual([
+        target,
+        "pi-durable/desk",
+      ]);
+    })
+);
 
 it.effect.prop(
   "an escalation mails its named desk the same bytes on every re-announce, so a visit reaches the mailbox at most once",

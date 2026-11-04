@@ -1,5 +1,5 @@
 // @effect-diagnostics asyncFunction:off -- Durable Object RPC stubs are Promise APIs.
-import { EscalateToSchema } from "@mischief/core";
+import { EscalateToSchema, mailReachReason } from "@mischief/core";
 import type { Held, QuestionInput, StepFailure } from "@mischief/core";
 import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Option, Schema } from "effect";
@@ -204,28 +204,30 @@ const sealOnce = (
   text: string,
   notice: string
 ) =>
-  Option.match(sealedFor(storage, notice), {
-    onNone: () =>
-      posted(
-        "Postbox.seal",
-        async () => await postbox().seal(objectName, to, text)
-      ).pipe(
-        Effect.map(({ envelope, messageId }) => {
-          storage.sql.exec(
-            "INSERT INTO mischief_escalations (notice, envelope, message_id) VALUES (?, ?, ?) ON CONFLICT (notice) DO NOTHING",
-            notice,
-            envelope,
-            messageId
-          );
+  Effect.suspend(() =>
+    Option.match(sealedFor(storage, notice), {
+      onNone: () =>
+        posted(
+          "Postbox.seal",
+          async () => await postbox().seal(objectName, to, text)
+        ).pipe(
+          Effect.map(({ envelope, messageId }) => {
+            storage.sql.exec(
+              "INSERT INTO mischief_escalations (notice, envelope, message_id) VALUES (?, ?, ?) ON CONFLICT (notice) DO NOTHING",
+              notice,
+              envelope,
+              messageId
+            );
 
-          return Option.getOrElse(sealedFor(storage, notice), () => ({
-            envelope,
-            message_id: messageId,
-          }));
-        })
-      ),
-    onSome: Effect.succeed,
-  });
+            return Option.getOrElse(sealedFor(storage, notice), () => ({
+              envelope,
+              message_id: messageId,
+            }));
+          })
+        ),
+      onSome: Effect.succeed,
+    })
+  );
 
 export const mailOnce =
   ({
@@ -291,23 +293,41 @@ export const mailConfirmed = (
   });
 };
 
+export interface CallerMailPorts {
+  readonly mailReach?: () => string | undefined;
+  readonly objectName: () => Option.Option<string>;
+  readonly postbox: () => Pick<PostboxRpc, "seal" | "send">;
+  readonly storage: SqlStorage;
+}
+
+export const callerMailOnce =
+  (ports: CallerMailPorts) =>
+  (runId: string, to: string, notice: string, text: string) =>
+    Effect.suspend(() => {
+      const reason = Option.match(ports.objectName(), {
+        onNone: () =>
+          "the caller identity is missing. Submit through the Worker so mail reach can be checked",
+        onSome: (name) =>
+          mailReachReason(
+            name.slice(0, name.lastIndexOf("/")),
+            notice,
+            to,
+            ports.mailReach?.()
+          ),
+      });
+
+      return reason === undefined
+        ? mailOnce(ports)(runId, to, notice, text)
+        : Effect.logWarning(
+            `${runId} refused caller notice ${notice}: ${reason}`
+          );
+    });
+
 export const alarmOnHolds =
-  (
-    ports: {
-      readonly objectName: () => Option.Option<string>;
-      readonly postbox: () => Pick<PostboxRpc, "seal" | "send">;
-      readonly storage: SqlStorage;
-    },
-    targets: readonly string[]
-  ) =>
+  (ports: CallerMailPorts, targets: readonly string[]) =>
   (runId: string, held: readonly Held[], attempts: number, notice: string) =>
     Effect.forEach(
-      [
-        ...new Set([
-          ...targets,
-          ...Option.toArray(escalationTargetOf(ports.storage)),
-        ]),
-      ],
+      [...new Set(targets)],
       (to) =>
         mailConfirmed(
           ports,
@@ -317,19 +337,27 @@ export const alarmOnHolds =
           holdAlarmText(runId, held, attempts)
         ),
       { discard: true }
+    ).pipe(
+      Effect.andThen(
+        Option.match(escalationTargetOf(ports.storage), {
+          onNone: () => Effect.void,
+          onSome: (to) =>
+            callerMailOnce(ports)(
+              runId,
+              to,
+              `${notice}:${to}`,
+              holdAlarmText(runId, held, attempts)
+            ),
+        })
+      )
     );
 
 export const escalate =
-  (ports: {
-    readonly objectName: () => Option.Option<string>;
-    readonly postbox: () => Pick<PostboxRpc, "seal" | "send">;
-    readonly storage: SqlStorage;
-  }) =>
-  (runId: string, notice: string, text: string) => {
+  (ports: CallerMailPorts) => (runId: string, notice: string, text: string) => {
     ports.storage.sql.exec(SEALED);
 
     return Option.match(escalationTargetOf(ports.storage), {
       onNone: () => Effect.void,
-      onSome: (target) => mailOnce(ports)(runId, target, notice, text),
+      onSome: (target) => callerMailOnce(ports)(runId, target, notice, text),
     });
   };

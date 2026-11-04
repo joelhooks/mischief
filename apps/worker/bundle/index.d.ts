@@ -15,6 +15,7 @@ export interface PlanRunWorkerOptions {
 }
 
 export declare const planRunWorker: (options: PlanRunWorkerOptions) => {
+  readonly CallerThinks: typeof DurableObject;
   readonly PlanRun: typeof DurableObject;
   readonly Postbox: typeof DurableObject;
   readonly Schedule: typeof DurableObject;

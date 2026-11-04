@@ -52,7 +52,8 @@ import { callables } from "./capabilities.js";
 
 const worker = planRunWorker({ callables });
 
-export const { PlanRun, Postbox, Schedule, ServiceTokenLedger } = worker;
+export const { CallerThinks, PlanRun, Postbox, Schedule, ServiceTokenLedger } =
+  worker;
 export default worker.default;
 ```
 
@@ -60,7 +61,7 @@ Pass an iterable of `[name, callable]` entries. Names must match `^[a-z][a-z0-9-
 
 A `Map` is accepted, but JavaScript discards duplicate keys before the factory receives it. Use an array or another entry iterable when composing registries so duplicate names can be refused.
 
-Keep the four exported Durable Object names above. Bindings, migrations, authentication, scheduling and mailbox behavior remain unchanged. This repository's default entry calls the same factory with an empty map.
+Keep all five exported Durable Object names above. `CallerThinks` needs a SQLite Durable Object binding named `CALLER_THINKS` and a migration that creates its class. The infra helper declares both. Custom deployments must include them too. Authentication, scheduling and mailbox behavior remain unchanged. This repository's default entry calls the same factory with an empty map.
 
 ## Enable only with approval
 

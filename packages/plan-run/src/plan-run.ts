@@ -120,21 +120,28 @@ const wakeAt = (
       return [runningAt];
     }
 
-    if (
-      state.status === "waiting-for-provider" &&
-      state.resumeAttempts >= attempts
-    ) {
-      return state.held.some(overloadHeld) && alarmPending(storage, runId)
-        ? [now + guardMs]
-        : [];
+    if (state.status !== "waiting-for-provider") {
+      return [];
     }
 
-    const resume =
-      state.status === "waiting-for-provider"
-        ? providerWakeAt(state.held)
-        : null;
+    const resume = providerWakeAt(
+      state.held.filter(
+        (held) =>
+          held.provider === "caller-share" || state.resumeAttempts < attempts
+      )
+    );
 
-    return resume === null ? [] : [resume];
+    const capNotice =
+      state.resumeAttempts >= attempts &&
+      state.held.some(
+        (held) => held.provider !== "caller-share" && overloadHeld(held)
+      ) &&
+      alarmPending(storage, runId);
+
+    return [
+      ...(resume === null ? [] : [resume]),
+      ...(capNotice ? [now + guardMs] : []),
+    ];
   });
 
   return times.length === 0 ? null : Math.min(...times);
@@ -371,13 +378,19 @@ export const makePlanRun = ({
                       (state.status === "aborted" &&
                         abortNoticePending(storage, runId)) ||
                       (state.status === "waiting-for-provider" &&
-                        ((state.resumeAttempts < policy.attempts &&
-                          state.held.some(
-                            ({ resumeAfter }) =>
-                              resumeAfter !== null && resumeAfter <= now
-                          )) ||
+                        (state.held.some(
+                          (held) =>
+                            (held.provider === "caller-share" ||
+                              state.resumeAttempts < policy.attempts) &&
+                            held.resumeAfter !== null &&
+                            held.resumeAfter <= now
+                        ) ||
                           (state.resumeAttempts >= policy.attempts &&
-                            state.held.some(overloadHeld) &&
+                            state.held.some(
+                              (held) =>
+                                held.provider !== "caller-share" &&
+                                overloadHeld(held)
+                            ) &&
                             alarmPending(storage, runId))))
                   ),
                   ({ runId }) => runs.advance(runId).pipe(Effect.ignore),

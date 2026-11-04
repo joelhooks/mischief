@@ -1,5 +1,7 @@
 import {
   Clock,
+  Cause,
+  Exit,
   Crypto,
   Deferred,
   Effect,
@@ -32,6 +34,10 @@ import type {
 import { checkPlan, refuseCode } from "../plans/validate.js";
 import { CallConcurrency } from "../steps/call-concurrency.js";
 import { CallRegistry } from "../steps/call-registry.js";
+import {
+  CallerThinkShare,
+  ThinkAbortUnconfirmed,
+} from "../steps/caller-think-share.js";
 import {
   AskInputSchema,
   CallInputSchema,
@@ -227,10 +233,15 @@ export const reportOf = (runId: string, plan: Plan, state: RunState) =>
       value: state.value,
     };
 
+    const counted: RunReport =
+      state.callerShareWaits === undefined
+        ? bare
+        : { ...bare, callerShareWaits: state.callerShareWaits };
+
     const base: RunReport =
       thought === undefined
-        ? bare
-        : { ...bare, thinking: { ...thought, line: thinkLine(thought) } };
+        ? counted
+        : { ...counted, thinking: { ...thought, line: thinkLine(thought) } };
 
     const withFailures: RunReport =
       failures.length > 0 ? { ...base, failures } : base;
@@ -277,6 +288,7 @@ export const driveSession = (
     const thinkPermits = yield* Semaphore.make(yield* ThinkConcurrency);
 
     const permitted = thinkPermits.withPermits(1);
+    const callerShare = yield* CallerThinkShare;
 
     const callPermits = yield* Semaphore.make(yield* CallConcurrency);
 
@@ -526,36 +538,107 @@ export const driveSession = (
       effect: Effect.Effect<A, E>
     ) =>
       permitted(
-        attemptedThink(
-          {
-            agent: {
-              model: run.plan.envelope.models[0],
-              ...run.plan.defaults.agent,
-              ...agent,
-            },
-            ceiling: run.plan.envelope.maxThinking,
-            epoch: epochOf(),
-            key,
-            runId,
-            visit: visitOf(key),
-          },
-          journal,
-          effect,
-          (reason) =>
-            deliveryKey(
+        Effect.acquireUseRelease(
+          callerShare.acquire(
+            {
+              epoch: epochOf(),
               key,
-              `redrive-exhausted:${key}#${visitOf(key)}@${epochOf()}`
-            ).pipe(
-              Effect.flatMap((notice) =>
-                produce(
-                  notice,
-                  DirectiveSchema.cases.Emit.make({
-                    question: { key, options: ["reviseRun"], question: reason },
-                  })
+              runId,
+              visit: visitOf(key),
+            },
+            `${runId}/${key}#${visitOf(key)}@${epochOf()}`
+          ),
+          ({ durationMs }) =>
+            attemptedThink(
+              {
+                agent: {
+                  model: run.plan.envelope.models[0],
+                  ...run.plan.defaults.agent,
+                  ...agent,
+                },
+                ceiling: run.plan.envelope.maxThinking,
+                epoch: epochOf(),
+                key,
+                runId,
+                visit: visitOf(key),
+              },
+              journal,
+              effect,
+              (reason) =>
+                deliveryKey(
+                  key,
+                  `redrive-exhausted:${key}#${visitOf(key)}@${epochOf()}`
+                ).pipe(
+                  Effect.flatMap((notice) =>
+                    produce(
+                      notice,
+                      DirectiveSchema.cases.Emit.make({
+                        question: {
+                          key,
+                          options: ["reviseRun"],
+                          question: reason,
+                        },
+                      })
+                    )
+                  )
                 )
-              )
-            )
-        ).pipe(Effect.provideService(RunStore, store))
+            ).pipe(
+              Effect.provideService(RunStore, store),
+              Effect.timeoutOrElse({
+                duration: durationMs,
+                orElse: () =>
+                  (
+                    thinker.abort?.({
+                      epoch: epochOf(),
+                      key,
+                      runId,
+                      visit: visitOf(key),
+                    }) ?? Effect.void
+                  ).pipe(
+                    Effect.mapError(
+                      (failure) =>
+                        new ThinkAbortUnconfirmed({
+                          key,
+                          reason: failure.message,
+                        })
+                    ),
+                    Effect.andThen(
+                      Effect.fail(
+                        new ProviderUnavailable({
+                          cause: "timeout",
+                          error:
+                            "the caller think lease's work deadline elapsed; the run's alarm retries with a fresh lease",
+                          key,
+                          provider: "caller-share",
+                          status: 408,
+                        })
+                      )
+                    )
+                  ),
+              })
+            ),
+          ({ release }, outcome) =>
+            Exit.isFailure(outcome) &&
+            (Cause.hasInterrupts(outcome.cause) ||
+              Option.exists(
+                Cause.findErrorOption(outcome.cause),
+                Schema.is(ThinkAbortUnconfirmed)
+              ))
+              ? Effect.void
+              : release
+        ).pipe(
+          Effect.catchIf(
+            Schema.is(ThinkAbortUnconfirmed),
+            ({ reason }) =>
+              new ProviderUnavailable({
+                cause: "timeout",
+                error: `the leased think could not confirm its conversation stopped (${reason}); its lease remains held until expiry, and the run's alarm retries`,
+                key,
+                provider: "caller-share",
+                status: 408,
+              })
+          )
+        )
       );
 
     const recordedThink = (input: ThinkInput) =>
@@ -1227,7 +1310,14 @@ export const driveSession = (
                 resumeAfter: yield* resumeAfter(held, run.state.resumeAttempts),
               };
 
-              const notice = `held:${stepKey}#${visit}`;
+              const notice = `${outage.provider === "caller-share" ? "caller-share-held" : "held"}:${stepKey}#${visit}`;
+
+              if (outage.provider === "caller-share") {
+                run.state = {
+                  ...run.state,
+                  callerShareWaits: (run.state.callerShareWaits ?? 0) + 1,
+                };
+              }
 
               holds.set(stepKey, scheduled);
               yield* release;

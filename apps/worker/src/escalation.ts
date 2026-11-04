@@ -260,7 +260,7 @@ export const mailOnce =
     );
   };
 
-const mailConfirmed = (
+export const mailConfirmed = (
   ports: {
     readonly objectName: () => Option.Option<string>;
     readonly postbox: () => Pick<PostboxRpc, "seal" | "send">;

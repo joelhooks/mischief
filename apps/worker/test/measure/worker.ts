@@ -4,6 +4,8 @@ import { PlanRun as Served } from "../../src/plan-run-object.js";
 import served from "../../src/worker.js";
 import { commits, meterStorage, runStates } from "./meter.js";
 
+export { CallerThinks } from "../../src/caller-think-object.js";
+
 export { Postbox } from "../../src/postbox-object.js";
 
 export { Schedule } from "../../src/schedule-object.js";

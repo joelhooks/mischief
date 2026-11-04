@@ -6,6 +6,8 @@ import { Effect, Layer } from "effect";
 
 import type { Env } from "../../src/plan-run-object.js";
 
+export { CallerThinks } from "../../src/caller-think-object.js";
+
 export { Postbox } from "../../src/postbox-object.js";
 
 export { Schedule } from "../../src/schedule-object.js";

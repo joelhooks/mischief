@@ -3,6 +3,8 @@ import type { Storage } from "@earendil-works/pi-durable";
 import { openDurableObjectSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
 import {
   CallRegistry,
+  CallerThinkShare,
+  ProviderUnavailable,
   EnabledStepKinds,
   WorkspacePolicy,
   workspacePolicyFrom,
@@ -21,6 +23,7 @@ import { makePlanRun, mailOutboxSql } from "@mischief/plan-run";
 import type { PlanRun as Runtime } from "@mischief/plan-run";
 import {
   fauxThinkerOptions,
+  THINK_STREAM_TIMEOUT_MS,
   gatewayThinkerOptions,
   opusBridgeFrom,
   jevJudge,
@@ -32,6 +35,8 @@ import { FetchHttpClient } from "effect/http";
 
 import { abortNotices } from "./abort-notices.js";
 import { withDeadline } from "./call-deadline.js";
+import type { CallerThinks } from "./caller-think-object.js";
+import { callerThinkPermit } from "./caller-think-permit.js";
 import {
   escalate,
   escalationText,
@@ -63,6 +68,8 @@ const TELEMETRY_DESK = "pi-durable/desk";
 
 export interface Env {
   readonly PLAN_RUN: DurableObjectNamespace<PlanRun>;
+  readonly CALLER_THINKS: DurableObjectNamespace<CallerThinks>;
+  readonly MISCHIEF_CALLER_THINKS?: string;
   readonly SERVICE_TOKENS: DurableObjectNamespace<ServiceTokenLedger>;
   readonly MISCHIEF_DID?: string;
   readonly MISCHIEF_CALLERS?: string;
@@ -172,6 +179,72 @@ export class PlanRun extends DurableObject<Env> {
 
     const thinker = thinkerFor(env, storageFor);
 
+    const shareObject = () =>
+      objectOf(ctx.storage).pipe(
+        Option.map((name) => {
+          const caller = name.slice(0, name.lastIndexOf("/"));
+
+          return { caller, name, share: env.CALLER_THINKS.getByName(caller) };
+        })
+      );
+
+    const callerShare = Layer.succeed(
+      CallerThinkShare,
+      callerThinkPermit({
+        acquire: (call, id) =>
+          Effect.gen(function* acquireShare() {
+            const object = shareObject();
+
+            const held = (error: string) =>
+              new ProviderUnavailable({
+                cause: "busy",
+                error,
+                key: call.key,
+                provider: "caller-share",
+                status: 429,
+              });
+
+            if (Option.isNone(object)) {
+              return yield* held(
+                "the run has no caller identity; resubmit it through the Worker so caller sharing can be enforced"
+              );
+            }
+
+            const { caller, name, share } = object.value;
+
+            return yield* Effect.tryPromise(
+              async () => await share.acquire(caller, id, name, call.key)
+            ).pipe(
+              withDeadline("CallerThinks.acquire"),
+              Effect.mapError((error) =>
+                held(
+                  `caller think sharing did not answer: ${String(error)}. The run's alarm retries; inspectRun shows this hold`
+                )
+              )
+            );
+          }),
+        durationMs: THINK_STREAM_TIMEOUT_MS,
+        release: (id) =>
+          Option.match(shareObject(), {
+            onNone: () =>
+              Effect.logWarning(
+                `caller think lease ${id} has no caller object and will expire`
+              ),
+            onSome: ({ share }) =>
+              Effect.tryPromise(async () => {
+                await share.release(id);
+              }).pipe(
+                withDeadline("CallerThinks.release"),
+                Effect.catchCause((cause) =>
+                  Effect.logWarning(
+                    `caller think lease ${id} could not be returned and will expire: ${String(cause)}`
+                  )
+                )
+              ),
+          }),
+      })
+    );
+
     const postbox = () => env.POSTBOX.get(env.POSTBOX.idFromName(POSTBOX_NAME));
 
     const mailPorts = {
@@ -235,7 +308,11 @@ export class PlanRun extends DurableObject<Env> {
           Effect.logWarning(
             `${runId} is held at ${held.key}: ${held.provider} ${held.cause}`
           ).pipe(
-            Effect.andThen(mailEscalation(runId, notice, heldText(runId, held)))
+            Effect.andThen(
+              held.provider === "caller-share"
+                ? Effect.void
+                : mailEscalation(runId, notice, heldText(runId, held))
+            )
           ),
         holdAlarm: mailWired
           ? alarmOnHolds(mailPorts, alarmTargets)
@@ -265,6 +342,7 @@ export class PlanRun extends DurableObject<Env> {
       guardMs: Number(env.MISCHIEF_GUARD_MS),
       services: Layer.mergeAll(
         thinker,
+        callerShare,
         judgeFor(env, ctx.storage),
         env.MISCHIEF_IDENTITY === undefined || env.MISCHIEF_IDENTITY === ""
           ? mailOutboxSql(ctx.storage)

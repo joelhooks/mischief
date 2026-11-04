@@ -23,6 +23,9 @@ export const cloudflare = Stack(
       bundle: false,
       compatibility: { date: "2026-09-01", flags: [] },
       env: {
+        CALLER_THINKS: Cloudflare.DurableObject("CALLER_THINKS", {
+          className: "CallerThinks",
+        }),
         MISCHIEF_CALLERS: callers,
         MISCHIEF_DID: did,
         MISCHIEF_GUARD_MS: "30000",

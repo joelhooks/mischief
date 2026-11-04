@@ -123,7 +123,9 @@ export class RunHost extends Context.Service<
         if (
           report.status !== "waiting-for-provider" ||
           attempts < resumePolicy.attempts ||
-          report.held?.some(overloadHeld) !== true
+          report.held?.some(
+            (held) => held.provider !== "caller-share" && overloadHeld(held)
+          ) !== true
         ) {
           return;
         }
@@ -390,16 +392,14 @@ export class RunHost extends Context.Service<
 
       const due = opened.state.held.filter(
         (held) =>
+          (held.provider === "caller-share" ||
+            opened.state.resumeAttempts < resumePolicy.attempts) &&
           overloadHeld(held) &&
           held.resumeAfter !== null &&
           held.resumeAfter <= now
       );
 
-      if (
-        due.length === 0 ||
-        opened.state.resumeAttempts >= resumePolicy.attempts ||
-        (yield* store.readPaused(runId))
-      ) {
+      if (due.length === 0 || (yield* store.readPaused(runId))) {
         const report = yield* reportOf(runId, opened.plan, opened.state).pipe(
           Effect.provideContext(context)
         );
@@ -416,7 +416,9 @@ export class RunHost extends Context.Service<
       yield* store.writeRun(runId, {
         ...opened.state,
         held: opened.state.held.filter(({ key }) => !admitted.has(key)),
-        resumeAttempts: opened.state.resumeAttempts + 1,
+        resumeAttempts:
+          opened.state.resumeAttempts +
+          (due.some((held) => held.provider !== "caller-share") ? 1 : 0),
         status: "running",
       });
       yield* store.commit(runId);

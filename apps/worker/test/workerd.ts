@@ -113,6 +113,7 @@ const worker :Workerd.Worker = (
     (className = "ServiceTokenLedger", uniqueKey = "mischief-service-tokens", enableSql = true),
     (className = "Postbox", uniqueKey = "mischief-postbox", enableSql = true),
     (className = "Schedule", uniqueKey = "mischief-schedule", enableSql = true),
+    (className = "CallerThinks", uniqueKey = "mischief-caller-thinks", enableSql = true),
   ],
   durableObjectStorage = (localDisk = "disk"),
   bindings = [
@@ -120,6 +121,7 @@ const worker :Workerd.Worker = (
     (name = "SERVICE_TOKENS", durableObjectNamespace = "ServiceTokenLedger"),
     (name = "POSTBOX", durableObjectNamespace = "Postbox"),
     (name = "SCHEDULE", durableObjectNamespace = "Schedule"),
+    (name = "CALLER_THINKS", durableObjectNamespace = "CallerThinks"),
     (name = "MISCHIEF_DID", text = "${MISCHIEF_DID}"),
     (name = "MISCHIEF_CALLERS", text = ${JSON.stringify(JSON.stringify(callers))}),
     (name = "MISCHIEF_MODEL", text = "faux"),

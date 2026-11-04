@@ -43,6 +43,10 @@ export const resumeAfter = (held: Held, attempts: number) =>
   Effect.gen(function* scheduleResume() {
     const policy = yield* ProviderResume;
 
+    if (held.provider === "caller-share") {
+      return held.since + policy.baseMs;
+    }
+
     if (!overloadHeld(held) || attempts >= policy.attempts) {
       return null;
     }

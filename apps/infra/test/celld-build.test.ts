@@ -48,14 +48,22 @@ it.effect(
         { class_name: "ServiceTokenLedger", name: "SERVICE_TOKENS" },
         { class_name: "Postbox", name: "POSTBOX" },
         { class_name: "Schedule", name: "SCHEDULE" },
+        { class_name: "CallerThinks", name: "CALLER_THINKS" },
       ]);
       expect(
         configuration.migrations.flatMap(
           ({ new_sqlite_classes }) => new_sqlite_classes
         )
-      ).toEqual(["PlanRun", "ServiceTokenLedger", "Postbox", "Schedule"]);
+      ).toEqual([
+        "PlanRun",
+        "ServiceTokenLedger",
+        "Postbox",
+        "Schedule",
+        "CallerThinks",
+      ]);
       expect(Object.keys(configuration.vars).toSorted()).toEqual([
         "MISCHIEF_CALLERS",
+        "MISCHIEF_CALLER_THINKS",
         "MISCHIEF_DID",
         "MISCHIEF_GUARD_MS",
         "MISCHIEF_HOLD_ALARM_TO",
@@ -66,6 +74,8 @@ it.effect(
         "MISCHIEF_THINK_CONCURRENCY",
       ]);
       expect(configuration.vars.MISCHIEF_THINK_CONCURRENCY).toBe("16");
+      expect(configuration.vars.MISCHIEF_CALLER_THINKS).toBe("40");
+      expect(prepared.bundle).toMatch(/export \{[^}]*\bCallerThinks\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPlanRun\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bServiceTokenLedger\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPostbox\b/u);

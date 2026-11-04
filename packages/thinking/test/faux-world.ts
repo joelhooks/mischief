@@ -1,5 +1,7 @@
 // @effect-diagnostics nodeBuiltinImport:off asyncFunction:off -- The faux world logs model calls to a file shared with a crashing child process, and faux response factories are async.
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import type { UserMessage } from "@earendil-works/pi-ai";
 import { createModels } from "@earendil-works/pi-ai/models";
@@ -31,6 +33,9 @@ const textOf = (content: UserMessage["content"] | undefined) => {
         .join("");
 };
 
+export const temporaryWorld = () =>
+  mkdtempSync(path.join(tmpdir(), "mischief-leased-"));
+
 export const callsOf = (dir: string) => {
   try {
     return readFileSync(`${dir}/calls.log`, "utf-8")
@@ -45,14 +50,18 @@ export const fauxWorld = (
   dir: string,
   hang: boolean,
   onCall: () => void = constVoid,
-  providerError: () => string | undefined = constUndefined
+  providerError: () => string | undefined = constUndefined,
+  controlled?: {
+    readonly complete: Effect.Effect<void>;
+    readonly aborted: () => void;
+  }
 ): PiThinkerOptions => {
   const faux = fauxProvider({ api: "faux" });
   const models = createModels();
 
   models.setProvider(faux.provider);
 
-  const answer: FauxResponseFactory = async (context) => {
+  const answer: FauxResponseFactory = async (context, stream) => {
     const users = context.messages.flatMap((message) =>
       message.role === "user" ? [message] : []
     );
@@ -61,6 +70,30 @@ export const fauxWorld = (
 
     appendFileSync(`${dir}/calls.log`, `${prompt.split("\n")[0]}\n`);
     onCall();
+
+    if (controlled !== undefined) {
+      await Effect.runPromise(
+        Effect.raceFirst(
+          controlled.complete,
+          Effect.callback<boolean>((resume) => {
+            const abort = () => {
+              controlled.aborted();
+              resume(Effect.succeed(true));
+            };
+
+            stream?.signal?.addEventListener("abort", abort, { once: true });
+
+            if (stream?.signal?.aborted === true) {
+              abort();
+            }
+
+            return Effect.sync(() => {
+              stream?.signal?.removeEventListener("abort", abort);
+            });
+          })
+        )
+      );
+    }
 
     if (hang) {
       return await Effect.runPromise(Effect.never);

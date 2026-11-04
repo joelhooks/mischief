@@ -6,9 +6,13 @@ import {
 import { DurableObjectSqliteDatabase } from "@earendil-works/pi-durable/storage/sqlite/cloudflare";
 import { Option } from "effect";
 
+import { didFor } from "../../src/fleet-names.js";
 import { PlanRun as ProductionPlanRun } from "../../src/plan-run-object.js";
 import type { Env } from "../../src/plan-run-object.js";
+import { OBJECT_HEADER } from "../../src/postbox-mail.js";
 import { runIdOf } from "../../src/run-address.js";
+
+export { CallerThinks } from "../../src/caller-think-object.js";
 
 export { Postbox } from "../../src/postbox-object.js";
 
@@ -68,6 +72,13 @@ export default {
 
     const id = env.PLAN_RUN.idFromName(runId);
 
-    return await env.PLAN_RUN.get(id).fetch(request);
+    const headers = new Headers(request.headers);
+
+    headers.set(
+      OBJECT_HEADER,
+      `${Option.getOrThrow(didFor("upgrade/fixture"))}/${runId}`
+    );
+
+    return await env.PLAN_RUN.get(id).fetch(new Request(request, { headers }));
   },
 } satisfies ExportedHandler<Env>;

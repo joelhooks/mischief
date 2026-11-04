@@ -186,6 +186,7 @@ export const RunStateSchema = Schema.Struct({
   awaiting: Schema.Array(AwaitingSchema).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([]))
   ),
+  callerShareWaits: Schema.optionalKey(Count),
   capped: Schema.NullOr(Schema.String).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(null))
   ),
@@ -243,6 +244,7 @@ export type DriveLease = typeof DriveLeaseSchema.Type;
 
 export const RunReportSchema = Schema.Struct({
   awaiting: Schema.optionalKey(Schema.Array(AwaitingSchema)),
+  callerShareWaits: Schema.optionalKey(Count),
   docs: DocsSchema,
   driveLease: Schema.optionalKey(DriveLeaseSchema),
   failures: Schema.optionalKey(Schema.Array(FailureSchema)),

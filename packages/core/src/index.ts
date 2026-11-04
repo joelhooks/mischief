@@ -199,6 +199,10 @@ export {
   thinkConcurrencyLayer,
 } from "./steps/think-concurrency.js";
 
+export { CallerThinkShare } from "./steps/caller-think-share.js";
+
+export type { CallerThinkPermit } from "./steps/caller-think-share.js";
+
 export { Thinker } from "./steps/thinker.js";
 
 export {

@@ -7,6 +7,8 @@ const GUARD_MS = 30_000;
 const LEASE_POLL_MS = GUARD_MS / 3;
 
 export const DEADLINE_MS = {
+  "CallerThinks.acquire": 5000,
+  "CallerThinks.release": 5000,
   "PlanRun.abortRun": GUARD_MS + LEASE_POLL_MS,
   "PlanRun.deliverReply": GUARD_MS + LEASE_POLL_MS,
   "PlanRun.inspectRun": 10_000,
@@ -25,6 +27,10 @@ const RUN_FIX =
   "Next check: inspectRun on that run; a drive holding its lease past the deadline shows as driveLease";
 
 const NEXT: Readonly<Record<ObjectCall, string>> = {
+  "CallerThinks.acquire":
+    "The think waits for caller sharing and the run's alarm retries. Next check: inspectRun shows the share hold; check the caller's CallerThinks object in the celld journal.",
+  "CallerThinks.release":
+    "The lease expires automatically, so a cut run cannot retain a permit forever. Next check: inspectRun on the waiting run, then the caller's CallerThinks object in the celld journal.",
   "PlanRun.abortRun": `The schedule's next alarm asks again. ${RUN_FIX}`,
   "PlanRun.deliverReply": `The reply stays unacked, so the Postbox's next alarm redelivers it. ${RUN_FIX}`,
   "PlanRun.inspectRun": `The schedule's next alarm asks again. ${RUN_FIX}`,

@@ -748,6 +748,58 @@ const thinkerOf = (options: PiThinkerOptions) =>
         }).pipe(Effect.withSpan("first_turn"));
 
       return Thinker.of({
+        abort: Effect.fn("piThinker.abort")(function* abortLeasedThink(call) {
+          const active = (yield* Ref.get(open)).get(call.runId);
+
+          if (active === undefined) {
+            return yield* Effect.void;
+          }
+
+          const root = yield* pi(
+            call,
+            "abort root",
+            async () => await active.harness.root(BACKGROUND_CONTEXT)
+          );
+
+          const steps = yield* pi(
+            call,
+            "abort address",
+            async () =>
+              await active.harness.snapshot(
+                StepsDoc,
+                root.id,
+                BACKGROUND_CONTEXT
+              )
+          );
+
+          const id = steps?.byAddress[addressOf(call)];
+
+          if (id === undefined) {
+            return yield* Effect.void;
+          }
+
+          const conversation = yield* pi(
+            call,
+            "abort conversation",
+            async () =>
+              await active.harness.conversation(id, BACKGROUND_CONTEXT)
+          );
+
+          if (conversation === undefined) {
+            return yield* new StepFailed({
+              key: call.key,
+              reason: `cannot confirm the leased think stopped: conversation ${id} is missing; keep its lease until expiry and inspectRun`,
+            });
+          }
+
+          return yield* pi(
+            call,
+            "abort leased think and wait for idle",
+            async () => {
+              await conversation.abort(BACKGROUND_CONTEXT);
+            }
+          );
+        }),
         decide: (call) =>
           answer(
             call,

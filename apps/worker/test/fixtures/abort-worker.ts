@@ -5,6 +5,8 @@ import handler from "../../src/worker-handler.js";
 
 export { Postbox } from "./abort-postbox.js";
 
+export { CallerThinks } from "../../src/caller-think-object.js";
+
 export { Schedule } from "./abort-schedule.js";
 
 export { ServiceTokenLedger } from "../../src/service-tokens.js";

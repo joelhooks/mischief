@@ -1,5 +1,6 @@
 import type { Callable } from "@mischief/core";
 
+import { CallerThinks } from "./caller-think-object.js";
 import { planRunClass } from "./plan-run-class.js";
 import { Postbox } from "./postbox-object.js";
 import { registeredCallables } from "./registered-callables.js";
@@ -12,6 +13,7 @@ export interface PlanRunWorkerOptions {
 }
 
 export const planRunWorker = ({ callables }: PlanRunWorkerOptions) => ({
+  CallerThinks,
   PlanRun: planRunClass(registeredCallables(callables)),
   Postbox,
   Schedule,

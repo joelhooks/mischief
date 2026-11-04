@@ -49,6 +49,7 @@ export type ThinkCall = StepCall & {
 export class Thinker extends Context.Service<
   Thinker,
   {
+    readonly abort?: (call: StepCall) => Effect.Effect<void, StepFailed>;
     readonly think: (
       call: ThinkCall
     ) => Effect.Effect<Thought, StepFailed | ProviderUnavailable>;

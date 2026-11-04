@@ -13,12 +13,14 @@ export const declaration: typeof Declaration.Type = {
       { class_name: "ServiceTokenLedger", name: "SERVICE_TOKENS" },
       { class_name: "Postbox", name: "POSTBOX" },
       { class_name: "Schedule", name: "SCHEDULE" },
+      { class_name: "CallerThinks", name: "CALLER_THINKS" },
     ],
   },
   migrations: [
     { new_sqlite_classes: ["PlanRun", "ServiceTokenLedger"], tag: "v1" },
     { new_sqlite_classes: ["Postbox"], tag: "v2" },
     { new_sqlite_classes: ["Schedule"], tag: "v3" },
+    { new_sqlite_classes: ["CallerThinks"], tag: "v4" },
   ],
   name: INSTANCE,
 };
@@ -60,6 +62,7 @@ export const buildWorker = ({
 
     const vars = {
       MISCHIEF_CALLERS: callers,
+      MISCHIEF_CALLER_THINKS: "40",
       MISCHIEF_DID: did,
       MISCHIEF_GUARD_MS: "30000",
       MISCHIEF_HOLD_ALARM_TO: "agent-graph/desk,switchboard",

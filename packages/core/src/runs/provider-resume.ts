@@ -31,13 +31,16 @@ export const providerResumeLayer = (settings: {
     }).pipe(Effect.orDie)
   );
 
-export const overloadHeld = ({
+const retryableProviderFailure = ({
   cause,
   status,
 }: Pick<Held, "cause" | "status">) =>
-  cause !== "billing" &&
-  status !== null &&
-  (status === 408 || status === 429 || (status >= 500 && status < 600));
+  status === null
+    ? cause === "server" || cause === "timeout"
+    : status === 408 || status === 429 || (status >= 500 && status < 600);
+
+export const overloadHeld = (held: Pick<Held, "cause" | "status">) =>
+  held.cause !== "billing" && retryableProviderFailure(held);
 
 export const resumeAfter = (held: Held, attempts: number) =>
   Effect.gen(function* scheduleResume() {

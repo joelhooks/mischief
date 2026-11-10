@@ -4,7 +4,10 @@ import { Clock, Effect, Layer, Option, Random, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import { TestClock } from "effect/testing";
 
-import { ProviderResume } from "../../src/runs/provider-resume.js";
+import {
+  ProviderResume,
+  providerWakeAt,
+} from "../../src/runs/provider-resume.js";
 import {
   RunStore,
   bufferedRunStore,
@@ -52,6 +55,7 @@ const PolicySchema = Schema.Struct({
 
 const ProviderSchema = Schema.Struct({
   billing: Schema.Boolean,
+  cause: Schema.Literals(["busy", "server", "timeout"]),
   hintMs: Schema.Int.check(Schema.isBetween({ maximum: 400, minimum: 0 })),
   recovery: Schema.Int.check(Schema.isBetween({ maximum: 800, minimum: 0 })),
   statuses: Schema.Array(
@@ -83,10 +87,11 @@ const checkSchedule = (
   for (const held of state.held) {
     const eligible =
       !provider.billing &&
-      held.status !== null &&
-      (held.status === 408 ||
-        held.status === 429 ||
-        (held.status >= 500 && held.status < 600));
+      (held.status === null
+        ? provider.cause === "server" || provider.cause === "timeout"
+        : held.status === 408 ||
+          held.status === 429 ||
+          (held.status >= 500 && held.status < 600));
 
     if (!eligible || state.resumeAttempts === policy.attempts) {
       expect(held.resumeAfter).toBeNull();
@@ -106,7 +111,7 @@ const atIndex = <A>(values: readonly A[], index: number) =>
   Option.getOrThrow(Option.fromNullishOr(values[index]));
 
 it.effect.prop(
-  "generated provider outages resume only due overloads, survive host replacement, obey hints and the run budget, and journal one cap alarm across redeliveries",
+  "generated provider outages resume due overloads and status-less transport failures, never billing, survive host replacement, obey hints and the run budget, and journal one cap alarm across redeliveries",
   {
     policy: Arbitrary.schema(PolicySchema),
     providers: Arbitrary.schema(
@@ -175,7 +180,7 @@ it.effect.prop(
                     }
 
                     return yield* new ProviderUnavailable({
-                      cause: provider.billing ? "billing" : "busy",
+                      cause: provider.billing ? "billing" : provider.cause,
                       error: `model proxy overload ${status}`,
                       key,
                       provider: `proxy/${index}`,
@@ -214,6 +219,9 @@ it.effect.prop(
             atIndex(model, index),
             atIndex(providers, index),
             policy
+          );
+          expect(providerWakeAt(state.held)).toBe(
+            state.held[0]?.resumeAfter ?? null
           );
         }
 
@@ -270,10 +278,11 @@ it.effect.prop(
           state.held.some(
             ({ cause, status }) =>
               cause !== "billing" &&
-              status !== null &&
-              (status === 408 ||
-                status === 429 ||
-                (status >= 500 && status < 600))
+              (status === null
+                ? cause === "server" || cause === "timeout"
+                : status === 408 ||
+                  status === 429 ||
+                  (status >= 500 && status < 600))
           );
 
         expect(alarms.filter((runId) => runId === id)).toHaveLength(

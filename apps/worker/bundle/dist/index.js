@@ -59291,7 +59291,8 @@ var providerResumeLayer = (settings2) => Layer9.effect(ProviderResume, Schema32.
   baseMs: setting(settings2.baseMs, 3e4),
   capMs: setting(settings2.capMs, 9e5)
 }).pipe(Effect21.orDie));
-var overloadHeld = ({ cause, status }) => cause !== "billing" && status !== null && (status === 408 || status === 429 || status >= 500 && status < 600);
+var retryableProviderFailure = ({ cause, status }) => status === null ? cause === "server" || cause === "timeout" : status === 408 || status === 429 || status >= 500 && status < 600;
+var overloadHeld = (held) => held.cause !== "billing" && retryableProviderFailure(held);
 var resumeAfter = (held, attempts) => Effect21.gen(function* scheduleResume() {
   const policy = yield* ProviderResume;
   if (held.provider === "caller-share") {

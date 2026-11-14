@@ -68,21 +68,29 @@ EFFECT_VERSION="$(pin packages/core/package.json effect)"
 XSTATE_VERSION="$(pin packages/core/package.json xstate)"
 XSTATE_EFFECT_VERSION="$(pin packages/core/package.json @xstate/effect)"
 XSTATE_EFFECT_REF="@xstate/effect@${XSTATE_EFFECT_VERSION}"
+XSTATE_REF="xstate@${XSTATE_VERSION}"
 
 if ! git ls-remote --exit-code --refs https://github.com/statelyai/xstate.git "refs/tags/${XSTATE_EFFECT_REF}" >/dev/null; then
   echo "Cannot resolve required ${XSTATE_EFFECT_REF}; refusing a core-tag fallback." >&2
   exit 1
 fi
 ALCHEMY_VERSION="$(pin apps/infra/package.json alchemy)"
-BETTER_AUTH_VERSION="$(pin packages/auth/package.json better-auth)"
-FOLDKIT_VERSION="$(pin apps/web/package.json foldkit)"
 
 clone_source Effect-TS effect https://github.com/Effect-TS/effect.git "effect@${EFFECT_VERSION}" \
   "Effect v4 monorepo matching packages/core effect@${EFFECT_VERSION}."
 clone_source kitlangton effect-solutions https://github.com/kitlangton/effect-solutions.git main \
   "Idiomatic Effect patterns guide (Kit Langton)."
-clone_source statelyai xstate https://github.com/statelyai/xstate.git "${XSTATE_EFFECT_REF}" \
-  "Effect bridge matching packages/core @xstate/effect@${XSTATE_EFFECT_VERSION}; companion core pin is xstate@${XSTATE_VERSION}."
+clone_source statelyai xstate https://github.com/statelyai/xstate.git "${XSTATE_REF}" \
+  "XState core matching packages/core xstate@${XSTATE_VERSION}; bridge source must match @xstate/effect@${XSTATE_EFFECT_VERSION} exactly."
+
+git -C "${PREFIX}/statelyai/xstate" fetch --depth 1 origin \
+  "refs/tags/${XSTATE_EFFECT_REF}:refs/tags/${XSTATE_EFFECT_REF}"
+SOURCE_BRIDGE_TREE="$(git -C "${PREFIX}/statelyai/xstate" rev-parse HEAD:packages/xstate-effect)"
+PINNED_BRIDGE_TREE="$(git -C "${PREFIX}/statelyai/xstate" rev-parse "${XSTATE_EFFECT_REF}:packages/xstate-effect")"
+if [[ "$SOURCE_BRIDGE_TREE" != "$PINNED_BRIDGE_TREE" ]]; then
+  echo "XState core ${XSTATE_REF} does not contain the exact ${XSTATE_EFFECT_REF} bridge tree; refusing mismatched source." >&2
+  exit 1
+fi
 
 SOURCE_XSTATE_VERSION="$(node -p "require('${PREFIX}/statelyai/xstate/packages/core/package.json').version")"
 SOURCE_XSTATE_EFFECT_VERSION="$(node -p "require('${PREFIX}/statelyai/xstate/packages/xstate-effect/package.json').version")"
@@ -91,10 +99,6 @@ if [[ "$SOURCE_XSTATE_VERSION" != "$XSTATE_VERSION" || "$SOURCE_XSTATE_EFFECT_VE
   exit 1
 fi
 clone_source alchemy-run alchemy https://github.com/alchemy-run/alchemy.git "v${ALCHEMY_VERSION}" \
-  "Alchemy IaC matching apps/infra alchemy@${ALCHEMY_VERSION}. Read alchemy/src/cloudflare/."
-clone_source better-auth better-auth https://github.com/better-auth/better-auth.git "better-auth@${BETTER_AUTH_VERSION}" \
-  "Better Auth matching packages/auth better-auth@${BETTER_AUTH_VERSION}; Alchemy's wrapper lives in alchemy-run/alchemy packages/better-auth."
-clone_source foldkit foldkit https://github.com/foldkit/foldkit.git "foldkit@${FOLDKIT_VERSION}" \
-  "Foldkit UI matching apps/web foldkit@${FOLDKIT_VERSION}."
+  "Alchemy IaC matching apps/infra alchemy@${ALCHEMY_VERSION}. Read alchemy/src/ and cloudflare/src/."
 
 echo "done — agent sources under ${PREFIX}"

@@ -4,6 +4,7 @@ export {
   escalationMailReachReason,
   MailReachSchema,
   mailReachReason,
+  SHADOW_PREFIX,
   submitMailReachReason,
 } from "./comms/mail-reach.js";
 

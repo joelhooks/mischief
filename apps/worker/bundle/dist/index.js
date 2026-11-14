@@ -56301,6 +56301,7 @@ var decodePlan = Schema2.decodeUnknownEffect(PlanSchema, strict);
 var decodeAmendment = Schema2.decodeUnknownEffect(AmendmentSchema, strict);
 
 // ../../packages/core/dist/comms/mail-reach.js
+var SHADOW_PREFIX = "shadow/";
 var MailReachSchema = Schema3.Record(Schema3.String, Schema3.Array(RatKingName));
 var callerName = (did2) => {
   const scoped = /^did:web:(?<project>[a-z0-9-]+)\.(?<desk>[a-z0-9_-]+)\.pi\.ratking-fleet\.invalid$/u.exec(did2);
@@ -56327,7 +56328,7 @@ var callerReach = (did2, config) => {
 };
 var mailReachReason = (did2, key, to, config) => {
   const reach = callerReach(did2, config);
-  return reach.reason ?? (reach.names.includes(to) ? void 0 : `step ${key}: Rat King name "${to}" is outside caller ${did2}'s mail reach. Allowed: ${reach.names.join(", ") || "none"}. Ask the Mischief desk (pi-durable/desk) to add "${to}" to this caller's mischief.mayMail`);
+  return reach.reason ?? (to.startsWith(SHADOW_PREFIX) || reach.names.includes(to) ? void 0 : `step ${key}: Rat King name "${to}" is outside caller ${did2}'s mail reach. Allowed: ${reach.names.join(", ") || "none"}. Ask the Mischief desk (pi-durable/desk) to add "${to}" to this caller's mischief.mayMail`);
 };
 var Escalation = Schema3.fromJsonString(Schema3.Struct({ escalateTo: Schema3.optionalKey(RatKingName) }));
 var escalationMailReachReason = (did2, body, config) => Option.getOrUndefined(Option.map(Schema3.decodeOption(Escalation)(body), ({ escalateTo }) => escalateTo === void 0 ? callerReach(did2, config).reason : mailReachReason(did2, "escalateTo", escalateTo, config)));
@@ -83600,7 +83601,6 @@ var settled = (key, name, call) => Effect61.tryPromise({
     (result) => result.ok ? Effect61.succeed(result) : Effect61.fail(new StepFailed({ key, reason: result.reason }))
   )
 );
-var SHADOW2 = "shadow/";
 var OutboxEnvelope = Schema85.fromJsonString(
   Schema85.Struct({ message: Schema85.String, to: Schema85.String })
 );
@@ -83612,7 +83612,7 @@ var postboxMail = (storage, postbox2) => Layer27.effect(
     return Mail.of({
       seal: (call) => {
         const { key, message, to } = call;
-        if (to.startsWith(SHADOW2)) {
+        if (to.startsWith(SHADOW_PREFIX)) {
           return outbox.seal(call);
         }
         return Option44.match(objectOf(storage), {

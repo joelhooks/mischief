@@ -172,7 +172,9 @@ it.live(
   "on a host with a Jev key, a run that chose jev is refused at submit until every judge step has criteria, naming the step; the same plan under shadow is accepted",
   () =>
     Effect.gen(function* criteriaAtSubmit() {
-      const world = yield* prepare(30_000, [], "not-a-real-key-for-tests");
+      const world = yield* prepare(30_000, [], "not-a-real-key-for-tests", {
+        mayMail: [],
+      });
 
       yield* start(world);
 
@@ -198,7 +200,13 @@ it.live(
       });
 
       expect(shadow.status).toBe(200);
-      expect(decodeReport(shadow.body).status).toBe("waiting-for-reply");
+      const report = decodeReport(shadow.body);
+
+      expect(report.status).toBe("waiting-for-reply");
+      expect(report.failures ?? []).toStrictEqual([]);
+      expect(report.awaiting).toStrictEqual([
+        { messageId: "bare-jev/gate#1", to: "shadow/judge" },
+      ]);
     }).pipe(Effect.scoped, Effect.provide(services)),
   60_000
 );

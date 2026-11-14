@@ -1,5 +1,10 @@
 // @effect-diagnostics asyncFunction:off -- Durable Object RPC stubs are Promise APIs.
-import { Mail, ProviderUnavailable, StepFailed } from "@mischief/core";
+import {
+  Mail,
+  ProviderUnavailable,
+  SHADOW_PREFIX,
+  StepFailed,
+} from "@mischief/core";
 import { mailOutboxSql } from "@mischief/plan-run";
 import type { SqlStorage } from "@mischief/plan-run";
 import { Effect, Layer, Option, Schema } from "effect";
@@ -83,8 +88,6 @@ const settled = <A extends object>(
     )
   );
 
-const SHADOW = "shadow/";
-
 const OutboxEnvelope = Schema.fromJsonString(
   Schema.Struct({ message: Schema.String, to: Schema.String })
 );
@@ -102,7 +105,7 @@ export const postboxMail = (storage: SqlStorage, postbox: () => PostboxRpc) =>
         seal: (call) => {
           const { key, message, to } = call;
 
-          if (to.startsWith(SHADOW)) {
+          if (to.startsWith(SHADOW_PREFIX)) {
             return outbox.seal(call);
           }
 

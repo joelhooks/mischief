@@ -52,6 +52,37 @@ it.effect.prop(
     })
 );
 
+it.effect.prop(
+  "only the record-only shadow namespace bypasses recipient grants, never caller or config validation",
+  {
+    caller: Arbitrary.schema(Schema.Literals(CALLERS.map(([did]) => did))),
+    recipient: Arbitrary.schema(
+      Schema.Literals(["shadow/judge", "shadow/n0123456789abcdef"])
+    ),
+  },
+  ({ caller, recipient }) =>
+    Effect.sync(() => {
+      const config = JSON.stringify({ [caller]: [] });
+
+      expect(
+        mailReachReason(caller, "judge", recipient, config)
+      ).toBeUndefined();
+
+      for (const to of ["shadowy/x", "shadow", "other/desk", "joel-phone"]) {
+        expect(mailReachReason(caller, "judge", to, config)).toContain(
+          "outside caller"
+        );
+      }
+
+      expect(mailReachReason(caller, "judge", recipient, "not JSON")).toContain(
+        "MISCHIEF_MAIL_REACH"
+      );
+      expect(
+        mailReachReason("did:web:unknown.example.invalid", "judge", recipient)
+      ).toContain("cannot derive");
+    })
+);
+
 it.effect("unrecognised DIDs and malformed reach never open the grant", () =>
   Effect.sync(() => {
     expect(callerReach("did:web:unknown.example.invalid").reason).toContain(

@@ -18,17 +18,26 @@ const MESSAGE_FIELDS = new Set([
   "temperature",
 ]);
 
+export const MESSAGE_HOP_HEADERS = new Set([
+  "host",
+  "content-length",
+  "connection",
+  "keep-alive",
+  "transfer-encoding",
+  "proxy-connection",
+  "te",
+  "upgrade",
+]);
+
 const CLAUDE_HEADERS = new Set([
+  ...MESSAGE_HOP_HEADERS,
   "accept",
   "accept-encoding",
   "anthropic-beta",
   "anthropic-dangerous-direct-browser-access",
   "anthropic-version",
   "authorization",
-  "connection",
-  "content-length",
   "content-type",
-  "host",
   "user-agent",
   "x-app",
   "x-claude-code-session-id",

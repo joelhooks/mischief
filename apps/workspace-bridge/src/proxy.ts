@@ -24,7 +24,7 @@ import {
 } from "effect/http";
 
 import { errorResponse, readBody } from "./http.js";
-import { validateMessages } from "./messages.js";
+import { MESSAGE_HOP_HEADERS, validateMessages } from "./messages.js";
 import { refusal } from "./protocol.js";
 import { collectBytes } from "./runner.js";
 
@@ -237,7 +237,9 @@ const upstreamRequest = (
       HttpClientRequest.setHeaders(
         Object.fromEntries(
           Object.entries(request.headers ?? {}).filter(
-            ([header]) => !["authorization", "x-api-key"].includes(header)
+            ([header]) =>
+              !MESSAGE_HOP_HEADERS.has(header) &&
+              !["authorization", "x-api-key"].includes(header)
           )
         )
       ),
@@ -311,6 +313,44 @@ const providerErrorOf = (bytes: Uint8Array, encoding: string | undefined) => {
   return Schema.decodeUnknownOption(Schema.fromJsonString(ProviderError))(
     new TextDecoder().decode(decoded)
   );
+};
+
+const TransportCause = Schema.Struct({
+  code: Schema.optionalKey(Schema.String),
+  message: Schema.String,
+  name: Schema.String,
+});
+
+const transportDiagnostic = (error: Error, key: Redacted.Redacted) => {
+  const decoded = Schema.decodeUnknownOption(TransportCause)(
+    error.cause ?? error
+  );
+
+  const cause = Option.getOrElse(decoded, () => ({
+    code: undefined,
+    message: error.message,
+    name: error.name,
+  }));
+
+  const redact = (value: string) =>
+    value
+      .replaceAll(Redacted.value(key), "[redacted]")
+      .replaceAll(/\bBearer\s+[^\s"',;]+/giu, "Bearer [redacted]")
+      .replaceAll(/\bsk-[a-zA-Z0-9_-]+/gu, "[redacted]")
+      .replaceAll(
+        /(?<label>(?:api[-_ ]?key|authorization|token|secret|password)["']?\s*[:=]\s*["']?)[^\s"',;}]+/giu,
+        "$<label>[redacted]"
+      )
+      .replaceAll(/https?:\/\/[^\s"'<>]+/giu, "[redacted-url]")
+      .replaceAll(/[\r\n\t]/gu, " ")
+      .slice(0, 300);
+
+  return {
+    cause: redact(`${cause.name}: ${cause.message}`),
+    reason: redact(
+      cause.code === "EPROTO" ? "TLS EPROTO" : (cause.code ?? cause.name)
+    ),
+  };
 };
 
 export interface ProxyConfig {
@@ -436,9 +476,16 @@ export class Proxy extends Context.Service<
                   )
                 : send
             ).pipe(
-              Effect.mapError(() =>
+              Effect.tapError((error) =>
+                Effect.logWarning({
+                  cause: transportDiagnostic(error, config.key).cause,
+                  event: "peon_upstream_transport_error",
+                  provider,
+                })
+              ),
+              Effect.mapError((error) =>
                 refusal(
-                  `The ${provider} upstream is unavailable (status unknown). Check the host proxy provider and resume the think.`,
+                  `The ${provider} upstream is unavailable (status unknown): ${transportDiagnostic(error, config.key).reason}. Check the host proxy provider and resume the think.`,
                   503
                 )
               )

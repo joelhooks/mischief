@@ -29,7 +29,7 @@
     "@effect/platform-node": "4.1.4",
     "@mischief/capability": "workspace:*",
     "@mischief/core": "workspace:*",
-    "@rat-king/mailbox-client": "github:joelhooks/rat-king#9dbd61b5cb5d56a462c7a207ce8f14800089f49b&path:/packages/mailbox-client/bundle",
+    "@rat-king/mailbox-client": "github:joelhooks/rat-king#4504f5443c820c7af94ecff629b147deff84c870&path:/packages/mailbox-client/bundle",
     "effect": "4.1.4"
   },
   "devDependencies": {

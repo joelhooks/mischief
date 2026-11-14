@@ -107,8 +107,8 @@ exports[`an empty workspace URL preserves the existing plan byte for byte, even 
     "fqn": "store/restart-gate",
     "props": {
       "content": {
-        "length": 1086492,
-        "sha256": "5c9d993f5885a3f5f4a3f44b610bea0c29dc15adbc8a044151000bc42a589ac7",
+        "length": 1405244,
+        "sha256": "627997e1bb2c07628aa3179e425d56d60f69bd977a6a33d0e627a2f52ef56594",
       },
       "mode": 384,
       "path": "<output>",
@@ -262,7 +262,7 @@ exports[`an empty workspace URL preserves the existing plan byte for byte, even 
     "props": {
       "content": {
         "length": 10287,
-        "sha256": "c677c73101507835d9052da32792be6e04cb4e1ba9fa4ff8f4bc2d780f662093",
+        "sha256": "0a51974bcf65933dda1bc227fbe4254248071928748ec0abc02f5baa0c703c80",
       },
       "mode": 384,
       "path": "<output>",
@@ -508,8 +508,8 @@ exports[`an empty workspace URL preserves the existing plan byte for byte, even 
     "fqn": "mischief-deployment-stage-worker",
     "props": {
       "content": {
-        "length": 5100842,
-        "sha256": "75737d46b751a793ec1b2bea76c939aa1a3b5d6cbda6a2a41385468b34588499",
+        "length": 5119510,
+        "sha256": "132606a9cdf5922ad4d3ed0f1b5f970092523f60f8634e4024268fafb3552efa",
       },
       "mode": 384,
       "path": "<output>",

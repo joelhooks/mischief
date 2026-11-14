@@ -2076,7 +2076,7 @@ var init_sleep = __esm({
   "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/sleep.mjs"() {
     sleep = (ms, ...signals) => new Promise((resolve2, reject) => {
       const activeSignals = [...new Set(signals.filter((signal) => signal != null))];
-      let timeout;
+      let timeout2;
       let settled2 = false;
       const cleanup = () => {
         for (const signal of activeSignals) {
@@ -2091,9 +2091,9 @@ var init_sleep = __esm({
           return;
         }
         settled2 = true;
-        if (timeout !== void 0) {
-          clearTimeout(timeout);
-          timeout = void 0;
+        if (timeout2 !== void 0) {
+          clearTimeout(timeout2);
+          timeout2 = void 0;
         }
         cleanup();
         callback();
@@ -2105,7 +2105,7 @@ var init_sleep = __esm({
         abort();
         return;
       }
-      timeout = setTimeout(() => {
+      timeout2 = setTimeout(() => {
         settle4(resolve2);
       }, ms);
       for (const signal of activeSignals) {
@@ -4615,9 +4615,9 @@ function assertSafeHeaders(headers) {
     }
   }
 }
-function exchangeDeadline(timeout, callerSignal) {
+function exchangeDeadline(timeout2, callerSignal) {
   const deadline = new AbortController();
-  const timer = timeout === void 0 ? void 0 : setTimeout(() => deadline.abort(new APIConnectionTimeoutError()), timeout);
+  const timer = timeout2 === void 0 ? void 0 : setTimeout(() => deadline.abort(new APIConnectionTimeoutError()), timeout2);
   const timerHandle = timer;
   if (typeof timerHandle === "object" && timerHandle !== null && "unref" in timerHandle && typeof timerHandle.unref === "function") {
     timerHandle.unref();
@@ -4825,9 +4825,9 @@ var init_x509_workload_identity_auth = __esm({
         return apiURL;
       }
       /** Captures the exact caller settings approved for authenticated dispatch. */
-      snapshotRequest(signal, timeout, fetchOptions) {
+      snapshotRequest(signal, timeout2, fetchOptions) {
         var _b;
-        (_b = __classPrivateFieldGet2(this, _X509WorkloadIdentityAuth_instances, "m", _X509WorkloadIdentityAuth_scope).call(this)).request ?? (_b.request = { signal, timeout, fetchOptions });
+        (_b = __classPrivateFieldGet2(this, _X509WorkloadIdentityAuth_instances, "m", _X509WorkloadIdentityAuth_scope).call(this)).request ?? (_b.request = { signal, timeout: timeout2, fetchOptions });
       }
       /** Returns immutable request settings without invoking caller-owned accessors again. */
       requestSnapshot() {
@@ -4868,7 +4868,7 @@ var init_x509_workload_identity_auth = __esm({
         return __classPrivateFieldGet2(this, _X509WorkloadIdentityAuth_instances, "m", _X509WorkloadIdentityAuth_scope).call(this).phase === "planning";
       }
       /** Approves the final overridden destination and transport before minting a bearer. */
-      authorizePlannedRequest(url, request2, timeout, allowHookSignal = false) {
+      authorizePlannedRequest(url, request2, timeout2, allowHookSignal = false) {
         const scope = __classPrivateFieldGet2(this, _X509WorkloadIdentityAuth_instances, "m", _X509WorkloadIdentityAuth_scope).call(this);
         const headers = Object.getOwnPropertyDescriptor(request2, "headers");
         const body = Object.getOwnPropertyDescriptor(request2, "body");
@@ -4892,7 +4892,7 @@ var init_x509_workload_identity_auth = __esm({
           throw new OpenAIError("X.509 workload identity must preserve its approved request signal.");
         }
         const approved = this.requestSnapshot();
-        scope.request = { ...approved, timeout: Math.min(approved.timeout, timeout) };
+        scope.request = { ...approved, timeout: Math.min(approved.timeout, timeout2) };
         scope.phase = "authorizing";
       }
       /** Owns only SDK-created iterator adapters until authenticated dispatch takes responsibility. */
@@ -5020,16 +5020,16 @@ var init_x509_workload_identity_auth = __esm({
         return __classPrivateFieldGet2(this, _X509WorkloadIdentityAuth_transport, "f").current()?.token !== void 0;
       }
       /** Returns the budget left after certificate authentication without starting another timeout. */
-      remainingTimeout(_options, timeout) {
+      remainingTimeout(_options, timeout2) {
         const scope = __classPrivateFieldGet2(this, _X509WorkloadIdentityAuth_transport, "f").current();
         if (scope === void 0) {
-          return timeout;
+          return timeout2;
         }
-        const remaining = timeout - (performance.now() - scope.monotonicStartedAt);
-        if (remaining <= 0) {
+        const remaining3 = timeout2 - (performance.now() - scope.monotonicStartedAt);
+        if (remaining3 <= 0) {
           throw new APIConnectionTimeoutError();
         }
-        return remaining;
+        return remaining3;
       }
       /** Cancels active retry timers promptly without changing public caller-abort semantics. */
       async waitForRetry(duration, signal) {
@@ -5069,8 +5069,8 @@ var init_x509_workload_identity_auth = __esm({
         if (cached && performance.now() < cached.refreshAt && Date.now() < cached.wallRefreshAt) {
           return __classPrivateFieldGet2(_a, _a, "m", _X509WorkloadIdentityAuth_assignToken).call(_a, scope, cached);
         }
-        const remaining = context && options2 ? this.remainingTimeout(options2, context.timeout) : context?.timeout;
-        const { signal, dispose } = exchangeDeadline(remaining, callerSignal);
+        const remaining3 = context && options2 ? this.remainingTimeout(options2, context.timeout) : context?.timeout;
+        const { signal, dispose } = exchangeDeadline(remaining3, callerSignal);
         if (callerSignal?.aborted) {
           dispose();
           throw userAbortError(callerSignal);
@@ -21185,13 +21185,13 @@ var init_client = __esm({
         }
         while (true) {
           const attempt = __classPrivateFieldGet2(this, _OpenAI_responseAttempts, "f").get(props.controller);
-          const timeout = attempt?.timeout ?? props.options.timeout ?? this.timeout;
+          const timeout2 = attempt?.timeout ?? props.options.timeout ?? this.timeout;
           const x509Authentication = attempt?.authentication;
           const callerSignal = x509Authentication ? props.controller.signal : props.options.signal;
           const abortError2 = () => x509Authentication && callerSignal ? this._makeUserAbortError(callerSignal) : new APIUserAbortError();
-          let remaining;
+          let remaining3;
           try {
-            remaining = x509Authentication?.remainingTimeout(props.options, timeout) ?? Math.max(0, props.startTime + timeout - Date.now());
+            remaining3 = x509Authentication?.remainingTimeout(props.options, timeout2) ?? Math.max(0, props.startTime + timeout2 - Date.now());
           } catch (error) {
             const cancellation = callerSignal?.aborted ? abortError2() : void 0;
             props.controller.abort();
@@ -21210,7 +21210,7 @@ var init_client = __esm({
                 timedOut = true;
                 props.controller.abort();
                 reject(new APIConnectionTimeoutError());
-              }, remaining);
+              }, remaining3);
               if (callerSignal) {
                 abortListener = () => {
                   if (!timedOut)
@@ -21255,7 +21255,7 @@ var init_client = __esm({
         }
       }
       /** Keeps terminal X.509 error-body consumption inside the original logical request deadline. */
-      async readX509ResponseError(response, options2, timeout, controller, authentication) {
+      async readX509ResponseError(response, options2, timeout2, controller, authentication) {
         const deadline = new AbortController();
         const callerSignal = controller.signal;
         let timedOut = false;
@@ -21265,8 +21265,8 @@ var init_client = __esm({
           cancel();
         }
         try {
-          const remaining = authentication.remainingTimeout(options2, timeout);
-          const expiration = authentication.waitForRetry(remaining, deadline.signal).then(() => {
+          const remaining3 = authentication.remainingTimeout(options2, timeout2);
+          const expiration = authentication.waitForRetry(remaining3, deadline.signal).then(() => {
             throw new APIConnectionTimeoutError();
           });
           const body = await Promise.race([
@@ -21346,7 +21346,7 @@ var init_client = __esm({
           throw error;
         }
         const { req, url } = built;
-        const timeout = x509Authentication ? Math.min(built.timeout, x509Authentication.requestSnapshot().timeout) : built.timeout;
+        const timeout2 = x509Authentication ? Math.min(built.timeout, x509Authentication.requestSnapshot().timeout) : built.timeout;
         x509Authentication?.bindRequest(options2, req, this.adminAPIKey);
         let hasStreamingBody = options2.__metadata?.["hasStreamingBody"] === true;
         if (!x509Authentication) {
@@ -21376,7 +21376,7 @@ var init_client = __esm({
         }
         const security = options2.__security ?? { bearerAuth: true };
         const controller = x509Authentication || this.fetchWithTimeout === _a3.prototype.fetchWithTimeout ? createRequestController(req.signal ?? (x509Authentication ? callerSignal : void 0), x509Authentication ? callerSignal : void 0) : new AbortController();
-        const remainingTimeout = x509Authentication?.remainingTimeout(options2, timeout) ?? timeout;
+        const remainingTimeout = x509Authentication?.remainingTimeout(options2, timeout2) ?? timeout2;
         const fetchWithAuth = x509Authentication ? _a3.prototype.fetchWithAuth : this.fetchWithAuth;
         x509Authentication?.releaseRequestBody(req.body);
         const response = await fetchWithAuth.call(this, url, req, remainingTimeout, controller, security).catch(castToError);
@@ -21470,7 +21470,7 @@ var init_client = __esm({
           }
           const retryMessage = shouldRetry ? hasStreamingBody ? `error; streaming body cannot be retried` : `error; no more retries left` : `error; not retryable`;
           loggerFor(this).info(`${responseInfo} - ${retryMessage}`);
-          const errText = x509Authentication ? await this.readX509ResponseError(response, options2, timeout, controller, x509Authentication) : await response.text().catch((err2) => castToError(err2).message);
+          const errText = x509Authentication ? await this.readX509ResponseError(response, options2, timeout2, controller, x509Authentication) : await response.text().catch((err2) => castToError(err2).message);
           const errJSON = safeJSON(errText);
           const errMessage = errJSON ? void 0 : errText;
           loggerFor(this).debug(`[${requestLogID}] response error (${retryMessage})`, formatRequestDetails({
@@ -21495,7 +21495,7 @@ var init_client = __esm({
         const continueRequest = x509Authentication?.continuation();
         x509Authentication?.releaseRequestCredentials();
         __classPrivateFieldGet2(this, _OpenAI_responseAttempts, "f").set(controller, {
-          timeout,
+          timeout: timeout2,
           retriesRemaining,
           hasStreamingBody,
           ...x509Authentication ? { authentication: x509Authentication } : {},
@@ -21530,7 +21530,7 @@ var init_client = __esm({
         page3._thenUnwrap = guarded._thenUnwrap.bind(guarded);
         return page3;
       }
-      async fetchWithAuth(url, init, timeout, controller, schemes = {
+      async fetchWithAuth(url, init, timeout2, controller, schemes = {
         bearerAuth: true,
         adminAPIKeyAuth: true
       }) {
@@ -21543,7 +21543,7 @@ var init_client = __esm({
           }
         }
         const fetchWithTimeout = __classPrivateFieldGet2(this, _OpenAI_x509Fetch, "f") ? _a3.prototype.fetchWithTimeout : this.fetchWithTimeout;
-        const response = await fetchWithTimeout.call(this, url, init, timeout, controller);
+        const response = await fetchWithTimeout.call(this, url, init, timeout2, controller);
         return response;
       }
       async fetchWithTimeout(url, init, ms, controller) {
@@ -21551,7 +21551,7 @@ var init_client = __esm({
         const abort = this._makeAbort(controller);
         const composed = !!signal && composedCallerSignals.get(controller) === signal;
         const cleanup = signal && !composed ? addRequestAbortListener(signal, abort, controller.signal) : void 0;
-        const timeout = setTimeout(abort, ms);
+        const timeout2 = setTimeout(abort, ms);
         const isReadableBody = globalThis.ReadableStream && options2.body instanceof globalThis.ReadableStream || typeof options2.body === "object" && options2.body !== null && Symbol.asyncIterator in options2.body;
         const fetchOptions = {
           signal: controller.signal,
@@ -21572,7 +21572,7 @@ var init_client = __esm({
           cleanup?.();
           throw err;
         } finally {
-          clearTimeout(timeout);
+          clearTimeout(timeout2);
         }
       }
       async shouldRetry(response) {
@@ -21615,8 +21615,8 @@ var init_client = __esm({
         }
         const x509Authentication = __classPrivateFieldGet2(this, _OpenAI_x509Authentication, "f");
         if (x509Authentication) {
-          const remaining = x509Authentication.remainingTimeout(options2, x509Authentication.requestSnapshot().timeout);
-          if (timeoutMillis >= remaining) {
+          const remaining3 = x509Authentication.remainingTimeout(options2, x509Authentication.requestSnapshot().timeout);
+          if (timeoutMillis >= remaining3) {
             throw new APIConnectionTimeoutError();
           }
         }
@@ -21725,14 +21725,14 @@ var init_client = __esm({
           idempotencyHeaders[this.idempotencyHeader] = options2.idempotencyKey;
         }
         const helperMethod = options2.__metadata?.["helperMethod"];
-        const timeout = x509Headers ? x509Timeout : options2.timeout;
+        const timeout2 = x509Headers ? x509Timeout : options2.timeout;
         const headers = buildHeaders([
           idempotencyHeaders,
           {
             Accept: "application/json",
             ...!isRunningInBrowserOrBrowserWorker() ? { "User-Agent": this.getUserAgent() } : void 0,
             "X-Stainless-Retry-Count": String(retryCount),
-            ...timeout ? { "X-Stainless-Timeout": String(Math.trunc(timeout / 1e3)) } : {},
+            ...timeout2 ? { "X-Stainless-Timeout": String(Math.trunc(timeout2 / 1e3)) } : {},
             ...getPlatformHeaders(),
             ...typeof helperMethod === "string" ? { "X-Stainless-Helper-Method": helperMethod } : {},
             "OpenAI-Organization": x509Tenant ? x509Tenant.organization : this.organization,
@@ -22104,10 +22104,10 @@ function abortableSleep(ms, signal) {
       return;
     }
     const onAbort = () => {
-      clearTimeout(timeout);
+      clearTimeout(timeout2);
       reject(createAbortError());
     };
-    const timeout = setTimeout(() => {
+    const timeout2 = setTimeout(() => {
       signal?.removeEventListener("abort", onAbort);
       resolve2();
     }, Math.max(0, ms));
@@ -28527,7 +28527,7 @@ var require_createActor_25900f76_cjs = __commonJS({
         }
         this._snapshot._scheduledTimers[scheduledTimerId] = scheduledTimer;
         markSystemSnapshotDirty(this);
-        const timeout = this._clock.setTimeout(() => {
+        const timeout2 = this._clock.setTimeout(() => {
           if (this._timerMap) {
             delete this._timerMap[scheduledTimerId];
           }
@@ -28538,11 +28538,11 @@ var require_createActor_25900f76_cjs = __commonJS({
             ...key
           });
         }, delay);
-        (this._timerMap ??= {})[scheduledTimerId] = timeout;
+        (this._timerMap ??= {})[scheduledTimerId] = timeout2;
       }
       cancel(source, key) {
         const scheduledTimerId = createScheduledTimerId(source, key);
-        const timeout = this._timerMap?.[scheduledTimerId];
+        const timeout2 = this._timerMap?.[scheduledTimerId];
         if (this._timerMap) {
           delete this._timerMap[scheduledTimerId];
         }
@@ -28550,8 +28550,8 @@ var require_createActor_25900f76_cjs = __commonJS({
           delete this._snapshot._scheduledTimers[scheduledTimerId];
         }
         markSystemSnapshotDirty(this);
-        if (timeout !== void 0) {
-          this._clock.clearTimeout(timeout);
+        if (timeout2 !== void 0) {
+          this._clock.clearTimeout(timeout2);
         }
       }
       cancelAll(actor) {
@@ -30324,8 +30324,8 @@ var require_xstate_actors_cjs = __commonJS({
     var XSTATE_ASYNC_RESOLVE = "xstate.async.resolve";
     var XSTATE_ASYNC_REJECT = "xstate.async.reject";
     var TimeoutError2 = class extends Error {
-      constructor(timeout) {
-        super(`Async logic timed out after ${timeout}.`);
+      constructor(timeout2) {
+        super(`Async logic timed out after ${timeout2}.`);
         this.name = "TimeoutError";
       }
     };
@@ -30379,8 +30379,8 @@ var require_xstate_actors_cjs = __commonJS({
             const actorSelf = self;
             const sendSelf = (event2) => void runtime.sendEvent(actorSelf, actorSelf, event2);
             const controller = new AbortController();
-            const timeout = config.timeout;
-            const timeoutMs = createActor2.parseDelayToMilliseconds(timeout);
+            const timeout2 = config.timeout;
+            const timeoutMs = createActor2.parseDelayToMilliseconds(timeout2);
             const timeoutId = timeoutMs === void 0 ? void 0 : system._clock.setTimeout(() => {
               if (self.getSnapshot().status !== "active") {
                 return;
@@ -30388,7 +30388,7 @@ var require_xstate_actors_cjs = __commonJS({
               controller.abort();
               sendSelf({
                 type: XSTATE_ASYNC_REJECT,
-                data: new TimeoutError2(timeout)
+                data: new TimeoutError2(timeout2)
               });
             }, timeoutMs);
             const clearTimeout2 = () => {
@@ -33408,13 +33408,13 @@ var require_xstate_cjs = __commonJS({
       getId() {
         return this._id++;
       }
-      setTimeout(fn, timeout) {
-        if (!Number.isFinite(timeout)) throw new Error("Timer delay must be finite");
+      setTimeout(fn, timeout2) {
+        if (!Number.isFinite(timeout2)) throw new Error("Timer delay must be finite");
         const id = this.getId();
         const timer = {
           id,
           start: this.now(),
-          timeout: Math.max(0, timeout),
+          timeout: Math.max(0, timeout2),
           fn
         };
         this.timeouts.set(id, timer);
@@ -37053,8 +37053,8 @@ function ExcludeUnion(left, right, result = []) {
 function ExcludeOperation(left, right) {
   const evaluated = EvaluateType(left);
   const canonical3 = IsUnion(evaluated) ? evaluated.anyOf : [evaluated];
-  const remaining = ExcludeUnion(canonical3, right);
-  const result = EvaluateUnion(remaining);
+  const remaining3 = ExcludeUnion(canonical3, right);
+  const result = EvaluateUnion(remaining3);
   return result;
 }
 
@@ -38350,8 +38350,8 @@ function ExtractUnion(left, right, result = []) {
 function ExtractOperation(left, right) {
   const evaluated = EvaluateType(left);
   const canonical3 = IsUnion(evaluated) ? evaluated.anyOf : [evaluated];
-  const remaining = ExtractUnion(canonical3, right);
-  const result = EvaluateUnion(remaining);
+  const remaining3 = ExtractUnion(canonical3, right);
+  const result = EvaluateUnion(remaining3);
   return result;
 }
 
@@ -46810,13 +46810,13 @@ var inWorkers = typeof navigator !== "undefined" && navigator.userAgent === "Clo
 var nativeTimer = (callback, delayMs, options2) => {
   if (options2.background && inWorkers)
     return void 0;
-  const arm = (remaining) => {
+  const arm = (remaining3) => {
     const next = setTimeout(() => {
-      if (remaining > MAX_TIMER_DELAY)
-        handle2 = arm(remaining - MAX_TIMER_DELAY);
+      if (remaining3 > MAX_TIMER_DELAY)
+        handle2 = arm(remaining3 - MAX_TIMER_DELAY);
       else
         callback();
-    }, Math.min(remaining, MAX_TIMER_DELAY));
+    }, Math.min(remaining3, MAX_TIMER_DELAY));
     if (options2.background)
       next.unref?.();
     return next;
@@ -66383,7 +66383,7 @@ var PKCS8_ALG_ID_X448 = new Uint8Array([
   56
 ]);
 
-// ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+9dbd61b5_48910ba0880a1f0e1711a026bc6eafdf/node_modules/@rat-king/mailbox-client/index.js
+// ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+4504f544_85f3e7c871d23bf3dd1d3943f587f9f7/node_modules/@rat-king/mailbox-client/index.js
 import { Schema as Schema310 } from "effect";
 import { Schema as Schema210 } from "effect";
 
@@ -73387,7 +73387,7 @@ function resolveRefUris(obj, baseUri) {
   return obj;
 }
 
-// ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+9dbd61b5_48910ba0880a1f0e1711a026bc6eafdf/node_modules/@rat-king/mailbox-client/index.js
+// ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+4504f544_85f3e7c871d23bf3dd1d3943f587f9f7/node_modules/@rat-king/mailbox-client/index.js
 import { Schema as Schema65, SchemaGetter } from "effect";
 import { Effect as Effect52, Schema as Schema72 } from "effect";
 
@@ -76356,7 +76356,7 @@ var decodeOptions = {
 var encode7 = (node) => encode4(node, _encodeOptions);
 var decode11 = (data) => decode6(toByteView(data), _decodeOptions);
 
-// ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+9dbd61b5_48910ba0880a1f0e1711a026bc6eafdf/node_modules/@rat-king/mailbox-client/index.js
+// ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+4504f544_85f3e7c871d23bf3dd1d3943f587f9f7/node_modules/@rat-king/mailbox-client/index.js
 import { Effect as Effect42, Schema as Schema510 } from "effect";
 import { Schema as Schema410 } from "effect";
 import { Effect as Effect310 } from "effect";
@@ -76398,63 +76398,78 @@ import { Schema as Schema312 } from "effect";
 import { Context as Context62 } from "effect";
 import { Effect as Effect172, Layer as Layer22 } from "effect";
 import * as Base64Url2 from "effect/encoding/Base64Url";
-import { Clock as Clock42, Context as Context102, Effect as Effect272, Layer as Layer52, Option as Option32, Schema as Schema472 } from "effect";
-import { Effect as Effect182, Schema as Schema362 } from "effect";
+import { Clock as Clock52, Context as Context112, Effect as Effect282, Layer as Layer52, Option as Option42, Schema as Schema472 } from "effect";
+import { Effect as Effect182, Schema as Schema372 } from "effect";
 import { Schema as Schema342 } from "effect";
-import { Schema as Schema352 } from "effect";
-import { Context as Context82, Effect as Effect192, Layer as Layer32, Schema as Schema382 } from "effect";
-import { Schema as Schema372 } from "effect";
+import { Predicate as Predicate5, Schema as Schema352 } from "effect";
+import { HttpClientError } from "effect/http";
+import { Schema as Schema362 } from "effect";
+import { Context as Context82, Effect as Effect192, Layer as Layer32, Schema as Schema392 } from "effect";
+import { Schema as Schema382 } from "effect";
 import { Context as Context72 } from "effect";
-import { Effect as Effect212, Schema as Schema402 } from "effect";
-import { Effect as Effect202, Schema as Schema392 } from "effect";
-import { Effect as Effect222, Schema as Schema412 } from "effect";
-import { Effect as Effect232, Option as Option23, Schema as Schema422 } from "effect";
-import { Schema as Schema432 } from "effect";
-import { Clock as Clock22, Effect as Effect242, Layer as Layer42, Result as Result32, Schema as Schema442 } from "effect";
-import { HttpClient as HttpClient2, HttpClientRequest as HttpClientRequest2 } from "effect/http";
-import { Effect as Effect252, Schema as Schema452 } from "effect";
 import {
-  Clock as Clock32,
+  Cause as Cause6,
+  Clock as Clock22,
   Context as Context92,
   Duration as Duration4,
-  Effect as Effect262,
-  Option as Option24,
-  Predicate as Predicate5,
-  Schedule as Schedule2,
+  Effect as Effect202,
+  Option as Option23,
+  Schedule as Schedule2
+} from "effect";
+import { Effect as Effect222, Schema as Schema412 } from "effect";
+import { Effect as Effect212, Schema as Schema402 } from "effect";
+import { Effect as Effect232, Schema as Schema422 } from "effect";
+import { Effect as Effect242, Option as Option24, Schema as Schema432 } from "effect";
+import { Clock as Clock32, Effect as Effect252, Layer as Layer42, Result as Result32, Schema as Schema442 } from "effect";
+import { HttpClient as HttpClient2, HttpClientRequest as HttpClientRequest2 } from "effect/http";
+import { Effect as Effect262, Schema as Schema452 } from "effect";
+import {
+  Clock as Clock42,
+  Context as Context102,
+  Duration as Duration22,
+  Effect as Effect272,
+  Option as Option32,
+  Predicate as Predicate22,
+  Schedule as Schedule22,
   Schema as Schema462,
   Stream as Stream3
 } from "effect";
 import { Socket } from "effect/socket";
-import { Effect as Effect282, Schema as Schema482 } from "effect";
+import { Effect as Effect292, Schema as Schema482 } from "effect";
 import {
-  Clock as Clock62,
-  Context as Context112,
+  Clock as Clock72,
+  Context as Context122,
   Data as Data22,
-  Effect as Effect342,
+  Effect as Effect372,
   Layer as Layer62,
-  Match as Match32,
-  Predicate as Predicate22,
+  Match as Match42,
+  Predicate as Predicate32,
   Result as Result42,
-  Schema as Schema572
+  Schema as Schema612
 } from "effect";
 import { Schema as Schema492 } from "effect";
 import {
-  Clock as Clock52,
+  Clock as Clock62,
   DateTime as DateTime2,
-  Duration as Duration22,
-  Effect as Effect292,
-  Match as Match22,
-  Option as Option42,
-  Schedule as Schedule22,
-  Schema as Schema502,
+  Duration as Duration32,
+  Effect as Effect302,
+  Match as Match32,
+  Option as Option52,
+  Random as Random2,
+  Schedule as Schedule3,
+  Schema as Schema512,
   Stream as Stream22
 } from "effect";
-import { Effect as Effect302, Schema as Schema512 } from "effect";
+import { Match as Match22, Schema as Schema502 } from "effect";
 import { Effect as Effect312, Schema as Schema522 } from "effect";
 import { Effect as Effect322, Schema as Schema532 } from "effect";
-import { Array as Arr, Schema as Schema552 } from "effect";
+import { Effect as Effect332, Schema as Schema552 } from "effect";
 import { Schema as Schema542 } from "effect";
-import { Effect as Effect332, Option as Option52, Schema as Schema562 } from "effect";
+import { Effect as Effect342, Schema as Schema562 } from "effect";
+import { Effect as Effect352, Schema as Schema572 } from "effect";
+import { Array as Arr, Schema as Schema592 } from "effect";
+import { Schema as Schema582 } from "effect";
+import { Effect as Effect362, Option as Option62, Schema as Schema602 } from "effect";
 var Cid = Schema65.declare(
   (value) => isCid(value, { flavor: "dasl" })
 );
@@ -76841,6 +76856,13 @@ var Receipt = Schema310.StructWithRest(
       lexString2({ format: "datetime", type: "string" }).pipe(
         Schema310.brand("Lexicon:datetime")
       )
+    ),
+    resolvedFrom: Schema310.optionalKey(
+      lexString2({
+        description: "The name the sender addressed when the issuer resolved it to this recipient through a role or a successor.",
+        maxLength: 128,
+        type: "string"
+      })
     ),
     seq: Schema310.Int.check(
       Schema310.isGreaterThanOrEqualTo(1),
@@ -78060,6 +78082,13 @@ var Input9 = Schema192.StructWithRest(
         Schema192.brand("Lexicon:tid")
       )
     ),
+    resolvedFrom: Schema192.optionalKey(
+      lexString2({
+        description: "The name the sender addressed, from identity.resolveRecipient. The mailbox resolves it again at accept time and refuses RoleUnresolved unless it still resolves to the envelope's recipient. Recorded on the receipt and traffic entry.",
+        maxLength: 128,
+        type: "string"
+      })
+    ),
     wakeReason: Schema192.optionalKey(
       lexString2({
         enum: ["to", "ask", "reply", "cc", "quiet", "data"],
@@ -78919,13 +78948,13 @@ var mod3 = (value) => (value % prime + prime) % prime;
 var power = (base3, exponent) => {
   let result = 1n;
   let current = mod3(base3);
-  let remaining = exponent;
-  while (remaining > 0n) {
-    if (remaining % 2n === 1n) {
+  let remaining3 = exponent;
+  while (remaining3 > 0n) {
+    if (remaining3 % 2n === 1n) {
       result = mod3(result * current);
     }
     current = mod3(current * current);
-    remaining /= 2n;
+    remaining3 /= 2n;
   }
   return result;
 };
@@ -79637,20 +79666,32 @@ var signatures = Layer22.succeed(
     })
   })
 );
-var MailboxClientError = class extends Schema342.TaggedError()(
+var TransportFailure = class extends Schema342.TaggedError()(
+  "TransportFailure",
+  { cause: Schema342.Defect(), reason: Schema342.String }
+) {
+};
+var MailboxClientError = class extends Schema352.TaggedError()(
   "MailboxClientError",
   {
-    error: Schema342.optionalKey(Schema342.String),
-    reason: Schema342.String,
-    status: Schema342.optionalKey(Schema342.Finite)
+    error: Schema352.optionalKey(Schema352.String),
+    reason: Schema352.String,
+    status: Schema352.optionalKey(Schema352.Finite)
   }
 ) {
 };
+var connectionFailure = (failure32) => HttpClientError.isHttpClientError(failure32) && Predicate5.isTagged(failure32.reason, "TransportError") || Predicate5.isTagged(failure32, "TimeoutError");
 var clientError = (failure32) => {
-  if (Schema342.is(MailboxClientError)(failure32)) {
+  if (Schema352.is(MailboxClientError)(failure32)) {
     return failure32;
   }
-  if (Schema342.is(XrpcFailure)(failure32)) {
+  if (connectionFailure(failure32) || Schema352.is(TransportFailure)(failure32) && failure32.reason === "Service-auth HTTP connection unavailable") {
+    return new MailboxClientError({
+      error: "MailboxUnavailable",
+      reason: "Mailbox connection failed"
+    });
+  }
+  if (Schema352.is(XrpcFailure)(failure32)) {
     return new MailboxClientError({
       error: failure32.error,
       reason: failure32.message ?? "Mailbox XRPC call failed",
@@ -79659,16 +79700,16 @@ var clientError = (failure32) => {
   }
   return new MailboxClientError({ reason: "Mailbox operation failed" });
 };
-var PrivateJwk = Schema352.Struct({
-  crv: Schema352.Literal("P-256"),
-  d: Schema352.String,
-  kty: Schema352.Literal("EC"),
-  x: Schema352.String,
-  y: Schema352.String
+var PrivateJwk = Schema362.Struct({
+  crv: Schema362.Literal("P-256"),
+  d: Schema362.String,
+  kty: Schema362.Literal("EC"),
+  x: Schema362.String,
+  y: Schema362.String
 });
-var Identity2 = Schema352.Struct({
+var Identity2 = Schema362.Struct({
   agreement: PrivateJwk,
-  did: Schema352.String.check(Schema352.isPattern(/^did:web:/u)),
+  did: Schema362.String.check(Schema362.isPattern(/^did:web:/u)),
   signing: PrivateJwk
 });
 var importSigning = (identity) => cryptoOperation(
@@ -79692,7 +79733,7 @@ var importAgreement = (identity) => cryptoOperation(
 var attentionBytes = (did2, nsid2, value) => canonical2({ did: did2, nsid: nsid2, value });
 var attentionClient = (client, identity) => ({
   getPreferences: Effect182.fn("AttentionClient.getPreferences")(
-    () => Schema362.decodeUnknownEffect(Params3)({
+    () => Schema372.decodeUnknownEffect(Params3)({
       did: identity.did
     }).pipe(
       Effect182.flatMap(client.getPreferences),
@@ -79701,7 +79742,7 @@ var attentionClient = (client, identity) => ({
     )
   ),
   getStatus: Effect182.fn("AttentionClient.getStatus")(
-    (did2 = identity.did) => Schema362.decodeUnknownEffect(Params4)({ did: did2 }).pipe(
+    (did2 = identity.did) => Schema372.decodeUnknownEffect(Params4)({ did: did2 }).pipe(
       Effect182.flatMap(client.getStatus),
       Effect182.map((output) => output.status),
       Effect182.mapError(clientError)
@@ -79709,14 +79750,14 @@ var attentionClient = (client, identity) => ({
   ),
   putPreferences: Effect182.fn("AttentionClient.putPreferences")(
     function* putPreferences(prefs) {
-      const validated = yield* Schema362.decodeUnknownEffect(Main2)(prefs);
+      const validated = yield* Schema372.decodeUnknownEffect(Main2)(prefs);
       const key = yield* importSigning(identity);
       const signature3 = yield* sign(
         key,
         attentionBytes(identity.did, Method4.nsid, validated)
       );
-      const input = yield* Schema362.decodeUnknownEffect(
-        Schema362.toType(Input4)
+      const input = yield* Schema372.decodeUnknownEffect(
+        Schema372.toType(Input4)
       )({
         did: identity.did,
         keyId: `${identity.did}#atproto`,
@@ -79728,14 +79769,14 @@ var attentionClient = (client, identity) => ({
     Effect182.mapError(clientError)
   ),
   putStatus: Effect182.fn("AttentionClient.putStatus")(function* putStatus(status) {
-    const validated = yield* Schema362.decodeUnknownEffect(Main3)(status);
+    const validated = yield* Schema372.decodeUnknownEffect(Main3)(status);
     const key = yield* importSigning(identity);
     const signature3 = yield* sign(
       key,
       attentionBytes(identity.did, Method5.nsid, validated)
     );
-    const input = yield* Schema362.decodeUnknownEffect(
-      Schema362.toType(Input5)
+    const input = yield* Schema372.decodeUnknownEffect(
+      Schema372.toType(Input5)
     )({
       did: identity.did,
       keyId: `${identity.did}#atproto`,
@@ -79745,13 +79786,13 @@ var attentionClient = (client, identity) => ({
     return (yield* client.putStatus(input)).status;
   }, Effect182.mapError(clientError))
 });
-var ServiceAuthFailure = class extends Schema372.TaggedError()(
+var ServiceAuthFailure = class extends Schema382.TaggedError()(
   "XrpcFailure",
   {
-    error: Schema372.String,
-    message: Schema372.optionalKey(Schema372.String),
-    response: Schema372.Record(Schema372.String, Schema372.Json),
-    status: Schema372.Int
+    error: Schema382.String,
+    message: Schema382.optionalKey(Schema382.String),
+    response: Schema382.Record(Schema382.String, Schema382.Json),
+    status: Schema382.Int
   }
 ) {
 };
@@ -79768,13 +79809,13 @@ var unbase64url = (text) => Uint8Array.from(
   atob(text.replaceAll("-", "+").replaceAll("_", "/")),
   (character) => character.codePointAt(0) ?? 0
 );
-var Claims = Schema382.Struct({
-  aud: Schema382.String,
-  exp: Schema382.Int,
-  iat: Schema382.Int,
-  iss: Schema382.String,
-  jti: Schema382.String.check(Schema382.isMinLength(16)),
-  lxm: Schema382.String
+var Claims = Schema392.Struct({
+  aud: Schema392.String,
+  exp: Schema392.Int,
+  iat: Schema392.Int,
+  iss: Schema392.String,
+  jti: Schema392.String.check(Schema392.isMinLength(16)),
+  lxm: Schema392.String
 });
 var authFailure = (error, status = 400, message = error) => new ServiceAuthFailure({
   error,
@@ -79782,26 +79823,26 @@ var authFailure = (error, status = 400, message = error) => new ServiceAuthFailu
   response: { error, message },
   status
 });
-var PublicJwk2 = Schema382.Struct({
-  crv: Schema382.Literal("P-256"),
-  d: Schema382.optionalKey(Schema382.Never),
-  kty: Schema382.Literal("EC"),
-  x: Schema382.String,
-  y: Schema382.String
+var PublicJwk2 = Schema392.Struct({
+  crv: Schema392.Literal("P-256"),
+  d: Schema392.optionalKey(Schema392.Never),
+  kty: Schema392.Literal("EC"),
+  x: Schema392.String,
+  y: Schema392.String
 });
-var Document = Schema382.Struct({
-  authentication: Schema382.Array(Schema382.String),
-  id: Schema382.String,
-  keyAgreement: Schema382.Array(Schema382.String),
-  verificationMethod: Schema382.Array(
-    Schema382.Struct({
-      controller: Schema382.String,
-      id: Schema382.String,
+var Document = Schema392.Struct({
+  authentication: Schema392.Array(Schema392.String),
+  id: Schema392.String,
+  keyAgreement: Schema392.Array(Schema392.String),
+  verificationMethod: Schema392.Array(
+    Schema392.Struct({
+      controller: Schema392.String,
+      id: Schema392.String,
       publicKeyJwk: PublicJwk2
     })
   )
 });
-var Documents = Schema382.Array(Document);
+var Documents = Schema392.Array(Document);
 var DidResolver = class extends Context82.Service()("mailbox/DidResolver") {
 };
 var documentResolver = (lookup) => Layer32.succeed(
@@ -79835,10 +79876,10 @@ var documentResolver = (lookup) => Layer32.succeed(
 var staticResolver = (documents) => documentResolver(
   (did2) => Effect192.succeed(documents.find((candidate) => candidate.id === did2))
 );
-var Header = Schema382.Struct({
-  alg: Schema382.Literal("ES256"),
-  kid: Schema382.optionalKey(Schema382.String),
-  typ: Schema382.optionalKey(Schema382.Literal("JWT"))
+var Header = Schema392.Struct({
+  alg: Schema392.Literal("ES256"),
+  kid: Schema392.optionalKey(Schema392.String),
+  typ: Schema392.optionalKey(Schema392.Literal("JWT"))
 });
 var json = (text) => Effect192.try({
   catch: () => authFailure("AuthRequired", 401),
@@ -79853,13 +79894,13 @@ var authenticateClaims = Effect192.fn("ServiceAuth.authenticateClaims")(
       return yield* Effect192.fail(authFailure("AuthRequired", 401));
     }
     const [headerText = "", claimsText = "", signatureText = ""] = token.split(".");
-    const header = yield* Schema382.decodeUnknownEffect(
-      Schema382.fromJsonString(Header)
+    const header = yield* Schema392.decodeUnknownEffect(
+      Schema392.fromJsonString(Header)
     )(yield* json(headerText)).pipe(
       Effect192.mapError(() => authFailure("AuthRequired", 401))
     );
-    const claims = yield* Schema382.decodeUnknownEffect(
-      Schema382.fromJsonString(Claims)
+    const claims = yield* Schema392.decodeUnknownEffect(
+      Schema392.fromJsonString(Claims)
     )(yield* json(claimsText)).pipe(
       Effect192.mapError(() => authFailure("AuthRequired", 401))
     );
@@ -79902,37 +79943,79 @@ var serviceToken = Effect192.fn("ServiceAuth.sign")(
     return `${header}.${payload}.${base64url22(yield* sign(key, bytes22))}`;
   }
 );
-var AgentName = Schema392.String.check(
-  Schema392.isPattern(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*\/)?[a-z][a-z0-9_-]{0,31}$/u)
+var Deadline = Context92.Reference("RatKing/Deadline", {
+  defaultValue: () => Number.POSITIVE_INFINITY
+});
+var REQUEST_MS = 1e4;
+var OPERATION_MS = 9e4;
+var LEASE_MS = 3e3;
+var remaining = Effect202.gen(function* remaining2() {
+  const at = yield* Deadline;
+  return Math.max(0, at - (yield* Clock22.currentTimeMillis));
+});
+var canAttempt = (attemptMs, delayMs = 0) => remaining.pipe(Effect202.map((left) => left >= attemptMs + delayMs));
+var retryBudget = (attemptMs) => (schedule) => schedule.pipe(
+  Schedule2.while(
+    ({ duration }) => canAttempt(attemptMs, Duration4.toMillis(duration))
+  )
+);
+var timeoutOrElse = (options2) => (effect) => Effect202.gen(function* withinDeadline() {
+  const now = yield* Clock22.currentTimeMillis;
+  const at = Math.min(
+    yield* Deadline,
+    now + Duration4.toMillis(Duration4.fromInputUnsafe(options2.duration))
+  );
+  const left = at - now;
+  if (left <= 0) {
+    return yield* options2.orElse();
+  }
+  return yield* effect.pipe(
+    Effect202.provideService(Deadline, at),
+    Effect202.timeoutOrElse({ duration: left, orElse: options2.orElse })
+  );
+});
+var timeout = (duration) => timeoutOrElse({
+  duration,
+  orElse: () => Effect202.fail(new Cause6.TimeoutError("Mailbox deadline exceeded"))
+});
+var timeoutOption = (duration) => (effect) => effect.pipe(
+  Effect202.map(Option23.some),
+  timeoutOrElse({
+    duration,
+    orElse: () => Effect202.succeed(Option23.none())
+  })
+);
+var AgentName = Schema402.String.check(
+  Schema402.isPattern(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*\/)?[a-z][a-z0-9_-]{0,31}$/u)
 );
 var SUMMARY_HARD_MAX = 400;
-var Kind = Schema392.Literals(["message", "ask", "reply", "data"]);
-var ReplyRef = Schema392.Struct({
-  parent: Schema392.String,
-  root: Schema392.String
+var Kind = Schema402.Literals(["message", "ask", "reply", "data"]);
+var ReplyRef = Schema402.Struct({
+  parent: Schema402.String,
+  root: Schema402.String
 });
-var Payload = Schema392.Struct({
-  body: Schema392.String,
-  cc: Schema392.optionalKey(Schema392.Array(AgentName)),
+var Payload = Schema402.Struct({
+  body: Schema402.String,
+  cc: Schema402.optionalKey(Schema402.Array(AgentName)),
   from: AgentName,
-  kind: Schema392.optionalKey(Kind),
-  label: Schema392.optionalKey(Schema392.String.check(Schema392.isMaxLength(256))),
-  quiet: Schema392.optionalKey(Schema392.Literal(true)),
-  reply: Schema392.optionalKey(ReplyRef),
-  replyTo: Schema392.optionalKey(Schema392.String),
-  summary: Schema392.optionalKey(
-    Schema392.String.check(Schema392.isMaxLength(SUMMARY_HARD_MAX))
+  kind: Schema402.optionalKey(Kind),
+  label: Schema402.optionalKey(Schema402.String.check(Schema402.isMaxLength(256))),
+  quiet: Schema402.optionalKey(Schema402.Literal(true)),
+  reply: Schema402.optionalKey(ReplyRef),
+  replyTo: Schema402.optionalKey(Schema402.String),
+  summary: Schema402.optionalKey(
+    Schema402.String.check(Schema402.isMaxLength(SUMMARY_HARD_MAX))
   ),
-  thread: Schema392.optionalKey(Schema392.String),
-  to: Schema392.optionalKey(AgentName)
+  thread: Schema402.optionalKey(Schema402.String),
+  to: Schema402.optionalKey(AgentName)
 });
-var PayloadJson = Schema392.fromJsonString(Payload);
-var encodePayload = Effect202.fn("RatKing.encodePayload")(
+var PayloadJson = Schema402.fromJsonString(Payload);
+var encodePayload = Effect212.fn("RatKing.encodePayload")(
   function* encodePayload2(payload) {
-    return yield* Schema392.encodeEffect(PayloadJson)(payload);
+    return yield* Schema402.encodeEffect(PayloadJson)(payload);
   }
 );
-var openDelegated = Effect212.fn("Mailbox.openDelegated")(
+var openDelegated = Effect222.fn("Mailbox.openDelegated")(
   function* openDelegated2(envelope, receipt, recipientDid, resolveSigningKey) {
     if (receipt.recipientDid !== recipientDid || receipt.originalId !== envelope.aad.messageId || receipt.message.messageId === receipt.originalId || receipt.message.senderDid !== envelope.aad.senderDid) {
       return yield* new EnvelopeFailure({
@@ -79940,7 +80023,7 @@ var openDelegated = Effect212.fn("Mailbox.openDelegated")(
       });
     }
     const signed = yield* openPlaintext(envelope, resolveSigningKey);
-    const payload = yield* Schema402.decodeUnknownEffect(PayloadJson)(
+    const payload = yield* Schema412.decodeUnknownEffect(PayloadJson)(
       new TextDecoder().decode(signed.body)
     );
     if (receipt.delegatedFor === void 0 || payload.to !== receipt.delegatedFor) {
@@ -79951,51 +80034,51 @@ var openDelegated = Effect212.fn("Mailbox.openDelegated")(
     return signed;
   }
 );
-var Params15 = Schema412.StructWithRest(
-  Schema412.Struct({
+var Params15 = Schema422.StructWithRest(
+  Schema422.Struct({
     did: lexString2({ format: "did", type: "string" }).pipe(
-      Schema412.brand("Lexicon:did")
+      Schema422.brand("Lexicon:did")
     )
   }),
-  [Schema412.Record(Schema412.String, Data9)]
+  [Schema422.Record(Schema422.String, Data9)]
 );
-var Input14 = Schema412.Undefined;
-var Output14 = Schema412.StructWithRest(
-  Schema412.Struct({
+var Input14 = Schema422.Undefined;
+var Output14 = Schema422.StructWithRest(
+  Schema422.Struct({
     did: lexString2({ format: "did", type: "string" }).pipe(
-      Schema412.brand("Lexicon:did")
+      Schema422.brand("Lexicon:did")
     ),
-    held: Schema412.Boolean,
-    lastHeldAt: Schema412.optionalKey(
+    held: Schema422.Boolean,
+    lastHeldAt: Schema422.optionalKey(
       lexString2({ format: "datetime", type: "string" }).pipe(
-        Schema412.brand("Lexicon:datetime")
+        Schema422.brand("Lexicon:datetime")
       )
     ),
-    renders: Schema412.optionalKey(
-      Schema412.Array(lexString2({ type: "string" })).check(
-        Schema412.isMinLength(0),
-        Schema412.isMaxLength(9007199254740991)
+    renders: Schema422.optionalKey(
+      Schema422.Array(lexString2({ type: "string" })).check(
+        Schema422.isMinLength(0),
+        Schema422.isMaxLength(9007199254740991)
       )
     )
   }),
-  [Schema412.Record(Schema412.String, Data9)]
+  [Schema422.Record(Schema422.String, Data9)]
 );
-var ParamsFromQuery5 = Schema412.StructWithRest(
-  Schema412.Struct({ did: Schema412.String }),
-  [Schema412.Record(Schema412.String, Data9)]
-).pipe(Schema412.decodeTo(Params15));
-var encodeParams9 = Effect222.fn("lexicon.encodeParams")(
+var ParamsFromQuery5 = Schema422.StructWithRest(
+  Schema422.Struct({ did: Schema422.String }),
+  [Schema422.Record(Schema422.String, Data9)]
+).pipe(Schema422.decodeTo(Params15));
+var encodeParams9 = Effect232.fn("lexicon.encodeParams")(
   function* encodeParams10(params2) {
     return entries(
-      yield* Schema412.decodeUnknownEffect(Params2)(
-        yield* Schema412.encodeEffect(ParamsFromQuery5)(params2)
+      yield* Schema422.decodeUnknownEffect(Params2)(
+        yield* Schema422.encodeEffect(ParamsFromQuery5)(params2)
       )
     );
   }
 );
-var decodeParams9 = Effect222.fn("lexicon.decodeParams")(
+var decodeParams9 = Effect232.fn("lexicon.decodeParams")(
   function* decodeParams10(entries2) {
-    return yield* Schema412.decodeUnknownEffect(ParamsFromQuery5)(
+    return yield* Schema422.decodeUnknownEffect(ParamsFromQuery5)(
       parameters(entries2)
     );
   }
@@ -80016,28 +80099,28 @@ var Method14 = {
 var readerCannotRender = (name, type, presence) => type !== "unknown" && presence?.held === true && presence.renders !== void 0 && !presence.renders.some(
   (render) => render.endsWith(".*") ? type.startsWith(render.slice(0, -1)) : type === render
 ) ? `NOT SENT: ReaderCannotRender. ${name}'s reader doesn't render ${type} (it predates typed records or doesn't declare it). Send prose instead, or ask them to restart.` : void 0;
-var lookupPresence = Effect232.fn("Mailbox.lookupPresence")(
+var lookupPresence = Effect242.fn("Mailbox.lookupPresence")(
   function* lookupPresence2(did2) {
     const transport = yield* Transport;
-    const params2 = yield* Schema422.decodeUnknownEffect(Params15)({
+    const params2 = yield* Schema432.decodeUnknownEffect(Params15)({
       did: did2
-    }).pipe(Effect232.mapError(clientError));
+    }).pipe(Effect242.mapError(clientError));
     const response = yield* transport.request({
       input: void 0,
       method: "GET",
       nsid: Method14.nsid,
-      params: yield* Schema422.encodeEffect(Params15)(params2).pipe(
-        Effect232.mapError(clientError)
+      params: yield* Schema432.encodeEffect(Params15)(params2).pipe(
+        Effect242.mapError(clientError)
       )
-    }).pipe(Effect232.mapError(clientError));
+    }).pipe(Effect242.mapError(clientError));
     if (response.kind !== "json" || response.status !== 200) {
       return yield* new MailboxClientError({
         reason: "Presence request refused"
       });
     }
-    return yield* Schema422.decodeUnknownEffect(Output14)(
+    return yield* Schema432.decodeUnknownEffect(Output14)(
       response.body
-    ).pipe(Effect232.mapError(clientError));
+    ).pipe(Effect242.mapError(clientError));
   }
 );
 var tid2 = (millis, clockId, micros = 0) => {
@@ -80054,20 +80137,15 @@ var randomTid = (millis) => {
   const words = crypto.getRandomValues(new Uint16Array(2));
   return tid2(millis, words[0] ?? 0, words[1] ?? 0);
 };
-var TransportFailure = class extends Schema432.TaggedError()(
-  "TransportFailure",
-  { cause: Schema432.Defect(), reason: Schema432.String }
-) {
-};
 var transportLayer = (endpoint, audience, identity) => Layer42.effect(
   Transport,
-  Effect242.gen(function* makeTransport() {
+  Effect252.gen(function* makeTransport() {
     const http4 = yield* HttpClient2.HttpClient;
     return Transport.of({
-      request: Effect242.fn("MailboxCli.request")(
+      request: Effect252.fn("MailboxCli.request")(
         function* requestCall(request2) {
-          const now = Math.floor((yield* Clock22.currentTimeMillis) / 1e3);
-          const nonce = yield* Effect242.sync(
+          const now = Math.floor((yield* Clock32.currentTimeMillis) / 1e3);
+          const nonce = yield* Effect252.sync(
             () => base64url22(crypto.getRandomValues(new Uint8Array(16)))
           );
           const token = yield* serviceToken(
@@ -80105,7 +80183,7 @@ var transportLayer = (endpoint, audience, identity) => Layer42.effect(
           const body = yield* response.text;
           const json22 = yield* Schema442.decodeUnknownEffect(
             Schema442.fromJsonString(Schema442.toEncoded(Data9))
-          )(body).pipe(Effect242.result);
+          )(body).pipe(Effect252.result);
           if (Result32.isFailure(json22)) {
             return { body, kind: "text", status: response.status };
           }
@@ -80115,10 +80193,19 @@ var transportLayer = (endpoint, audience, identity) => Layer42.effect(
             status: response.status
           };
         },
-        Effect242.mapError(
-          () => new TransportFailure({
+        (effect, request2) => effect.pipe(
+          timeout(
+            [
+              "sh.mschf.ratking.runtime.acquireLease",
+              "sh.mschf.ratking.runtime.renewLease",
+              "sh.mschf.ratking.runtime.releaseLease"
+            ].includes(request2.nsid) ? LEASE_MS : REQUEST_MS
+          )
+        ),
+        Effect252.mapError(
+          (failure32) => new TransportFailure({
             cause: null,
-            reason: "Service-auth HTTP call failed"
+            reason: connectionFailure(failure32) ? "Service-auth HTTP connection unavailable" : "Service-auth HTTP call failed"
           })
         )
       )
@@ -80170,7 +80257,7 @@ var ParamsFromQuery6 = Schema452.StructWithRest(
   }),
   [Schema452.Record(Schema452.String, Data9)]
 ).pipe(Schema452.decodeTo(Params16));
-var encodeParams11 = Effect252.fn("lexicon.encodeParams")(
+var encodeParams11 = Effect262.fn("lexicon.encodeParams")(
   function* encodeParams12(params2) {
     return entries(
       yield* Schema452.decodeUnknownEffect(Params2)(
@@ -80179,7 +80266,7 @@ var encodeParams11 = Effect252.fn("lexicon.encodeParams")(
     );
   }
 );
-var decodeParams11 = Effect252.fn("lexicon.decodeParams")(
+var decodeParams11 = Effect262.fn("lexicon.decodeParams")(
   function* decodeParams12(entries2) {
     return yield* Schema452.decodeUnknownEffect(ParamsFromQuery6)(
       parameters(entries2)
@@ -80200,10 +80287,10 @@ var Notice = Schema452.StructWithRest(
   }),
   [Schema452.Record(Schema452.String, Data9)]
 );
-var WebSocketPort = class extends Context92.Service()("@rat-king/mailbox-client/WebSocketPort") {
+var WebSocketPort = class extends Context102.Service()("@rat-king/mailbox-client/WebSocketPort") {
 };
 var socketError = (error) => {
-  if (Predicate5.isTagged(error.reason, "SocketCloseError")) {
+  if (Predicate22.isTagged(error.reason, "SocketCloseError")) {
     if (error.reason.code === 4409) {
       return new MailboxClientError({
         error: "LeaseMismatch",
@@ -80222,10 +80309,16 @@ var socketError = (error) => {
     reason: "Mailbox subscription disconnected"
   });
 };
-var watch = (config, poll, afterSeq, fence) => Stream3.suspend(() => {
+var socketRetry = (observer) => (error) => error.error === "SocketDisconnected" ? observer?.(error) ?? Effect272.void : Effect272.void;
+var watch = (config, poll, afterSeq, fence, onRetry) => Stream3.suspend(() => {
   let checkpoint = afterSeq;
+  let connections = 0;
   const connection = Stream3.unwrap(
-    Effect262.gen(function* connect() {
+    Effect272.gen(function* connect() {
+      if (connections > 0) {
+        yield* config.onRetryMetric?.("consumeReconnect") ?? Effect272.void;
+      }
+      connections += 1;
       if (fence.did !== config.identity.did) {
         return yield* new MailboxClientError({
           reason: "Watch fence DID differs from recipient"
@@ -80237,35 +80330,35 @@ var watch = (config, poll, afterSeq, fence) => Stream3.suspend(() => {
         generation: fence.generation,
         leaseId: fence.leaseId,
         recipientDid: config.identity.did
-      }).pipe(Effect262.mapError(clientError));
+      }).pipe(Effect272.mapError(clientError));
       const url = new URL(Method15.path, config.endpoint);
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
       for (const [name, value] of yield* encodeParams11(params2).pipe(
-        Effect262.mapError(clientError)
+        Effect272.mapError(clientError)
       )) {
         url.searchParams.set(name, value);
       }
-      const port = yield* Effect262.serviceOption(WebSocketPort);
+      const port = yield* Effect272.serviceOption(WebSocketPort);
       const socket = yield* Socket.fromWebSocket(
-        Effect262.acquireRelease(
-          Effect262.try({
+        Effect272.acquireRelease(
+          Effect272.try({
             catch: (cause) => new Socket.SocketError({
               reason: new Socket.SocketOpenError({
                 cause,
                 kind: "Unknown"
               })
             }),
-            try: () => Option24.isSome(port) ? port.value.connect(url.href) : new globalThis.WebSocket(url.href)
+            try: () => Option32.isSome(port) ? port.value.connect(url.href) : new globalThis.WebSocket(url.href)
           }),
-          (ws) => Effect262.sync(() => {
+          (ws) => Effect272.sync(() => {
             ws.close(1e3);
           })
         ),
         { highWaterMark: 65536 }
       );
-      const reader = yield* socket.reader.pipe(Effect262.mapError(socketError));
+      const reader = yield* socket.reader.pipe(Effect272.mapError(socketError));
       const writer = yield* socket.writer;
-      const now = Math.floor((yield* Clock32.currentTimeMillis) / 1e3);
+      const now = Math.floor((yield* Clock42.currentTimeMillis) / 1e3);
       const token = yield* serviceToken(
         {
           aud: config.serviceDid.replace(/(?:#mailbox)?$/u, "#mailbox"),
@@ -80276,58 +80369,68 @@ var watch = (config, poll, afterSeq, fence) => Stream3.suspend(() => {
           lxm: Method15.nsid
         },
         yield* importSigning(config.identity).pipe(
-          Effect262.mapError(clientError)
+          Effect272.mapError(clientError)
         )
-      ).pipe(Effect262.mapError(clientError));
+      ).pipe(Effect272.mapError(clientError));
       const auth = yield* Schema462.encodeEffect(Auth)({
         $type: "sh.mschf.ratking.mailbox.subscribe#auth",
         token
-      }).pipe(Effect262.mapError(clientError));
-      yield* writer.write(JSON.stringify(auth)).pipe(Effect262.mapError(socketError));
-      const receiveNotice = Effect262.gen(function* receiveNotice2() {
-        const frames = yield* reader.pull.pipe(Effect262.mapError(socketError));
+      }).pipe(Effect272.mapError(clientError));
+      yield* writer.write(JSON.stringify(auth)).pipe(Effect272.mapError(socketError));
+      const receiveNotice = Effect272.gen(function* receiveNotice2() {
+        const frames = yield* reader.pull.pipe(Effect272.mapError(socketError));
         for (const frame of frames) {
           yield* Schema462.decodeUnknownEffect(
             Schema462.fromJsonString(Notice)
           )(
             Schema462.is(Schema462.String)(frame) ? frame : new TextDecoder().decode(frame)
-          ).pipe(Effect262.mapError(clientError));
+          ).pipe(Effect272.mapError(clientError));
         }
       });
       yield* receiveNotice;
-      const notices = Stream3.fromEffectRepeat(
-        receiveNotice.pipe(Effect262.flatMap(() => poll(checkpoint)))
-      );
-      return Stream3.fromEffect(Effect262.suspend(() => poll(checkpoint))).pipe(
-        Stream3.concat(notices)
+      let catchUp = true;
+      return Stream3.fromEffectRepeat(
+        Effect272.suspend(() => catchUp ? Effect272.void : receiveNotice).pipe(
+          Effect272.flatMap(() => poll(checkpoint)),
+          Effect272.tap(
+            (batch) => Effect272.sync(() => {
+              catchUp = batch.hasMore === true;
+            })
+          )
+        )
       );
     })
   );
   return connection.pipe(
-    Stream3.filter((batch) => batch.events.length > 0),
     Stream3.tap(
-      (batch) => Effect262.sync(() => {
+      (batch) => Effect272.sync(() => {
         checkpoint = batch.throughSeq;
       })
     ),
+    Stream3.tapError(socketRetry(onRetry)),
     Stream3.retry(
-      Schedule2.exponential("100 millis").pipe(
-        Schedule2.jittered,
-        Schedule2.modifyDelay(
-          ({ duration }) => Effect262.succeed(Math.min(5e3, Duration4.toMillis(duration)))
+      Schedule22.exponential("100 millis").pipe(
+        Schedule22.jittered,
+        Schedule22.modifyDelay(
+          ({ duration }) => Effect272.succeed(Math.min(5e3, Duration22.toMillis(duration)))
         ),
-        Schedule2.while(
-          ({ input }) => input.error === "SocketDisconnected"
+        Schedule22.while(
+          ({
+            input,
+            elapsed,
+            duration
+          }) => input.error === "SocketDisconnected" && elapsed + Duration22.toMillis(duration) < 3e5
         )
       )
     )
   );
 });
-var decodeBody = (body) => Effect272.try({
+var POLL_MAX_PAGES = 10;
+var decodeBody = (body) => Effect282.try({
   catch: () => new MailboxClientError({ reason: "Invalid UTF-8 body" }),
   try: () => new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(body)
 });
-var openPass = Effect272.fn("RatKingMailbox.openPass")(function* openPass2(envelope, receipt, recipientDid, resolver) {
+var openPass = Effect282.fn("RatKingMailbox.openPass")(function* openPass2(envelope, receipt, recipientDid, resolver) {
   const via = yield* Schema472.decodeUnknownEffect(Via)(receipt.via);
   if (via.worker !== envelope.aad.senderDid || via.worker !== receipt.message.senderDid) {
     return yield* new MailboxClientError({
@@ -80346,7 +80449,7 @@ var openPass = Effect272.fn("RatKingMailbox.openPass")(function* openPass2(envel
       ["verify"]
     )
   );
-  const resolveSigningKey = (did2, keyId2) => did2 === via.worker && keyId2 === `${via.worker}#${via.worker.slice("did:key:".length)}` ? Effect272.succeed(workerKey) : Effect272.fail(
+  const resolveSigningKey = (did2, keyId2) => did2 === via.worker && keyId2 === `${via.worker}#${via.worker.slice("did:key:".length)}` ? Effect282.succeed(workerKey) : Effect282.fail(
     new EnvelopeFailure({ reason: "Unauthorized pass signing key" })
   );
   if (receipt.delegatedFor === void 0 && (envelope.aad.recipientDid !== recipientDid || envelope.aad.recipientKeyId !== `${recipientDid}#encryption` || receipt.recipientDid !== recipientDid || receipt.message.messageId !== envelope.aad.messageId)) {
@@ -80383,10 +80486,10 @@ var openPass = Effect272.fn("RatKingMailbox.openPass")(function* openPass2(envel
     via.pass,
     recordedAt
   ).pipe(
-    Effect272.provide(signatures),
-    Effect272.provideService(
+    Effect282.provide(signatures),
+    Effect282.provideService(
       NonceBinding,
-      yield* makeMemoryNonceBinding(Effect272.succeed(recordedAt))
+      yield* makeMemoryNonceBinding(Effect282.succeed(recordedAt))
     )
   );
   if (pass.record.worker !== via.worker || pass.record.run !== via.run || !pass.record.scope.includes("rk.send.plain")) {
@@ -80396,13 +80499,13 @@ var openPass = Effect272.fn("RatKingMailbox.openPass")(function* openPass2(envel
   }
   return payload;
 });
-var openReceived = Effect272.fn("RatKingMailbox.openReceived")(
+var openReceived = Effect282.fn("RatKingMailbox.openReceived")(
   function* openReceived2(envelope, receipt, identity, resolver) {
     if (receipt?.via !== void 0) {
       return yield* openPass(envelope, receipt, identity.did, resolver);
     }
     const resolveSigningKey = (did2, keyId2) => resolver.resolve(did2, keyId2, "authentication").pipe(
-      Effect272.mapError(
+      Effect282.mapError(
         () => new EnvelopeFailure({ reason: "Unauthorized sender signing key" })
       )
     );
@@ -80433,88 +80536,112 @@ var sendIntent = (opts) => {
   }
   return intent;
 };
-var RatKingMailbox = class extends Context102.Service()("@rat-king/mailbox-client/RatKingMailbox") {
+var RatKingMailbox = class extends Context112.Service()("@rat-king/mailbox-client/RatKingMailbox") {
 };
 var layer = (config, resolverLayer = staticResolver(config.documents)) => Layer52.effect(
   RatKingMailbox,
-  Effect272.gen(function* makeMailbox() {
+  Effect282.gen(function* makeMailbox() {
     const client = yield* MailboxClient;
     const transport = yield* Transport;
     const resolver = yield* DidResolver;
     const { identity } = config;
-    const list = Effect272.fn("RatKingMailbox.list")(
+    const list = Effect282.fn("RatKingMailbox.list")(
       (params2) => Schema472.decodeUnknownEffect(Schema472.toType(Params9))({
         ...params2,
         recipientDid: identity.did
-      }).pipe(Effect272.flatMap(client.list), Effect272.mapError(clientError))
+      }).pipe(Effect282.flatMap(client.list), Effect282.mapError(clientError))
     );
-    const poll = Effect272.fn("RatKingMailbox.poll")(function* poll2(afterSeq) {
-      const first = yield* list({ afterSeq });
-      const events2 = [...first.events];
-      let { cursor } = first;
-      while (cursor !== void 0) {
-        const page3 = yield* list({ afterSeq, cursor });
-        if (page3.throughSeq !== first.throughSeq) {
-          return yield* new MailboxClientError({
-            reason: "Snapshot watermark changed during pagination"
-          });
+    const poll = Effect282.fn("RatKingMailbox.poll")(
+      function* poll2(afterSeq) {
+        const first = yield* list({ afterSeq, limit: 100 });
+        const events2 = [...first.events];
+        let { cursor } = first;
+        let pages = 1;
+        const cursors = /* @__PURE__ */ new Set();
+        while (cursor !== void 0 && pages < POLL_MAX_PAGES) {
+          if (cursors.has(cursor)) {
+            return yield* new MailboxClientError({
+              reason: "Repeated mailbox page cursor"
+            });
+          }
+          cursors.add(cursor);
+          const page3 = yield* list({ afterSeq, cursor, limit: 100 });
+          pages += 1;
+          if (page3.throughSeq !== first.throughSeq) {
+            return yield* new MailboxClientError({
+              reason: "Snapshot watermark changed during pagination"
+            });
+          }
+          events2.push(...page3.events);
+          ({ cursor } = page3);
         }
-        events2.push(...page3.events);
-        ({ cursor } = page3);
-      }
-      return { events: events2, throughSeq: first.throughSeq };
-    });
+        if (cursor !== void 0) {
+          const last = events2.at(-1)?.seq;
+          if (!Schema472.is(Schema472.Int)(last) || !Number.isSafeInteger(last) || last <= afterSeq) {
+            return yield* new MailboxClientError({
+              reason: "Mailbox page did not advance its sequence"
+            });
+          }
+          return { events: events2, hasMore: true, throughSeq: last };
+        }
+        return { events: events2, throughSeq: first.throughSeq };
+      },
+      (effect) => effect.pipe(
+        timeout(OPERATION_MS),
+        Effect282.mapError(clientError)
+      )
+    );
     return RatKingMailbox.of({
       ...attentionClient(client, identity),
-      ack: Effect272.fn("RatKingMailbox.ack")(
+      ack: Effect282.fn("RatKingMailbox.ack")(
         (input) => Schema472.decodeUnknownEffect(Schema472.toType(Input6))({
           ...input,
           recipientDid: identity.did
-        }).pipe(Effect272.flatMap(client.ack), Effect272.mapError(clientError))
+        }).pipe(Effect282.flatMap(client.ack), Effect282.mapError(clientError))
       ),
-      deliver: Effect272.fn("RatKingMailbox.deliver")(
+      deliver: Effect282.fn("RatKingMailbox.deliver")(
         (input) => Schema472.decodeUnknownEffect(Schema472.toType(Input7))({
           ...input,
           recipientDid: identity.did
-        }).pipe(Effect272.flatMap(client.deliver), Effect272.mapError(clientError))
+        }).pipe(Effect282.flatMap(client.deliver), Effect282.mapError(clientError))
       ),
       lease: {
-        acquire: Effect272.fn("RatKingMailbox.lease.acquire")(
+        acquire: Effect282.fn("RatKingMailbox.lease.acquire")(
           (input) => Schema472.decodeUnknownEffect(Schema472.toType(Input10))(
             input
           ).pipe(
-            Effect272.flatMap(client.acquireLease),
-            Effect272.map((output) => output.lease),
-            Effect272.mapError(clientError)
+            Effect282.flatMap(client.acquireLease),
+            Effect282.map((output) => output.lease),
+            Effect282.mapError(clientError)
           )
         ),
-        release: Effect272.fn("RatKingMailbox.lease.release")(
+        release: Effect282.fn("RatKingMailbox.lease.release")(
           (input) => Schema472.decodeUnknownEffect(Schema472.toType(Input11))(
             input
           ).pipe(
-            Effect272.flatMap(client.releaseLease),
-            Effect272.mapError(clientError)
+            Effect282.flatMap(client.releaseLease),
+            Effect282.mapError(clientError)
           )
         ),
-        renew: Effect272.fn("RatKingMailbox.lease.renew")(
+        renew: Effect282.fn("RatKingMailbox.lease.renew")(
           (input) => Schema472.decodeUnknownEffect(Schema472.toType(Input12))(input).pipe(
-            Effect272.flatMap(client.renewLease),
-            Effect272.map((output) => output.lease),
-            Effect272.mapError(clientError)
+            Effect282.flatMap(client.renewLease),
+            Effect282.map((output) => output.lease),
+            Effect282.mapError(clientError)
           )
         ),
-        resolve: Effect272.fn("RatKingMailbox.lease.resolve")(
+        resolve: Effect282.fn("RatKingMailbox.lease.resolve")(
           (did2) => Schema472.decodeUnknownEffect(Schema472.toType(Params14))({
             did: did2
           }).pipe(
-            Effect272.flatMap(client.resolveLease),
-            Effect272.map((output) => output.lease),
-            Effect272.mapError(clientError)
+            Effect282.flatMap(client.resolveLease),
+            Effect282.map((output) => output.lease),
+            Effect282.mapError(clientError)
           )
         )
       },
       list,
-      open: Effect272.fn("RatKingMailbox.open")(function* open3(input, receipt) {
+      open: Effect282.fn("RatKingMailbox.open")(function* open3(input, receipt) {
         const envelope = yield* Schema472.decodeUnknownEffect(
           Schema472.toType(EncryptedEnvelope)
         )(input);
@@ -80538,7 +80665,7 @@ var layer = (config, resolverLayer = staticResolver(config.documents)) => Layer5
               })
             })
           )
-        )(body).pipe(Effect272.option);
+        )(body).pipe(Effect282.option);
         const result = {
           body,
           encrypted: !plaintext(envelope),
@@ -80557,7 +80684,7 @@ var layer = (config, resolverLayer = staticResolver(config.documents)) => Layer5
           result.originalId = receipt.originalId;
           result.tid = receipt.message.messageId;
         }
-        if (Option32.isSome(carbonCopy)) {
+        if (Option42.isSome(carbonCopy)) {
           if (carbonCopy.value.primary.senderDid !== payload.aad.senderDid || carbonCopy.value.primary.messageId !== payload.replyTo?.messageId || payload.replyTo.senderDid !== payload.aad.senderDid) {
             return yield* new MailboxClientError({
               reason: "Invalid CC primary link"
@@ -80573,87 +80700,95 @@ var layer = (config, resolverLayer = staticResolver(config.documents)) => Layer5
           result.urgent = payload.urgent;
         }
         return result;
-      }, Effect272.mapError(clientError)),
+      }, Effect282.mapError(clientError)),
       poll,
-      putDidDocument: Effect272.fn("RatKingMailbox.putDidDocument")(
+      putDidDocument: Effect282.fn("RatKingMailbox.putDidDocument")(
         (document) => Schema472.decodeUnknownEffect(Schema472.toType(Input))({
           document
         }).pipe(
-          Effect272.flatMap(client.putDidDocument),
-          Effect272.mapError(clientError)
+          Effect282.flatMap(client.putDidDocument),
+          Effect282.mapError(clientError)
         )
       ),
-      send: Effect272.fn("RatKingMailbox.send")(function* send3(to, body, opts) {
-        if (opts?.recordType !== void 0) {
-          const presence = yield* lookupPresence(to).pipe(
-            Effect272.provideService(Transport, transport),
-            Effect272.timeoutOption("2 seconds"),
-            Effect272.orElseSucceed(() => Option32.none())
-          );
-          const reason = readerCannotRender(
-            to,
-            opts.recordType,
-            Option32.getOrUndefined(presence)
-          );
-          if (reason !== void 0) {
-            return yield* new MailboxClientError({ reason });
+      send: Effect282.fn("RatKingMailbox.send")(
+        function* send3(to, body, opts) {
+          if (opts?.recordType !== void 0) {
+            const presence = yield* lookupPresence(to).pipe(
+              Effect282.provideService(Transport, transport),
+              timeoutOption("2 seconds"),
+              Effect282.orElseSucceed(() => Option42.none())
+            );
+            const reason = readerCannotRender(
+              to,
+              opts.recordType,
+              Option42.getOrUndefined(presence)
+            );
+            if (reason !== void 0) {
+              return yield* new MailboxClientError({ reason });
+            }
           }
-        }
-        if (opts?.fence !== void 0 && opts.fence.did !== identity.did) {
-          return yield* new MailboxClientError({
-            reason: "Send fence DID differs from sender"
+          if (opts?.fence !== void 0 && opts.fence.did !== identity.did) {
+            return yield* new MailboxClientError({
+              reason: "Send fence DID differs from sender"
+            });
+          }
+          const now = yield* Clock52.currentTimeMillis;
+          const messageId = yield* Effect282.sync(() => randomTid(now));
+          const aad = {
+            messageId,
+            recipientDid: to,
+            recipientKeyId: `${to}#encryption`,
+            senderDid: identity.did
+          };
+          if (opts?.expiresAt !== void 0) {
+            aad.expiresAt = opts.expiresAt;
+          }
+          const raw = {
+            aad,
+            body: new TextEncoder().encode(body),
+            suite: opts?.encrypt === false ? plaintextSuite : suite,
+            version: 1
+          };
+          if (opts?.replyTo !== void 0) {
+            raw.replyTo = opts.replyTo;
+          }
+          if (opts?.urgent !== void 0) {
+            raw.urgent = opts.urgent;
+          }
+          const payload = yield* Schema472.decodeUnknownEffect(
+            Schema472.toType(SigningPayload)
+          )(raw);
+          const envelope = yield* seal({
+            payload,
+            recipientKey: yield* resolver.resolve(
+              to,
+              payload.aad.recipientKeyId,
+              "keyAgreement"
+            ),
+            recipientKeyId: payload.aad.recipientKeyId,
+            signingKey: yield* importSigning(identity),
+            signingKeyId: `${identity.did}#atproto`
           });
-        }
-        const now = yield* Clock42.currentTimeMillis;
-        const messageId = yield* Effect272.sync(() => randomTid(now));
-        const aad = {
-          messageId,
-          recipientDid: to,
-          recipientKeyId: `${to}#encryption`,
-          senderDid: identity.did
-        };
-        if (opts?.expiresAt !== void 0) {
-          aad.expiresAt = opts.expiresAt;
-        }
-        const raw = {
-          aad,
-          body: new TextEncoder().encode(body),
-          suite: opts?.encrypt === false ? plaintextSuite : suite,
-          version: 1
-        };
-        if (opts?.replyTo !== void 0) {
-          raw.replyTo = opts.replyTo;
-        }
-        if (opts?.urgent !== void 0) {
-          raw.urgent = opts.urgent;
-        }
-        const payload = yield* Schema472.decodeUnknownEffect(
-          Schema472.toType(SigningPayload)
-        )(raw);
-        const envelope = yield* seal({
-          payload,
-          recipientKey: yield* resolver.resolve(
-            to,
-            payload.aad.recipientKeyId,
-            "keyAgreement"
-          ),
-          recipientKeyId: payload.aad.recipientKeyId,
-          signingKey: yield* importSigning(identity),
-          signingKeyId: `${identity.did}#atproto`
-        });
-        const input = {
-          envelope,
-          ...sendIntent(opts)
-        };
-        if (opts?.fence !== void 0) {
-          input.generation = opts.fence.generation;
-          input.leaseId = opts.fence.leaseId;
-        }
-        return yield* client.send(
-          yield* Schema472.decodeUnknownEffect(Schema472.toType(Input9))(input)
-        );
-      }, Effect272.mapError(clientError)),
-      watch: (afterSeq, fence) => watch(config, poll, afterSeq, fence)
+          const input = {
+            envelope,
+            ...sendIntent(opts)
+          };
+          if (opts?.fence !== void 0) {
+            input.generation = opts.fence.generation;
+            input.leaseId = opts.fence.leaseId;
+          }
+          return yield* client.send(
+            yield* Schema472.decodeUnknownEffect(Schema472.toType(Input9))(
+              input
+            )
+          );
+        },
+        (effect) => effect.pipe(
+          timeout(OPERATION_MS),
+          Effect282.mapError(clientError)
+        )
+      ),
+      watch: (afterSeq, fence, onRetry) => watch(config, poll, afterSeq, fence, onRetry)
     });
   })
 ).pipe(
@@ -80687,7 +80822,7 @@ var ParamsFromQuery7 = Schema482.StructWithRest(
   Schema482.Struct({ did: Schema482.String }),
   [Schema482.Record(Schema482.String, Data9)]
 ).pipe(Schema482.decodeTo(Params17));
-var encodeParams13 = Effect282.fn("lexicon.encodeParams")(
+var encodeParams13 = Effect292.fn("lexicon.encodeParams")(
   function* encodeParams14(params2) {
     return entries(
       yield* Schema482.decodeUnknownEffect(Params2)(
@@ -80696,7 +80831,7 @@ var encodeParams13 = Effect282.fn("lexicon.encodeParams")(
     );
   }
 );
-var decodeParams13 = Effect282.fn("lexicon.decodeParams")(
+var decodeParams13 = Effect292.fn("lexicon.decodeParams")(
   function* decodeParams14(entries2) {
     return yield* Schema482.decodeUnknownEffect(ParamsFromQuery7)(
       parameters(entries2)
@@ -80730,6 +80865,69 @@ var Main9 = Schema492.StructWithRest(
   }),
   [Schema492.Record(Schema492.String, Data9)]
 );
+var HANDOFF_HISTORY_CAPACITY = 2048;
+var handoffHistory = () => {
+  const keys = /* @__PURE__ */ new Set();
+  const remember2 = (key) => {
+    keys.delete(key);
+    keys.add(key);
+    if (keys.size > HANDOFF_HISTORY_CAPACITY) {
+      const oldest = keys.values().next();
+      if (oldest.done !== true) {
+        keys.delete(oldest.value);
+      }
+    }
+  };
+  return {
+    add: remember2,
+    delete: (key) => keys.delete(key),
+    has: (key) => {
+      if (!keys.has(key)) {
+        return false;
+      }
+      remember2(key);
+      return true;
+    },
+    size: () => keys.size
+  };
+};
+var RetryEvent = Schema502.Literals([
+  "acquireOk",
+  "acquireLeaseHeld",
+  "acquireMailboxUnavailable",
+  "acquireTimeout",
+  "acquireOther",
+  "renewLeaseHeld",
+  "renewMailboxUnavailable",
+  "renewTimeout",
+  "renewLeaseExpired",
+  "renewLeaseMismatch",
+  "renewOther",
+  "consumeReconnect",
+  "sendRetry"
+]);
+var retryFailure = (operation, error) => {
+  if (error.reason === "Acquire attempt timed out" || error.reason === "Renewal attempt timed out") {
+    return operation === "acquire" ? "acquireTimeout" : "renewTimeout";
+  }
+  if (operation === "acquire") {
+    return Match22.value(error.error ?? "").pipe(
+      Match22.when("LeaseHeld", () => "acquireLeaseHeld"),
+      Match22.when(
+        "MailboxUnavailable",
+        () => "acquireMailboxUnavailable"
+      ),
+      Match22.orElse(() => "acquireOther")
+    );
+  }
+  return Match22.value(error.error ?? "").pipe(
+    Match22.when("LeaseHeld", () => "renewLeaseHeld"),
+    Match22.when("MailboxUnavailable", () => "renewMailboxUnavailable"),
+    Match22.when("LeaseExpired", () => "renewLeaseExpired"),
+    Match22.when("LeaseMismatch", () => "renewLeaseMismatch"),
+    Match22.orElse(() => "renewOther")
+  );
+};
 var consumerMachine = (0, import_xstate_cjs.createMachine)({
   context: {},
   id: "mailbox-consumer",
@@ -80744,30 +80942,45 @@ var consumerMachine = (0, import_xstate_cjs.createMachine)({
     },
     closed: { type: "final" },
     consuming: {
-      on: { LOST: { target: "releasing" }, STOP: { target: "releasing" } }
+      on: {
+        LOST: { target: "releasing" },
+        RETRYING: { target: "retrying" },
+        STOP: { target: "releasing" }
+      }
     },
     releasing: { on: { RELEASED: { target: "closed" } } },
+    retrying: {
+      on: {
+        ACQUIRED: { target: "consuming" },
+        LOST: { target: "releasing" },
+        STOP: { target: "releasing" }
+      }
+    },
     waiting: { on: { RETRY: { target: "acquiring" } } }
   }
 });
-var ATTEMPT_MS = 3e3;
+var ATTEMPT_MS = LEASE_MS;
+var RENEW_FLOOR_MS = 250;
+var LEASE_TTL_MS = 3e5;
 var attemptTimedOut = (reason) => new MailboxClientError({ error: "MailboxUnavailable", reason });
 var TIMED_OUT = "Renewal attempt timed out";
-var unavailable = (error) => error.status === void 0 ? error.error === void 0 || error.error === "MailboxUnavailable" : error.status >= 500 || error.status === 429;
+var unavailable = (error) => error.status === void 0 ? error.error === "MailboxUnavailable" || error.error === "SocketDisconnected" : error.status >= 500 && error.status < 600 || error.status === 429;
 var expiredRefusal = (error) => error.error === "InvalidTransition" && error.reason === "Expired message";
 var settledRefusal = (error) => error.error === "InvalidTransition";
 var releasedRefusal = (error) => error.error === "LeaseMismatch";
-var consume2 = (mailbox, did2, handler, options2) => Effect292.scoped(
-  Effect292.gen(function* runConsumer() {
+var consume2 = (mailbox, did2, handler, options2) => Effect302.scoped(
+  Effect302.gen(function* runConsumer() {
     let [state3] = (0, import_xstate_cjs.initialTransition)(consumerMachine);
-    const step = (event) => Effect292.sync(() => {
+    const step = (event) => Effect302.sync(() => {
       [state3] = (0, import_xstate_cjs.transition)(consumerMachine, state3, { type: event });
     });
-    const acquire = Effect292.gen(function* acquire2() {
-      const now = yield* Clock52.currentTimeMillis;
+    const acquire = Effect302.gen(function* acquire2() {
+      const now = yield* Clock62.currentTimeMillis;
       const input = {
         did: did2,
-        expiresAt: DateTime2.formatIso(DateTime2.makeUnsafe(now + 3e5)),
+        expiresAt: DateTime2.formatIso(
+          DateTime2.makeUnsafe(now + LEASE_TTL_MS)
+        ),
         harness: options2.harness
       };
       if (options2.renders !== void 0) {
@@ -80784,153 +80997,192 @@ var consume2 = (mailbox, did2, handler, options2) => Effect292.scoped(
           leaseId: options2.resume.leaseId
         });
       }
-      yield* Effect292.logInfo(
+      yield* Effect302.logInfo(
         `lease acquire-attempt name=${options2.leaseName ?? did2} generation=${input.generation ?? "new"} expiresAt=${input.expiresAt} reason=acquire requested`
       );
       return yield* mailbox.lease.acquire(input).pipe(
-        Effect292.timeoutOrElse({
+        timeoutOrElse({
           duration: ATTEMPT_MS,
-          orElse: () => Effect292.fail(attemptTimedOut("Acquire attempt timed out"))
+          orElse: () => Effect302.fail(attemptTimedOut("Acquire attempt timed out"))
         }),
-        Effect292.tapError(
-          (error) => Effect292.logInfo(
+        Effect302.tap(() => options2.onRetryMetric?.("acquireOk") ?? Effect302.void),
+        Effect302.tapError(
+          (error) => options2.onRetryMetric?.(retryFailure("acquire", error)) ?? Effect302.void
+        ),
+        Effect302.tapError(
+          (error) => Effect302.logInfo(
             `lease acquire-failed name=${options2.leaseName ?? did2} generation=${input.generation ?? "new"} expiresAt=${input.expiresAt} reason=${JSON.stringify(error.error ?? error.reason)}`
           )
         ),
-        Effect292.catchIf(
+        Effect302.catchIf(
           (error) => error.error === "LeaseHeld",
-          (error) => Effect292.gen(function* waitHolder() {
+          (error) => Effect302.gen(function* waitHolder() {
             if (options2.failOnHeld === true) {
               yield* step("REFUSED");
-              return yield* Effect292.fail(error);
+              return yield* Effect302.fail(error);
             }
             yield* step("HELD");
             const holder = yield* mailbox.lease.resolve(did2).pipe(
-              Effect292.catchIf(
+              timeout(ATTEMPT_MS),
+              Effect302.mapError(clientError),
+              Effect302.catchIf(
                 (failure32) => failure32.error === "LeaseNotFound",
-                () => Effect292.void
+                () => Effect302.void
               )
             );
-            const current2 = yield* Clock52.currentTimeMillis;
+            const current2 = yield* Clock62.currentTimeMillis;
             if (holder !== void 0) {
-              yield* Effect292.interruptible(
-                Effect292.sleep(
+              yield* Effect302.interruptible(
+                Effect302.sleep(
                   Math.max(1, Date.parse(holder.expiresAt) - current2)
                 )
               );
             }
             yield* step("RETRY");
-            return yield* Effect292.fail(error);
+            return yield* Effect302.fail(error);
           })
         )
       );
     }).pipe(
-      Effect292.retry(
-        Schedule22.spaced("1 millis").pipe(
-          Schedule22.while(
-            ({ input }) => input.error === "LeaseHeld" && options2.failOnHeld !== true
-          )
+      Effect302.retry(
+        Schedule3.spaced("1 millis").pipe(
+          Schedule3.modifyDelay(() => Random2.nextBetween(0, 2e3)),
+          Schedule3.while(
+            ({ input }) => canAttempt(ATTEMPT_MS).pipe(
+              Effect302.map(
+                (fits) => fits && input.error === "LeaseHeld" && options2.failOnHeld !== true
+              )
+            )
+          ),
+          retryBudget(ATTEMPT_MS)
         )
       )
     );
-    const logLease = (event, lease, reason) => Effect292.logInfo(
+    const logLease = (event, lease, reason) => Effect302.logInfo(
       `lease ${event} name=${options2.leaseName ?? did2} generation=${lease.generation} expiresAt=${lease.expiresAt} reason=${JSON.stringify(reason)}`
     );
-    let current = yield* Effect292.acquireRelease(
+    let current = yield* Effect302.acquireRelease(
       acquire.pipe(
-        Effect292.tap((lease) => logLease("acquire", lease, "acquired"))
+        Effect302.tap((lease) => logLease("acquire", lease, "acquired"))
       ),
-      () => Effect292.gen(function* release() {
+      () => Effect302.gen(function* release() {
         yield* step("STOP");
         yield* mailbox.lease.release({
           did: did2,
           generation: current.generation,
           leaseId: current.leaseId
         }).pipe(
-          Effect292.timeoutOrElse({
+          timeoutOrElse({
             duration: ATTEMPT_MS,
-            orElse: () => Effect292.fail(attemptTimedOut("Release attempt timed out"))
+            orElse: () => Effect302.fail(attemptTimedOut("Release attempt timed out"))
           }),
-          Effect292.tap(() => logLease("release", current, "scope closed")),
-          Effect292.catchIf(
+          Effect302.tap(() => logLease("release", current, "scope closed")),
+          Effect302.catchIf(
             releasedRefusal,
             () => logLease("loss", current, "release fence mismatch")
           ),
-          Effect292.tapError(
+          Effect302.tapError(
             (error) => logLease("release-failed", current, error.reason).pipe(
-              Effect292.andThen(
-                Effect292.logWarning(
+              Effect302.andThen(
+                Effect302.logWarning(
                   "Mailbox lease release not confirmed",
                   error
                 )
               )
             )
           ),
-          Effect292.ignore
+          Effect302.ignore
         );
         yield* step("RELEASED");
       })
     );
     yield* step("ACQUIRED");
     if (options2.onLease !== void 0) {
-      yield* options2.onLease(current);
+      yield* options2.onLease(current, false, "acquire");
     }
     const fence = () => ({
       did: did2,
       generation: current.generation,
       leaseId: current.leaseId
     });
-    const lost = (error) => Effect292.gen(function* classifyLoss() {
+    const lost = (error) => Effect302.gen(function* classifyLoss() {
       yield* step("LOST");
       const actual = yield* mailbox.lease.resolve(did2).pipe(
-        Effect292.timeout("2 seconds"),
-        Effect292.option,
-        Effect292.map(Option42.getOrUndefined)
+        timeout("2 seconds"),
+        Effect302.option,
+        Effect302.map(Option52.getOrUndefined)
       );
-      const now = yield* Clock52.currentTimeMillis;
+      const now = yield* Clock62.currentTimeMillis;
       let reason = "LeaseRenewalFailed";
-      if (Date.parse(current.expiresAt) <= now) {
+      if (error.error === "LeaseExpired" || Date.parse(current.expiresAt) <= now) {
         reason = "LeaseExpired";
       }
       if (actual !== void 0 && (actual.leaseId !== current.leaseId || actual.generation !== current.generation)) {
         reason = "LeaseTakenOver";
       }
-      yield* logLease(
-        reason === "LeaseExpired" ? "lapse" : "loss",
-        current,
-        `${reason}: ${error.reason}`
-      );
-      return yield* Effect292.fail(
+      let event = reason === "LeaseExpired" ? "lapse" : "loss";
+      if (reason === "LeaseRenewalFailed" && unavailable(error)) {
+        event = "retry";
+      }
+      yield* logLease(event, current, `${reason}: ${error.reason}`);
+      return yield* Effect302.fail(
         new MailboxClientError({ error: reason, reason: error.reason })
       );
     });
-    let timedOut = false;
-    const renew = Effect292.gen(function* renew2() {
-      const now = yield* Clock52.currentTimeMillis;
-      const remaining = Date.parse(current.expiresAt) - now;
-      if (remaining <= 0) {
+    let intakeFailureSince = null;
+    let intakeVerifiedAt = null;
+    let checkpoint = options2.afterSeq ?? 0;
+    const retrying = (error, intakeFailed = false) => Effect302.gen(function* reportRetry() {
+      if (!unavailable(error)) {
+        return;
+      }
+      if (intakeFailed && intakeFailureSince === null) {
+        intakeFailureSince = yield* Clock62.currentTimeMillis;
+      }
+      yield* step("RETRYING");
+      yield* options2.onRetry?.(error) ?? Effect302.void;
+    });
+    const recovered = (renewed) => Effect302.gen(function* recoverReader() {
+      const progress = !renewed || intakeFailureSince === null && intakeVerifiedAt !== null;
+      if (!renewed) {
+        intakeFailureSince = null;
+        intakeVerifiedAt = yield* Clock62.currentTimeMillis;
+      }
+      if (progress) {
+        yield* step("ACQUIRED");
+      }
+      yield* options2.onLease?.(
+        current,
+        progress,
+        renewed ? "renew" : "intake"
+      ) ?? Effect302.void;
+    });
+    const renew = Effect302.gen(function* renew2() {
+      const now = yield* Clock62.currentTimeMillis;
+      const remaining3 = Date.parse(current.expiresAt) - now;
+      if (remaining3 <= 0) {
         return yield* new MailboxClientError({
           error: "LeaseExpired",
           reason: "Lease expired before renewal"
         });
       }
-      yield* Effect292.sleep(Math.max(1, Math.floor(remaining / 2)));
-      const renewedAt = yield* Clock52.currentTimeMillis;
+      yield* Effect302.sleep(Math.max(1, Math.floor(remaining3 / 2)));
+      const renewedAt = yield* Clock62.currentTimeMillis;
       const renewal = {
         ...fence(),
         expiresAt: DateTime2.formatIso(
-          DateTime2.makeUnsafe(renewedAt + 3e5)
+          DateTime2.makeUnsafe(renewedAt + LEASE_TTL_MS)
         )
       };
       if (options2.renders !== void 0) {
         Object.assign(renewal, { renders: options2.renders });
       }
-      current = yield* Effect292.suspend(
-        () => Clock52.currentTimeMillis.pipe(
-          Effect292.flatMap((time) => {
+      current = yield* Effect302.suspend(
+        () => Clock62.currentTimeMillis.pipe(
+          Effect302.flatMap((time) => {
             const left = Date.parse(current.expiresAt) - time;
             if (left <= 0) {
-              return Effect292.fail(
+              return Effect302.fail(
                 new MailboxClientError({
                   error: "LeaseExpired",
                   reason: "Lease expired during renewal retries"
@@ -80938,10 +81190,10 @@ var consume2 = (mailbox, did2, handler, options2) => Effect292.scoped(
               );
             }
             return logLease("renew-attempt", current, "renew requested").pipe(
-              Effect292.andThen(mailbox.lease.renew(renewal)),
-              Effect292.timeoutOrElse({
+              Effect302.andThen(mailbox.lease.renew(renewal)),
+              timeoutOrElse({
                 duration: Math.min(left, ATTEMPT_MS),
-                orElse: () => Effect292.fail(
+                orElse: () => Effect302.fail(
                   left > ATTEMPT_MS ? attemptTimedOut(TIMED_OUT) : new MailboxClientError({
                     error: "LeaseExpired",
                     reason: "Renewal exceeded lease expiry"
@@ -80952,31 +81204,47 @@ var consume2 = (mailbox, did2, handler, options2) => Effect292.scoped(
           })
         )
       ).pipe(
-        Effect292.tapError(
-          (error) => Effect292.sync(() => {
-            timedOut = error.reason === TIMED_OUT;
-          }).pipe(
-            Effect292.andThen(logLease("renew-failed", current, error.reason))
+        Effect302.tapError(
+          (error) => options2.onRetryMetric?.(retryFailure("renew", error)) ?? Effect302.void
+        ),
+        Effect302.tapError(
+          (error) => logLease("renew-failed", current, error.reason).pipe(
+            Effect302.andThen(retrying(error))
           )
         ),
-        Effect292.retry(
-          Schedule22.spaced("1 second").pipe(
-            Schedule22.modifyDelay(
-              () => Clock52.currentTimeMillis.pipe(
-                Effect292.map(
-                  (time) => Duration22.millis(
-                    timedOut ? 0 : Math.max(
-                      1,
-                      Math.min(1e3, Date.parse(current.expiresAt) - time)
+        Effect302.retry(
+          Schedule3.spaced("1 second").pipe(
+            Schedule3.setInputType(),
+            Schedule3.modifyDelay(
+              ({ input }) => input.reason === TIMED_OUT ? Effect302.succeed(0) : Clock62.currentTimeMillis.pipe(
+                Effect302.flatMap(
+                  (time) => Random2.nextBetween(
+                    0,
+                    Math.max(
+                      0,
+                      Math.min(
+                        1e3,
+                        Date.parse(current.expiresAt) - time - RENEW_FLOOR_MS
+                      )
                     )
-                  )
+                  ).pipe(Effect302.map((delay) => Math.max(1, delay)))
                 )
               )
             ),
-            Schedule22.while(
-              ({ input }) => Clock52.currentTimeMillis.pipe(
-                Effect292.map(
-                  (time) => unavailable(input) && Date.parse(current.expiresAt) > time
+            Schedule3.while(
+              ({
+                input,
+                duration
+              }) => Clock62.currentTimeMillis.pipe(
+                Effect302.flatMap(
+                  (time) => canAttempt(
+                    RENEW_FLOOR_MS,
+                    Duration32.toMillis(duration)
+                  ).pipe(
+                    Effect302.map(
+                      (fits) => fits && unavailable(input) && Date.parse(current.expiresAt) - time >= RENEW_FLOOR_MS + Duration32.toMillis(duration)
+                    )
+                  )
                 )
               )
             )
@@ -80984,21 +81252,34 @@ var consume2 = (mailbox, did2, handler, options2) => Effect292.scoped(
         )
       );
       yield* logLease("renew", current, "renewed");
-      if (options2.onLease !== void 0) {
-        yield* options2.onLease(current);
-      }
-      return yield* Effect292.void;
-    }).pipe(Effect292.repeat(Schedule22.spaced("0 millis")), Effect292.catch(lost));
-    const handed = /* @__PURE__ */ new Set();
-    const intake = mailbox.watch(options2.afterSeq ?? 0, fence()).pipe(
+      yield* recovered(true);
+      return yield* Effect302.void;
+    }).pipe(Effect302.repeat(Schedule3.spaced("0 millis")), Effect302.catch(lost));
+    const handed = handoffHistory();
+    const intake = Stream22.suspend(
+      () => mailbox.watch(checkpoint, fence(), (error) => retrying(error, true))
+    ).pipe(
+      Stream22.tap(() => recovered(false)),
+      Stream22.tapError((error) => retrying(error, true)),
+      Stream22.retry(
+        Schedule3.spaced("1 second").pipe(
+          Schedule3.while(
+            ({ input }) => Clock62.currentTimeMillis.pipe(
+              Effect302.map(
+                (now) => unavailable(input) && intakeFailureSince !== null && now - intakeFailureSince + 1e3 < LEASE_TTL_MS
+              )
+            )
+          )
+        )
+      ),
       Stream22.runForEach(
-        (batch) => Effect292.forEach(
+        (batch) => Effect302.forEach(
           batch.events,
-          (event) => Effect292.gen(function* accept() {
-            if (Schema502.is(Main9)(event) && options2.onAttentionReceipt !== void 0) {
+          (event) => Effect302.gen(function* accept() {
+            if (Schema512.is(Main9)(event) && options2.onAttentionReceipt !== void 0) {
               yield* options2.onAttentionReceipt(event);
             }
-            if (!Schema502.is(MessageEvent)(event)) {
+            if (!Schema512.is(MessageEvent)(event)) {
               return;
             }
             const key = JSON.stringify([
@@ -81009,150 +81290,169 @@ var consume2 = (mailbox, did2, handler, options2) => Effect292.scoped(
               return;
             }
             const { onSkip, unopenable } = options2;
-            const skip2 = (reason) => onSkip === void 0 ? Effect292.void : onSkip({
+            const skip2 = (reason) => onSkip === void 0 ? Effect302.void : onSkip({
               messageId: event.receipt.message.messageId,
               reason,
               senderDid: event.receipt.message.senderDid,
               seq: event.seq
             });
             const opened = yield* mailbox.open(event.envelope, event.receipt).pipe(
-              Effect292.map(Option42.some),
-              Effect292.catch(
-                (error) => unopenable === void 0 ? Effect292.fail(error) : unopenable(event, error)
+              Effect302.map(Option52.some),
+              Effect302.catch(
+                (error) => unopenable === void 0 ? Effect302.fail(error) : unopenable(event, error)
               )
             );
-            if (Option42.isNone(opened)) {
+            if (Option52.isNone(opened)) {
               yield* skip2("unopenable");
               return;
             }
             const message = opened.value;
             const input = { ...fence(), message: event.receipt.message };
             const delivered = yield* mailbox.deliver(input).pipe(
-              Effect292.map(
-                ({ receipt }) => Match22.value(receipt.state).pipe(
-                  Match22.when(
+              Effect302.map(
+                ({ receipt }) => Match32.value(receipt.state).pipe(
+                  Match32.when(
                     "expired",
-                    () => Option42.some("expired")
+                    () => Option52.some("expired")
                   ),
-                  Match22.when(
+                  Match32.when(
                     "acked",
-                    () => Option42.some("settled")
+                    () => Option52.some("settled")
                   ),
-                  Match22.orElse(() => Option42.none())
+                  Match32.orElse(() => Option52.none())
                 )
               ),
-              Effect292.catchIf(
+              Effect302.catchIf(
                 expiredRefusal,
-                () => Effect292.succeed(Option42.some("expired"))
+                () => Effect302.succeed(Option52.some("expired"))
               ),
-              Effect292.catchIf(
+              Effect302.catchIf(
                 settledRefusal,
-                () => Effect292.succeed(Option42.some("settled"))
+                () => Effect302.succeed(Option52.some("settled"))
               )
             );
-            if (Option42.isSome(delivered)) {
+            if (Option52.isSome(delivered)) {
               yield* skip2(delivered.value);
               return;
             }
             const ack = event.receipt.delegatedTo === void 0 ? mailbox.ack(input).pipe(
-              Effect292.catchIf(settledRefusal, () => Effect292.void),
-              Effect292.asVoid
-            ) : Effect292.void;
+              Effect302.catchIf(settledRefusal, () => Effect302.void),
+              Effect302.asVoid
+            ) : Effect302.void;
+            handed.add(key);
             yield* handler(message, {
               ack,
               redelivered: event.receipt.state === "delivered",
               seq: event.seq
-            });
-            handed.add(key);
+            }).pipe(
+              Effect302.onError(() => Effect302.sync(() => handed.delete(key)))
+            );
             if (options2.ackOnReturn !== false) {
               yield* ack;
             }
           }),
           { discard: true }
+        ).pipe(
+          Effect302.andThen(
+            Effect302.sync(() => {
+              checkpoint = batch.throughSeq;
+            })
+          ),
+          Effect302.andThen(
+            () => batch.hasMore !== true && options2.onDrained !== void 0 ? options2.onDrained() : Effect302.void
+          )
         )
       ),
-      Effect292.catch((error) => {
-        if (Schema502.is(MailboxClientError)(error) && error.error === "LeaseMismatch") {
+      Effect302.catch((error) => {
+        if (Schema512.is(MailboxClientError)(error) && error.error === "LeaseMismatch") {
           return lost(error);
         }
-        return Effect292.fail(error);
+        return Effect302.fail(error);
       })
     );
-    yield* Effect292.raceFirst(intake, renew);
+    yield* Effect302.raceFirst(intake, renew);
   })
 );
-var Lease2 = Schema512.StructWithRest(
-  Schema512.Struct({
+var Lease2 = Schema522.StructWithRest(
+  Schema522.Struct({
     expiresAt: lexString2({ format: "datetime", type: "string" }).pipe(
-      Schema512.brand("Lexicon:datetime")
+      Schema522.brand("Lexicon:datetime")
     ),
-    generation: Schema512.Int.check(
-      Schema512.isGreaterThanOrEqualTo(1),
-      Schema512.isLessThanOrEqualTo(9007199254740991)
+    generation: Schema522.Int.check(
+      Schema522.isGreaterThanOrEqualTo(1),
+      Schema522.isLessThanOrEqualTo(9007199254740991)
     ),
     holder: lexString2({ type: "string" }),
-    pane: Schema512.optionalKey(lexString2({ type: "string" }))
+    pane: Schema522.optionalKey(lexString2({ type: "string" }))
   }),
-  [Schema512.Record(Schema512.String, Data9)]
+  [Schema522.Record(Schema522.String, Data9)]
 );
-var Wake = Schema512.StructWithRest(
-  Schema512.Struct({
+var Wake = Schema522.StructWithRest(
+  Schema522.Struct({
     id: lexString2({ format: "tid", type: "string" }).pipe(
-      Schema512.brand("Lexicon:tid")
+      Schema522.brand("Lexicon:tid")
     ),
     recordedAt: lexString2({ format: "datetime", type: "string" }).pipe(
-      Schema512.brand("Lexicon:datetime")
+      Schema522.brand("Lexicon:datetime")
     ),
     sender: lexString2({ format: "did", type: "string" }).pipe(
-      Schema512.brand("Lexicon:did")
+      Schema522.brand("Lexicon:did")
     ),
-    woke: Schema512.Boolean
+    woke: Schema522.Boolean
   }),
-  [Schema512.Record(Schema512.String, Data9)]
+  [Schema522.Record(Schema522.String, Data9)]
 );
-var Params18 = Schema512.StructWithRest(
-  Schema512.Struct({
+var Params18 = Schema522.StructWithRest(
+  Schema522.Struct({
     name: lexString2({ maxLength: 128, type: "string" }),
     recipientDid: lexString2({ format: "did", type: "string" }).pipe(
-      Schema512.brand("Lexicon:did")
+      Schema522.brand("Lexicon:did")
     )
   }),
-  [Schema512.Record(Schema512.String, Data9)]
+  [Schema522.Record(Schema522.String, Data9)]
 );
-var Input16 = Schema512.Undefined;
-var Output16 = Schema512.StructWithRest(
-  Schema512.Struct({
-    complete: Schema512.Boolean,
-    lastAck: Schema512.optionalKey(
+var Input16 = Schema522.Undefined;
+var Output16 = Schema522.StructWithRest(
+  Schema522.Struct({
+    complete: Schema522.Boolean,
+    lastAck: Schema522.optionalKey(
       lexString2({ format: "datetime", type: "string" }).pipe(
-        Schema512.brand("Lexicon:datetime")
+        Schema522.brand("Lexicon:datetime")
       )
     ),
-    lease: Schema512.optionalKey(Lease2),
-    oldestWake: Schema512.optionalKey(Wake),
-    quietUnacked: Schema512.Int.check(
-      Schema512.isGreaterThanOrEqualTo(0),
-      Schema512.isLessThanOrEqualTo(9007199254740991)
+    lease: Schema522.optionalKey(Lease2),
+    oldestWake: Schema522.optionalKey(Wake),
+    oldestWakeSinceAck: Schema522.optionalKey(Wake),
+    quietUnacked: Schema522.Int.check(
+      Schema522.isGreaterThanOrEqualTo(0),
+      Schema522.isLessThanOrEqualTo(9007199254740991)
+    ),
+    retired: Schema522.optionalKey(Schema522.Boolean),
+    wakesSinceAck: Schema522.optionalKey(
+      Schema522.Int.check(
+        Schema522.isGreaterThanOrEqualTo(0),
+        Schema522.isLessThanOrEqualTo(9007199254740991)
+      )
     )
   }),
-  [Schema512.Record(Schema512.String, Data9)]
+  [Schema522.Record(Schema522.String, Data9)]
 );
-var ParamsFromQuery8 = Schema512.StructWithRest(
-  Schema512.Struct({ name: Schema512.String, recipientDid: Schema512.String }),
-  [Schema512.Record(Schema512.String, Data9)]
-).pipe(Schema512.decodeTo(Params18));
-var encodeParams15 = Effect302.fn("lexicon.encodeParams")(
+var ParamsFromQuery8 = Schema522.StructWithRest(
+  Schema522.Struct({ name: Schema522.String, recipientDid: Schema522.String }),
+  [Schema522.Record(Schema522.String, Data9)]
+).pipe(Schema522.decodeTo(Params18));
+var encodeParams15 = Effect312.fn("lexicon.encodeParams")(
   function* encodeParams16(params2) {
     return entries(
-      yield* Schema512.decodeUnknownEffect(Params2)(
-        yield* Schema512.encodeEffect(ParamsFromQuery8)(params2)
+      yield* Schema522.decodeUnknownEffect(Params2)(
+        yield* Schema522.encodeEffect(ParamsFromQuery8)(params2)
       )
     );
   }
 );
-var decodeParams15 = Effect302.fn("lexicon.decodeParams")(
+var decodeParams15 = Effect312.fn("lexicon.decodeParams")(
   function* decodeParams16(entries2) {
-    return yield* Schema512.decodeUnknownEffect(ParamsFromQuery8)(
+    return yield* Schema522.decodeUnknownEffect(ParamsFromQuery8)(
       parameters(entries2)
     );
   }
@@ -81170,46 +81470,49 @@ var Method17 = {
   params: Params18,
   path: "/xrpc/sh.mschf.ratking.mailbox.nameHealth"
 };
-var Wake2 = Schema522.Struct({
-  at: Schema522.Finite,
-  id: Schema522.String,
-  sender: Schema522.String
+var Wake2 = Schema532.Struct({
+  at: Schema532.Finite,
+  id: Schema532.String,
+  sender: Schema532.String
 });
-var MailboxHealth = Schema522.Struct({
-  complete: Schema522.Boolean,
-  lastAck: Schema522.NullOr(Schema522.Finite),
-  lease: Schema522.NullOr(
-    Schema522.Struct({
-      expiresAt: Schema522.Finite,
-      generation: Schema522.Int,
-      holder: Schema522.String,
-      pane: Schema522.NullOr(Schema522.String)
+var MailboxHealth = Schema532.Struct({
+  complete: Schema532.Boolean,
+  lastAck: Schema532.NullOr(Schema532.Finite),
+  lease: Schema532.NullOr(
+    Schema532.Struct({
+      expiresAt: Schema532.Finite,
+      generation: Schema532.Int,
+      holder: Schema532.String,
+      pane: Schema532.NullOr(Schema532.String)
     })
   ),
-  oldestWake: Schema522.NullOr(Wake2),
-  quietUnacked: Schema522.Int.check(Schema522.isGreaterThanOrEqualTo(0))
+  oldestWake: Schema532.NullOr(Wake2),
+  oldestWakeSinceAck: Schema532.optionalKey(Schema532.NullOr(Wake2)),
+  quietUnacked: Schema532.Int.check(Schema532.isGreaterThanOrEqualTo(0)),
+  retired: Schema532.optionalKey(Schema532.Boolean)
 });
-var readMailboxHealth = Effect312.fn("Mailbox.readHealth")(
+var readMailboxHealth = Effect322.fn("Mailbox.readHealth")(
   function* readMailboxHealth2(transport, did2, name) {
-    const params2 = yield* Schema522.decodeUnknownEffect(
-      Schema522.toType(Params18)
+    const params2 = yield* Schema532.decodeUnknownEffect(
+      Schema532.toType(Params18)
     )({ name, recipientDid: did2 });
     const response = yield* transport.request({
       input: void 0,
       method: "GET",
       nsid: Method17.nsid,
-      params: yield* Schema522.encodeEffect(Params18)(params2)
+      params: yield* Schema532.encodeEffect(Params18)(params2)
     });
     if (response.status !== 200 || response.kind !== "json") {
       return yield* new MailboxClientError({
         reason: "Health projection unavailable (operator credentials required)"
       });
     }
-    const value = yield* Schema522.decodeUnknownEffect(Output16)(
+    const value = yield* Schema532.decodeUnknownEffect(Output16)(
       response.body
     );
-    return yield* Schema522.decodeEffect(MailboxHealth)({
+    const facts = {
       complete: value.complete,
+      ...value.retired === void 0 ? void 0 : { retired: value.retired },
       lastAck: value.lastAck === void 0 ? null : Date.parse(value.lastAck),
       lease: value.lease === void 0 ? null : {
         expiresAt: Date.parse(value.lease.expiresAt),
@@ -81223,61 +81526,215 @@ var readMailboxHealth = Effect312.fn("Mailbox.readHealth")(
         sender: value.oldestWake.sender
       },
       quietUnacked: value.quietUnacked
+    };
+    if (value.wakesSinceAck === void 0) {
+      return yield* Schema532.decodeEffect(MailboxHealth)(facts);
+    }
+    const since = value.oldestWakeSinceAck;
+    return yield* Schema532.decodeEffect(MailboxHealth)({
+      ...facts,
+      oldestWakeSinceAck: since === void 0 ? null : {
+        at: Date.parse(since.recordedAt),
+        id: since.id,
+        sender: since.sender
+      }
     });
   },
-  (effect) => effect.pipe(Effect312.timeout("10 seconds"), Effect312.mapError(clientError))
+  (effect) => effect.pipe(timeout("10 seconds"), Effect322.mapError(clientError))
 );
-var CriticalCount = Schema532.StructWithRest(
-  Schema532.Struct({
-    count: Schema532.Int.check(
-      Schema532.isGreaterThanOrEqualTo(1),
-      Schema532.isLessThanOrEqualTo(9007199254740991)
+var Retirement = Schema542.StructWithRest(
+  Schema542.Struct({
+    by: lexString2({ format: "did", type: "string" }).pipe(
+      Schema542.brand("Lexicon:did")
+    ),
+    did: lexString2({ format: "did", type: "string" }).pipe(
+      Schema542.brand("Lexicon:did")
+    ),
+    name: lexString2({ maxLength: 128, type: "string" }),
+    retiredAt: lexString2({ format: "datetime", type: "string" }).pipe(
+      Schema542.brand("Lexicon:datetime")
+    ),
+    successor: Schema542.optionalKey(
+      lexString2({ maxLength: 128, type: "string" })
+    ),
+    updatedAt: Schema542.optionalKey(
+      lexString2({
+        description: "When identity.setSuccessor last re-pointed the retirement.",
+        format: "datetime",
+        type: "string"
+      }).pipe(Schema542.brand("Lexicon:datetime"))
+    )
+  }),
+  [Schema542.Record(Schema542.String, Data9)]
+);
+var Params19 = Schema542.Undefined;
+var Input17 = Schema542.StructWithRest(
+  Schema542.Struct({
+    name: lexString2({ maxLength: 128, type: "string" }),
+    successor: Schema542.optionalKey(
+      lexString2({ maxLength: 128, type: "string" })
+    )
+  }),
+  [Schema542.Record(Schema542.String, Data9)]
+);
+var Params20 = Schema552.StructWithRest(
+  Schema552.Struct({
+    cursor: Schema552.optionalKey(
+      lexString2({ maxLength: 128, type: "string" })
+    ),
+    limit: Schema552.optionalKey(
+      Schema552.Int.check(
+        Schema552.isGreaterThanOrEqualTo(1),
+        Schema552.isLessThanOrEqualTo(100)
+      )
+    )
+  }),
+  [Schema552.Record(Schema552.String, Data9)]
+);
+var Input18 = Schema552.Undefined;
+var Output17 = Schema552.StructWithRest(
+  Schema552.Struct({
+    cursor: Schema552.optionalKey(
+      lexString2({ maxLength: 128, type: "string" })
+    ),
+    retired: Schema552.Array(Retirement).check(
+      Schema552.isMinLength(0),
+      Schema552.isMaxLength(100)
+    )
+  }),
+  [Schema552.Record(Schema552.String, Data9)]
+);
+var ParamsFromQuery9 = Schema552.StructWithRest(
+  Schema552.Struct({
+    cursor: Schema552.optionalKey(Schema552.String),
+    limit: Schema552.optionalKey(Schema552.FiniteFromString)
+  }),
+  [Schema552.Record(Schema552.String, Data9)]
+).pipe(Schema552.decodeTo(Params20));
+var encodeParams17 = Effect332.fn("lexicon.encodeParams")(
+  function* encodeParams18(params2) {
+    return entries(
+      yield* Schema552.decodeUnknownEffect(Params2)(
+        yield* Schema552.encodeEffect(ParamsFromQuery9)(params2)
+      )
+    );
+  }
+);
+var decodeParams17 = Effect332.fn("lexicon.decodeParams")(
+  function* decodeParams18(entries2) {
+    return yield* Schema552.decodeUnknownEffect(ParamsFromQuery9)(
+      parameters(entries2)
+    );
+  }
+);
+var ErrorBody17 = XrpcErrorBody;
+var Method18 = {
+  defaults: { limit: 100 },
+  error: ErrorBody17,
+  input: Input18,
+  inputEncoding: "",
+  method: "GET",
+  nsid: "sh.mschf.ratking.identity.listRetired",
+  output: Output17,
+  outputEncoding: "application/json",
+  params: Params20,
+  path: "/xrpc/sh.mschf.ratking.identity.listRetired"
+};
+var readRetirements = Effect342.fn("Mailbox.readRetirements")(
+  function* readRetirements2(transport) {
+    let cursor;
+    const names3 = [];
+    for (let page3 = 0; page3 < 100; page3 += 1) {
+      const response = yield* transport.request({
+        input: void 0,
+        method: "GET",
+        nsid: Method18.nsid,
+        params: {
+          ...cursor === void 0 ? void 0 : { cursor },
+          limit: 100
+        }
+      });
+      if (response.status !== 200 || response.kind !== "json") {
+        return yield* new MailboxClientError({
+          reason: "Retirement observations unavailable"
+        });
+      }
+      const output = yield* Schema562.decodeUnknownEffect(Output17)(
+        response.body
+      );
+      names3.push(...output.retired.map((item) => item.name));
+      ({ cursor } = output);
+      if (cursor === void 0) {
+        return names3;
+      }
+    }
+    return yield* new MailboxClientError({
+      reason: "Retirement scan exceeded 100 pages"
+    });
+  },
+  (effect) => effect.pipe(
+    timeout(OPERATION_MS),
+    Effect342.mapError(clientError)
+  )
+);
+var CriticalCount = Schema572.StructWithRest(
+  Schema572.Struct({
+    count: Schema572.Int.check(
+      Schema572.isGreaterThanOrEqualTo(1),
+      Schema572.isLessThanOrEqualTo(9007199254740991)
     ),
     day: lexString2({ type: "string" }),
     senderDid: lexString2({ format: "did", type: "string" }).pipe(
-      Schema532.brand("Lexicon:did")
+      Schema572.brand("Lexicon:did")
     )
   }),
-  [Schema532.Record(Schema532.String, Data9)]
+  [Schema572.Record(Schema572.String, Data9)]
 );
-var Via2 = Schema532.StructWithRest(
-  Schema532.Struct({
+var Via2 = Schema572.StructWithRest(
+  Schema572.Struct({
     desk: lexString2({ maxLength: 256, minLength: 1, type: "string" }),
     deskDid: lexString2({ format: "did", type: "string" }).pipe(
-      Schema532.brand("Lexicon:did")
+      Schema572.brand("Lexicon:did")
     ),
     run: PassRun
   }),
-  [Schema532.Record(Schema532.String, Data9)]
+  [Schema572.Record(Schema572.String, Data9)]
 );
-var Entry = Schema532.StructWithRest(
-  Schema532.Struct({
-    body: Schema532.optionalKey(
+var Entry = Schema572.StructWithRest(
+  Schema572.Struct({
+    body: Schema572.optionalKey(
       lexString2({
         description: "UTF-8 body of a signed plaintext message, verified at admission. Absent for encrypted messages.",
         type: "string"
       })
     ),
-    ciphertextSize: Schema532.Int.check(
-      Schema532.isGreaterThanOrEqualTo(0),
-      Schema532.isLessThanOrEqualTo(9007199254740991)
+    ciphertextSize: Schema572.Int.check(
+      Schema572.isGreaterThanOrEqualTo(0),
+      Schema572.isLessThanOrEqualTo(9007199254740991)
     ),
     messageId: lexString2({ format: "tid", type: "string" }).pipe(
-      Schema532.brand("Lexicon:tid")
+      Schema572.brand("Lexicon:tid")
     ),
     recipientDid: lexString2({ format: "did", type: "string" }).pipe(
-      Schema532.brand("Lexicon:did")
+      Schema572.brand("Lexicon:did")
     ),
-    recipientSeq: Schema532.Int.check(
-      Schema532.isGreaterThanOrEqualTo(1),
-      Schema532.isLessThanOrEqualTo(9007199254740991)
+    recipientSeq: Schema572.Int.check(
+      Schema572.isGreaterThanOrEqualTo(1),
+      Schema572.isLessThanOrEqualTo(9007199254740991)
+    ),
+    resolvedFrom: Schema572.optionalKey(
+      lexString2({
+        description: "The name the sender addressed, when it resolved to this recipient through a role or a successor.",
+        maxLength: 128,
+        type: "string"
+      })
     ),
     senderDid: lexString2({ format: "did", type: "string" }).pipe(
-      Schema532.brand("Lexicon:did")
+      Schema572.brand("Lexicon:did")
     ),
-    seq: Schema532.Int.check(
-      Schema532.isGreaterThanOrEqualTo(1),
-      Schema532.isLessThanOrEqualTo(9007199254740991)
+    seq: Schema572.Int.check(
+      Schema572.isGreaterThanOrEqualTo(1),
+      Schema572.isLessThanOrEqualTo(9007199254740991)
     ),
     state: lexString2({
       knownValues: [
@@ -81291,128 +81748,128 @@ var Entry = Schema532.StructWithRest(
       type: "string"
     }),
     time: lexString2({ format: "datetime", type: "string" }).pipe(
-      Schema532.brand("Lexicon:datetime")
+      Schema572.brand("Lexicon:datetime")
     ),
-    via: Schema532.optionalKey(Via2)
+    via: Schema572.optionalKey(Via2)
   }),
-  [Schema532.Record(Schema532.String, Data9)]
+  [Schema572.Record(Schema572.String, Data9)]
 );
-var Params19 = Schema532.StructWithRest(
-  Schema532.Struct({
-    cursor: Schema532.optionalKey(lexString2({ type: "string" })),
-    limit: Schema532.optionalKey(
-      Schema532.Int.check(
-        Schema532.isGreaterThanOrEqualTo(1),
-        Schema532.isLessThanOrEqualTo(100)
+var Params21 = Schema572.StructWithRest(
+  Schema572.Struct({
+    cursor: Schema572.optionalKey(lexString2({ type: "string" })),
+    limit: Schema572.optionalKey(
+      Schema572.Int.check(
+        Schema572.isGreaterThanOrEqualTo(1),
+        Schema572.isLessThanOrEqualTo(100)
       )
     )
   }),
-  [Schema532.Record(Schema532.String, Data9)]
+  [Schema572.Record(Schema572.String, Data9)]
 );
-var Input17 = Schema532.Undefined;
-var Output17 = Schema532.StructWithRest(
-  Schema532.Struct({
-    criticalCounts: Schema532.optionalKey(
-      Schema532.Array(CriticalCount).check(
-        Schema532.isMinLength(0),
-        Schema532.isMaxLength(100)
+var Input19 = Schema572.Undefined;
+var Output18 = Schema572.StructWithRest(
+  Schema572.Struct({
+    criticalCounts: Schema572.optionalKey(
+      Schema572.Array(CriticalCount).check(
+        Schema572.isMinLength(0),
+        Schema572.isMaxLength(100)
       )
     ),
     cursor: lexString2({ type: "string" }),
-    events: Schema532.Array(Entry).check(
-      Schema532.isMinLength(0),
-      Schema532.isMaxLength(100)
+    events: Schema572.Array(Entry).check(
+      Schema572.isMinLength(0),
+      Schema572.isMaxLength(100)
     )
   }),
-  [Schema532.Record(Schema532.String, Data9)]
+  [Schema572.Record(Schema572.String, Data9)]
 );
-var ParamsFromQuery9 = Schema532.StructWithRest(
-  Schema532.Struct({
-    cursor: Schema532.optionalKey(Schema532.String),
-    limit: Schema532.optionalKey(Schema532.FiniteFromString)
+var ParamsFromQuery10 = Schema572.StructWithRest(
+  Schema572.Struct({
+    cursor: Schema572.optionalKey(Schema572.String),
+    limit: Schema572.optionalKey(Schema572.FiniteFromString)
   }),
-  [Schema532.Record(Schema532.String, Data9)]
-).pipe(Schema532.decodeTo(Params19));
-var encodeParams17 = Effect322.fn("lexicon.encodeParams")(
-  function* encodeParams18(params2) {
+  [Schema572.Record(Schema572.String, Data9)]
+).pipe(Schema572.decodeTo(Params21));
+var encodeParams19 = Effect352.fn("lexicon.encodeParams")(
+  function* encodeParams20(params2) {
     return entries(
-      yield* Schema532.decodeUnknownEffect(Params2)(
-        yield* Schema532.encodeEffect(ParamsFromQuery9)(params2)
+      yield* Schema572.decodeUnknownEffect(Params2)(
+        yield* Schema572.encodeEffect(ParamsFromQuery10)(params2)
       )
     );
   }
 );
-var decodeParams17 = Effect322.fn("lexicon.decodeParams")(
-  function* decodeParams18(entries2) {
-    return yield* Schema532.decodeUnknownEffect(ParamsFromQuery9)(
+var decodeParams19 = Effect352.fn("lexicon.decodeParams")(
+  function* decodeParams20(entries2) {
+    return yield* Schema572.decodeUnknownEffect(ParamsFromQuery10)(
       parameters(entries2)
     );
   }
 );
-var ErrorBody17 = XrpcErrorBody;
-var Method18 = {
+var ErrorBody18 = XrpcErrorBody;
+var Method19 = {
   defaults: { limit: 50 },
-  error: ErrorBody17,
-  input: Input17,
+  error: ErrorBody18,
+  input: Input19,
   inputEncoding: "",
   method: "GET",
   nsid: "sh.mschf.ratking.mailbox.listTraffic",
-  output: Output17,
+  output: Output18,
   outputEncoding: "application/json",
-  params: Params19,
+  params: Params21,
   path: "/xrpc/sh.mschf.ratking.mailbox.listTraffic"
 };
-var Main10 = Schema542.StructWithRest(
-  Schema542.Struct({
-    $type: Schema542.Literal("sh.mschf.agentgraph.turn"),
+var Main10 = Schema582.StructWithRest(
+  Schema582.Struct({
+    $type: Schema582.Literal("sh.mschf.agentgraph.turn"),
     agent: lexString2({ type: "string" }).check(
-      Schema542.isPattern(
+      Schema582.isPattern(
         /^(?:[a-z0-9]+(?:-[a-z0-9]+)*\/)?[a-z][a-z0-9_-]{0,31}$/u
       )
     ),
     at: lexString2({ format: "datetime", type: "string" }).pipe(
-      Schema542.brand("Lexicon:datetime")
+      Schema582.brand("Lexicon:datetime")
     ),
-    generation: Schema542.optionalKey(
-      Schema542.Int.check(
-        Schema542.isGreaterThanOrEqualTo(0),
-        Schema542.isLessThanOrEqualTo(9007199254740991)
+    generation: Schema582.optionalKey(
+      Schema582.Int.check(
+        Schema582.isGreaterThanOrEqualTo(0),
+        Schema582.isLessThanOrEqualTo(9007199254740991)
       )
     ),
-    reason: Schema542.optionalKey(
-      lexString2({ type: "string" }).check(Schema542.isMaxLength(280))
+    reason: Schema582.optionalKey(
+      lexString2({ type: "string" }).check(Schema582.isMaxLength(280))
     ),
     session: lexString2({ type: "string" }).check(
-      Schema542.isMinLength(1),
-      Schema542.isMaxLength(128)
+      Schema582.isMinLength(1),
+      Schema582.isMaxLength(128)
     ),
     state: lexString2({
       enum: ["working", "done", "blocked", "idle", "crashed"],
       type: "string"
     }).pipe(
-      Schema542.decodeTo(
-        Schema542.Literals(["working", "done", "blocked", "idle", "crashed"])
+      Schema582.decodeTo(
+        Schema582.Literals(["working", "done", "blocked", "idle", "crashed"])
       )
     ),
-    stopReason: Schema542.optionalKey(
+    stopReason: Schema582.optionalKey(
       lexString2({
         enum: ["stop", "aborted", "error", "length"],
         type: "string"
       }).pipe(
-        Schema542.decodeTo(Schema542.Literals(["stop", "aborted", "error", "length"]))
+        Schema582.decodeTo(Schema582.Literals(["stop", "aborted", "error", "length"]))
       )
     ),
     turnId: lexString2({ type: "string" }).check(
-      Schema542.isPattern(/^.+:[0-9]+$/u),
-      Schema542.isMaxLength(128)
+      Schema582.isPattern(/^.+:[0-9]+$/u),
+      Schema582.isMaxLength(128)
     ),
     version: lexString2({ enum: ["0.1"], type: "string" }).pipe(
-      Schema542.decodeTo(Schema542.Literals(["0.1"]))
+      Schema582.decodeTo(Schema582.Literals(["0.1"]))
     )
   }),
-  [Schema542.Record(Schema542.String, Data9)]
+  [Schema582.Record(Schema582.String, Data9)]
 ).check(
-  Schema542.makeFilter(
+  Schema582.makeFilter(
     (value) => Object.keys(value).every(
       (key) => [
         "$type",
@@ -81432,13 +81889,13 @@ var Main10 = Schema542.StructWithRest(
     }
   )
 ).check(
-  Schema542.makeFilter(
+  Schema582.makeFilter(
     (value) => !("generation" in value) || value.state === "crashed",
     { expected: "generation: allowed only when state is crashed" }
   )
 );
 var Turn = Main10.check(
-  Schema552.makeFilter(
+  Schema592.makeFilter(
     (value) => value.turnId.startsWith(`${value.session}:`) && Number.isSafeInteger(
       Number(value.turnId.slice(value.session.length + 1))
     ) && (value.stopReason === void 0 || value.state === "done") && (value.reason === void 0 || value.state === "blocked" || value.state === "crashed"),
@@ -81447,15 +81904,15 @@ var Turn = Main10.check(
     }
   )
 );
-var readTurnHealth = Effect332.fn("Mailbox.readTurnHealth")(
-  function* readTurnHealth2(transport, did2, name, session) {
+var readTurnHealth = Effect362.fn("Mailbox.readTurnHealth")(
+  function* readTurnHealth2(transport, did2, name, session, startsOnly) {
     let cursor = "0";
     let last = null;
     for (let page3 = 0; page3 < 100; page3 += 1) {
       const response = yield* transport.request({
         input: void 0,
         method: "GET",
-        nsid: Method18.nsid,
+        nsid: Method19.nsid,
         params: { cursor, limit: 100 }
       });
       if (response.status !== 200 || response.kind !== "json") {
@@ -81463,7 +81920,7 @@ var readTurnHealth = Effect332.fn("Mailbox.readTurnHealth")(
           reason: "Turn record observations unavailable"
         });
       }
-      const output = yield* Schema562.decodeUnknownEffect(Output17)(
+      const output = yield* Schema602.decodeUnknownEffect(Output18)(
         response.body
       );
       for (const event of output.events) {
@@ -81471,13 +81928,13 @@ var readTurnHealth = Effect332.fn("Mailbox.readTurnHealth")(
           continue;
         }
         const text = event.body ?? "";
-        const payload = Schema562.decodeOption(PayloadJson)(text);
-        const body = Option52.match(payload, {
+        const payload = Schema602.decodeOption(PayloadJson)(text);
+        const body = Option62.match(payload, {
           onNone: () => text,
           onSome: (value) => value.body
         });
-        const record = Schema562.decodeOption(Schema562.fromJsonString(Turn))(body);
-        if (Option52.isSome(record) && record.value.agent === name && record.value.session === session && (last === null || record.value.at > last.at)) {
+        const record = Schema602.decodeOption(Schema602.fromJsonString(Turn))(body);
+        if (Option62.isSome(record) && record.value.agent === name && record.value.session === session && (startsOnly !== true || record.value.state === "working") && (last === null || record.value.at > last.at)) {
           last = {
             at: record.value.at,
             state: record.value.state,
@@ -81494,16 +81951,16 @@ var readTurnHealth = Effect332.fn("Mailbox.readTurnHealth")(
       reason: "Turn record scan exceeded 100 pages"
     });
   },
-  (effect) => effect.pipe(Effect332.timeout("10 seconds"), Effect332.mapError(clientError))
+  (effect) => effect.pipe(timeout("10 seconds"), Effect362.mapError(clientError))
 );
 var ownBrand = /* @__PURE__ */ Symbol("OwnIdentity");
 var identities = /* @__PURE__ */ new WeakMap();
-var ownIdentity = Effect342.fn("Mailbox.ownIdentity")(
+var ownIdentity = Effect372.fn("Mailbox.ownIdentity")(
   function* ownIdentity2(value) {
-    const identity = yield* Schema572.decodeUnknownEffect(Identity2)(value).pipe(
-      Effect342.mapError(clientError)
+    const identity = yield* Schema612.decodeUnknownEffect(Identity2)(value).pipe(
+      Effect372.mapError(clientError)
     );
-    yield* importSigning(identity).pipe(Effect342.mapError(clientError));
+    yield* importSigning(identity).pipe(Effect372.mapError(clientError));
     const handle2 = Object.freeze({
       [ownBrand]: true
     });
@@ -81512,28 +81969,28 @@ var ownIdentity = Effect342.fn("Mailbox.ownIdentity")(
   }
 );
 var SendOutcomes = Data22.taggedEnum();
-var PreparedMailbox = class extends Context112.Service()("mailbox/PreparedMailbox") {
+var PreparedMailbox = class extends Context122.Service()("mailbox/PreparedMailbox") {
 };
-var seal3 = Effect342.fn("Mailbox.sealPayload")(function* seal4(to, body, opts) {
+var seal3 = Effect372.fn("Mailbox.sealPayload")(function* seal4(to, body, opts) {
   const client = yield* PreparedMailbox;
   return yield* client.sealPayload(to, body, opts);
 });
-var sendSealed = Effect342.fn("Mailbox.sendSealed")(function* sendSealed2(envelope, fence) {
+var sendSealed = Effect372.fn("Mailbox.sendSealed")(function* sendSealed2(envelope, fence) {
   const client = yield* PreparedMailbox;
   return yield* client.sendSealed(envelope, fence);
 });
 var failure22 = (reason) => new MailboxClientError({ reason });
 var directIntent = { wakeReason: "to", woke: true };
 var sameDocument = (a, b) => base64url22(canonical2(a)) === base64url22(canonical2(b));
-var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
+var prepare2 = Effect372.fn("Mailbox.prepare")(function* prepare22(options2) {
   const identity = identities.get(options2.own);
   if (identity === void 0) {
     return yield* failure22("Unknown own identity handle");
   }
   const peers = /* @__PURE__ */ new Map();
   for (const value of options2.peers) {
-    const peer = yield* Schema572.decodeUnknownEffect(Document)(value).pipe(
-      Effect342.mapError(clientError)
+    const peer = yield* Schema612.decodeUnknownEffect(Document)(value).pipe(
+      Effect372.mapError(clientError)
     );
     const existing = peers.get(peer.id);
     if (existing !== void 0 && !sameDocument(existing, peer)) {
@@ -81542,16 +81999,19 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
     peers.set(peer.id, peer);
   }
   const resolverLayer = documentResolver(
-    (did2) => Effect342.sync(() => peers.get(did2))
+    (did2) => Effect372.sync(() => peers.get(did2))
   );
   const config = {
-    documents: yield* Schema572.decodeUnknownEffect(
-      Schema572.Array(Schema572.toType(DidDocument))
-    )(options2.peers).pipe(Effect342.mapError(clientError)),
+    documents: yield* Schema612.decodeUnknownEffect(
+      Schema612.Array(Schema612.toType(DidDocument))
+    )(options2.peers).pipe(Effect372.mapError(clientError)),
     endpoint: options2.endpoint,
     identity,
     serviceDid: options2.serviceDid
   };
+  if (options2.onRetryMetric !== void 0) {
+    Object.assign(config, { onRetryMetric: options2.onRetryMetric });
+  }
   const authLayer = transportLayer(
     options2.endpoint,
     `${options2.serviceDid.replace(/#mailbox$/u, "")}#mailbox`,
@@ -81560,28 +82020,28 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
   const context = yield* Layer62.build(
     clientLayer.pipe(Layer62.provide(authLayer))
   );
-  const client = Context112.get(context, MailboxClient);
+  const client = Context122.get(context, MailboxClient);
   const transportContext = yield* Layer62.build(authLayer);
-  const transport = Context112.get(transportContext, Transport);
+  const transport = Context122.get(transportContext, Transport);
   const resolverContext = yield* Layer62.build(resolverLayer);
-  const resolver = Context112.get(resolverContext, DidResolver);
+  const resolver = Context122.get(resolverContext, DidResolver);
   const mailboxContext = yield* Layer62.build(layer(config, resolverLayer));
-  const mailbox = Context112.get(mailboxContext, RatKingMailbox);
+  const mailbox = Context122.get(mailboxContext, RatKingMailbox);
   const signingKey = yield* importSigning(identity).pipe(
-    Effect342.mapError(clientError)
+    Effect372.mapError(clientError)
   );
   const payloads = /* @__PURE__ */ new WeakMap();
   const copies = /* @__PURE__ */ new WeakMap();
   let consuming = false;
-  const sealEnvelopeForPeer = Effect342.fn("Mailbox.seal")(
+  const sealEnvelopeForPeer = Effect372.fn("Mailbox.seal")(
     function* sealEnvelopeForPeer2(to, body, opts) {
-      const now = yield* Clock62.currentTimeMillis;
+      const now = yield* Clock72.currentTimeMillis;
       const messageId = randomTid(now);
-      const text = yield* Effect342.try({
+      const text = yield* Effect372.try({
         catch: () => new MailboxClientError({ reason: "Invalid message body factory" }),
-        try: () => Match32.value(body).pipe(
-          Match32.when(Match32.string, (value) => value),
-          Match32.orElse((factory) => factory(messageId))
+        try: () => Match42.value(body).pipe(
+          Match42.when(Match42.string, (value) => value),
+          Match42.orElse((factory) => factory(messageId))
         )
       });
       const raw = {
@@ -81604,9 +82064,9 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
       if (opts?.urgent !== void 0) {
         Object.assign(raw, { urgent: opts.urgent });
       }
-      const payload = yield* Schema572.decodeUnknownEffect(
-        Schema572.toType(SigningPayload)
-      )(raw).pipe(Effect342.mapError(clientError));
+      const payload = yield* Schema612.decodeUnknownEffect(
+        Schema612.toType(SigningPayload)
+      )(raw).pipe(Effect372.mapError(clientError));
       const envelope = yield* seal({
         payload,
         recipientKey: yield* resolver.resolve(
@@ -81617,12 +82077,12 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
         recipientKeyId: `${to}#encryption`,
         signingKey,
         signingKeyId: `${identity.did}#atproto`
-      }).pipe(Effect342.mapError(clientError));
+      }).pipe(Effect372.mapError(clientError));
       payloads.set(envelope, payload);
       return envelope;
     }
   );
-  const submit = Effect342.fn("Mailbox.sendSealed")(function* submit2(envelope, fence, intent = directIntent) {
+  const submit = Effect372.fn("Mailbox.sendSealed")(function* submit2(envelope, fence, intent = directIntent) {
     if (envelope.aad.senderDid !== identity.did || fence !== void 0 && fence.did !== identity.did) {
       return SendOutcomes.NotAttempted({
         reason: "Sender identity or fence mismatch"
@@ -81635,87 +82095,103 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
         leaseId: fence.leaseId
       });
     }
-    const decoded = yield* Schema572.decodeUnknownEffect(
-      Schema572.toType(Input9)
-    )(raw).pipe(Effect342.mapError(clientError), Effect342.result);
+    const decoded = yield* Schema612.decodeUnknownEffect(
+      Schema612.toType(Input9)
+    )(raw).pipe(Effect372.mapError(clientError), Effect372.result);
     if (Result42.isFailure(decoded)) {
       return SendOutcomes.NotAttempted({ reason: decoded.failure.reason });
     }
-    const result = yield* client.send(decoded.success).pipe(Effect342.mapError(clientError), Effect342.result);
+    const result = yield* client.send(decoded.success).pipe(Effect372.mapError(clientError), Effect372.result);
     if (Result42.isSuccess(result)) {
       return SendOutcomes.Accepted({ receipt: result.success.receipt });
     }
     const error = result.failure;
     return error.status !== void 0 && error.status >= 400 && error.status < 500 ? SendOutcomes.Rejected({ error }) : SendOutcomes.Uncertain({ error });
   });
-  const send3 = Effect342.fn("Mailbox.send")(function* send22(envelope, opts) {
-    if (!peers.has(envelope.aad.recipientDid)) {
-      return SendOutcomes.NotAttempted({ reason: "Unknown primary peer" });
-    }
-    const intent = {
-      wakeReason: opts?.wakeReason ?? "to",
-      woke: opts?.woke ?? true
-    };
-    if (opts?.critical !== void 0) {
-      Object.assign(intent, { critical: opts.critical });
-    }
-    const primary = yield* submit(envelope, opts?.fence, intent);
-    if (opts?.cc === void 0) {
-      return primary;
-    }
-    if (plaintext(envelope)) {
-      return {
-        ...primary,
-        cc: SendOutcomes.NotAttempted({
-          reason: "Plaintext primary is readable by observers without a CC"
-        })
-      };
-    }
-    const payload = payloads.get(envelope);
-    const did2 = opts.cc;
-    if (payload === void 0 || !peers.has(did2) || did2 === envelope.aad.recipientDid || !Predicate22.isTagged(primary, "Accepted")) {
-      return {
-        ...primary,
-        cc: SendOutcomes.NotAttempted({
-          reason: "CC requires an accepted locally sealed primary and a distinct known peer"
-        })
-      };
-    }
-    const ccResult = yield* Effect342.gen(function* carbonCopy() {
-      const cached = copies.get(envelope) ?? /* @__PURE__ */ new Map();
-      let copy2 = cached.get(did2);
-      if (copy2 === void 0) {
-        const body = JSON.stringify({
-          $type: "sh.mschf.ratking.mailbox.cc",
-          body: new TextDecoder().decode(payload.body),
-          primary: {
-            messageId: envelope.aad.messageId,
-            recipientDid: envelope.aad.recipientDid,
-            senderDid: identity.did
-          }
-        });
-        const replyTo = yield* Schema572.decodeUnknownEffect(
-          Schema572.toType(MessageRef)
-        )({ messageId: envelope.aad.messageId, senderDid: identity.did }).pipe(
-          Effect342.mapError(clientError)
-        );
-        copy2 = yield* sealEnvelopeForPeer(did2, body, { replyTo });
-        cached.set(did2, copy2);
-        copies.set(envelope, cached);
+  const send3 = Effect372.fn("Mailbox.send")(
+    function* send22(envelope, opts) {
+      if (!peers.has(envelope.aad.recipientDid)) {
+        return SendOutcomes.NotAttempted({ reason: "Unknown primary peer" });
       }
-      return yield* submit(copy2, opts?.fence, {
-        wakeReason: "cc",
-        woke: false
-      });
-    }).pipe(
-      Effect342.mapError(clientError),
-      Effect342.catch(
-        (error) => Effect342.succeed(SendOutcomes.NotAttempted({ reason: error.reason }))
+      const intent = {
+        wakeReason: opts?.wakeReason ?? "to",
+        woke: opts?.woke ?? true
+      };
+      if (opts?.critical !== void 0) {
+        Object.assign(intent, { critical: opts.critical });
+      }
+      if (opts?.resolvedFrom !== void 0) {
+        Object.assign(intent, { resolvedFrom: opts.resolvedFrom });
+      }
+      const primary = yield* submit(envelope, opts?.fence, intent);
+      if (opts?.cc === void 0) {
+        return primary;
+      }
+      if (plaintext(envelope)) {
+        return {
+          ...primary,
+          cc: SendOutcomes.NotAttempted({
+            reason: "Plaintext primary is readable by observers without a CC"
+          })
+        };
+      }
+      const payload = payloads.get(envelope);
+      const did2 = opts.cc;
+      if (payload === void 0 || !peers.has(did2) || did2 === envelope.aad.recipientDid || !Predicate32.isTagged(primary, "Accepted")) {
+        return {
+          ...primary,
+          cc: SendOutcomes.NotAttempted({
+            reason: "CC requires an accepted locally sealed primary and a distinct known peer"
+          })
+        };
+      }
+      const ccResult = yield* Effect372.gen(function* carbonCopy() {
+        const cached = copies.get(envelope) ?? /* @__PURE__ */ new Map();
+        let copy2 = cached.get(did2);
+        if (copy2 === void 0) {
+          const body = JSON.stringify({
+            $type: "sh.mschf.ratking.mailbox.cc",
+            body: new TextDecoder().decode(payload.body),
+            primary: {
+              messageId: envelope.aad.messageId,
+              recipientDid: envelope.aad.recipientDid,
+              senderDid: identity.did
+            }
+          });
+          const replyTo = yield* Schema612.decodeUnknownEffect(
+            Schema612.toType(MessageRef)
+          )({
+            messageId: envelope.aad.messageId,
+            senderDid: identity.did
+          }).pipe(Effect372.mapError(clientError));
+          copy2 = yield* sealEnvelopeForPeer(did2, body, { replyTo });
+          cached.set(did2, copy2);
+          copies.set(envelope, cached);
+        }
+        return yield* submit(copy2, opts?.fence, {
+          wakeReason: "cc",
+          woke: false
+        });
+      }).pipe(
+        Effect372.mapError(clientError),
+        Effect372.catch(
+          (error) => Effect372.succeed(SendOutcomes.NotAttempted({ reason: error.reason }))
+        )
+      );
+      return { ...primary, cc: ccResult };
+    },
+    timeoutOrElse({
+      duration: OPERATION_MS,
+      orElse: () => Effect372.succeed(
+        SendOutcomes.Uncertain({
+          error: new MailboxClientError({
+            reason: "Send deadline exceeded; admission may have reached the mailbox"
+          })
+        })
       )
-    );
-    return { ...primary, cc: ccResult };
-  });
-  const sealPayload = Effect342.fn("Mailbox.sealPayload")(function* sealPayload2(to, body, opts) {
+    })
+  );
+  const sealPayload = Effect372.fn("Mailbox.sealPayload")(function* sealPayload2(to, body, opts) {
     const from4 = options2.names?.from;
     const recipient = options2.names?.peers[to];
     if (from4 === void 0 || recipient === void 0) {
@@ -81740,72 +82216,85 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
         if (opts?.replyTo !== void 0) {
           Object.assign(payload, { replyTo: opts.replyTo.messageId });
         }
-        return Schema572.encodeSync(PayloadJson)(payload);
+        return Schema612.encodeSync(PayloadJson)(payload);
       },
       opts
-    ).pipe(Effect342.mapError(clientError));
+    ).pipe(Effect372.mapError(clientError));
     return { envelope, messageId: envelope.aad.messageId };
   });
-  const refresh = Effect342.fn("Mailbox.refresh")(function* refresh2(did2) {
-    const params2 = yield* Schema572.decodeUnknownEffect(Params17)({ did: did2 }).pipe(
-      Effect342.mapError(clientError)
-    );
-    const response = yield* transport.request({
-      input: void 0,
-      method: "GET",
-      nsid: Method16.nsid,
-      params: yield* Schema572.encodeEffect(Params17)(params2).pipe(
-        Effect342.mapError(clientError)
-      )
-    }).pipe(Effect342.mapError(clientError));
-    if (response.kind !== "json" || response.status !== 200) {
-      return yield* new MailboxClientError({
-        reason: "Peer directory request refused",
-        status: response.status
-      });
-    }
-    const output = yield* Schema572.decodeUnknownEffect(Output15)(
-      response.body
-    ).pipe(Effect342.mapError(clientError));
-    const peer = yield* Schema572.decodeUnknownEffect(Document)(
-      output.document
-    ).pipe(Effect342.mapError(clientError));
-    const existing = peers.get(did2);
-    if (peer.id !== did2 || existing !== void 0 && !sameDocument(existing, peer)) {
-      return yield* failure22(
-        "Peer directory conflict; retained trusted document"
-      );
-    }
-    peers.set(did2, peer);
-    return peer;
-  });
-  const presence = (did2) => lookupPresence(did2).pipe(Effect342.provideService(Transport, transport));
+  const refresh = Effect372.fn("Mailbox.refresh")(
+    function* refresh2(did2) {
+      const params2 = yield* Schema612.decodeUnknownEffect(Params17)({
+        did: did2
+      }).pipe(Effect372.mapError(clientError));
+      const response = yield* transport.request({
+        input: void 0,
+        method: "GET",
+        nsid: Method16.nsid,
+        params: yield* Schema612.encodeEffect(Params17)(params2).pipe(
+          Effect372.mapError(clientError)
+        )
+      }).pipe(Effect372.mapError(clientError));
+      if (response.kind !== "json" || response.status !== 200) {
+        return yield* new MailboxClientError({
+          reason: "Peer directory request refused",
+          status: response.status
+        });
+      }
+      const output = yield* Schema612.decodeUnknownEffect(Output15)(
+        response.body
+      ).pipe(Effect372.mapError(clientError));
+      const peer = yield* Schema612.decodeUnknownEffect(Document)(
+        output.document
+      ).pipe(Effect372.mapError(clientError));
+      const existing = peers.get(did2);
+      if (peer.id !== did2 || existing !== void 0 && !sameDocument(existing, peer)) {
+        return yield* failure22(
+          "Peer directory conflict; retained trusted document"
+        );
+      }
+      peers.set(did2, peer);
+      return peer;
+    },
+    (effect) => effect.pipe(
+      timeout(REQUEST_MS),
+      Effect372.mapError(clientError)
+    )
+  );
+  const presence = (did2) => lookupPresence(did2).pipe(Effect372.provideService(Transport, transport));
   return {
-    consume: (handler, opts) => Effect342.suspend(() => {
+    consume: (handler, opts) => Effect372.suspend(() => {
       if (consuming) {
-        return Effect342.fail(failure22("Consumer already active"));
+        return Effect372.fail(failure22("Consumer already active"));
       }
       consuming = true;
-      return consume2(mailbox, identity.did, handler, opts).pipe(
-        Effect342.ensuring(
-          Effect342.sync(() => {
+      const consumeOptions = { ...opts };
+      if (consumeOptions.onRetryMetric === void 0 && options2.onRetryMetric !== void 0) {
+        Object.assign(consumeOptions, {
+          onRetryMetric: options2.onRetryMetric
+        });
+      }
+      return consume2(mailbox, identity.did, handler, consumeOptions).pipe(
+        Effect372.ensuring(
+          Effect372.sync(() => {
             consuming = false;
           })
         )
       );
     }),
-    head: mailbox.list({ afterSeq: 0, limit: 1 }).pipe(Effect342.map(({ throughSeq }) => throughSeq)),
+    head: mailbox.list({ afterSeq: 0, limit: 1 }).pipe(Effect372.map(({ throughSeq }) => throughSeq)),
     health: (did2, name) => readMailboxHealth(transport, did2, name),
     mailbox,
     open: mailbox.open,
     presence,
     refresh,
     resolveLease: mailbox.lease.resolve,
+    retirements: () => readRetirements(transport),
     seal: sealEnvelopeForPeer,
     sealPayload,
     send: send3,
     sendSealed: submit,
-    turnHealth: (did2, name, session) => readTurnHealth(transport, did2, name, session)
+    turnHealth: (did2, name, session, startsOnly = false) => readTurnHealth(transport, did2, name, session, startsOnly)
   };
 });
 
@@ -82165,7 +82654,7 @@ var toHttpApi = (id, capabilities2, options2) => {
 };
 
 // ../../packages/plan-run/dist/plan-run.js
-import { Clock as Clock8, Effect as Effect47, Layer as Layer23, ManagedRuntime, Option as Option28, Schema as Schema74, Schedule as Schedule3, Semaphore as Semaphore3 } from "effect";
+import { Clock as Clock8, Effect as Effect47, Layer as Layer23, ManagedRuntime, Option as Option28, Schema as Schema74, Schedule as Schedule4, Semaphore as Semaphore3 } from "effect";
 import * as SecureRandom2 from "effect/crypto/SecureRandom";
 import { constVoid as constVoid3 } from "effect/Function";
 import { HttpRouter, HttpServer } from "effect/http";
@@ -82284,7 +82773,7 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
     const holder = yield* SecureRandom2.SecureRandom.use((crypto2) => crypto2.uuidV4()).pipe(Effect47.provide(webCrypto), Effect47.orDie);
     const take2 = Clock8.currentTimeMillis.pipe(Effect47.map((now) => lease.take(holder, now, guardMs)));
     const held = yield* wait2 ? take2.pipe(Effect47.repeat({
-      schedule: Schedule3.spaced(interval),
+      schedule: Schedule4.spaced(interval),
       while: Option28.isNone
     })) : take2;
     if (Option28.isNone(held)) {
@@ -82469,7 +82958,7 @@ import {
 } from "effect";
 
 // src/postbox.ts
-import { Duration as Duration5, Effect as Effect53, Option as Option34, Schedule as Schedule4, Schema as Schema81 } from "effect";
+import { Duration as Duration5, Effect as Effect53, Option as Option34, Schedule as Schedule5, Schema as Schema81 } from "effect";
 
 // src/mail-attribution.ts
 import { Option as Option31 } from "effect";
@@ -82608,11 +83097,11 @@ var settle3 = (verdict) => SendVerdict.match(verdict, {
   )
 });
 var UNCONFIRMED_WINDOW = "2 minutes";
-var UNCONFIRMED_RETRY = Schedule4.exponential("1 second").pipe(
-  Schedule4.modifyDelay(
+var UNCONFIRMED_RETRY = Schedule5.exponential("1 second").pipe(
+  Schedule5.modifyDelay(
     ({ duration }) => Effect53.succeed(Duration5.min(duration, Duration5.seconds(10)))
   ),
-  Schedule4.upTo({ duration: UNCONFIRMED_WINDOW })
+  Schedule5.upTo({ duration: UNCONFIRMED_WINDOW })
 );
 var send2 = (envelope) => Mailroom.use((mailroom) => mailroom.send(envelope)).pipe(
   Effect53.flatMap(settle3),
@@ -83259,12 +83748,12 @@ var receivePeonMail = Effect55.fn("Peon.receiveMail")(
 
 // src/postbox-inbox.ts
 import { Clock as Clock11, Effect as Effect56, Option as Option39 } from "effect";
-var LEASE_TTL_MS = 3e5;
+var LEASE_TTL_MS2 = 3e5;
 var LONG_POLL_MS = 2e4;
 var PAGE_LIMIT = 10;
 var leaseFor = Effect56.fn("postboxLease")(function* postboxLease(inbox, leases) {
   const now = yield* Clock11.currentTimeMillis;
-  const lease = yield* inbox.acquire(leases.held(now), now + LEASE_TTL_MS);
+  const lease = yield* inbox.acquire(leases.held(now), now + LEASE_TTL_MS2);
   leases.save(lease);
   return lease;
 });
@@ -83349,7 +83838,7 @@ var leaseBook = (storage) => {
 };
 
 // src/postbox-reader-failed.ts
-import { Cause as Cause6, Option as Option41, Schema as Schema89 } from "effect";
+import { Cause as Cause7, Option as Option41, Schema as Schema89 } from "effect";
 var PostboxReaderFailed = class _PostboxReaderFailed extends Schema89.TaggedError()(
   "PostboxReaderFailed",
   {
@@ -83358,9 +83847,9 @@ var PostboxReaderFailed = class _PostboxReaderFailed extends Schema89.TaggedErro
   }
 ) {
   static fromCause(cause) {
-    const reason = Option41.match(Cause6.findErrorOption(cause), {
-      onNone: () => Cause6.pretty(cause),
-      onSome: (error) => Schema89.is(PostboxFailed)(error) ? error.reason : Cause6.pretty(cause)
+    const reason = Option41.match(Cause7.findErrorOption(cause), {
+      onNone: () => Cause7.pretty(cause),
+      onSome: (error) => Schema89.is(PostboxFailed)(error) ? error.reason : Cause7.pretty(cause)
     });
     return new _PostboxReaderFailed({
       kind: reason.includes("no db for Postbox:") ? "DatabaseMissing" : "Unavailable",
@@ -83373,7 +83862,7 @@ var PostboxReaderFailed = class _PostboxReaderFailed extends Schema89.TaggedErro
 import { Clock as Clock12, DateTime as DateTime4, Effect as Effect58, Option as Option44 } from "effect";
 
 // src/postbox-reader.ts
-import { Cause as Cause7, Context as Context34, Effect as Effect57, Option as Option43 } from "effect";
+import { Cause as Cause8, Context as Context34, Effect as Effect57, Option as Option43 } from "effect";
 var deadlineFor = (window2) => 2 * window2 + 5e3;
 var READ_DEADLINE_MS = deadlineFor(LONG_POLL_MS);
 var PostboxReader = class extends Context34.Service()("@mischief/worker/PostboxReader") {
@@ -83425,7 +83914,7 @@ var postboxReaderMachine = setupEffect({
             onError: ({ event }) => ({
               context: {
                 failure: Option43.getOrElse(
-                  Cause7.findErrorOption(event.error.cause),
+                  Cause8.findErrorOption(event.error.cause),
                   () => PostboxReaderFailed.fromCause(event.error.cause)
                 )
               },
@@ -83443,7 +83932,7 @@ var postboxReaderMachine = setupEffect({
             onError: ({ event }) => ({
               context: {
                 failure: Option43.getOrElse(
-                  Cause7.findErrorOption(event.error.cause),
+                  Cause8.findErrorOption(event.error.cause),
                   () => PostboxReaderFailed.fromCause(event.error.cause)
                 )
               },
@@ -86775,7 +87264,7 @@ var wakeRuns = (objects, storage, keepAlive) => {
 };
 
 // src/schedule-object.ts
-var Schedule5 = class extends DurableObject6 {
+var Schedule6 = class extends DurableObject6 {
   object;
   constructor(ctx, env) {
     super(ctx, env);
@@ -86871,7 +87360,7 @@ var ServiceTokenLedger = class extends DurableObject7 {
   }
 };
 
-// ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+9dbd61b5_48910ba0880a1f0e1711a026bc6eafdf/node_modules/@rat-king/mailbox-client/auth.js
+// ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+4504f544_85f3e7c871d23bf3dd1d3943f587f9f7/node_modules/@rat-king/mailbox-client/auth.js
 import { Effect as Effect211 } from "effect";
 import { Schema as Schema106 } from "effect";
 import { Effect as Effect78 } from "effect";
@@ -87099,7 +87588,7 @@ var serviceToken3 = Effect311.fn("ServiceAuth.sign")(
 );
 
 // src/worker-handler.ts
-import { Effect as Effect84, Layer as Layer36, Option as Option62, Result as Result12, Schema as Schema111 } from "effect";
+import { Effect as Effect84, Layer as Layer36, Option as Option63, Result as Result12, Schema as Schema111 } from "effect";
 
 // src/peon-http.ts
 import { Clock as Clock15, Effect as Effect79, Layer as Layer33, Schema as Schema107 } from "effect";
@@ -87438,7 +87927,7 @@ var worker_handler_default = {
     const callers = Schema111.decodeUnknownOption(CallersFromJson)(
       env.MISCHIEF_CALLERS ?? ""
     );
-    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option62.isNone(callers)) {
+    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option63.isNone(callers)) {
       return Response.json({ error: NOT_CONFIGURED }, { status: 503 });
     }
     const { pathname } = new URL(request2.url);
@@ -87497,7 +87986,7 @@ var worker_handler_default = {
     }
     if (SCHEDULE_CAPABILITIES.has(capability)) {
       const scheduleId2 = scheduleIdOf(body);
-      if (Option62.isNone(scheduleId2)) {
+      if (Option63.isNone(scheduleId2)) {
         return Response.json({ error: NO_SCHEDULE_ID }, { status: 400 });
       }
       const name = `${caller.success.iss}/${scheduleId2.value}`;
@@ -87513,7 +88002,7 @@ var worker_handler_default = {
       );
     }
     const runId2 = runIdOf(body);
-    if (Option62.isNone(runId2)) {
+    if (Option63.isNone(runId2)) {
       return Response.json({ error: NO_RUN_ID }, { status: 400 });
     }
     const run2 = env.PLAN_RUN.get(
@@ -87539,7 +88028,7 @@ var planRunWorker = ({ callables }) => ({
   PeonTemplates,
   PlanRun: planRunClass(registeredCallables(callables)),
   Postbox,
-  Schedule: Schedule5,
+  Schedule: Schedule6,
   ServiceTokenLedger,
   default: worker_handler_default
 });

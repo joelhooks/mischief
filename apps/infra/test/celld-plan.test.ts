@@ -4,7 +4,6 @@ import { offlineLayer } from "@rat-king/alchemy-nest/offline";
 import { inMemoryState } from "alchemy/State";
 import {
   ConfigProvider,
-  Crypto,
   Effect,
   FileSystem,
   Layer,
@@ -12,6 +11,7 @@ import {
   Path,
   Schema,
 } from "effect";
+import * as Digest from "effect/crypto/Digest";
 
 import { celldStack } from "../celld.ts";
 import { reviewRows } from "../plan-review.ts";
@@ -271,8 +271,8 @@ it.effect(
         })
       )(rows.find(({ fqn }) => fqn === "store/storage-maintenance")?.props);
 
-      const digest = yield* Crypto.Crypto.use((crypto) =>
-        crypto.digest("SHA-256", new TextEncoder().encode(script.text))
+      const digest = yield* Digest.Digest.use((crypto) =>
+        crypto.digest(Digest.sha256, new TextEncoder().encode(script.text))
       ).pipe(Effect.provide(NodeCrypto.layer));
 
       expect(installed.content).toStrictEqual({

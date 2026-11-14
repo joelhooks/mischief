@@ -3,11 +3,12 @@ import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { offlineLayer } from "@rat-king/alchemy-nest/offline";
 import { AlchemyContextLive } from "alchemy/AlchemyContext";
 import { provideFreshArtifactStore } from "alchemy/Artifacts";
+import { AuthProvidersLive } from "alchemy/Auth/Registry";
 import { deploy } from "alchemy/Deploy";
 import { destroy } from "alchemy/Destroy";
+import { evalStack } from "alchemy/EvalStack";
 import { layerNonInteractive } from "alchemy/Interaction";
 import * as Plan from "alchemy/Plan";
-import { evalStack } from "alchemy/Stack";
 import type { State } from "alchemy/State";
 import { localState } from "alchemy/State/LocalState";
 import {
@@ -70,9 +71,12 @@ export const planWith = (
   ).pipe(
     provideFreshArtifactStore,
     Effect.provide(
-      Layer.mergeAll(AlchemyContextLive, state, layerNonInteractive()).pipe(
-        Layer.provide(NodeServices.layer)
-      )
+      Layer.mergeAll(
+        AlchemyContextLive,
+        AuthProvidersLive,
+        state,
+        layerNonInteractive()
+      ).pipe(Layer.provide(Layer.merge(NodeServices.layer, NodeCrypto.layer)))
     ),
     Effect.provideService(FetchHttpClient.Fetch, online ? fetch : offlineFetch),
     Effect.map(Option.some),
@@ -139,9 +143,10 @@ export const planStack = (target: Target, online: boolean) =>
 
 const alchemyLayer = Layer.mergeAll(
   AlchemyContextLive,
+  AuthProvidersLive,
   localState(),
   layerNonInteractive()
-).pipe(Layer.provide(NodeServices.layer));
+).pipe(Layer.provide(Layer.merge(NodeServices.layer, NodeCrypto.layer)));
 
 export const deployCelld = (review: string) =>
   deploy({ stack: celldStack(liveServices), stage: STAGE }).pipe(

@@ -1,0 +1,29 @@
+{
+  "providers": {
+    "peon": {
+      "api": "openai-responses",
+      "apiKey": "proxy",
+      "baseUrl": "http://172.30.212.1:28013/v1",
+      "models": [
+        {
+          "id": "gpt-6.1-sol",
+          "name": "Sol",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          }
+        }
+      ]
+    }
+  }
+}

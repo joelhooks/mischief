@@ -19,6 +19,8 @@ import { callersFromConfig } from "./callers.ts";
 import { buildWorker, INSTANCE } from "./celld-build.ts";
 import type { Thinker } from "./celld-build.ts";
 import { opusBridgeUnit } from "./opus-bridge-unit.ts";
+import { peonBoxesFromConfig } from "./peon-box-config.ts";
+import { peonBoxUnits } from "./peon-box-unit.ts";
 import { peonProxyUnit, workspaceBridgeUnit } from "./workspace-bridge-unit.ts";
 import { workspaceFromConfig } from "./workspace-config.ts";
 
@@ -106,6 +108,14 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
             yield* Config.String("MISCHIEF_OPUS_BRIDGE_ENTRY")
           )
         );
+      }
+
+      const boxes = yield* peonBoxesFromConfig;
+
+      if (Option.isSome(boxes)) {
+        for (const unit of peonBoxUnits(host, boxes.value)) {
+          yield* SystemdUnit(unit.name, unit);
+        }
       }
 
       const workspace = yield* workspaceFromConfig;

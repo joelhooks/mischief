@@ -17,7 +17,9 @@
     "pretest": "pnpm run --silent build",
     "test": "vitest run",
     "start": "node dist/main.js",
-    "start:proxy": "node dist/proxy-main.js"
+    "start:proxy": "node dist/proxy-main.js",
+    "start:boxes": "node dist/box-main.js",
+    "start:full-proxy": "node dist/full-proxy-main.js"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.5",

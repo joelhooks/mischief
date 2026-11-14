@@ -25,6 +25,8 @@ import { FetchHttpClient } from "effect/http";
 import { cloudflare } from "./alchemy.run.ts";
 import { liveNode, liveServices, STAGE, teardownProbe } from "./celld-ops.ts";
 import { celldStack } from "./celld.ts";
+import { peonBoxesFromConfig } from "./peon-box-config.ts";
+import { peonBoxUnits } from "./peon-box-unit.ts";
 import { reviewRows } from "./plan-review.ts";
 import {
   mischiefMaintenanceScript,
@@ -209,8 +211,15 @@ export const renderUnitsCelld = Effect.gen(function* renderUnitsCelld() {
   );
 
   const workspace = yield* workspaceFromConfig;
+  const boxes = yield* peonBoxesFromConfig;
 
   const units = [
+    ...(Option.isNone(boxes)
+      ? []
+      : peonBoxUnits(node, boxes.value).map((unit) => ({
+          path: `${node.home}/.config/systemd/user/${unit.name}`,
+          text: `${unit.sections.map(({ lines, name }) => `[${name}]\n${lines.map(([key, value]) => `${key}=${value}`).join("\n")}`).join("\n\n")}\n`,
+        }))),
     ...mischiefUnits(node),
     mischiefMaintenanceScript(node),
     ...(opusBridgeUrl === ""

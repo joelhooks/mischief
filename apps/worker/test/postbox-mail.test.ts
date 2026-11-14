@@ -15,6 +15,7 @@ import { Effect, Fiber, Layer, Option, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
 import { DEADLINE_MS } from "../src/call-deadline.js";
+import { reachableMail } from "../src/mail-reach.js";
 import { postboxMail, rememberObject } from "../src/postbox-mail.js";
 import type { PostboxRpc } from "../src/postbox-mail.js";
 
@@ -31,7 +32,13 @@ const world = () => {
       calls.push(`seal ${objectName} ${to}`);
 
       return await Promise.resolve({
-        envelope: '{"aad":{},"ciphertext":"AA","enc":"AA"}',
+        envelope: JSON.stringify({
+          aad: {
+            recipientDid: `did:web:${to.replace("/", ".")}.pi.ratking-fleet.invalid`,
+          },
+          ciphertext: "AA",
+          enc: "AA",
+        }),
         messageId: "3mxtid",
         ok: true as const,
       });
@@ -60,7 +67,7 @@ const world = () => {
 };
 
 it.effect(
-  "shadow recipients stay record-only, real ones go through the Postbox, and an envelope sealed record-only is never sent as mail",
+  "ungranted shadow recipients stay record-only through mail reach, granted real ones use the Postbox, and old record-only seals never become mail",
   () =>
     Effect.gen(function* routed() {
       const { calls, layer, outboxIds } = world();
@@ -71,7 +78,7 @@ it.effect(
             ...CALL,
             key: "land",
             message: "proof?",
-            to: "shadow/desk",
+            to: "shadow/judge",
           });
 
           yield* mail.send({ ...CALL, key: "land" }, shadow);
@@ -93,7 +100,23 @@ it.effect(
             }
           );
         })
-      ).pipe(Effect.provide(layer));
+      ).pipe(
+        Effect.provide(
+          reachableMail(
+            () =>
+              Option.some(
+                "did:web:agent-graph.driver.pi.ratking-fleet.invalid/gates"
+              ),
+            () =>
+              JSON.stringify({
+                "did:web:agent-graph.driver.pi.ratking-fleet.invalid": [
+                  "pi-durable/desk",
+                  "desk/alpha",
+                ],
+              })
+          ).pipe(Layer.provide(layer))
+        )
+      );
 
       expect(calls).toStrictEqual([
         "seal did:web:driver/gates pi-durable/desk",

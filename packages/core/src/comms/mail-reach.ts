@@ -3,6 +3,8 @@ import { Option, Schema } from "effect";
 import { stepsOf } from "../plans/doc-refs.js";
 import { EnvelopeSchema, PlanMachine, RatKingName } from "../plans/schema.js";
 
+export const SHADOW_PREFIX = "shadow/";
+
 export const MailReachSchema = Schema.Record(
   Schema.String,
   Schema.Array(RatKingName)
@@ -64,7 +66,7 @@ export const mailReachReason = (
 
   return (
     reach.reason ??
-    (reach.names.includes(to)
+    (to.startsWith(SHADOW_PREFIX) || reach.names.includes(to)
       ? undefined
       : `step ${key}: Rat King name "${to}" is outside caller ${did}'s mail reach. Allowed: ${reach.names.join(", ") || "none"}. Ask the Mischief desk (pi-durable/desk) to add "${to}" to this caller's mischief.mayMail`)
   );

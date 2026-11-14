@@ -1,3 +1,5 @@
+import { gzipSync, gunzipSync } from "node:zlib";
+
 import { NodeHttpServer } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import type { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
@@ -25,10 +27,17 @@ import {
 import { TestClock } from "effect/testing";
 
 import { Proxy, proxyRoute, proxyRoutes } from "../src/proxy.js";
+import { capturedBody, capturedHeaders } from "./messages-fixture.js";
+
+const messagesInput = {
+  body: capturedBody,
+  headers: capturedHeaders,
+  target: "/v1/messages?beta=true" as const,
+};
 
 const config = {
   key: Redacted.make("real-host-key"),
-  models: ["gpt-6.1-sol"],
+  models: ["gpt-6.1-sol", "claude-opus-5-5"],
   upstream: "http://provider.test/peons",
 };
 
@@ -136,7 +145,6 @@ it.effect(
 
       for (const [method, path] of [
         ["GET", "/v1/responses"],
-        ["POST", "/v1/messages"],
         ["POST", "/v1/messages/other"],
         ["DELETE", "/"],
       ] as const) {
@@ -174,7 +182,7 @@ it.effect.prop(
         "/v1/responses/",
         "/v1/responses#fragment",
         "/v1/%72esponses",
-        "/v1/messages",
+        "/v1/other",
       ])
     ),
   },
@@ -237,9 +245,15 @@ it.effect("a nonallowlisted model is refused before any provider request", () =>
 
 it.effect.prop(
   "429, 529, overloaded_error and unavailable responses retry only at 2s/4s/8s and stop after four attempts",
-  { status: Arbitrary.schema(Schema.Literals([429, 529, 500, 503])) },
-  ({ status }) =>
+  {
+    compressed: Arbitrary.schema(Schema.Boolean),
+    messages: Arbitrary.schema(Schema.Boolean),
+    status: Arbitrary.schema(Schema.Literals([429, 529, 500, 503])),
+  },
+  ({ status, messages, compressed }) =>
     Effect.gen(function* retry() {
+      const gzipped = messages && compressed;
+      const error = '{"error":{"type":"overloaded_error"}}';
       const calls = yield* Ref.make(0);
       const first = yield* Deferred.make<boolean>();
 
@@ -249,14 +263,19 @@ it.effect.prop(
           Effect.as(
             HttpClientResponse.fromWeb(
               request,
-              new Response('{"error":{"type":"overloaded_error"}}', { status })
+              new Response(gzipped ? gzipSync(error) : error, {
+                headers: { "content-encoding": gzipped ? "gzip" : "identity" },
+                status,
+              })
             )
           )
         )
       );
 
       const fiber = yield* Effect.forkChild(
-        Proxy.use(({ forward }) => forward(input)).pipe(
+        Proxy.use(({ forward }) =>
+          forward(messages ? messagesInput : input)
+        ).pipe(
           Effect.provide(Proxy.layer(config)),
           Effect.provideService(HttpClient.HttpClient, client),
           Effect.scoped
@@ -275,9 +294,13 @@ it.effect.prop(
       yield* TestClock.adjust(8000);
       const reply = yield* Fiber.join(fiber);
       expect(reply.status).toBe(status);
-      expect(yield* text(reply.body)).toBe(
-        '{"error":{"type":"overloaded_error"}}'
-      );
+      expect(
+        yield* text(
+          reply.body.pipe(
+            Stream.map((bytes) => (gzipped ? gunzipSync(bytes) : bytes))
+          )
+        )
+      ).toBe(error);
       expect(yield* Ref.get(calls)).toBe(4);
     })
 );
@@ -302,22 +325,26 @@ it.effect(
       yield* Effect.gen(function* shared() {
         const proxy = yield* Proxy;
 
-        const fibers = yield* Effect.forEach(Array.from({ length: 8 }), () =>
-          Effect.forkChild(
-            Effect.scoped(
-              proxy.forward(input).pipe(Effect.andThen(Deferred.await(gate)))
+        const fibers = yield* Effect.forEach(
+          Array.from({ length: 8 }),
+          (_, index) =>
+            Effect.forkChild(
+              Effect.scoped(
+                proxy
+                  .forward(index % 2 === 0 ? messagesInput : input)
+                  .pipe(Effect.andThen(Deferred.await(gate)))
+              )
             )
-          )
         );
 
         yield* Deferred.await(ready);
-        const ninth = yield* Effect.flip(proxy.forward(input));
+        const ninth = yield* Effect.flip(proxy.forward(messagesInput));
         expect(ninth.status).toBe(503);
         expect(yield* Ref.get(calls)).toBe(8);
         yield* Fiber.interrupt(
           fibers[0] ?? (yield* Effect.die("no first proxy fiber"))
         );
-        const next = yield* Effect.scoped(proxy.forward(input));
+        const next = yield* Effect.scoped(proxy.forward(messagesInput));
         expect(next.status).toBe(200);
         yield* Deferred.succeed(gate, true);
         yield* Effect.forEach(fibers.slice(1), (fiber) => Fiber.join(fiber));

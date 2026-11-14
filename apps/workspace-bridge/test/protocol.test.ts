@@ -7,7 +7,7 @@ import { decodeRequest, peonModelOf } from "../src/protocol.js";
 import { completion, request } from "./fixtures.js";
 
 it.effect.prop(
-  "only explicit Sol aliases select the Codex peon model",
+  "only explicit Sol and Opus aliases select their confined providers",
   { model: Arbitrary.schema(Schema.String) },
   ({ model }) =>
     Effect.gen(function* mapping() {
@@ -19,13 +19,23 @@ it.effect.prop(
         ).toBe(alias);
       }
 
-      if (model !== "sol" && model !== "gpt-6.1-sol") {
+      for (const alias of ["opus", "claude-opus-5-5"]) {
+        expect(yield* peonModelOf(alias)).toBe("claude-bridge/claude-opus-5-5");
+        expect(
+          (yield* decodeRequest(JSON.stringify({ ...request, model: alias })))
+            .model
+        ).toBe(alias);
+      }
+
+      if (!["sol", "gpt-6.1-sol", "opus", "claude-opus-5-5"].includes(model)) {
         const failure = yield* Effect.flip(
           decodeRequest(JSON.stringify({ ...request, model }))
         );
 
         expect(failure.status).toBe(403);
-        expect(failure.message).toContain("Codex pool");
+        expect(failure.message).toContain(
+          "Other Claude models are not enabled"
+        );
       }
     })
 );
@@ -36,11 +46,14 @@ it.effect.prop(
     padding: Arbitrary.schema(
       Schema.Int.check(Schema.isBetween({ maximum: 2000, minimum: 0 }))
     ),
+    provider: Arbitrary.schema(
+      Schema.Literals(["peon/gpt-6.1-sol", "claude-bridge/claude-opus-5-5"])
+    ),
     status: Arbitrary.schema(
       Schema.Literals([400, 401, 403, 404, 413, 429, 500, 502, 503, 504])
     ),
   },
-  ({ status, padding }) =>
+  ({ status, padding, provider }) =>
     Effect.gen(function* providerError() {
       const diagnostic = `${status} Third-party apps now draw from your extra usage. Authorization: Bearer sensitive-bearer api_key=private-key token=private-token sk-secret-value https://user:password@provider.invalid/?key=secret ${"x".repeat(padding)}`;
 
@@ -56,14 +69,16 @@ it.effect.prop(
             },
             type: "message_end",
           }),
-          0
+          0,
+          provider
         )
       );
 
       expect(failure.status).toBe(status);
       expect(failure.message).toContain(`provider error (status ${status})`);
       expect(failure.message).toContain("extra usage");
-      expect(failure.message).not.toMatch(/refused|Claude/iu);
+      expect(failure.message).not.toMatch(/refused/iu);
+      expect(failure.message).toContain(provider);
 
       for (const secret of [
         "sensitive-bearer",
@@ -176,11 +191,11 @@ it.effect(
       }
 
       const model = yield* Effect.flip(
-        decodeRequest(JSON.stringify({ ...request, model: "claude-opus-5-5" }))
+        decodeRequest(JSON.stringify({ ...request, model: "claude-sonnet-5" }))
       );
 
       expect(model.status).toBe(403);
-      expect(model.message).toContain("extra-usage");
+      expect(model.message).toContain("Other Claude models are not enabled");
       expect(
         (yield* Effect.flip(
           decodeRequest(JSON.stringify({ ...request, overrideNetwork: "host" }))

@@ -38,17 +38,22 @@ export const refusal = (
   status: BridgeFailure["status"] = 400
 ) => new BridgeFailure({ message, status });
 
-export const peonModelOf = (model: string) =>
-  model === "sol" || model === "gpt-6.1-sol"
-    ? Effect.succeed("peon/gpt-6.1-sol" as const)
-    : Effect.fail(
-        refusal(
-          model === "claude-opus-5-5" || model === "opus"
-            ? "Workspace Claude is unavailable: Anthropic blocks Pi requests with the extra-usage requirement. Select sol (gpt-6.1-sol) from the Codex pool and retry."
-            : "Unsupported workspace model. Select sol (gpt-6.1-sol) from the Codex pool and retry.",
-          403
-        )
-      );
+export const peonModelOf = (model: string) => {
+  if (model === "sol" || model === "gpt-6.1-sol") {
+    return Effect.succeed("peon/gpt-6.1-sol" as const);
+  }
+
+  if (model === "opus" || model === "claude-opus-5-5") {
+    return Effect.succeed("claude-bridge/claude-opus-5-5" as const);
+  }
+
+  return Effect.fail(
+    refusal(
+      "Unsupported workspace model. Select sol (gpt-6.1-sol) or opus (claude-opus-5-5). Other Claude models are not enabled; retry with one of these aliases.",
+      403
+    )
+  );
+};
 
 export const decodeRequest = (body: string) =>
   Schema.decodeUnknownEffect(Schema.fromJsonString(WorkspaceRequestSchema))(
@@ -59,7 +64,7 @@ export const decodeRequest = (body: string) =>
   ).pipe(
     Effect.mapError(() =>
       refusal(
-        "Invalid workspace Responses request. Supply workspace.repo from MISCHIEF_WORKSPACE_MIRRORS, workspace.sha as exactly 40 lowercase hex characters (not a branch or short sha), at least one of read, grep, find, ls, bash, and Responses fields with model=gpt-6.1-sol and stream=true."
+        "Invalid workspace Responses request. Supply workspace.repo from MISCHIEF_WORKSPACE_MIRRORS, workspace.sha as exactly 40 lowercase hex characters (not a branch or short sha), at least one of read, grep, find, ls, bash, and Responses fields with model=sol or opus and stream=true."
       )
     ),
     Effect.tap((request) => peonModelOf(request.model))

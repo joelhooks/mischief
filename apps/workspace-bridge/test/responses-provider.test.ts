@@ -99,7 +99,7 @@ it.effect(
         Layer.provide(
           Proxy.layer({
             key: Redacted.make("host-key"),
-            models: [entry.id],
+            models: [entry.id, "claude-opus-5-5"],
             upstream: "http://provider.test",
           }).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, upstream)))
         ),

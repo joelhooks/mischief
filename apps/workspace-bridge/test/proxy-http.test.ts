@@ -1,6 +1,6 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer, Option, Redacted, Ref } from "effect";
+import { Effect, Layer, Option, Redacted, Ref, Tracer } from "effect";
 import {
   HttpBody,
   HttpClient,
@@ -12,14 +12,12 @@ import {
 import { Proxy, proxyRoutes } from "../src/proxy.js";
 
 it.effect(
-  "the HTTP proxy drops placeholder credentials and connector requests, and returns the exact upstream stream",
+  "the HTTP proxy swaps credentials, refuses hosted features and preserves the upstream stream",
   () =>
     Effect.gen(function* seam() {
       const seen = yield* Ref.make<Readonly<Record<string, string>>[]>([]);
       const targets = yield* Ref.make<Option.Option<URL>[]>([]);
-
-      const bytes =
-        'event: content_block_delta\ndata: {"partial_json":"{}"}\n\nevent: message_stop\ndata: {}\n\n';
+      const bytes = "event: response.completed\ndata: {}\n\n";
 
       const upstream = HttpClient.make((request) =>
         Ref.update(seen, (headers) => [...headers, request.headers]).pipe(
@@ -40,110 +38,132 @@ it.effect(
         )
       );
 
-      const proxy = Proxy.layer({
-        key: Redacted.make("upstream-only-secret"),
-        models: ["claude-opus-5-5"],
-        upstream: "http://provider.test",
-      }).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, upstream)));
-
       yield* HttpRouter.serve(proxyRoutes, {
         disableListenLog: true,
         disableLogger: true,
-      }).pipe(Layer.provide(proxy), Layer.build);
+      }).pipe(
+        Layer.provide(
+          Proxy.layer({
+            key: Redacted.make("upstream-only-secret"),
+            models: ["gpt-6.1-sol"],
+            upstream: "http://provider.test",
+          }).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, upstream)))
+        ),
+        Layer.build
+      );
 
-      const response = yield* HttpClient.post("/v1/messages", {
+      const response = yield* HttpClient.post("/v1/responses", {
         body: HttpBody.jsonUnsafe({
-          max_tokens: 128_000,
-          messages: [],
-          model: "claude-opus-5-5",
+          input: [],
+          max_output_tokens: 128_000,
+          model: "gpt-6.1-sol",
           stream: true,
-          tools: [{ input_schema: { type: "object" }, name: "read" }],
+          tools: [
+            { name: "read", parameters: { type: "object" }, type: "function" },
+          ],
         }),
-        headers: {
-          "anthropic-version": "test-version",
-          authorization: "Bearer proxy-placeholder",
-          "x-api-key": "proxy-placeholder",
-        },
+        headers: { authorization: "Bearer proxy-placeholder" },
       });
 
       expect(response.status).toBe(200);
       expect(yield* response.text).toBe(bytes);
       expect(yield* Ref.get(seen)).toEqual([
         expect.objectContaining({
-          "anthropic-version": "test-version",
           authorization: "Bearer upstream-only-secret",
-          "x-api-key": "upstream-only-secret",
         }),
       ]);
       expect(JSON.stringify(yield* Ref.get(seen))).not.toContain(
         "proxy-placeholder"
       );
+      expect((yield* Ref.get(seen))[0]).not.toHaveProperty("x-api-key");
 
-      expect((yield* Ref.get(seen))[0]).not.toHaveProperty("anthropic-beta");
-
-      for (const beta of [
-        "oauth-2025-04-20",
-        "claude-code-20250219",
-        "network-feature-2026-01-01",
-        "fine-grained-tool-streaming-2025-05-14,network-feature-2026-01-01",
-        "fine-grained-tool-streaming-2025-05-14,,inline-tools-2026-09-15",
+      for (const header of [
+        "anthropic-beta",
+        "openai-beta",
+        "x-provider-feature",
+        "x-api-key",
       ]) {
-        const refused = yield* HttpClient.post("/v1/messages", {
-          body: HttpBody.jsonUnsafe({ model: "claude-opus-5-5" }),
-          headers: { "anthropic-beta": beta },
+        const rejected = yield* HttpClient.post("/v1/responses", {
+          body: HttpBody.jsonUnsafe({ model: "gpt-6.1-sol" }),
+          headers: { [header]: "enabled" },
         });
 
-        expect(refused.status).toBe(403);
+        expect(rejected.status).toBe(403);
       }
 
       for (const target of [
-        "/v1/messages?beta=false",
-        "/v1/messages?beta=true&x=1",
-        "/v1/messages?x=1",
-        "/v1/messages?beta=true&beta=true",
-        "/v1/messages/",
-        "/v1/messages?beta=TRUE",
-        "/v1/messages?beta=%74rue",
-        "/v1/%6dessages?beta=true",
+        "/v1/responses?beta=true",
+        "/v1/responses?background=true",
+        "/v1/responses/",
+        "/v1/%72esponses",
+        "/v1/messages",
       ]) {
-        const query = yield* HttpClient.post(target, {
-          body: HttpBody.jsonUnsafe({ model: "claude-opus-5-5" }),
+        const rejected = yield* HttpClient.post(target, {
+          body: HttpBody.jsonUnsafe({ model: "gpt-6.1-sol" }),
         });
 
-        expect(query.status).toBeGreaterThanOrEqual(400);
-        expect(query.status).toBeLessThan(500);
+        expect(rejected.status).toBeGreaterThanOrEqual(400);
+        expect(rejected.status).toBeLessThan(500);
       }
 
-      for (const body of [
-        { betas: ["inline-tools-2026-09-15"], model: "claude-opus-5-5" },
+      for (const extra of [
+        { background: true },
+        { store: true },
         {
-          mcp_servers: [{ url: "https://outside.invalid" }],
-          model: "claude-opus-5-5",
-        },
-        {
-          model: "claude-opus-5-5",
-          tools: [
-            { input_schema: {}, name: "read", type: "web_search_20250305" },
+          input: [
+            { tools: [{ type: "web_search" }], type: "tool_search_output" },
           ],
         },
         {
-          model: "claude-opus-5-5",
-          tools: [{ input_schema: {}, name: "push" }],
+          input: [
+            {
+              role: "developer",
+              tools: [{ type: "web_search" }],
+              type: "additional_tools",
+            },
+          ],
         },
-        { max_tokens: 128_001, model: "claude-opus-5-5" },
-        { model: "gpt-6.1-sol" },
+        { background: false },
+        { previous_response_id: "resp_prior" },
+        { tools: [{ type: "web_search" }] },
+        { tools: [{ container: { type: "auto" }, type: "code_interpreter" }] },
+        { tools: [{ server_url: "https://outside.invalid", type: "mcp" }] },
+        { tools: [{ name: "push", parameters: {}, type: "function" }] },
+        {
+          tools: [
+            {
+              defer_loading: true,
+              name: "read",
+              parameters: {},
+              type: "function",
+            },
+          ],
+        },
+        {
+          tools: [
+            { format: { type: "grammar" }, name: "bash", type: "custom" },
+          ],
+        },
+        { tool_choice: { type: "web_search" } },
+        { max_output_tokens: 128_001 },
+        { model: "claude-opus-5-5" },
+        { model: "unknown" },
       ]) {
-        const refused = yield* HttpClient.post("/v1/messages", {
-          body: HttpBody.jsonUnsafe(body),
+        const rejected = yield* HttpClient.post("/v1/responses", {
+          body: HttpBody.jsonUnsafe({ model: "gpt-6.1-sol", ...extra }),
         });
 
-        expect(refused.status).toBeGreaterThanOrEqual(400);
-        expect(refused.status).toBeLessThan(500);
+        expect(rejected.status).toBeGreaterThanOrEqual(400);
+        expect(rejected.status).toBeLessThan(500);
       }
 
       expect(yield* Ref.get(seen)).toHaveLength(1);
       expect(yield* Ref.get(targets)).toEqual([
-        Option.some(new URL("http://provider.test/v1/messages")),
+        Option.some(new URL("http://provider.test/v1/responses")),
       ]);
-    }).pipe(Effect.scoped, Effect.provide(NodeHttpServer.layerTest))
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(NodeHttpServer.layerTest),
+      Effect.provideService(Tracer.DisablePropagation, true)
+    )
 );

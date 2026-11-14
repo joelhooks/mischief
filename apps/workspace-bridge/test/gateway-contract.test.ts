@@ -18,12 +18,12 @@ const appliedThinking: Readonly<
   max: "high",
   medium: "medium",
   minimal: "low",
-  off: "off",
+  off: "low",
   xhigh: "high",
 };
 
 it.effect(
-  "every workspace Opus thinking level sends a gateway body the bridge accepts strictly at its output cap",
+  "every workspace Sol thinking level sends a gateway body the bridge accepts below its image ceiling",
   () =>
     Effect.gen(function* contract() {
       const fetch = vi.fn<NonNullable<GatewayConfig["fetch"]>>();
@@ -73,7 +73,7 @@ it.effect(
 
           const thought = yield* thinker.think({
             agent: {
-              model: "claude-opus-5-5",
+              model: "sol",
               thinking: level,
               tools,
               workspace,
@@ -112,10 +112,10 @@ it.effect(
             : Schema.decodeUnknownEffect(Schema.String)(init?.body);
 
           const decoded = yield* decodeRequest(body);
-          expect(decoded.model).toBe("claude-opus-5-5");
+          expect(decoded.model).toBe("gpt-6.1-sol");
           expect(decoded.workspace).toEqual(workspace);
           expect(decoded.tools).toEqual(tools);
-          expect(decoded.max_output_tokens).toBe(OUTPUT_TOKEN_CAP);
+          expect(decoded.max_output_tokens).toBe(32_000);
           expect(thinkingOf(decoded.reasoning.effort)).toBe(
             appliedThinking[level]
           );

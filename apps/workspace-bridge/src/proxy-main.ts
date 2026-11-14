@@ -24,7 +24,7 @@ const program = Effect.gen(function* serveWorkspaceProxy() {
     Schema.fromJsonString(Schema.Array(Schema.String))
   )(
     yield* Config.String("MISCHIEF_PEON_MODELS").pipe(
-      Config.withDefault('["claude-opus-5-5"]')
+      Config.withDefault('["gpt-6.1-sol"]')
     )
   );
 

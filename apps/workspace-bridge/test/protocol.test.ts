@@ -3,8 +3,82 @@ import { Effect, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { workspaceCompletion } from "../src/pi-output.js";
-import { decodeRequest } from "../src/protocol.js";
+import { decodeRequest, peonModelOf } from "../src/protocol.js";
 import { completion, request } from "./fixtures.js";
+
+it.effect.prop(
+  "only explicit Sol aliases select the Codex peon model",
+  { model: Arbitrary.schema(Schema.String) },
+  ({ model }) =>
+    Effect.gen(function* mapping() {
+      for (const alias of ["sol", "gpt-6.1-sol"]) {
+        expect(yield* peonModelOf(alias)).toBe("peon/gpt-6.1-sol");
+        expect(
+          (yield* decodeRequest(JSON.stringify({ ...request, model: alias })))
+            .model
+        ).toBe(alias);
+      }
+
+      if (model !== "sol" && model !== "gpt-6.1-sol") {
+        const failure = yield* Effect.flip(
+          decodeRequest(JSON.stringify({ ...request, model }))
+        );
+
+        expect(failure.status).toBe(403);
+        expect(failure.message).toContain("Codex pool");
+      }
+    })
+);
+
+it.effect.prop(
+  "provider failures retain their status without claiming a model refusal or exposing credentials",
+  {
+    padding: Arbitrary.schema(
+      Schema.Int.check(Schema.isBetween({ maximum: 2000, minimum: 0 }))
+    ),
+    status: Arbitrary.schema(
+      Schema.Literals([400, 401, 403, 404, 413, 429, 500, 502, 503, 504])
+    ),
+  },
+  ({ status, padding }) =>
+    Effect.gen(function* providerError() {
+      const diagnostic = `${status} Third-party apps now draw from your extra usage. Authorization: Bearer sensitive-bearer api_key=private-key token=private-token sk-secret-value https://user:password@provider.invalid/?key=secret ${"x".repeat(padding)}`;
+
+      const failure = yield* Effect.flip(
+        workspaceCompletion(
+          JSON.stringify({
+            message: {
+              content: [],
+              errorMessage: diagnostic,
+              role: "assistant",
+              stopReason: "error",
+              usage: completion.usage,
+            },
+            type: "message_end",
+          }),
+          0
+        )
+      );
+
+      expect(failure.status).toBe(status);
+      expect(failure.message).toContain(`provider error (status ${status})`);
+      expect(failure.message).toContain("extra usage");
+      expect(failure.message).not.toMatch(/refused|Claude/iu);
+
+      for (const secret of [
+        "sensitive-bearer",
+        "private-key",
+        "private-token",
+        "sk-secret-value",
+        "user:password",
+        "key=secret",
+      ]) {
+        expect(failure.message).not.toContain(secret);
+      }
+
+      expect(failure.message.length).toBeLessThan(700);
+    })
+);
 
 it.effect.prop(
   "workspace output keeps the final answer and accounts for every assistant tool turn",
@@ -102,11 +176,11 @@ it.effect(
       }
 
       const model = yield* Effect.flip(
-        decodeRequest(JSON.stringify({ ...request, model: "gpt-6.1-sol" }))
+        decodeRequest(JSON.stringify({ ...request, model: "claude-opus-5-5" }))
       );
 
-      expect(model.status).toBe(400);
-      expect(model.message).toContain("Opus");
+      expect(model.status).toBe(403);
+      expect(model.message).toContain("extra-usage");
       expect(
         (yield* Effect.flip(
           decodeRequest(JSON.stringify({ ...request, overrideNetwork: "host" }))

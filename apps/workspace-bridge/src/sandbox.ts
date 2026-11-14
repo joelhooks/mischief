@@ -18,7 +18,7 @@ import {
 
 import { Exports, safePath } from "./exports.js";
 import { workspaceCompletion } from "./pi-output.js";
-import { refusal } from "./protocol.js";
+import { peonModelOf, refusal } from "./protocol.js";
 import type { WorkspaceRequest } from "./protocol.js";
 import { Runner } from "./runner.js";
 
@@ -36,13 +36,8 @@ export const ContainerName = Schema.String.check(
 
 export const OUTPUT_TOKEN_CAP = 128_000;
 
-export const thinkingOf = (effort: WorkspaceRequest["reasoning"]["effort"]) => {
-  if (effort === "none") {
-    return "off";
-  }
-
-  return effort === "xhigh" || effort === "max" ? "high" : effort;
-};
+export const thinkingOf = (effort: WorkspaceRequest["reasoning"]["effort"]) =>
+  effort === "none" || effort === "minimal" ? "low" : effort;
 
 export const dockerArguments = (
   image: string,
@@ -93,7 +88,7 @@ export const dockerArguments = (
   "--no-skills",
   "--no-prompt-templates",
   "--model",
-  "peon/claude-opus-5-5",
+  "peon/gpt-6.1-sol",
   "--thinking",
   thinking,
   "--system-prompt",
@@ -238,6 +233,8 @@ export class Sandbox extends Context.Service<
         const run = Effect.fn("WorkspaceSandbox.run")(function* run(
           request: WorkspaceRequest
         ) {
+          const model = yield* peonModelOf(request.model);
+
           if (
             request.tools.length !== SHELL_TOOLS.length ||
             new Set(request.tools).size !== SHELL_TOOLS.length ||
@@ -245,14 +242,6 @@ export class Sandbox extends Context.Service<
           ) {
             return yield* refusal(
               "Workspace v1 requires exactly read, grep, find, ls, bash. Authorize all five tools in agent.tools and envelope.tools, or remove the workspace."
-            );
-          }
-
-          if (
-            (request.max_output_tokens ?? OUTPUT_TOKEN_CAP) < OUTPUT_TOKEN_CAP
-          ) {
-            return yield* refusal(
-              `Workspace v1 uses a fixed ${OUTPUT_TOKEN_CAP} output-token ceiling. Request max_output_tokens=${OUTPUT_TOKEN_CAP} or omit it; smaller caps require a future image profile.`
             );
           }
 
@@ -311,8 +300,10 @@ export class Sandbox extends Context.Service<
                       container: name,
                       event: "workspace_receipt",
                       exportDigest: checkout.digest,
+                      model,
                       outputTokenCap: OUTPUT_TOKEN_CAP,
                       repo: request.workspace.repo,
+                      requestedOutputTokens: request.max_output_tokens ?? null,
                       requestedThinking: request.reasoning.effort,
                       sha: request.workspace.sha,
                       wallMs: (yield* Clock.currentTimeMillis) - start,

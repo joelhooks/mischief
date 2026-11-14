@@ -28,18 +28,20 @@ import { Proxy, proxyRoute, proxyRoutes } from "../src/proxy.js";
 
 const config = {
   key: Redacted.make("real-host-key"),
-  models: ["claude-opus-5-5"],
+  models: ["gpt-6.1-sol"],
   upstream: "http://provider.test/peons",
 };
 
 const input = {
-  beta: "fine-grained-tool-streaming-2025-05-14",
   body: {
-    messages: [],
-    model: "claude-opus-5-5",
-    tools: [{ input_schema: { type: "object" }, name: "read" }],
+    input: [],
+    model: "gpt-6.1-sol",
+    tools: [{ name: "read", parameters: { type: "object" }, type: "function" }],
   },
-  version: "2023-06-01",
+  headers: {
+    authorization: "Bearer proxy-placeholder",
+    "user-agent": "pi/0.86.1",
+  },
 };
 
 const text = (body: Stream.Stream<Uint8Array, BridgeFailure>) =>
@@ -50,7 +52,7 @@ const text = (body: Stream.Stream<Uint8Array, BridgeFailure>) =>
   );
 
 it.effect(
-  "Messages proxy replaces both credentials, preserves tools/version and streams the upstream SSE bytes",
+  "Responses proxy replaces credentials, preserves Pi headers and tools, and streams upstream SSE bytes",
   () =>
     Effect.gen(function* forwarding() {
       const seen = yield* Ref.make<HttpClientRequest.HttpClientRequest[]>([]);
@@ -86,14 +88,13 @@ it.effect(
         return yield* Effect.die("fake upstream did not receive a request");
       }
 
-      expect(request.url).toBe("http://provider.test/peons/v1/messages");
+      expect(request.url).toBe("http://provider.test/peons/v1/responses");
       expect(request.headers).toMatchObject({
-        "anthropic-beta": input.beta,
-        "anthropic-version": input.version,
         authorization: "Bearer real-host-key",
-        "x-api-key": "real-host-key",
+        "user-agent": "pi/0.86.1",
         "x-cliproxy-client": "mischief/peons",
       });
+      expect(request.headers).not.toHaveProperty("x-api-key");
 
       const body = Match.value(request.body).pipe(
         Match.tag("Uint8Array", (value) =>
@@ -134,8 +135,8 @@ it.effect(
       }).pipe(Layer.provide(Layer.succeed(Proxy, fake)), Layer.build);
 
       for (const [method, path] of [
-        ["GET", "/v1/messages"],
-        ["POST", "/v1/responses"],
+        ["GET", "/v1/responses"],
+        ["POST", "/v1/messages"],
         ["POST", "/v1/messages/other"],
         ["DELETE", "/"],
       ] as const) {
@@ -144,16 +145,16 @@ it.effect(
         );
 
         expect(reply.status).toBe(405);
-        expect(yield* reply.text).toContain("Only POST /v1/messages");
+        expect(yield* reply.text).toContain("Only POST /v1/responses");
       }
 
-      const invalid = yield* HttpClient.post("/v1/messages", {
+      const invalid = yield* HttpClient.post("/v1/responses", {
         body: HttpBody.text("{"),
       });
 
       expect(invalid.status).toBe(400);
 
-      const large = yield* HttpClient.post("/v1/messages", {
+      const large = yield* HttpClient.post("/v1/responses", {
         body: HttpBody.text("x".repeat(8 * 1024 * 1024 + 1)),
       });
 
@@ -163,21 +164,17 @@ it.effect(
 );
 
 it.effect.prop(
-  "raw Messages targets refuse fragments, encoded queries and noncanonical beta switches before forwarding",
+  "raw Responses targets refuse fragments and every query before forwarding",
   {
     target: Arbitrary.schema(
       Schema.Literals([
-        "/v1/messages?beta=false",
-        "/v1/messages?beta=true&x=1",
-        "/v1/messages?x=1",
-        "/v1/messages?beta=true&beta=true",
-        "/v1/messages/",
-        "/v1/messages?beta=TRUE",
-        "/v1/messages?beta=%74rue",
-        "/v1/messages?%62eta=true",
-        "/v1/messages?beta=true#fragment",
-        "/v1/messages#fragment",
-        "/v1/messages?beta=true&",
+        "/v1/responses?beta=true",
+        "/v1/responses?x=1",
+        "/v1/responses?",
+        "/v1/responses/",
+        "/v1/responses#fragment",
+        "/v1/%72esponses",
+        "/v1/messages",
       ])
     ),
   },
@@ -190,7 +187,7 @@ it.effect.prop(
           HttpServerRequest.HttpServerRequest,
           HttpServerRequest.fromWeb(
             new Request("http://proxy.test/v1/messages", {
-              body: JSON.stringify({ model: "claude-opus-5-5" }),
+              body: JSON.stringify({ model: "gpt-6.1-sol" }),
               method: "POST",
             })
           ).modify({ url: target })
@@ -226,14 +223,14 @@ it.effect("a nonallowlisted model is refused before any provider request", () =>
     );
 
     const failure = yield* Proxy.use(({ forward }) =>
-      Effect.flip(forward({ ...input, body: { model: "gpt-6.1-sol" } }))
+      Effect.flip(forward({ ...input, body: { model: "claude-opus-5-5" } }))
     ).pipe(
       Effect.provide(Proxy.layer(config)),
       Effect.provideService(HttpClient.HttpClient, client)
     );
 
     expect(failure.status).toBe(403);
-    expect(failure.message).toContain("claude-opus-5-5");
+    expect(failure.message).toContain("gpt-6.1-sol");
     expect(yield* Ref.get(calls)).toBe(0);
   }).pipe(Effect.scoped)
 );

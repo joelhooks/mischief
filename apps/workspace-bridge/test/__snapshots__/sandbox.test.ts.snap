@@ -46,7 +46,7 @@ exports[`Servo argv: sha selects the read-only export; generated name enables te
     "--no-skills",
     "--no-prompt-templates",
     "--model",
-    "peon/claude-opus-5-5",
+    "peon/gpt-6.1-sol",
     "--thinking",
     "medium",
     "--system-prompt",

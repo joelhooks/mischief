@@ -20,10 +20,11 @@ import {
   HttpClientResponse,
   HttpRouter,
   HttpClientRequest,
+  HttpServerRequest,
 } from "effect/http";
 import { TestClock } from "effect/testing";
 
-import { Proxy, proxyRoutes } from "../src/proxy.js";
+import { Proxy, proxyRoute, proxyRoutes } from "../src/proxy.js";
 
 const config = {
   key: Redacted.make("real-host-key"),
@@ -159,6 +160,59 @@ it.effect(
       expect(large.status).toBe(413);
       expect(yield* Ref.get(calls)).toBe(0);
     }).pipe(Effect.scoped, Effect.provide(NodeHttpServer.layerTest))
+);
+
+it.effect.prop(
+  "raw Messages targets refuse fragments, encoded queries and noncanonical beta switches before forwarding",
+  {
+    target: Arbitrary.schema(
+      Schema.Literals([
+        "/v1/messages?beta=false",
+        "/v1/messages?beta=true&x=1",
+        "/v1/messages?x=1",
+        "/v1/messages?beta=true&beta=true",
+        "/v1/messages/",
+        "/v1/messages?beta=TRUE",
+        "/v1/messages?beta=%74rue",
+        "/v1/messages?%62eta=true",
+        "/v1/messages?beta=true#fragment",
+        "/v1/messages#fragment",
+        "/v1/messages?beta=true&",
+      ])
+    ),
+  },
+  ({ target }) =>
+    Effect.gen(function* rawTarget() {
+      const calls = yield* Ref.make(0);
+
+      const response = yield* proxyRoute.pipe(
+        Effect.provideService(
+          HttpServerRequest.HttpServerRequest,
+          HttpServerRequest.fromWeb(
+            new Request("http://proxy.test/v1/messages", {
+              body: JSON.stringify({ model: "claude-opus-5-5" }),
+              method: "POST",
+            })
+          ).modify({ url: target })
+        ),
+        Effect.provideService(
+          Proxy,
+          Proxy.of({
+            forward: () =>
+              Ref.update(calls, (count) => count + 1).pipe(
+                Effect.as({
+                  body: Stream.empty,
+                  contentType: "text/event-stream",
+                  status: 200,
+                })
+              ),
+          })
+        )
+      );
+
+      expect(response.status).toBe(400);
+      expect(yield* Ref.get(calls)).toBe(0);
+    }).pipe(Effect.scoped)
 );
 
 it.effect("a nonallowlisted model is refused before any provider request", () =>

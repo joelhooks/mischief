@@ -1,14 +1,27 @@
 import { normalizeContext } from "@earendil-works/pi-ai";
 import type { Model, StreamOptions } from "@earendil-works/pi-ai";
 import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messages.lazy";
-import { NodeServices } from "@effect/platform-node";
+import { NodeHttpServer } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, FileSystem, Redacted, Ref, Schema } from "effect";
+import {
+  Effect,
+  FileSystem,
+  Layer,
+  Option,
+  Redacted,
+  Ref,
+  Schema,
+} from "effect";
 import * as Arbitrary from "effect/Arbitrary";
-import { HttpClient, HttpClientResponse } from "effect/http";
+import {
+  HttpClient,
+  HttpClientRequest,
+  HttpClientResponse,
+  HttpRouter,
+} from "effect/http";
 import { vi } from "vitest";
 
-import { Proxy } from "../src/proxy.js";
+import { Proxy, proxyRoutes } from "../src/proxy.js";
 
 const betas = [
   "fine-grained-tool-streaming-2025-05-14",
@@ -91,7 +104,7 @@ it.effect.prop(
 );
 
 it.effect(
-  "the image's API-key configuration sends feature betas but no OAuth betas through the real Pi Anthropic provider",
+  "the image's real Pi Anthropic beta client passes the HTTP proxy and preserves its query and API-key feature betas",
   () =>
     Effect.gen(function* imageProvider() {
       const fs = yield* FileSystem.FileSystem;
@@ -107,22 +120,50 @@ it.effect(
         return yield* Effect.die("the image must define its peon model");
       }
 
+      const seen = yield* Ref.make<HttpClientRequest.HttpClientRequest[]>([]);
+
+      const upstream = HttpClient.make((request) =>
+        Ref.update(seen, (requests) => [...requests, request]).pipe(
+          Effect.as(
+            HttpClientResponse.fromWeb(
+              request,
+              new Response(
+                '{"type":"error","error":{"type":"invalid_request_error","message":"fake provider boundary"}}',
+                { headers: { "content-type": "application/json" }, status: 400 }
+              )
+            )
+          )
+        )
+      );
+
+      yield* HttpRouter.serve(proxyRoutes, {
+        disableListenLog: true,
+        disableLogger: true,
+      }).pipe(
+        Layer.provide(
+          Proxy.layer({
+            key: Redacted.make("host-key"),
+            models: [entry.id],
+            upstream: "http://provider.test",
+          }).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, upstream)))
+        ),
+        Layer.build
+      );
+
+      const client = yield* HttpClient.HttpClient;
+      const endpoint = yield* client.preprocess(HttpClientRequest.get("/"));
+
       const model: Model<"anthropic-messages"> = {
         ...entry,
         api: provider.api,
-        baseUrl: provider.baseUrl,
+        baseUrl: endpoint.url,
         input: [...entry.input],
         provider: "peon",
       };
 
-      const fetch = vi
-        .fn<NonNullable<StreamOptions["fetch"]>>()
-        .mockResolvedValue(
-          new Response(
-            '{"type":"error","error":{"type":"invalid_request_error","message":"fake provider boundary"}}',
-            { headers: { "content-type": "application/json" }, status: 400 }
-          )
-        );
+      const fetch = vi.fn<NonNullable<StreamOptions["fetch"]>>(
+        globalThis.fetch
+      );
 
       const stream = anthropicMessagesApi().streamSimple(
         model,
@@ -141,7 +182,20 @@ it.effect(
         { apiKey: provider.apiKey, fetch, maxRetries: 0, reasoning: "high" }
       );
 
-      yield* Effect.promise(stream.result.bind(stream));
+      const result = yield* Effect.promise(stream.result.bind(stream));
+      expect(result.errorMessage).toContain("fake provider boundary");
+      const requests = yield* Ref.get(seen);
+      expect(requests).toHaveLength(1);
+      const [forwarded] = requests;
+
+      if (forwarded === undefined) {
+        return yield* Effect.die("the proxy did not reach the fake upstream");
+      }
+
+      expect(HttpClientRequest.toUrl(forwarded)).toEqual(
+        Option.some(new URL("http://provider.test/v1/messages?beta=true"))
+      );
+      expect(forwarded.headers["x-api-key"]).toBe("host-key");
       expect(fetch).toHaveBeenCalledTimes(1);
       const [call] = fetch.mock.calls;
 
@@ -175,5 +229,5 @@ it.effect(
       expect(features).not.toContain("claude-code-20250219");
 
       return yield* Effect.void;
-    }).pipe(Effect.provide(NodeServices.layer))
+    }).pipe(Effect.scoped, Effect.provide(NodeHttpServer.layerTest))
 );

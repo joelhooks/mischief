@@ -1,9 +1,10 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer, Redacted, Ref } from "effect";
+import { Effect, Layer, Option, Redacted, Ref } from "effect";
 import {
   HttpBody,
   HttpClient,
+  HttpClientRequest,
   HttpClientResponse,
   HttpRouter,
 } from "effect/http";
@@ -15,12 +16,19 @@ it.effect(
   () =>
     Effect.gen(function* seam() {
       const seen = yield* Ref.make<Readonly<Record<string, string>>[]>([]);
+      const targets = yield* Ref.make<Option.Option<URL>[]>([]);
 
       const bytes =
         'event: content_block_delta\ndata: {"partial_json":"{}"}\n\nevent: message_stop\ndata: {}\n\n';
 
       const upstream = HttpClient.make((request) =>
         Ref.update(seen, (headers) => [...headers, request.headers]).pipe(
+          Effect.andThen(
+            Ref.update(targets, (urls) => [
+              ...urls,
+              HttpClientRequest.toUrl(request),
+            ])
+          ),
           Effect.as(
             HttpClientResponse.fromWeb(
               request,
@@ -88,11 +96,23 @@ it.effect(
         expect(refused.status).toBe(403);
       }
 
-      const query = yield* HttpClient.post("/v1/messages?other=route", {
-        body: HttpBody.jsonUnsafe({ model: "claude-opus-5-5" }),
-      });
+      for (const target of [
+        "/v1/messages?beta=false",
+        "/v1/messages?beta=true&x=1",
+        "/v1/messages?x=1",
+        "/v1/messages?beta=true&beta=true",
+        "/v1/messages/",
+        "/v1/messages?beta=TRUE",
+        "/v1/messages?beta=%74rue",
+        "/v1/%6dessages?beta=true",
+      ]) {
+        const query = yield* HttpClient.post(target, {
+          body: HttpBody.jsonUnsafe({ model: "claude-opus-5-5" }),
+        });
 
-      expect(query.status).toBe(400);
+        expect(query.status).toBeGreaterThanOrEqual(400);
+        expect(query.status).toBeLessThan(500);
+      }
 
       for (const body of [
         { betas: ["inline-tools-2026-09-15"], model: "claude-opus-5-5" },
@@ -122,5 +142,8 @@ it.effect(
       }
 
       expect(yield* Ref.get(seen)).toHaveLength(1);
+      expect(yield* Ref.get(targets)).toEqual([
+        Option.some(new URL("http://provider.test/v1/messages")),
+      ]);
     }).pipe(Effect.scoped, Effect.provide(NodeHttpServer.layerTest))
 );

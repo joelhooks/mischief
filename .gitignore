@@ -34,3 +34,4 @@ env.d.ts
 
 # the project Brain is private: a symlink to the desk's private repo
 .brain
+.peon-lifecycle-proof-*/

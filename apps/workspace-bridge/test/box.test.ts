@@ -55,12 +55,35 @@ run)
   previous=''
   box=''
   for arg in "$@"; do
-    if [ "$previous" = --user ]; then test "$arg" = 0:1000; fi
+    if [ "$previous" = --user ]; then user="$arg"; fi
     case "$arg" in type=bind,source=*,target=/box) box="\${arg#type=bind,source=}"; box="\${box%,target=/box}";; esac
     previous="$arg"
   done
   test -n "$box"
+  if [ "$user" = 0:1000 ] && printf '%s' "$*" | grep -q -- '--entrypoint /usr/bin/find'; then
+    test "$*" = "--rm --network none --read-only --cap-drop ALL --cap-add CHOWN --security-opt no-new-privileges --user 0:1000 --env LC_ALL=C --mount type=bind,source=$box,target=/box --entrypoint /usr/bin/find ${image} /box -xdev -depth ( -user 0 -o -user $(id -u) ) -exec /bin/chown -h 65534:1000 {} +"
+    if [ -f '${root}/recovery-error' ]; then cat '${root}/recovery-error' >&2; exit 1; fi
+    if [ -f '${root}/manager-owned' ]; then
+      if find "$box" -type d ! -perm 0770 | grep -q .; then printf 'chown: manager-owned tree is not group traversable\\n' >&2; exit 1; fi
+      unlink '${root}/manager-owned'
+    fi
+    if [ -f '${root}/partial-root-owned' ]; then unlink '${root}/partial-root-owned'; fi
+    if find "$box" -type d ! -perm 0770 | grep -q .; then
+      printf "/usr/bin/find: '/box/home/.claude/projects': Permission denied\\n" >&2
+      exit 1
+    fi
+    exit 0
+  fi
+  if [ "$user" = 65534:1000 ]; then
+    test ! -f '${root}/partial-root-owned'
+    test ! -f '${root}/manager-owned'
+    test "$*" = "--rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --user 65534:1000 --mount type=bind,source=$box,target=/box --entrypoint /bin/chmod ${image} -R u+rwX,g+rwX,o-rwx /box"
+    chmod -R u+rwX,g+rwX,o-rwx "$box"
+    exit 0
+  fi
+  test "$user" = 0:1000
   if find "$box" -type d ! -perm 0770 | grep -q .; then
+    printf 'partial ownership transfer\\n' > '${root}/partial-root-owned'
     printf 'group cannot traverse box directories\\n' >&2
     exit 1
   fi
@@ -71,7 +94,7 @@ create)
   printf stopped > '${root}/fake/'"$name"
   ;;
 start) printf running > '${root}/fake/'"$1";;
-stop) printf stopped > '${root}/fake/'"$1";;
+stop) if [ ! -f '${root}/stop-stuck' ]; then printf stopped > '${root}/fake/'"$1"; fi;;
 rm) for name in "$@"; do case "$name" in mischief-peon-box-*) unlink '${root}/fake/'"$name";; esac; done;;
 inspect)
   shift; shift
@@ -94,6 +117,36 @@ esac
 
   yield* fs.writeFileString(`${root}/bin/docker`, script, { mode: 0o700 });
   yield* fs.writeFileString(
+    `${root}/bin/env`,
+    `#!/bin/sh
+set -eu
+if [ "$1" = LC_ALL=C ] && [ "$2" = find ]; then
+  shift; shift
+  box="$1"
+  test "$*" = "$box -xdev -user $(id -u) ! -type l -exec chmod u+rwX,g+rwX,o-rwx {} +"
+  printf 'host-find %s\\n' "$*" >> '${root}/commands'
+  if [ -f '${root}/manager-error' ]; then cat '${root}/manager-error' >&2; exit 1; fi
+  if [ -f '${root}/manager-owned' ]; then exec /usr/bin/find "$@"; fi
+  printf "find: '$box/home/.claude/projects': Permission denied\\n" >&2
+  exit 1
+fi
+exec /usr/bin/env "$@"
+`,
+    { mode: 0o700 }
+  );
+  yield* fs.writeFileString(
+    `${root}/bin/du`,
+    `#!/bin/sh
+set -eu
+if find "$2" -type d ! -perm 0770 | grep -q .; then
+  printf 'size cannot traverse private directories before owner regrant\\n' >&2
+  exit 1
+fi
+exec /usr/bin/du "$@"
+`,
+    { mode: 0o700 }
+  );
+  yield* fs.writeFileString(
     `${root}/bin/pi`,
     `#!/bin/sh
 set -eu
@@ -101,6 +154,10 @@ id="$PEON_TEST_ID"
 input="$(cat)"
 printf '%s\\n' "$input" >> '${root}/boxes/'"$id"'/home/session.jsonl'
 mkdir -p '${root}/boxes/'"$id"'/home/tool/nested'
+for directory in .claude/projects .claude/sessions .claude/plugins .pi/agent/claude-bridge; do
+  mkdir -p '${root}/boxes/'"$id"'/home/'"$directory"
+  chmod 700 '${root}/boxes/'"$id"'/home/'"$directory"
+done
 printf 'changed by tool\\n' > '${root}/boxes/'"$id"'/work/result.txt'
 printf '%s\\n' '${piOutput}'
 `,
@@ -224,6 +281,83 @@ it.effect(
 
         expect(session).toBe("write then test\n");
 
+        const partial = yield* fixture.runner.run({
+          executable: "docker",
+          args: [
+            "run",
+            "--user",
+            "0:1000",
+            "--mount",
+            `type=bind,source=${fixture.root}/boxes/source,target=/box`,
+            "--entrypoint",
+            "/bin/sh",
+            image,
+            "-c",
+            "chown -hR 0:1000 /box && chmod -R g+rwX /box && chown -hR 65534:1000 /box",
+          ],
+        });
+
+        expect(partial.exit).toBe(1);
+        expect(yield* fs.exists(`${fixture.root}/partial-root-owned`)).toBe(
+          true
+        );
+        yield* fs.writeFileString(
+          `${fixture.root}/recovery-error`,
+          "chown: changing ownership of '/box/home': Permission denied\n"
+        );
+        expect((yield* Effect.flip(boxes.inspect("source"))).status).toBe(503);
+        expect(yield* fs.exists(`${fixture.root}/partial-root-owned`)).toBe(
+          true
+        );
+        yield* fs.writeFileString(
+          `${fixture.root}/recovery-error`,
+          "/usr/bin/find: '/outside': Permission denied\n"
+        );
+        expect((yield* Effect.flip(boxes.inspect("source"))).status).toBe(503);
+        yield* fs.remove(`${fixture.root}/recovery-error`);
+        yield* boxes.inspect("source");
+        yield* fs.writeFileString(`${fixture.root}/outside-box`, "unchanged", {
+          mode: 0o600,
+        });
+        yield* fs.symlink(
+          `${fixture.root}/outside-box`,
+          `${fixture.root}/boxes/source/work/escape`
+        );
+        yield* fs.writeFileString(`${fixture.root}/manager-owned`, "source");
+        yield* fs.chmod(`${fixture.root}/boxes/source`, 0o700);
+        yield* fs.writeFileString(
+          `${fixture.root}/manager-error`,
+          "chmod: changing permissions of '/box/home': Operation not permitted\n"
+        );
+        expect((yield* Effect.flip(boxes.inspect("source"))).status).toBe(503);
+        expect(yield* fs.exists(`${fixture.root}/manager-owned`)).toBe(true);
+        yield* fs.remove(`${fixture.root}/manager-error`);
+        yield* boxes.inspect("source");
+        expect(yield* fs.exists(`${fixture.root}/manager-owned`)).toBe(false);
+        expect(
+          (yield* fs.stat(`${fixture.root}/outside-box`)).mode % 0o1000
+        ).toBe(0o600);
+        expect(
+          (yield* fs.stat(`${fixture.root}/boxes/source`)).mode % 0o1000
+        ).toBe(0o770);
+
+        yield* fs.writeFileString(`${fixture.root}/stop-stuck`, "stuck");
+
+        const failedSuspend = yield* Effect.flip(
+          boxes.act({
+            action: "suspend",
+            peonId: "source",
+            requestId: "stuck-suspend",
+          })
+        );
+
+        expect(failedSuspend.status).toBe(503);
+        expect(yield* boxes.inspect("source")).toMatchObject({
+          processes: 1,
+          state: "idle",
+        });
+        yield* fs.remove(`${fixture.root}/stop-stuck`);
+
         for (const directory of [
           "",
           "work",
@@ -262,6 +396,11 @@ it.effect(
         ).toEqual({ requestId: "turn", result: first });
 
         for (const state of ["idle", "suspended", "hibernated"]) {
+          yield* fs.chmod(
+            `${fixture.root}/boxes/source/home/.claude/projects`,
+            0o700
+          );
+
           if (state === "suspended") {
             yield* boxes.act({
               action: "suspend",
@@ -347,6 +486,10 @@ it.effect(
           processes: 1,
           state: "idle",
         });
+        yield* fs.chmod(
+          `${fixture.root}/boxes/source/home/.claude/projects`,
+          0o700
+        );
         expect(
           yield* boxes.act({
             action: "destroy",
@@ -370,18 +513,25 @@ it.effect(
 
         const helpers = commands
           .split("\n")
-          .filter((line) => line.startsWith("run "));
+          .filter(
+            (line) => line.startsWith("run ") && line.includes("--cap-drop")
+          );
 
         expect(helpers.length).toBeGreaterThan(0);
+        expect(helpers.some((line) => line.includes("--user 65534:1000"))).toBe(
+          true
+        );
 
-        for (const command of helpers) {
+        for (const command of helpers.filter((line) =>
+          line.includes("--user 0:1000")
+        )) {
           expect(command).toContain(
             "--network none --read-only --cap-drop ALL --cap-add CHOWN"
           );
           expect(command).toContain(
             "--security-opt no-new-privileges --user 0:1000"
           );
-          expect(command).not.toMatch(/DAC_OVERRIDE|FOWNER/u);
+          expect(command).not.toMatch(/DAC_OVERRIDE|DAC_READ_SEARCH|FOWNER/u);
         }
 
         for (const command of creates) {

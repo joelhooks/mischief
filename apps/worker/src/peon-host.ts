@@ -91,9 +91,22 @@ const reportWithPending = (
       : { kind: stored.pending.kind, requestId: stored.pending.requestId },
 });
 
-const indexOf = Schema.decodeUnknownSync(PeonIndexEntry);
+const reportWithMeasurements = (
+  report: typeof PeonReport.Type,
+  measured: typeof PeonBoxState.Type
+): typeof PeonReport.Type => {
+  const measuredReport = { ...report, bytes: measured.bytes };
 
-const BoxAcknowledgement = Schema.Struct({ state: Schema.Literal("idle") });
+  if (measured.processes === undefined) {
+    delete measuredReport.processes;
+  } else {
+    measuredReport.processes = measured.processes;
+  }
+
+  return measuredReport;
+};
+
+const indexOf = Schema.decodeUnknownSync(PeonIndexEntry);
 
 const acknowledgedStates = {
   destroy: "destroyed",
@@ -246,12 +259,6 @@ export const peonHost = ({
 
       yield* publish(indexOf(stored.report));
 
-      yield* box.call(
-        stored.report.peonId,
-        "resume",
-        { requestId: pending.resumeRequestId },
-        BoxAcknowledgement
-      );
       stored = yield* move(stored, "TURN_DONE");
       stored = yield* move(stored, "PROMPT");
       yield* commit(stored);
@@ -373,6 +380,12 @@ export const peonHost = ({
         );
       }
     }
+
+    const measured = yield* box.call(id, "inspect", undefined, PeonBoxState);
+    next = {
+      ...next,
+      report: reportWithMeasurements(next.report, measured),
+    };
 
     return { clonedReport, stored: next, turn };
   });
@@ -632,7 +645,19 @@ export const peonHost = ({
       };
 
       if (cloned) {
-        const suspended = yield* move(initial, "CLONE");
+        const state = yield* move(initial, "CLONE");
+
+        const measured = yield* box.call(
+          entry.peonId,
+          "inspect",
+          undefined,
+          PeonBoxState
+        );
+
+        const suspended = {
+          ...state,
+          report: reportWithMeasurements(state.report, measured),
+        };
 
         yield* commit(suspended);
         yield* publish(indexOf(suspended.report));
@@ -662,7 +687,9 @@ export const peonHost = ({
     inspect: requirePeon.pipe(
       Effect.flatMap((stored) =>
         box.call(stored.report.peonId, "inspect", undefined, PeonBoxState).pipe(
-          Effect.map(({ bytes }) => ({ ...reportWithPending(stored), bytes })),
+          Effect.map((measured) =>
+            reportWithMeasurements(reportWithPending(stored), measured)
+          ),
           Effect.catchTag("PeonRefused", () =>
             Effect.succeed(reportWithPending(stored))
           )

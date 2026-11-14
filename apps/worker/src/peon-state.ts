@@ -38,6 +38,7 @@ export const PeonCompleted = Schema.Struct({
 });
 
 export const PeonBoxState = Schema.Struct({
+  processes: PeonReport.fields.processes,
   bytes: PeonReport.fields.bytes,
   container: Schema.NullOr(Schema.String),
   lastPromptAt: Schema.NullOr(Schema.Union([Schema.String, Schema.Finite])),

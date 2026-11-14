@@ -14,7 +14,7 @@ import * as Digest from "effect/crypto/Digest";
 
 import { refusal } from "../protocol.js";
 import { checked, Runner } from "../runner.js";
-import type { Command } from "../runner.js";
+import type { Command, ProcessOutput } from "../runner.js";
 import { nextState } from "./machine.js";
 import { promptPi, requireText } from "./pi.js";
 import { Metadata, PeonId, Result } from "./protocol.js";
@@ -50,6 +50,18 @@ const DNS_WITHOUT_LAN_ROUTER_FORWARDING = [
 ];
 
 const containerOf = (id: string) => `mischief-peon-box-${id}`;
+
+const diagnosticOf = (stderr: string | undefined) =>
+  (stderr ?? "No helper stderr")
+    .replaceAll(/\bBearer\s+[^\s"',;]+/giu, "Bearer [redacted]")
+    .replaceAll(/\bsk-[a-zA-Z0-9_-]+/gu, "[redacted]")
+    .replaceAll(
+      /(?<label>(?:api[-_ ]?key|authorization|token|secret|password)["']?\s*[:=]\s*["']?)[^\s"',;}]+/giu,
+      "$<label>[redacted]"
+    )
+    .replaceAll(/https?:\/\/[^\s"'<>]+/giu, "[redacted-url]")
+    .replaceAll(/\p{Cc}/gu, " ")
+    .slice(0, 512);
 
 const hostFailure = (error: PlatformError.PlatformError) =>
   refusal(
@@ -249,6 +261,145 @@ export class Boxes extends Context.Service<
             executable: "chmod",
           });
 
+        const managerUid = (yield* execute({
+          executable: "id",
+          args: ["-u"],
+        })).trim();
+
+        const acceptTraversal = Effect.fn("Boxes.acceptTraversal")(
+          function* acceptTraversal(
+            output: ProcessOutput,
+            root: string,
+            stage: string
+          ) {
+            const diagnostics = (output.stderr ?? "")
+              .trim()
+              .split("\n")
+              .filter(Boolean);
+
+            const unreadableOwnerSubtrees =
+              output.exit === 1 &&
+              diagnostics.length > 0 &&
+              diagnostics.every((line) => {
+                const denied =
+                  /^(?:\/usr\/bin\/)?find: '(?<path>[^']+)': Permission denied$/u.exec(
+                    line
+                  )?.[1];
+
+                return (
+                  denied !== undefined &&
+                  (denied === root || denied.startsWith(`${root}/`))
+                );
+              });
+
+            if (
+              !(output.exit === 0 && diagnostics.length === 0) &&
+              !unreadableOwnerSubtrees
+            ) {
+              return yield* refusal(
+                `Box ${stage} recovery failed (exit ${output.exit}): ${diagnosticOf(output.stderr)}; continuing could leave a partially transferred tree unreadable. Check the owner chmod and CHOWN-only find helpers, then retry GET /v1/boxes/{id} before copying or deleting it.`,
+                503
+              );
+            }
+
+            return yield* Effect.void;
+          }
+        );
+
+        const regrant = Effect.fn("Boxes.regrant")(function* regrant(
+          id: string
+        ) {
+          const granted = yield* runner.run({
+            executable: "env",
+            args: [
+              "LC_ALL=C",
+              "find",
+              base(id),
+              "-xdev",
+              "-user",
+              managerUid,
+              "!",
+              "-type",
+              "l",
+              "-exec",
+              "chmod",
+              "u+rwX,g+rwX,o-rwx",
+              "{}",
+              "+",
+            ],
+          });
+
+          yield* acceptTraversal(granted, base(id), "manager permissions");
+
+          const recovered = yield* runner.run({
+            executable: "docker",
+            args: [
+              "run",
+              "--rm",
+              "--network",
+              "none",
+              "--read-only",
+              "--cap-drop",
+              "ALL",
+              "--cap-add",
+              "CHOWN",
+              "--security-opt",
+              "no-new-privileges",
+              "--user",
+              `0:${config.gid}`,
+              "--env",
+              "LC_ALL=C",
+              "--mount",
+              `type=bind,source=${base(id)},target=/box`,
+              "--entrypoint",
+              "/usr/bin/find",
+              config.image,
+              "/box",
+              "-xdev",
+              "-depth",
+              "(",
+              "-user",
+              "0",
+              "-o",
+              "-user",
+              managerUid,
+              ")",
+              "-exec",
+              "/bin/chown",
+              "-h",
+              `65534:${config.gid}`,
+              "{}",
+              "+",
+            ],
+          });
+
+          yield* acceptTraversal(recovered, "/box", "root ownership");
+
+          yield* docker([
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--read-only",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges",
+            "--user",
+            `65534:${config.gid}`,
+            "--mount",
+            `type=bind,source=${base(id)},target=/box`,
+            "--entrypoint",
+            "/bin/chmod",
+            config.image,
+            "-R",
+            "u+rwX,g+rwX,o-rwx",
+            "/box",
+          ]);
+
+          return yield* Effect.void;
+        });
+
         const owned = (id: string, initialize = false) =>
           runner
             .run({
@@ -282,16 +433,7 @@ export class Boxes extends Context.Service<
                   return Effect.void;
                 }
 
-                const diagnostic = (output.stderr ?? "No helper stderr")
-                  .replaceAll(/\bBearer\s+[^\s"',;]+/giu, "Bearer [redacted]")
-                  .replaceAll(/\bsk-[a-zA-Z0-9_-]+/gu, "[redacted]")
-                  .replaceAll(
-                    /(?<label>(?:api[-_ ]?key|authorization|token|secret|password)["']?\s*[:=]\s*["']?)[^\s"',;}]+/giu,
-                    "$<label>[redacted]"
-                  )
-                  .replaceAll(/https?:\/\/[^\s"'<>]+/giu, "[redacted-url]")
-                  .replaceAll(/\p{Cc}/gu, " ")
-                  .slice(0, 512);
+                const diagnostic = diagnosticOf(output.stderr);
 
                 return refusal(
                   `Box ownership preparation failed (exit ${output.exit}): ${diagnostic}. uid 65534 needs a writable workspace and the manager gid needs snapshot/delete access. Check the isolated CHOWN helper and retry.`,
@@ -427,6 +569,20 @@ export class Boxes extends Context.Service<
               )
             )
           );
+        });
+
+        const stop = Effect.fn("Boxes.stop")(function* stop(id: string) {
+          yield* docker(["stop", containerOf(id)]);
+          const stopped = yield* ready(id);
+
+          if (stopped.Running || stopped.Pid !== 0) {
+            return yield* refusal(
+              "Suspend left a live process; claiming sleep would hide resource use. Inspect Docker state and retry suspend.",
+              503
+            );
+          }
+
+          return yield* Effect.void;
         });
 
         const restore = Effect.fn("Boxes.restore")(function* restore(
@@ -747,7 +903,7 @@ export class Boxes extends Context.Service<
                     ).pipe(
                       Effect.provideService(Runner, runner),
                       Effect.onError(() =>
-                        docker(["stop", containerOf(id)]).pipe(
+                        stop(id).pipe(
                           Effect.andThen(save({ ...box, state: "suspended" })),
                           Effect.orDie
                         )
@@ -781,15 +937,7 @@ export class Boxes extends Context.Service<
                   );
 
                   if (input.action === "suspend") {
-                    yield* docker(["stop", containerOf(id)]);
-                    const stopped = yield* ready(id);
-
-                    if (stopped.Running || stopped.Pid !== 0) {
-                      return yield* refusal(
-                        "Suspend left a live process; claiming sleep would hide resource use. Inspect Docker state and retry suspend.",
-                        503
-                      );
-                    }
+                    yield* stop(id);
 
                     yield* save({ ...box, state });
 
@@ -801,7 +949,8 @@ export class Boxes extends Context.Service<
                       return { snapshot: box.snapshot, state };
                     }
 
-                    yield* docker(["stop", containerOf(id)]);
+                    yield* stop(id);
+                    yield* regrant(id);
                     yield* owned(id);
                     const directory = path.join(config.snapshots, id);
                     yield* fs.makeDirectory(directory, {
@@ -867,6 +1016,7 @@ export class Boxes extends Context.Service<
                     if (box.state === "hibernated") {
                       yield* restore(box, target);
                     } else {
+                      yield* regrant(id);
                       yield* owned(id);
                       yield* fs.makeDirectory(base(target), { mode: 0o770 });
                       yield* execute({
@@ -902,6 +1052,7 @@ export class Boxes extends Context.Service<
                   }
 
                   if (yield* fs.exists(base(id))) {
+                    yield* regrant(id);
                     yield* owned(id);
                     yield* fs.remove(base(id), { recursive: true });
                   }
@@ -931,6 +1082,16 @@ export class Boxes extends Context.Service<
             if (!["hibernated", "destroyed"].includes(box.state)) {
               const status = yield* ready(id);
 
+              if (
+                box.state === "suspended" &&
+                (status.Running || status.Pid !== 0)
+              ) {
+                return yield* refusal(
+                  "Suspended box still has a Docker process; its stored state is stale. Inspect Docker state and retry suspend before claiming zero processes.",
+                  503
+                );
+              }
+
               if (status.Running) {
                 const top = yield* docker([
                   "top",
@@ -941,6 +1102,10 @@ export class Boxes extends Context.Service<
 
                 processes = Math.max(0, top.trim().split("\n").length - 1);
               }
+            }
+
+            if (yield* fs.exists(base(id))) {
+              yield* regrant(id);
             }
 
             return {

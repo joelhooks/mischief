@@ -122,7 +122,11 @@ it.effect.prop(
           )
         );
         expect(request.headers).toEqual({
-          ...headers,
+          ...Object.fromEntries(
+            Object.entries(headers).filter(
+              ([header]) => header !== "host" && header !== "connection"
+            )
+          ),
           authorization: "Bearer host-only-key",
         });
 

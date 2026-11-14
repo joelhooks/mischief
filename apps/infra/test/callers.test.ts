@@ -28,7 +28,10 @@ const documentWith = (publicKeyJwk: Record<string, string>) => ({
 
 const callersFrom = (
   documents: readonly (ReturnType<typeof documentWith> & {
-    readonly mischief?: { readonly mayMail?: readonly string[] };
+    readonly mischief?: {
+      readonly mayMail?: readonly string[];
+      readonly peonCapabilities?: readonly string[];
+    };
   })[]
 ) =>
   Effect.gen(function* written() {
@@ -68,6 +71,7 @@ it.effect(
 
       const clean = yield* callersFrom([documentWith(PUBLIC_JWK)]);
       expect(Exit.isSuccess(clean) ? clean.value.mailReach : "").toBe("{}");
+      expect(Exit.isSuccess(clean) ? clean.value.peonGrants : "").toBe("{}");
 
       expect(Exit.isSuccess(clean) ? clean.value.callers : "").toBe(
         JSON.stringify([documentWith(PUBLIC_JWK)])
@@ -82,7 +86,13 @@ it.effect(
       const doc = documentWith(PUBLIC_JWK);
 
       const granted = yield* callersFrom([
-        { ...doc, mischief: { mayMail: ["other/desk"] } },
+        {
+          ...doc,
+          mischief: {
+            mayMail: ["other/desk"],
+            peonCapabilities: ["spawnPeon", "promptPeon"],
+          },
+        },
       ]);
 
       expect(Exit.isSuccess(granted)).toBe(true);
@@ -92,6 +102,9 @@ it.effect(
           [doc.id]: ["other/desk"],
         });
         expect(granted.value.callers).toBe(JSON.stringify([doc]));
+        expect(JSON.parse(granted.value.peonGrants)).toStrictEqual({
+          [doc.id]: ["spawnPeon", "promptPeon"],
+        });
       }
 
       const invalid = yield* callersFrom([
@@ -99,5 +112,11 @@ it.effect(
       ]);
 
       expect(Exit.isFailure(invalid)).toBe(true);
+
+      const invalidPeonGrant = yield* callersFrom([
+        { ...doc, mischief: { peonCapabilities: ["unrecognizedPeonWrite"] } },
+      ]);
+
+      expect(Exit.isFailure(invalidPeonGrant)).toBe(true);
     })
 );

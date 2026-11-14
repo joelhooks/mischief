@@ -9,6 +9,8 @@ import { withDeadline } from "./call-deadline.js";
 import { decodeDelivery } from "./decode-delivery.js";
 import { Mailroom, SendVerdict } from "./mailroom-port.js";
 import { openMailroom } from "./mailroom.js";
+import { resolvePeonAddress } from "./peon-address.js";
+import { peonMailHost, peonReplies, receivePeonMail } from "./peon-mail.js";
 import type { Env } from "./plan-run-object.js";
 import { PostboxFailed } from "./postbox-failed.js";
 import { readBatch } from "./postbox-inbox.js";
@@ -55,12 +57,14 @@ export class Postbox extends DurableObject<Env> {
   private readonly leases;
   private readonly host;
   private readonly mailWired;
+  private readonly peonReply;
   private readonly scope = Effect.runSync(Scope.make());
   private opened: OpenMailroom | undefined;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.box = postbox(ctx.storage);
+    this.peonReply = peonReplies(ctx.storage);
     this.leases = leaseBook(ctx.storage);
     this.mailWired =
       env.MISCHIEF_IDENTITY !== undefined && env.MISCHIEF_IDENTITY !== "";
@@ -136,9 +140,19 @@ export class Postbox extends DurableObject<Env> {
               cursor: () => this.box.cursor(),
               leases: this.leases,
               receive: (message) =>
-                this.box
-                  .receive(message)
-                  .pipe(Effect.provide(Layer.merge(layer, this.runs))),
+                Option.match(resolvePeonAddress(undefined, message.body), {
+                  onNone: () =>
+                    this.box
+                      .receive(message)
+                      .pipe(Effect.provide(Layer.merge(layer, this.runs))),
+                  onSome: (address) =>
+                    receivePeonMail(
+                      peonMailHost(this.env),
+                      message,
+                      address,
+                      this.peonReply
+                    ).pipe(Effect.provide(layer)),
+                }),
             },
             window
           )
@@ -211,6 +225,18 @@ export class Postbox extends DurableObject<Env> {
         ),
     })
   );
+
+  async replyPeon(to: string, messageId: string, peonId: string, text: string) {
+    await Effect.runPromise(
+      this.sender().pipe(
+        Effect.flatMap(({ layer }) =>
+          this.peonReply(to, messageId, peonId, text).pipe(
+            Effect.provide(layer)
+          )
+        )
+      )
+    );
+  }
 
   async seal(objectName: string, to: string, body: string) {
     await this.start();

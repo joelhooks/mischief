@@ -49,6 +49,8 @@ it.effect(
         { class_name: "Postbox", name: "POSTBOX" },
         { class_name: "Schedule", name: "SCHEDULE" },
         { class_name: "CallerThinks", name: "CALLER_THINKS" },
+        { class_name: "Peon", name: "PEON" },
+        { class_name: "PeonTemplates", name: "PEON_TEMPLATES" },
       ]);
       expect(
         configuration.migrations.flatMap(
@@ -60,7 +62,14 @@ it.effect(
         "Postbox",
         "Schedule",
         "CallerThinks",
+        "Peon",
+        "PeonTemplates",
       ]);
+      expect(configuration.vars.MISCHIEF_PEON_BOXES).toBe("off");
+      expect(configuration.migrations).toContainEqual({
+        new_sqlite_classes: ["Peon", "PeonTemplates"],
+        tag: "v5-peons",
+      });
       expect(Object.keys(configuration.vars).toSorted()).toEqual([
         "MISCHIEF_CALLERS",
         "MISCHIEF_CALLER_THINKS",
@@ -72,6 +81,8 @@ it.effect(
         "MISCHIEF_MAILBOX_URL",
         "MISCHIEF_MAIL_REACH",
         "MISCHIEF_MODEL",
+        "MISCHIEF_PEON_BOXES",
+        "MISCHIEF_PEON_GRANTS",
         "MISCHIEF_THINK_CONCURRENCY",
       ]);
       expect(configuration.vars.MISCHIEF_THINK_CONCURRENCY).toBe("16");
@@ -81,6 +92,8 @@ it.effect(
       expect(prepared.bundle).toMatch(/export \{[^}]*\bServiceTokenLedger\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bPostbox\b/u);
       expect(prepared.bundle).toMatch(/export \{[^}]*\bSchedule\b/u);
+      expect(prepared.bundle).toMatch(/export \{[^}]*\bPeon\b/u);
+      expect(prepared.bundle).toMatch(/export \{[^}]*\bPeonTemplates\b/u);
       expect(prepared.bundle).not.toMatch(/from "node:/u);
     }).pipe(Effect.provide(NodeServices.layer)),
   60_000

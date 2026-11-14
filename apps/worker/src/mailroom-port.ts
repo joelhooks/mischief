@@ -32,6 +32,13 @@ export class Mailroom extends Context.Service<
       to: string,
       body: string
     ) => Effect.Effect<Sealed, PostboxFailed>;
+    readonly sealReply?: (
+      to: string,
+      messageId: string,
+      thread: string,
+      summary: string,
+      body: string
+    ) => Effect.Effect<Sealed, PostboxFailed>;
     readonly send: (envelope: string) => Effect.Effect<SendVerdictValue>;
     readonly surface: (summary: string, body: string) => Effect.Effect<void>;
     readonly tell: (

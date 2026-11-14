@@ -1,4 +1,8 @@
-import { runCapabilities, scheduleCapabilities } from "@mischief/core";
+import {
+  peonCapabilities,
+  runCapabilities,
+  scheduleCapabilities,
+} from "@mischief/core";
 // @effect-diagnostics asyncFunction:off -- a Durable Object stub's RPC methods are Promise APIs.
 import {
   ReplayAuthority,
@@ -19,7 +23,11 @@ export interface Ledger {
 
 export const READ_ONLY: ReadonlySet<string> = new Set(
   [
-    ...[...runCapabilities, ...scheduleCapabilities].flatMap(({ contract }) =>
+    ...[
+      ...runCapabilities,
+      ...scheduleCapabilities,
+      ...peonCapabilities,
+    ].flatMap(({ contract }) =>
       contract.annotations.readOnly ? [contract.name] : []
     ),
     "openApi",

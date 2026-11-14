@@ -9,6 +9,17 @@ import {
   createScheduleContract,
   inspectScheduleContract,
   runCapabilities,
+  spawnPeonContract,
+  promptPeonContract,
+  suspendPeonContract,
+  resumePeonContract,
+  hibernatePeonContract,
+  clonePeonContract,
+  destroyPeonContract,
+  inspectPeonContract,
+  listPeonTemplatesContract,
+  savePeonTemplateContract,
+  listPeonsContract,
 } from "@mischief/core";
 import { importSigning } from "@rat-king/mailbox-client";
 import type { IdentityValue } from "@rat-king/mailbox-client";
@@ -48,6 +59,17 @@ type Call<C extends AnyContract> = (
 ) => Effect.Effect<C["output"]["Type"], C["failure"]["Type"] | ClientError>;
 
 export interface MischiefClient {
+  readonly spawnPeon: Call<typeof spawnPeonContract>;
+  readonly promptPeon: Call<typeof promptPeonContract>;
+  readonly suspendPeon: Call<typeof suspendPeonContract>;
+  readonly resumePeon: Call<typeof resumePeonContract>;
+  readonly hibernatePeon: Call<typeof hibernatePeonContract>;
+  readonly clonePeon: Call<typeof clonePeonContract>;
+  readonly destroyPeon: Call<typeof destroyPeonContract>;
+  readonly inspectPeon: Call<typeof inspectPeonContract>;
+  readonly listPeonTemplates: Call<typeof listPeonTemplatesContract>;
+  readonly savePeonTemplate: Call<typeof savePeonTemplateContract>;
+  readonly listPeons: Call<typeof listPeonsContract>;
   readonly abortRun: Call<(typeof runCapabilities)[5]["contract"]>;
   readonly completeSchedule: Call<typeof completeScheduleContract>;
   readonly createSchedule: Call<typeof createScheduleContract>;
@@ -241,13 +263,24 @@ export const makeClient = Effect.fn("MischiefClient.make")(function* makeClient(
 
   return {
     abortRun: method(runCapabilities[5].contract),
+    clonePeon: method(clonePeonContract),
     completeSchedule: method(completeScheduleContract),
     createSchedule: method(createScheduleContract),
     deliverReply: method(runCapabilities[7].contract),
+    destroyPeon: method(destroyPeonContract),
+    hibernatePeon: method(hibernatePeonContract),
+    inspectPeon: method(inspectPeonContract),
     inspectRun: method(runCapabilities[1].contract),
     inspectSchedule: method(inspectScheduleContract),
+    listPeonTemplates: method(listPeonTemplatesContract),
+    listPeons: method(listPeonsContract),
+    promptPeon: method(promptPeonContract),
     readRun: method(runCapabilities[2].contract),
+    resumePeon: method(resumePeonContract),
+    savePeonTemplate: method(savePeonTemplateContract),
+    spawnPeon: method(spawnPeonContract),
     submitPlan: method(runCapabilities[0].contract),
+    suspendPeon: method(suspendPeonContract),
   };
 });
 

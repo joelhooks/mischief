@@ -54,6 +54,8 @@ import {
   judgeChosenPerCall,
 } from "./judge-choice.js";
 import { reachableMail } from "./mail-reach.js";
+import type { Peon } from "./peon-object.js";
+import type { PeonTemplates } from "./peon-registry.js";
 import {
   OBJECT_HEADER,
   objectOf,
@@ -69,6 +71,12 @@ import { dedupeKey, utcDay, warnText } from "./think-tally.js";
 const TELEMETRY_DESK = "pi-durable/desk";
 
 export interface Env {
+  readonly PEON: DurableObjectNamespace<Peon>;
+  readonly PEON_TEMPLATES: DurableObjectNamespace<PeonTemplates>;
+  readonly MISCHIEF_PEON_BOXES?: string;
+  readonly MISCHIEF_BOX_URL?: string;
+  readonly MISCHIEF_BOX_KEY?: string;
+  readonly MISCHIEF_PEON_GRANTS?: string;
   readonly PLAN_RUN: DurableObjectNamespace<PlanRun>;
   readonly CALLER_THINKS: DurableObjectNamespace<CallerThinks>;
   readonly MISCHIEF_CALLER_THINKS?: string;

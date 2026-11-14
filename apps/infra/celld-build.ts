@@ -2,6 +2,8 @@ import { prepareDeployment } from "@rat-king/alchemy-nest";
 import type { Declaration } from "@rat-king/alchemy-nest";
 import { Effect, Path } from "effect";
 
+import { peonVars } from "./peon-config.ts";
+
 export const INSTANCE = "mischief";
 
 export const declaration: typeof Declaration.Type = {
@@ -14,6 +16,8 @@ export const declaration: typeof Declaration.Type = {
       { class_name: "Postbox", name: "POSTBOX" },
       { class_name: "Schedule", name: "SCHEDULE" },
       { class_name: "CallerThinks", name: "CALLER_THINKS" },
+      { class_name: "Peon", name: "PEON" },
+      { class_name: "PeonTemplates", name: "PEON_TEMPLATES" },
     ],
   },
   migrations: [
@@ -21,6 +25,7 @@ export const declaration: typeof Declaration.Type = {
     { new_sqlite_classes: ["Postbox"], tag: "v2" },
     { new_sqlite_classes: ["Schedule"], tag: "v3" },
     { new_sqlite_classes: ["CallerThinks"], tag: "v4" },
+    { new_sqlite_classes: ["Peon", "PeonTemplates"], tag: "v5-peons" },
   ],
   name: INSTANCE,
 };
@@ -28,6 +33,7 @@ export const declaration: typeof Declaration.Type = {
 export interface BuildInput {
   readonly callers: string;
   readonly mailReach?: string;
+  readonly peonGrants?: string;
   readonly commit: string;
   readonly did: string;
   readonly entry?: string;
@@ -57,6 +63,7 @@ const thinkerVars = (thinker: Thinker): Record<string, string> =>
 export const buildWorker = ({
   callers,
   mailReach = "{}",
+  peonGrants = "{}",
   commit,
   did,
   entry,
@@ -70,7 +77,10 @@ export const buildWorker = ({
   Effect.gen(function* buildMischiefWorker() {
     const path = yield* Path.Path;
 
+    const peons = yield* peonVars;
+
     const vars = {
+      ...peons,
       MISCHIEF_CALLERS: callers,
       MISCHIEF_CALLER_THINKS: "40",
       MISCHIEF_DID: did,
@@ -80,6 +90,7 @@ export const buildWorker = ({
       MISCHIEF_MAILBOX_DID: mailbox.did,
       MISCHIEF_MAILBOX_URL: mailbox.url,
       MISCHIEF_MAIL_REACH: mailReach,
+      MISCHIEF_PEON_GRANTS: peonGrants,
       MISCHIEF_THINK_CONCURRENCY: "16",
       ...thinkerVars(thinker),
     };

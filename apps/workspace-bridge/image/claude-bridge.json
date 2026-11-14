@@ -1,0 +1,6 @@
+{
+  "provider": {
+    "plan": "max",
+    "pathToClaudeCodeExecutable": "/opt/claude-bridge/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude"
+  }
+}

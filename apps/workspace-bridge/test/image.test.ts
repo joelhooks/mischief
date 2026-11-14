@@ -10,10 +10,13 @@ const Probe = Schema.Struct({
   agent: Schema.String,
   bakedModelsMode: Schema.Int,
   bakedSettingsMode: Schema.Int,
+  bridgeMode: Schema.Int,
+  bridgeText: Schema.String,
   canary: Schema.Null,
   home: Schema.String,
   modelsMode: Schema.Int,
   modelsText: Schema.String,
+  providerEnv: Schema.Record(Schema.String, Schema.String),
   settingsMode: Schema.Int,
   settingsText: Schema.String,
 });
@@ -27,7 +30,11 @@ const probe = [
   'const settingsText = fs.readFileSync(settings, "utf8");',
   "fs.writeFileSync(models, modelsText);",
   "fs.writeFileSync(settings, settingsText);",
-  'console.log(JSON.stringify({ agent, home: process.env.HOME, canary: process.env.ANTHROPIC_API_KEY ?? null, modelsMode: fs.statSync(models).mode & 0o777, settingsMode: fs.statSync(settings).mode & 0o777, modelsText, settingsText, bakedModelsMode: fs.statSync(process.argv[1] + "/models.json").mode & 0o777, bakedSettingsMode: fs.statSync(process.argv[1] + "/settings.json").mode & 0o777 }));',
+  'const bridge = agent + "/claude-bridge.json";',
+  'const bridgeText = fs.readFileSync(bridge, "utf8");',
+  "fs.writeFileSync(bridge, bridgeText);",
+  'const providerEnv = Object.fromEntries(["ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "DISABLE_AUTOUPDATER", "DISABLE_TELEMETRY", "CLAUDE_CODE_MAX_RETRIES"].map(key => [key, process.env[key]]));',
+  'console.log(JSON.stringify({ agent, home: process.env.HOME, canary: process.env.ANTHROPIC_API_KEY ?? null, modelsMode: fs.statSync(models).mode & 0o777, settingsMode: fs.statSync(settings).mode & 0o777, modelsText, settingsText, bridgeText, bridgeMode: fs.statSync(bridge).mode & 0o777, providerEnv, bakedModelsMode: fs.statSync(process.argv[1] + "/models.json").mode & 0o777, bakedSettingsMode: fs.statSync(process.argv[1] + "/settings.json").mode & 0o777 }));',
 ].join("\n");
 
 it.effect(
@@ -58,12 +65,16 @@ it.effect(
       yield* fs.makeDirectory(`${root}/tmp`);
       const modelsText = yield* fs.readFileString("image/models.json");
       const settingsText = yield* fs.readFileString("image/settings.json");
+      const bridgeText = yield* fs.readFileString("image/claude-bridge.json");
+      yield* fs.writeFileString(`${baked}/claude-bridge.json`, bridgeText);
+      yield* fs.chmod(`${baked}/claude-bridge.json`, 0o444);
       yield* fs.writeFileString(`${baked}/models.json`, modelsText);
       yield* fs.writeFileString(`${baked}/settings.json`, settingsText);
       yield* fs.chmod(`${baked}/models.json`, 0o444);
       yield* fs.chmod(`${baked}/settings.json`, 0o444);
 
       const entrypoint = (yield* fs.readFileString("image/entrypoint.sh"))
+        .replaceAll("172.30.211.1", "192.0.2.1")
         .replaceAll("/opt/peon", baked)
         .replaceAll("/tmp/peon", home);
 
@@ -96,10 +107,20 @@ it.effect(
         agent: home,
         bakedModelsMode: 0o444,
         bakedSettingsMode: 0o444,
+        bridgeMode: 0o600,
+        bridgeText,
         canary: null,
         home,
         modelsMode: 0o600,
         modelsText,
+        providerEnv: {
+          ANTHROPIC_AUTH_TOKEN: "proxy",
+          ANTHROPIC_BASE_URL: "http://192.0.2.1:28012",
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+          CLAUDE_CODE_MAX_RETRIES: "1",
+          DISABLE_AUTOUPDATER: "1",
+          DISABLE_TELEMETRY: "1",
+        },
         settingsMode: 0o600,
         settingsText,
       });

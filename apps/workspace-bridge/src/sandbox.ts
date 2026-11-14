@@ -43,7 +43,8 @@ export const dockerArguments = (
   image: string,
   exportPath: string,
   name: string,
-  thinking: ReturnType<typeof thinkingOf>
+  thinking: ReturnType<typeof thinkingOf>,
+  model = "peon/gpt-6.1-sol"
 ) => [
   "run",
   "--rm",
@@ -85,10 +86,13 @@ export const dockerArguments = (
   "--tools",
   "read,grep,find,ls,bash",
   "--no-extensions",
+  ...(model === "claude-bridge/claude-opus-5-5"
+    ? ["-e", "/opt/claude-bridge/src/index.ts"]
+    : []),
   "--no-skills",
   "--no-prompt-templates",
   "--model",
-  "peon/gpt-6.1-sol",
+  model,
   "--thinking",
   thinking,
   "--system-prompt",
@@ -296,7 +300,10 @@ export class Sandbox extends Context.Service<
                   Effect.gen(function* recordReceipt() {
                     yield* Effect.logInfo({
                       ...(yield* Ref.get(receipt)),
-                      appliedThinking: thinkingOf(request.reasoning.effort),
+                      appliedThinking:
+                        model === "peon/gpt-6.1-sol"
+                          ? thinkingOf(request.reasoning.effort)
+                          : null,
                       container: name,
                       event: "workspace_receipt",
                       exportDigest: checkout.digest,
@@ -343,7 +350,8 @@ export class Sandbox extends Context.Service<
               pinnedImage,
               checkout.path,
               name,
-              thinkingOf(request.reasoning.effort)
+              thinkingOf(request.reasoning.effort),
+              model
             ),
             executable: "docker",
             input,
@@ -355,7 +363,7 @@ export class Sandbox extends Context.Service<
             toolCalls: toolCalls(output.stdout),
           });
 
-          return yield* workspaceCompletion(output.stdout, output.exit);
+          return yield* workspaceCompletion(output.stdout, output.exit, model);
         }, Effect.scoped);
 
         return Sandbox.of({ run, sweep });

@@ -9,6 +9,7 @@ import {
   Result,
   Schema,
 } from "effect";
+import * as Arbitrary from "effect/Arbitrary";
 import { TestClock } from "effect/testing";
 
 import { runCall, DEADLINE_MS } from "../src/call-machine.js";
@@ -38,6 +39,23 @@ it.effect(
     })
 );
 
+it.effect(
+  "Servo Claude argv: same confinement, only the pinned bridge extension and model change",
+  () =>
+    Effect.sync(() => {
+      expect({
+        args: dockerArguments(
+          image,
+          `/exports/${sha}`,
+          name,
+          "xhigh",
+          "claude-bridge/claude-opus-5-5"
+        ),
+        executable: "docker",
+      }).toMatchSnapshot();
+    })
+);
+
 const fixture = Effect.gen(function* fixture() {
   const fs = yield* FileSystem.FileSystem;
 
@@ -57,9 +75,10 @@ const fixture = Effect.gen(function* fixture() {
   return { exported, exports, fs, root };
 });
 
-it.effect(
+it.effect.prop(
   "a fake Docker runner receives the reviewed argv, no prompt in argv, and exact-name teardown",
-  () =>
+  { model: Arbitrary.schema(Schema.Literals(["sol", "opus"])) },
+  ({ model }) =>
     Effect.gen(function* argvSeam() {
       const context = yield* fixture;
       const commands = yield* Ref.make<Command[]>([]);
@@ -78,6 +97,7 @@ it.effect(
         run({
           ...request,
           max_output_tokens: 32_000,
+          model,
           reasoning: { effort: "max" },
         })
       ).pipe(
@@ -98,6 +118,12 @@ it.effect(
       const generated = call.args[call.args.indexOf("--name") + 1];
       expect(generated).toMatch(/^mischief-peon-[0-9a-f-]{36}$/u);
       expect(call.args[call.args.indexOf("--thinking") + 1]).toBe("max");
+      expect(call.args[call.args.indexOf("--model") + 1]).toBe(
+        model === "sol" ? "peon/gpt-6.1-sol" : "claude-bridge/claude-opus-5-5"
+      );
+      expect(call.args.includes("/opt/claude-bridge/src/index.ts")).toBe(
+        model === "opus"
+      );
       expect(call.args).not.toContain("private review prompt");
       expect(call.input).toContain("private review prompt");
       expect(
@@ -144,10 +170,12 @@ it.effect(
         expect(badTools.status).toBe(400);
 
         const badModel = yield* Effect.flip(
-          sandbox.run({ ...request, model: "claude-opus-5-5" })
+          sandbox.run({ ...request, model: "claude-sonnet-5" })
         );
 
-        expect(badModel.message).toContain("extra-usage");
+        expect(badModel.message).toContain(
+          "Other Claude models are not enabled"
+        );
         const badLink = yield* Effect.flip(sandbox.run(request));
         expect(badLink.message).toContain("symlink");
         expect(yield* Ref.get(starts)).toBe(0);

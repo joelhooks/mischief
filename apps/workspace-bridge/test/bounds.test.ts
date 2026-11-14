@@ -1,13 +1,18 @@
+import { gzipSync } from "node:zlib";
+
 import { expect, it } from "@effect/vitest";
-import { Effect, Redacted, Ref, Stream } from "effect";
+import { Effect, Redacted, Ref, Schema, Stream } from "effect";
+import * as Arbitrary from "effect/Arbitrary";
 import { HttpClient, HttpClientResponse } from "effect/http";
 
 import { Proxy } from "../src/proxy.js";
 import { collectBytes } from "../src/runner.js";
+import { capturedBody, capturedHeaders } from "./messages-fixture.js";
 
-it.effect(
+it.effect.prop(
   "process and provider error output have real byte bounds, not just declared limits",
-  () =>
+  { compressed: Arbitrary.schema(Schema.Boolean) },
+  ({ compressed }) =>
     Effect.gen(function* bounds() {
       const bytes = new TextEncoder().encode("🐀");
       expect(yield* collectBytes(Stream.make(bytes), 4)).toEqual(bytes);
@@ -21,7 +26,17 @@ it.effect(
           Effect.as(
             HttpClientResponse.fromWeb(
               request,
-              new Response("x".repeat(64 * 1024 + 1), { status: 503 })
+              new Response(
+                compressed
+                  ? gzipSync("x".repeat(64 * 1024 + 1))
+                  : "x".repeat(64 * 1024 + 1),
+                {
+                  headers: {
+                    "content-encoding": compressed ? "gzip" : "identity",
+                  },
+                  status: 503,
+                }
+              )
             )
           )
         )
@@ -29,14 +44,22 @@ it.effect(
 
       const failure = yield* Effect.flip(
         Proxy.use(({ forward }) =>
-          forward({
-            body: { model: "gpt-6.1-sol" },
-          })
+          forward(
+            compressed
+              ? {
+                  body: capturedBody,
+                  headers: capturedHeaders,
+                  target: "/v1/messages",
+                }
+              : {
+                  body: { model: "gpt-6.1-sol" },
+                }
+          )
         ).pipe(
           Effect.provide(
             Proxy.layer({
               key: Redacted.make("host-key"),
-              models: ["gpt-6.1-sol"],
+              models: ["gpt-6.1-sol", "claude-opus-5-5"],
               upstream: "https://provider.test",
             })
           ),
@@ -65,9 +88,14 @@ it.effect(
         },
         { models: ["gpt-6.1-sol"], upstream: "not a URL" },
         {
-          models: ["gpt-6.1-sol", "claude-opus-5-5"],
+          models: ["gpt-6.1-sol", "claude-opus-5-5", "unknown"],
           upstream: "https://provider.test",
         },
+        {
+          models: ["gpt-6.1-sol", "gpt-6.1-sol"],
+          upstream: "https://provider.test",
+        },
+        { models: ["gpt-6.1-sol"], upstream: "https://provider.test" },
       ]) {
         const failure = yield* Effect.flip(
           Proxy.use(() => Effect.void).pipe(

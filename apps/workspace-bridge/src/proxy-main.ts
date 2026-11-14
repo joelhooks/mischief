@@ -1,11 +1,12 @@
 import {
   NodeHttpServer,
+  NodeHttpClient,
   NodeRuntime,
   NodeServices,
 } from "@effect/platform-node";
 import { createServer } from "@mischief/model-bridge/server";
-import { Config, Effect, Layer, Redacted, Schema } from "effect";
-import { FetchHttpClient, HttpRouter } from "effect/http";
+import { Config, Context, Effect, Layer, Redacted, Schema } from "effect";
+import { FetchHttpClient, HttpClient, HttpRouter } from "effect/http";
 
 import { Proxy, proxyRoutes } from "./proxy.js";
 
@@ -24,9 +25,12 @@ const program = Effect.gen(function* serveWorkspaceProxy() {
     Schema.fromJsonString(Schema.Array(Schema.String))
   )(
     yield* Config.String("MISCHIEF_PEON_MODELS").pipe(
-      Config.withDefault('["gpt-6.1-sol"]')
+      Config.withDefault('["gpt-6.1-sol","claude-opus-5-5"]')
     )
   );
+
+  const messagesContext = yield* Layer.build(NodeHttpClient.layerNodeHttp);
+  const messagesClient = Context.get(messagesContext, HttpClient.HttpClient);
 
   return yield* Layer.launch(
     HttpRouter.serve(proxyRoutes, {
@@ -34,7 +38,7 @@ const program = Effect.gen(function* serveWorkspaceProxy() {
       disableLogger: true,
     }).pipe(
       Layer.provide(
-        Proxy.layer({ key, models, upstream }).pipe(
+        Proxy.layer({ key, models, upstream }, messagesClient).pipe(
           Layer.provide(FetchHttpClient.layer)
         )
       ),
@@ -49,4 +53,4 @@ const program = Effect.gen(function* serveWorkspaceProxy() {
   );
 });
 
-NodeRuntime.runMain(program);
+NodeRuntime.runMain(program.pipe(Effect.scoped));

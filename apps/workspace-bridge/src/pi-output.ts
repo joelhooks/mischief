@@ -30,7 +30,10 @@ const CompletionStatus = Schema.Literals([
   400, 401, 403, 404, 413, 429, 500, 502, 503, 504,
 ]);
 
-export const providerFailure = (diagnostic: string) => {
+export const providerFailure = (
+  diagnostic: string,
+  provider = "peon/gpt-6.1-sol"
+) => {
   const status =
     /(?:\b(?:http|status|(?:api )?error(?: code)?)\s*[:=(]?\s*|^)(?<status>[45]\d{2})\b/iu.exec(
       diagnostic
@@ -51,13 +54,17 @@ export const providerFailure = (diagnostic: string) => {
     .slice(0, 512);
 
   return refusal(
-    `Workspace provider error (status ${status ?? "unknown"}): ${safe || "No provider diagnostic"}. Inspect provider health and credentials, then retry.`,
+    `Workspace ${provider} provider error (status ${status ?? "unknown"}): ${safe || "No provider diagnostic"}. Inspect provider health and credentials, then retry.`,
     Option.getOrElse(accepted, () => 502)
   );
 };
 
 export const workspaceCompletion = Effect.fn("WorkspaceBridge.decodePi")(
-  function* workspaceCompletion(stdout: string, exit: number) {
+  function* workspaceCompletion(
+    stdout: string,
+    exit: number,
+    provider?: string
+  ) {
     let final: typeof Assistant.Type.message | undefined;
 
     const usage = {
@@ -100,22 +107,26 @@ export const workspaceCompletion = Effect.fn("WorkspaceBridge.decodePi")(
         continue;
       }
 
-      const assistant = yield* Schema.decodeUnknownEffect(
-        Schema.fromJsonString(Assistant)
-      )(line).pipe(
-        Effect.mapError(() =>
-          refusal(
-            "Pi returned an unsupported assistant message. Check the pinned workspace image and retry.",
-            502
+      const assistant: typeof Assistant.Type =
+        yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Assistant))(
+          line
+        ).pipe(
+          Effect.mapError(() =>
+            refusal(
+              "Pi returned an unsupported assistant message. Check the pinned workspace image and retry.",
+              502
+            )
           )
-        )
-      );
+        );
 
       if (
         assistant.message.stopReason === "error" ||
         assistant.message.stopReason === "aborted"
       ) {
-        return yield* providerFailure(assistant.message.errorMessage ?? "");
+        return yield* providerFailure(
+          assistant.message.errorMessage ?? "",
+          provider ?? "peon/gpt-6.1-sol"
+        );
       }
 
       for (const key of [

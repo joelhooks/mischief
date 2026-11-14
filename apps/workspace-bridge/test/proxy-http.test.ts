@@ -45,7 +45,7 @@ it.effect(
         Layer.provide(
           Proxy.layer({
             key: Redacted.make("upstream-only-secret"),
-            models: ["gpt-6.1-sol"],
+            models: ["gpt-6.1-sol", "claude-opus-5-5"],
             upstream: "http://provider.test",
           }).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, upstream)))
         ),

@@ -19,6 +19,8 @@ import { callersFromConfig } from "./callers.ts";
 import { buildWorker, INSTANCE } from "./celld-build.ts";
 import type { Thinker } from "./celld-build.ts";
 import { opusBridgeUnit } from "./opus-bridge-unit.ts";
+import { peonProxyUnit, workspaceBridgeUnit } from "./workspace-bridge-unit.ts";
+import { workspaceFromConfig } from "./workspace-config.ts";
 
 export const PORT_BASE = 28_000;
 
@@ -106,6 +108,19 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         );
       }
 
+      const workspace = yield* workspaceFromConfig;
+
+      if (Option.isSome(workspace)) {
+        yield* SystemdUnit(
+          "workspace-bridge",
+          workspaceBridgeUnit(host, workspace.value.bridgeEntry)
+        );
+        yield* SystemdUnit(
+          "peon-proxy",
+          peonProxyUnit(host, workspace.value.proxyEntry)
+        );
+      }
+
       const prepared = yield* buildWorker({
         callers,
         commit,
@@ -116,6 +131,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         opusBridgeUrl: opusBridgeUrl === "" ? undefined : opusBridgeUrl,
         thinker,
         version,
+        workspace: Option.getOrUndefined(workspace),
       });
 
       const slice = yield* ObjectStore.Slice({
@@ -186,6 +202,9 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
                       ...(opusBridgeUrl === ""
                         ? []
                         : ["MISCHIEF_OPUS_BRIDGE_KEY"]),
+                      ...(Option.isNone(workspace)
+                        ? []
+                        : ["MISCHIEF_WORKSPACE_BRIDGE_KEY"]),
                       ...(thinker.model === "cliproxy"
                         ? ["MISCHIEF_CLIPROXY_KEY"]
                         : []),

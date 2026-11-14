@@ -31,6 +31,8 @@ import {
   mischiefUnits,
   renderOpusBridgeUnit,
 } from "./units.ts";
+import { peonProxyUnit, workspaceBridgeUnit } from "./workspace-bridge-unit.ts";
+import { workspaceFromConfig } from "./workspace-config.ts";
 
 const refuse = (reason: string) => Effect.die(new Error(reason));
 
@@ -206,6 +208,8 @@ export const renderUnitsCelld = Effect.gen(function* renderUnitsCelld() {
     Config.withDefault("")
   );
 
+  const workspace = yield* workspaceFromConfig;
+
   const units = [
     ...mischiefUnits(node),
     mischiefMaintenanceScript(node),
@@ -217,6 +221,15 @@ export const renderUnitsCelld = Effect.gen(function* renderUnitsCelld() {
             yield* Config.String("MISCHIEF_OPUS_BRIDGE_ENTRY")
           ),
         ]),
+    ...(Option.isNone(workspace)
+      ? []
+      : [
+          workspaceBridgeUnit(node, workspace.value.bridgeEntry),
+          peonProxyUnit(node, workspace.value.proxyEntry),
+        ].map((unit) => ({
+          path: `${node.home}/.config/systemd/user/${unit.name}`,
+          text: `${unit.sections.map(({ lines, name }) => `[${name}]\n${lines.map(([key, value]) => `${key}=${value}`).join("\n")}`).join("\n\n")}\n`,
+        }))),
   ];
 
   yield* fs.makeDirectory(out, { mode: 0o700, recursive: true });

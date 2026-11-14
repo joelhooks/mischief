@@ -72,7 +72,7 @@ exports[`box units stay absent by default and use separate private host environm
           ],
           [
             "UMask",
-            "0077",
+            "0007",
           ],
         ],
         "name": "Service",

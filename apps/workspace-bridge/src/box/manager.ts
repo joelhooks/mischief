@@ -243,36 +243,62 @@ export class Boxes extends Context.Service<
             })
           );
 
+        const prepareTree = (id: string) =>
+          execute({
+            args: ["-R", "u+rwX,g+rwX,o-rwx", base(id)],
+            executable: "chmod",
+          });
+
         const owned = (id: string, initialize = false) =>
-          docker([
-            "run",
-            "--rm",
-            "--network",
-            "none",
-            "--read-only",
-            "--cap-drop",
-            "ALL",
-            "--cap-add",
-            "CHOWN",
-            "--security-opt",
-            "no-new-privileges",
-            "--user",
-            "0",
-            "--mount",
-            `type=bind,source=${base(id)},target=/box`,
-            "--entrypoint",
-            "/bin/sh",
-            config.image,
-            "-c",
-            `chown -hR 0:${config.gid} /box && ${initialize ? "cp /opt/peon/models.json /opt/peon/settings.json /box/home/.pi/agent/ && " : ""}chmod -R g+rwX /box && chown -hR 65534:${config.gid} /box`,
-          ]).pipe(
-            Effect.mapError(() =>
-              refusal(
-                "Box ownership preparation failed: uid 65534 cannot write its workspace, and without the manager gid the host cannot snapshot or delete it. Check the isolated CHOWN helper and retry.",
-                503
-              )
-            )
-          );
+          runner
+            .run({
+              executable: "docker",
+              args: [
+                "run",
+                "--rm",
+                "--network",
+                "none",
+                "--read-only",
+                "--cap-drop",
+                "ALL",
+                "--cap-add",
+                "CHOWN",
+                "--security-opt",
+                "no-new-privileges",
+                "--user",
+                `0:${config.gid}`,
+                "--mount",
+                `type=bind,source=${base(id)},target=/box`,
+                "--entrypoint",
+                "/bin/sh",
+                config.image,
+                "-c",
+                `chown -hR 0:${config.gid} /box && ${initialize ? "cp /opt/peon/models.json /opt/peon/settings.json /box/home/.pi/agent/ && " : ""}chmod -R g+rwX /box && chown -hR 65534:${config.gid} /box`,
+              ],
+            })
+            .pipe(
+              Effect.flatMap((output) => {
+                if (output.exit === 0) {
+                  return Effect.void;
+                }
+
+                const diagnostic = (output.stderr ?? "No helper stderr")
+                  .replaceAll(/\bBearer\s+[^\s"',;]+/giu, "Bearer [redacted]")
+                  .replaceAll(/\bsk-[a-zA-Z0-9_-]+/gu, "[redacted]")
+                  .replaceAll(
+                    /(?<label>(?:api[-_ ]?key|authorization|token|secret|password)["']?\s*[:=]\s*["']?)[^\s"',;}]+/giu,
+                    "$<label>[redacted]"
+                  )
+                  .replaceAll(/https?:\/\/[^\s"'<>]+/giu, "[redacted-url]")
+                  .replaceAll(/\p{Cc}/gu, " ")
+                  .slice(0, 512);
+
+                return refusal(
+                  `Box ownership preparation failed (exit ${output.exit}): ${diagnostic}. uid 65534 needs a writable workspace and the manager gid needs snapshot/delete access. Check the isolated CHOWN helper and retry.`,
+                  503
+                );
+              })
+            );
 
         const container = (box: BoxMetadata, start: boolean) =>
           docker([
@@ -292,7 +318,7 @@ export class Boxes extends Context.Service<
             "--security-opt",
             "no-new-privileges",
             "--user",
-            "65534",
+            `65534:${config.gid}`,
             "--cpus",
             String(box.template.limits.cpus),
             "--memory",
@@ -435,6 +461,7 @@ export class Boxes extends Context.Service<
             ],
             executable: "tar",
           });
+          yield* prepareTree(target);
           yield* owned(target);
 
           return yield* Effect.void;
@@ -640,6 +667,7 @@ export class Boxes extends Context.Service<
                     { mode: 0o660 }
                   );
 
+                  yield* prepareTree(id);
                   yield* owned(id, true);
 
                   const box: BoxMetadata = {
@@ -734,7 +762,7 @@ export class Boxes extends Context.Service<
                         "node",
                         "--input-type=module",
                         "-e",
-                        "import{mkdir,writeFile}from'node:fs/promises';await mkdir('/home/peon/.box/requests',{recursive:true});const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);await writeFile(process.argv[1],Buffer.concat(chunks))",
+                        "import{mkdir,writeFile}from'node:fs/promises';process.umask(0o0007);await mkdir('/home/peon/.box/requests',{recursive:true});const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);await writeFile(process.argv[1],Buffer.concat(chunks))",
                         `/home/peon/.box/requests/${yield* keyOf(input.requestId)}.json`,
                       ],
                       JSON.stringify({ requestId: input.requestId, result })
@@ -851,6 +879,7 @@ export class Boxes extends Context.Service<
                         ],
                         executable: "cp",
                       });
+                      yield* prepareTree(target);
                       yield* owned(target);
                     }
 

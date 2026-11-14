@@ -610,7 +610,7 @@ exports[`box planning carries the mount condition into the manager unit and refu
         ],
         [
           "UMask",
-          "0077",
+          "0007",
         ],
       ],
       "name": "Service",

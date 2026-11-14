@@ -51,7 +51,10 @@ it.effect(
           expect(lines).toContainEqual(["KillMode", "control-group"]);
           expect(lines).toContainEqual(["SuccessExitStatus", "130"]);
           expect(lines).toContainEqual(["NoNewPrivileges", "true"]);
-          expect(lines).toContainEqual(["UMask", "0077"]);
+          expect(lines).toContainEqual([
+            "UMask",
+            unit.name === "mischief-peon-boxes.service" ? "0007" : "0077",
+          ]);
           expect(lines).toContainEqual([
             "EnvironmentFile",
             `/home/fixture/.config/mischief/${unit.name.replace("mischief-", "").replace(".service", "")}.env`,

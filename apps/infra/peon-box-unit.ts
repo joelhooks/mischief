@@ -45,12 +45,17 @@ export const peonBoxUnits = (
           .sections.flatMap((section) =>
             section.name === "Service" ? section.lines : []
           )
-          .map(([key, value]): readonly [string, string] => [
-            key,
-            key === "EnvironmentFile"
-              ? `${host.home}/.config/mischief/${environment}.env`
-              : value,
-          ]),
+          .map(([key, value]): readonly [string, string] => {
+            if (key === "EnvironmentFile") {
+              return [key, `${host.home}/.config/mischief/${environment}.env`];
+            }
+
+            if (key === "UMask" && name === "mischief-peon-boxes.service") {
+              return [key, "0007"];
+            }
+
+            return [key, value];
+          }),
         name: "Service",
       },
       { lines: [["WantedBy", "default.target"]], name: "Install" },

@@ -2,7 +2,6 @@ import {
   Clock,
   Cause,
   Exit,
-  Crypto,
   Deferred,
   Effect,
   Option,
@@ -10,6 +9,7 @@ import {
   Schema,
   Semaphore,
 } from "effect";
+import * as Digest from "effect/crypto/Digest";
 import { constVoid } from "effect/Function";
 import { createAsyncLogic } from "xstate";
 import type { AnyEventObject, Snapshot } from "xstate";
@@ -103,7 +103,7 @@ import type {
 } from "./schema.js";
 
 export type StepServices =
-  | Crypto.Crypto
+  | Digest.Digest
   | Judge
   | Mail
   | Operator
@@ -280,7 +280,7 @@ export const driveSession = (
     const judge = yield* Judge;
     const mail = yield* Mail;
     const operator = yield* Operator;
-    const crypto = yield* Crypto.Crypto;
+    const crypto = yield* Digest.Digest;
     const registry = yield* CallRegistry;
 
     const saving = yield* Semaphore.make(1);

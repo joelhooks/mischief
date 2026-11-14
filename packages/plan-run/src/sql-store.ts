@@ -149,27 +149,29 @@ const encodedFor = (runId: string, changes: RunChanges) =>
     ])
   );
 
-export const runBackendSql = (storage: SqlStorage): Effect.Effect<RunBackend> =>
-  Effect.gen(function* openSqlStore() {
-    const rows = (query: string, ...bindings: SqlValue[]) =>
-      storage.sql.exec(query, ...bindings).toArray();
+export const runBackendSql = (
+  storage: SqlStorage
+): Effect.Effect<RunBackend> => {
+  const rows = (query: string, ...bindings: SqlValue[]) =>
+    storage.sql.exec(query, ...bindings).toArray();
 
-    const column = (query: string, name: string, ...bindings: SqlValue[]) =>
-      Effect.sync(() =>
-        Option.fromUndefinedOr(rows(query, ...bindings)[0]).pipe(
-          Option.map((row) => textOf(row[name]))
-        )
-      );
+  const column = (query: string, name: string, ...bindings: SqlValue[]) =>
+    Effect.sync(() =>
+      Option.fromUndefinedOr(rows(query, ...bindings)[0]).pipe(
+        Option.map((row) => textOf(row[name]))
+      )
+    );
 
+  const docsOf = (runId: string) =>
+    Effect.sync(() =>
+      rows("SELECT name, doc FROM mischief_docs WHERE run_id = ?", runId)
+    ).pipe(
+      Effect.flatMap((found) => entriesOf(found, "name", "doc", JsonText)),
+      Effect.map((entries) => Object.fromEntries(entries))
+    );
+
+  return Effect.gen(function* openSqlStore() {
     yield* Effect.sync(() => storage.sql.exec(SCHEMA));
-
-    const docsOf = (runId: string) =>
-      Effect.sync(() =>
-        rows("SELECT name, doc FROM mischief_docs WHERE run_id = ?", runId)
-      ).pipe(
-        Effect.flatMap((found) => entriesOf(found, "name", "doc", JsonText)),
-        Effect.map((entries) => Object.fromEntries(entries))
-      );
 
     return {
       apply: (runId, changes) =>
@@ -248,6 +250,7 @@ export const runBackendSql = (storage: SqlStorage): Effect.Effect<RunBackend> =>
         ),
     };
   });
+};
 
 export const runStoreSql = (
   storage: SqlStorage

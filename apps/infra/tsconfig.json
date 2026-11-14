@@ -4,6 +4,7 @@
     "plugins": [
       {
         "name": "@effect/language-service",
+        "allowedDuplicatedPackages": ["effect"],
         "allowedUnstableApis": [
           "@effect/platform-node/NodeCrypto",
           "@effect/platform-node/NodeRuntime",

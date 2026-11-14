@@ -2,7 +2,6 @@ import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import {
   Clock,
   Context,
-  Crypto,
   Effect,
   FileSystem,
   Layer,
@@ -11,6 +10,7 @@ import {
   Schema,
 } from "effect";
 import type { PlatformError } from "effect";
+import * as Digest from "effect/crypto/Digest";
 
 import { refusal } from "../protocol.js";
 import { checked, Runner } from "../runner.js";
@@ -77,11 +77,11 @@ export class Boxes extends Context.Service<
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const runner = yield* Runner;
-        const crypto = yield* Crypto.Crypto;
+        const crypto = yield* Digest.Digest;
 
         const keyOf = (requestId: string) =>
           receiptKey(requestId).pipe(
-            Effect.provideService(Crypto.Crypto, crypto)
+            Effect.provideService(Digest.Digest, crypto)
           );
 
         const locks = yield* Ref.make(new Set<string>());

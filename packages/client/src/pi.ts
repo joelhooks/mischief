@@ -4,6 +4,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, flow, Layer, Schema } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { tupled } from "effect/Function";
 import { FetchHttpClient } from "effect/http";
 
@@ -29,7 +30,13 @@ const toolEffect = Effect.fn("MischiefClient.pi")(
 
     return yield* executeRequest(yield* projectClient(cwd, input.host), input);
   },
-  Effect.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer))
+  Effect.provide(
+    Layer.mergeAll(
+      NodeServices.layer,
+      FetchHttpClient.layer,
+      SecureRandom.layerWebCrypto
+    )
+  )
 );
 
 type Output = Effect.Success<ReturnType<typeof toolEffect>>;

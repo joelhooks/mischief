@@ -14,57 +14,54 @@ const Recipient = Schema.fromJsonString(
 export const reachableMail = (
   objectName: () => Option.Option<string>,
   config: () => string | undefined
-) =>
-  Layer.effect(
+) => {
+  const identity = (key: string): Effect.Effect<string, StepFailed> =>
+    Option.match(objectName(), {
+      onNone: () =>
+        Effect.fail(
+          new StepFailed({
+            key,
+            reason:
+              "this run has no submitting caller identity. Resubmit it through the Worker so mail reach can be checked",
+          })
+        ),
+      onSome: Effect.succeed,
+    });
+
+  const check = (
+    key: string,
+    recipient:
+      | { readonly to: string }
+      | { readonly aad: { readonly recipientDid: string } }
+  ) =>
+    identity(key).pipe(
+      Effect.flatMap((name) => {
+        const did = name.slice(0, name.lastIndexOf("/"));
+        const reach = callerReach(did, config());
+
+        const to =
+          "to" in recipient
+            ? recipient.to
+            : (reach.names.find((candidate) =>
+                Option.contains(didFor(candidate), recipient.aad.recipientDid)
+              ) ??
+              Option.getOrElse(
+                nameFor(recipient.aad.recipientDid),
+                () => recipient.aad.recipientDid
+              ));
+
+        const reason = mailReachReason(did, key, to, config());
+
+        return reason === undefined
+          ? Effect.succeed(name)
+          : Effect.fail(new StepFailed({ key, reason }));
+      })
+    );
+
+  return Layer.effect(
     Mail,
     Effect.gen(function* checkedMail() {
       const mail = yield* Mail;
-
-      const identity = (key: string): Effect.Effect<string, StepFailed> =>
-        Option.match(objectName(), {
-          onNone: () =>
-            Effect.fail(
-              new StepFailed({
-                key,
-                reason:
-                  "this run has no submitting caller identity. Resubmit it through the Worker so mail reach can be checked",
-              })
-            ),
-          onSome: Effect.succeed,
-        });
-
-      const check = (
-        key: string,
-        recipient:
-          | { readonly to: string }
-          | { readonly aad: { readonly recipientDid: string } }
-      ) =>
-        identity(key).pipe(
-          Effect.flatMap((name) => {
-            const did = name.slice(0, name.lastIndexOf("/"));
-            const reach = callerReach(did, config());
-
-            const to =
-              "to" in recipient
-                ? recipient.to
-                : (reach.names.find((candidate) =>
-                    Option.contains(
-                      didFor(candidate),
-                      recipient.aad.recipientDid
-                    )
-                  ) ??
-                  Option.getOrElse(
-                    nameFor(recipient.aad.recipientDid),
-                    () => recipient.aad.recipientDid
-                  ));
-
-            const reason = mailReachReason(did, key, to, config());
-
-            return reason === undefined
-              ? Effect.succeed(name)
-              : Effect.fail(new StepFailed({ key, reason }));
-          })
-        );
 
       return Mail.of({
         seal: (call) =>
@@ -89,3 +86,4 @@ export const reachableMail = (
       });
     })
   );
+};

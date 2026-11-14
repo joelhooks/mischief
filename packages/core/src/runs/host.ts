@@ -1,7 +1,6 @@
 import {
   Clock,
   Context,
-  Crypto,
   Effect,
   Exit,
   Layer,
@@ -9,6 +8,7 @@ import {
   Result,
   Schema,
 } from "effect";
+import * as Digest from "effect/crypto/Digest";
 
 import { DeclaredThinking } from "../plans/declared-thinking.js";
 import { EnabledStepKinds } from "../plans/step-kinds.js";
@@ -263,7 +263,7 @@ export class RunHost extends Context.Service<
       docs: Docs = {}
     ) {
       const submitted = yield* fingerprintOf(
-        Context.get(context, Crypto.Crypto),
+        Context.get(context, Digest.Digest),
         { docs, plan: input }
       );
 

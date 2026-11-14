@@ -9,6 +9,7 @@ import {
   Ref,
   Result,
 } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { TestClock } from "effect/testing";
 
 import { DEADLINE_MS, runCall } from "../src/call-machine.js";
@@ -81,5 +82,10 @@ it.effect(
 
       expect(yield* Ref.get(stopped)).toBe(true);
       expect(yield* Ref.get(containers)).toBe(0);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.merge(NodeServices.layer, SecureRandom.layerWebCrypto)
+      )
+    )
 );

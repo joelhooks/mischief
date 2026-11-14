@@ -32,9 +32,7 @@ type Gate = typeof GateSchema.Type;
 const nameOf = (named: typeof Named.Type, known: string) =>
   named === "known" ? known : `missing-${known}`;
 
-const ephemeralOf = (
-  gate: Gate
-): readonly (readonly [string, Schema.Json])[] =>
+const ephemeralOf = (gate: Gate): readonly (readonly [string, Schema.Json])[] =>
   gate.ephemeral === "none"
     ? []
     : [

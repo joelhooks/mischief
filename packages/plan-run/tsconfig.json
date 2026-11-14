@@ -7,10 +7,12 @@
         "name": "@effect/language-service",
         "allowedUnstableApis": [
           "@effect/platform-node/NodeCrypto",
+          "@effect/platform-node-shared/NodeCrypto",
           "@effect/platform-node/NodeServices",
           "@effect/vitest",
           "effect/Arbitrary",
-          "effect/Crypto",
+          "effect/crypto/Digest",
+          "effect/crypto/SecureRandom",
           "effect/FileSystem",
           "effect/Path",
           "effect/PlatformError",

@@ -5,6 +5,7 @@ import {
 } from "@effect/platform-node";
 import { createServer } from "@mischief/model-bridge/server";
 import { Config, Effect, Layer, Redacted } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { HttpRouter } from "effect/http";
 
 import { Bridge } from "./bridge.js";
@@ -57,5 +58,8 @@ const program = Effect.gen(function* serveWorkspaceBridge() {
 });
 
 NodeRuntime.runMain(
-  program.pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  program.pipe(
+    Effect.scoped,
+    Effect.provide(Layer.merge(NodeServices.layer, SecureRandom.layerWebCrypto))
+  )
 );

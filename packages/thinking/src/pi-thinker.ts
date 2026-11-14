@@ -198,8 +198,215 @@ const thought = <R>(
     }))
   );
 
-const thinkerOf = (options: PiThinkerOptions) =>
-  Layer.effect(
+const firstToken = (
+  call: StepCall,
+  harness: Harness,
+  conversation: Conversation
+) =>
+  Effect.gen(function* watch() {
+    const seen = yield* Deferred.make<boolean>();
+
+    const stream = yield* pi(
+      call,
+      "watch",
+      async () =>
+        await watchEvents(harness, conversation.id, BACKGROUND_CONTEXT)
+    );
+
+    stream.start(async (events) => {
+      if (
+        events.some(
+          (event) =>
+            event.type === "message_update" || event.type === "message_end"
+        )
+      ) {
+        Deferred.doneUnsafe(seen, Effect.succeed(true));
+        await stream.stop();
+      }
+    });
+
+    return { seen, stop: async () => await stream.stop() };
+  });
+
+const latestOf = (call: StepCall, conversation: Conversation) =>
+  pi(
+    call,
+    "find attempt",
+    async () =>
+      await conversation.commit(async (tx) => {
+        const probe = async (attempt: number): Promise<Latest> => {
+          const next = await tx.submissionByRequest(
+            conversation.id,
+            attemptId(call, attempt + 1)
+          );
+
+          return next === undefined
+            ? {
+                attempt,
+                record: await tx.submissionByRequest(
+                  conversation.id,
+                  attemptId(call, attempt)
+                ),
+              }
+            : await probe(attempt + 1);
+        };
+
+        return await probe(1);
+      }, BACKGROUND_CONTEXT)
+  );
+
+const failedMessagesOf = (
+  call: StepCall,
+  conversation: Conversation,
+  { entry }: SettledSubmissionRecord
+) =>
+  entry === undefined
+    ? Effect.succeed([])
+    : pi(call, "read failure", async () => {
+        const page = await conversation.entries(
+          { minEntryId: entry },
+          20,
+          undefined,
+          BACKGROUND_CONTEXT
+        );
+
+        return page.items.flatMap((item) =>
+          (item.model ?? []).flatMap((message) =>
+            message.role === "assistant" ? [message] : []
+          )
+        );
+      });
+
+const thinkerOf = (options: PiThinkerOptions) => {
+  const modelOf = (
+    call: StepCall,
+    requested: ReturnType<typeof requestedOf>
+  ) => {
+    const name = requested.model;
+    const ref = options.modelRefs[name];
+
+    if (
+      requested.agent.workspace !== undefined &&
+      options.workspaceModelRef === undefined
+    ) {
+      return Effect.fail(
+        new StepFailed({
+          key: call.key,
+          reason:
+            "agent.workspace has no enabled bridge route on this host. Set MISCHIEF_WORKSPACE=on and configure MISCHIEF_WORKSPACE_BRIDGE_URL and MISCHIEF_WORKSPACE_BRIDGE_KEY, or remove agent.workspace and its shell tools",
+        })
+      );
+    }
+
+    if (ref === undefined) {
+      return Effect.fail(
+        new ThinkModelUnmapped({
+          key: call.key,
+          mapped: Object.keys(options.modelRefs),
+          model: name,
+        })
+      );
+    }
+
+    if (requested.agent.workspace === undefined) {
+      return Effect.succeed(ref);
+    }
+
+    const workspaceRef =
+      options.workspaceModelRef?.(requested.agent, ref) ?? Option.none();
+
+    return Option.match(workspaceRef, {
+      onNone: () =>
+        Effect.fail(
+          new StepFailed({
+            key: call.key,
+            reason: `agent.workspace cannot route agent.model "${name}" (${ref.provider}/${ref.modelId}) through the workspace bridge because its source model is not registered. Register that model on this host or set agent.model to a registered model, then resume the run. The ordinary model gateway will not be used`,
+          })
+        ),
+      onSome: Effect.succeed,
+    });
+  };
+
+  const conversationFor = (
+    call: StepCall,
+    harness: Harness,
+    requested: ReturnType<typeof requestedOf>
+  ) =>
+    Effect.gen(function* restore() {
+      const model = yield* modelOf(call, requested);
+
+      const root = yield* pi(
+        call,
+        "root",
+        async () => await harness.root(BACKGROUND_CONTEXT)
+      );
+
+      const address = addressOf(call);
+
+      const found = yield* pi(call, "map step", async () => {
+        const before = await harness.snapshot(
+          StepsDoc,
+          root.id,
+          BACKGROUND_CONTEXT
+        );
+
+        await root.commit(async (tx) => {
+          const steps = await tx.doc(StepsDoc, root.id);
+
+          if (steps.byAddress[address] === undefined) {
+            const created = await tx.createConversation({
+              ownership: { kind: "ownerless" },
+            });
+
+            steps.byAddress[address] = created.id;
+          }
+        }, BACKGROUND_CONTEXT);
+
+        const after = await harness.snapshot(
+          StepsDoc,
+          root.id,
+          BACKGROUND_CONTEXT
+        );
+
+        return {
+          created: before?.byAddress[address] === undefined,
+          id: after?.byAddress[address],
+        };
+      });
+
+      const conversation = yield* pi(call, "conversation", async () =>
+        found.id === undefined
+          ? undefined
+          : await harness.conversation(found.id, BACKGROUND_CONTEXT)
+      ).pipe(
+        Effect.flatMap((value) =>
+          value === undefined
+            ? Effect.fail(
+                new StepFailed({
+                  key: call.key,
+                  reason: `conversation ${found.id} for ${address} is missing from the run's thinking store. The store was replaced or pruned; abort the run or restore the store`,
+                })
+              )
+            : Effect.succeed(value)
+        )
+      );
+
+      yield* pi(call, "configure", async () => {
+        await conversation.configure(
+          {
+            extensions: [],
+            model,
+            thinkingLevel: requested.thinking,
+            tools: [],
+          },
+          BACKGROUND_CONTEXT
+        );
+      });
+
+      return { conversation, created: found.created };
+    }).pipe(Effect.withSpan("spawn.restore"));
+
+  return Layer.effect(
     Thinker,
     Effect.gen(function* make() {
       const open = yield* Ref.make(new Map<string, OpenRun>());
@@ -311,214 +518,6 @@ const thinkerOf = (options: PiThinkerOptions) =>
             return opened;
           }).pipe(Effect.withSpan("spawn.activate"))
         );
-
-      const modelOf = (
-        call: StepCall,
-        requested: ReturnType<typeof requestedOf>
-      ) => {
-        const name = requested.model;
-        const ref = options.modelRefs[name];
-
-        if (
-          requested.agent.workspace !== undefined &&
-          options.workspaceModelRef === undefined
-        ) {
-          return Effect.fail(
-            new StepFailed({
-              key: call.key,
-              reason:
-                "agent.workspace has no enabled bridge route on this host. Set MISCHIEF_WORKSPACE=on and configure MISCHIEF_WORKSPACE_BRIDGE_URL and MISCHIEF_WORKSPACE_BRIDGE_KEY, or remove agent.workspace and its shell tools",
-            })
-          );
-        }
-
-        if (ref === undefined) {
-          return Effect.fail(
-            new ThinkModelUnmapped({
-              key: call.key,
-              mapped: Object.keys(options.modelRefs),
-              model: name,
-            })
-          );
-        }
-
-        if (requested.agent.workspace === undefined) {
-          return Effect.succeed(ref);
-        }
-
-        const workspaceRef =
-          options.workspaceModelRef?.(requested.agent, ref) ?? Option.none();
-
-        return Option.match(workspaceRef, {
-          onNone: () =>
-            Effect.fail(
-              new StepFailed({
-                key: call.key,
-                reason: `agent.workspace cannot route agent.model "${name}" (${ref.provider}/${ref.modelId}) through the workspace bridge because its source model is not registered. Register that model on this host or set agent.model to a registered model, then resume the run. The ordinary model gateway will not be used`,
-              })
-            ),
-          onSome: Effect.succeed,
-        });
-      };
-
-      const conversationFor = (
-        call: StepCall,
-        harness: Harness,
-        requested: ReturnType<typeof requestedOf>
-      ) =>
-        Effect.gen(function* restore() {
-          const model = yield* modelOf(call, requested);
-
-          const root = yield* pi(
-            call,
-            "root",
-            async () => await harness.root(BACKGROUND_CONTEXT)
-          );
-
-          const address = addressOf(call);
-
-          const found = yield* pi(call, "map step", async () => {
-            const before = await harness.snapshot(
-              StepsDoc,
-              root.id,
-              BACKGROUND_CONTEXT
-            );
-
-            await root.commit(async (tx) => {
-              const steps = await tx.doc(StepsDoc, root.id);
-
-              if (steps.byAddress[address] === undefined) {
-                const created = await tx.createConversation({
-                  ownership: { kind: "ownerless" },
-                });
-
-                steps.byAddress[address] = created.id;
-              }
-            }, BACKGROUND_CONTEXT);
-
-            const after = await harness.snapshot(
-              StepsDoc,
-              root.id,
-              BACKGROUND_CONTEXT
-            );
-
-            return {
-              created: before?.byAddress[address] === undefined,
-              id: after?.byAddress[address],
-            };
-          });
-
-          const conversation = yield* pi(call, "conversation", async () =>
-            found.id === undefined
-              ? undefined
-              : await harness.conversation(found.id, BACKGROUND_CONTEXT)
-          ).pipe(
-            Effect.flatMap((value) =>
-              value === undefined
-                ? Effect.fail(
-                    new StepFailed({
-                      key: call.key,
-                      reason: `conversation ${found.id} for ${address} is missing from the run's thinking store. The store was replaced or pruned; abort the run or restore the store`,
-                    })
-                  )
-                : Effect.succeed(value)
-            )
-          );
-
-          yield* pi(call, "configure", async () => {
-            await conversation.configure(
-              {
-                extensions: [],
-                model,
-                thinkingLevel: requested.thinking,
-                tools: [],
-              },
-              BACKGROUND_CONTEXT
-            );
-          });
-
-          return { conversation, created: found.created };
-        }).pipe(Effect.withSpan("spawn.restore"));
-
-      const firstToken = (
-        call: StepCall,
-        harness: Harness,
-        conversation: Conversation
-      ) =>
-        Effect.gen(function* watch() {
-          const seen = yield* Deferred.make<boolean>();
-
-          const stream = yield* pi(
-            call,
-            "watch",
-            async () =>
-              await watchEvents(harness, conversation.id, BACKGROUND_CONTEXT)
-          );
-
-          stream.start(async (events) => {
-            if (
-              events.some(
-                (event) =>
-                  event.type === "message_update" ||
-                  event.type === "message_end"
-              )
-            ) {
-              Deferred.doneUnsafe(seen, Effect.succeed(true));
-              await stream.stop();
-            }
-          });
-
-          return { seen, stop: async () => await stream.stop() };
-        });
-
-      const latestOf = (call: StepCall, conversation: Conversation) =>
-        pi(
-          call,
-          "find attempt",
-          async () =>
-            await conversation.commit(async (tx) => {
-              const probe = async (attempt: number): Promise<Latest> => {
-                const next = await tx.submissionByRequest(
-                  conversation.id,
-                  attemptId(call, attempt + 1)
-                );
-
-                return next === undefined
-                  ? {
-                      attempt,
-                      record: await tx.submissionByRequest(
-                        conversation.id,
-                        attemptId(call, attempt)
-                      ),
-                    }
-                  : await probe(attempt + 1);
-              };
-
-              return await probe(1);
-            }, BACKGROUND_CONTEXT)
-        );
-
-      const failedMessagesOf = (
-        call: StepCall,
-        conversation: Conversation,
-        { entry }: SettledSubmissionRecord
-      ) =>
-        entry === undefined
-          ? Effect.succeed([])
-          : pi(call, "read failure", async () => {
-              const page = await conversation.entries(
-                { minEntryId: entry },
-                20,
-                undefined,
-                BACKGROUND_CONTEXT
-              );
-
-              return page.items.flatMap((item) =>
-                (item.model ?? []).flatMap((message) =>
-                  message.role === "assistant" ? [message] : []
-                )
-              );
-            });
 
       const settle = (
         call: StepCall,
@@ -841,6 +840,7 @@ const thinkerOf = (options: PiThinkerOptions) =>
       });
     })
   );
+};
 
 export const piThinker = (options: PiThinkerOptions) =>
   Layer.merge(

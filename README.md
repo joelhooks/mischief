@@ -26,20 +26,20 @@ pnpm cli stats README.md
 
 ## Fast typechecking
 
-Run `pnpm typecheck:fast` for an opt-in tsrs check across the workspace and root scripts, or `pnpm --filter @mischief/core typecheck:fast` for one package. The exact tsrs pin is `0.18.0-ts7.1.0-dev.20260929`.
+Run `pnpm typecheck:fast` for an opt-in tsrs check across the workspace and root scripts, or `pnpm --filter @mischief/core typecheck:fast` for one package. The exact tsrs pin is `0.25.0-ts7.1.0-beta`.
 
 Plain tsrs skips Effect diagnostics: a floating `Effect.log()` passes tsrs but fails patched `tsc` with TS377001. `typecheck`, `check`, build, hooks, and CI keep patched `tsc`; the fast check is not a gate.
 
 ## What is in the stack
 
-| Piece            | Pin                                                     |
-| ---------------- | ------------------------------------------------------- |
-| Effect           | `4.0.5`                                                 |
-| XState           | `6.0.0-alpha.70` (`xstate/durable` runs the plan graph) |
-| `@xstate/effect` | `1.0.0-alpha.9`                                         |
-| Alchemy          | `2.0.0-beta.83`                                         |
-| TypeScript       | `7.0.2`, patched by `@effect/tsgo`                      |
-| Vitest           | `5.0.3` with `@effect/vitest` `4.0.5`                   |
+| Piece            | Pin                                                   |
+| ---------------- | ----------------------------------------------------- |
+| Effect           | `4.1.4`                                               |
+| XState           | `6.0.0-beta.1` (`xstate/durable` runs the plan graph) |
+| `@xstate/effect` | `1.0.0-beta.0`                                        |
+| Alchemy          | `2.0.0-beta.83`                                       |
+| TypeScript       | `7.0.2`, patched by `@effect/tsgo`                    |
+| Vitest           | `5.1.0` with `@effect/vitest` `4.1.4`                 |
 
 ## Workspace
 

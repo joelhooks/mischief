@@ -1,5 +1,5 @@
 import { Effect, Option, Schema } from "effect";
-import type { Crypto } from "effect";
+import * as Digest from "effect/crypto/Digest";
 import { Hex } from "effect/encoding";
 import type { AnyActor } from "xstate";
 
@@ -19,10 +19,13 @@ export const canonical = (value: Schema.Json): string => {
   return JSON.stringify(value);
 };
 
-export const fingerprintOf = (crypto: Crypto.Crypto, value: Schema.Json) =>
+export const fingerprintOf = (
+  crypto: Digest.Digest["Service"],
+  value: Schema.Json
+) =>
   Effect.gen(function* fingerprint() {
     const digest = yield* crypto.digest(
-      "SHA-256",
+      Digest.sha256,
       new TextEncoder().encode(canonical(value))
     );
 

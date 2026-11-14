@@ -10,11 +10,20 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   if (typeof require !== "undefined") return require.apply(this, arguments);
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
 };
 var __commonJS = (cb, mod4) => function __require2() {
-  return mod4 || (0, cb[__getOwnPropNames(cb)[0]])((mod4 = { exports: {} }).exports, mod4), mod4.exports;
+  try {
+    return mod4 || (0, cb[__getOwnPropNames(cb)[0]])((mod4 = { exports: {} }).exports, mod4), mod4.exports;
+  } catch (e) {
+    throw mod4 = 0, e;
+  }
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -37,13 +46,13 @@ var __toESM = (mod4, isNodeMode, target) => (target = mod4 != null ? __create(__
   mod4
 ));
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/event-stream.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/event-stream.js
 function createAssistantMessageEventStream() {
   return new AssistantMessageEventStream();
 }
 var FifoQueue, EventStream, AssistantMessageEventStream;
 var init_event_stream = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/event-stream.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/event-stream.js"() {
     FifoQueue = class {
       incoming = [];
       outgoing = [];
@@ -153,7 +162,7 @@ var init_event_stream = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/lazy.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/lazy.js
 function createSetupErrorMessage(model2, error, timestamp) {
   return {
     role: "assistant",
@@ -236,12 +245,12 @@ function lazyApi(load, capabilities2) {
   return api;
 }
 var init_lazy = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/lazy.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/lazy.js"() {
     init_event_stream();
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/auth/context.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/auth/context.js
 function getProcessEnv() {
   const proc = globalThis.process;
   return proc?.env;
@@ -270,7 +279,7 @@ function defaultProviderAuthContext() {
 }
 var __rewriteRelativeImportExtension, importNodeModule;
 var init_context = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/auth/context.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/auth/context.js"() {
     __rewriteRelativeImportExtension = function(path2, preserveJsx) {
       if (typeof path2 === "string" && /^\.\.?\//.test(path2)) {
         return path2.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m, tsx, d, ext, cm) {
@@ -283,7 +292,7 @@ var init_context = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/abort.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/abort.js
 function abortReason(signal) {
   if (signal.reason !== void 0)
     return signal.reason;
@@ -329,14 +338,14 @@ function raceWithAbortSignal(operation, signal) {
   });
 }
 var init_abort = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/abort.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/abort.js"() {
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/auth/credential-store.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/auth/credential-store.js
 var InMemoryCredentialStore;
 var init_credential_store = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/auth/credential-store.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/auth/credential-store.js"() {
     init_abort();
     InMemoryCredentialStore = class {
       credentials = /* @__PURE__ */ new Map();
@@ -387,7 +396,7 @@ var init_credential_store = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/diagnostics.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/diagnostics.js
 function formatThrownValue(value) {
   if (value instanceof Error)
     return value.message || value.name;
@@ -396,11 +405,11 @@ function formatThrownValue(value) {
   return String(value);
 }
 var init_diagnostics = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/diagnostics.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/diagnostics.js"() {
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/models-error.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/models-error.js
 function withCauseDetail(message, cause) {
   if (cause === void 0 || cause === null)
     return message;
@@ -411,7 +420,7 @@ function withCauseDetail(message, cause) {
 }
 var ModelsError;
 var init_models_error = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/models-error.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/models-error.js"() {
     init_diagnostics();
     ModelsError = class extends Error {
       code;
@@ -424,7 +433,7 @@ var init_models_error = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/auth/resolve.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/auth/resolve.js
 function resolveProviderAuth(provider2, credentials, authContext, overrides) {
   const signal = operationSignal(overrides?.signal);
   return raceWithAbortSignal(resolveProviderAuthWithSignal(provider2, credentials, authContext, overrides, signal), signal);
@@ -524,7 +533,7 @@ async function readCredential(credentials, providerId, signal) {
 }
 var DEFAULT_OAUTH_MINIMUM_VALIDITY_MS, DEFAULT_OAUTH_REFRESH_TIMEOUT_MS;
 var init_resolve = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/auth/resolve.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/auth/resolve.js"() {
     init_abort();
     init_models_error();
     init_models_error();
@@ -533,10 +542,10 @@ var init_resolve = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/models-store.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/models-store.js
 var InMemoryModelsStore;
 var init_models_store = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/models-store.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/models-store.js"() {
     InMemoryModelsStore = class {
       entries = /* @__PURE__ */ new Map();
       async read(providerId, options2) {
@@ -640,7 +649,7 @@ var init_dist = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/telemetry.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/telemetry.js
 function createInstruments(adapter) {
   const metrics = createTypedMetrics(adapter, [AI_TELEMETRY_SCHEMA]);
   return {
@@ -739,7 +748,7 @@ function observeModelRequest(requestedModel, options2, poll) {
 }
 var provider, model, stop, request, AI_TELEMETRY_SCHEMA, instrumentCache;
 var init_telemetry = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/telemetry.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/telemetry.js"() {
     init_dist();
     provider = { type: "string", description: "Provider identifier.", required: true };
     model = { type: "string", description: "Requested model identifier.", required: true };
@@ -834,7 +843,7 @@ var init_telemetry = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/model-operations.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/model-operations.js
 function getModelType(model2) {
   return model2.type ?? "chat";
 }
@@ -884,12 +893,12 @@ function classifierErrorResult(model2, error, aborted = false) {
   };
 }
 var init_model_operations = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/model-operations.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/model-operations.js"() {
     init_models_error();
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/text.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/text.js
 function contentText(content, separator = "\n") {
   if (typeof content === "string")
     return content;
@@ -916,11 +925,11 @@ ${value}`);
   return parts2.join("\n\n");
 }
 var init_text = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/text.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/text.js"() {
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/transcript.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/transcript.js
 function createInitialSystemMessage(systemPrompt, tools) {
   const hasSystemPrompt = systemPrompt !== void 0 && systemPrompt.length > 0;
   const hasTools = tools !== void 0 && tools.length > 0;
@@ -1038,12 +1047,12 @@ function resolveTranscriptTools(messages, supportsToolAdditions) {
   };
 }
 var init_transcript = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/transcript.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/transcript.js"() {
     init_text();
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/models.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/models.js
 function hasKnownModelType(model2) {
   return Object.hasOwn(KNOWN_MODEL_TYPES, getModelType(model2));
 }
@@ -1229,7 +1238,7 @@ function clampThinkingLevel(model2, level) {
 }
 var KNOWN_MODEL_TYPES, ModelsImpl, EXTENDED_THINKING_LEVELS;
 var init_models = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/models.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/models.js"() {
     init_lazy();
     init_context();
     init_credential_store();
@@ -1705,7 +1714,7 @@ var init_models = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/estimate.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/estimate.js
 function calculateContextTokens(usage) {
   return usage.totalTokens || usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
 }
@@ -1789,14 +1798,14 @@ function estimateToolsTokens(tools) {
 }
 var CHARS_PER_TOKEN, ESTIMATED_IMAGE_CHARS;
 var init_estimate = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/estimate.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/estimate.js"() {
     init_text();
     CHARS_PER_TOKEN = 3.5;
     ESTIMATED_IMAGE_CHARS = 4800;
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/tslib.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/tslib.mjs
 function __classPrivateFieldSet(receiver, state3, value, kind, f) {
   if (kind === "m")
     throw new TypeError("Private method is not writable");
@@ -1814,14 +1823,14 @@ function __classPrivateFieldGet2(receiver, state3, kind, f) {
   return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state3.get(receiver);
 }
 var init_tslib = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/tslib.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/tslib.mjs"() {
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/uuid.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/uuid.mjs
 var uuid4;
 var init_uuid = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/uuid.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/uuid.mjs"() {
     uuid4 = function() {
       const { crypto: crypto2 } = globalThis;
       if (crypto2?.randomUUID) {
@@ -1835,7 +1844,7 @@ var init_uuid = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/errors.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/errors.mjs
 function isAbortError(err) {
   return typeof err === "object" && err !== null && // Spec-compliant fetch implementations
   ("name" in err && err.name === "AbortError" || // Expo fetch
@@ -1843,7 +1852,7 @@ function isAbortError(err) {
 }
 var castToError;
 var init_errors = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/errors.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/errors.mjs"() {
     castToError = (err) => {
       if (err instanceof Error)
         return err;
@@ -1872,10 +1881,10 @@ var init_errors = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/error.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/error.mjs
 var OpenAIError, APIError, APIUserAbortError, APIConnectionError, APIConnectionTimeoutError, BadRequestError, AuthenticationError, PermissionDeniedError, NotFoundError, ConflictError, UnprocessableEntityError, RateLimitError, InternalServerError, LengthFinishReasonError, ContentFilterFinishReasonError, InvalidWebhookSignatureError, OAuthError, SubjectTokenProviderError;
 var init_error = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/error.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/error.mjs"() {
     init_errors();
     OpenAIError = class extends Error {
     };
@@ -2012,7 +2021,7 @@ var init_error = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/values.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/values.mjs
 function maybeObj(x) {
   if (typeof x !== "object") {
     return {};
@@ -2034,7 +2043,7 @@ function isObj2(obj) {
 }
 var startsWithSchemeRegexp, isAbsoluteURL, isArray, isReadonlyArray, validatePositiveInteger, safeJSON;
 var init_values = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/values.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/values.mjs"() {
     init_error();
     startsWithSchemeRegexp = /^[a-z][a-z0-9+.-]*:/i;
     isAbsoluteURL = (url) => {
@@ -2061,10 +2070,10 @@ var init_values = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/sleep.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/sleep.mjs
 var sleep;
 var init_sleep = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/sleep.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/sleep.mjs"() {
     sleep = (ms, ...signals) => new Promise((resolve2, reject) => {
       const activeSignals = [...new Set(signals.filter((signal) => signal != null))];
       let timeout;
@@ -2116,7 +2125,7 @@ var init_sleep = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/abort.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/abort.mjs
 function subscribeWeakly(signal, reference, registry) {
   let subscription = subscriptions.get(signal);
   if (!subscription) {
@@ -2178,7 +2187,7 @@ function addRequestAbortListener(signal, abort, requestSignal) {
 }
 var weakGlobals, finalizer, callbackOwners, subscriptions;
 var init_abort2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/abort.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/abort.mjs"() {
     weakGlobals = globalThis;
     finalizer = // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Weak references and finalizers are optional host capabilities, so probe them before constructing either.
     typeof weakGlobals.FinalizationRegistry === "function" ? new weakGlobals.FinalizationRegistry((cleanup) => {
@@ -2192,7 +2201,7 @@ var init_abort2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/shims.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/shims.mjs
 function getDefaultFetch() {
   if (typeof fetch !== "undefined") {
     return fetch;
@@ -2264,11 +2273,11 @@ async function CancelReadableStream(stream2) {
   await cancelPromise;
 }
 var init_shims = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/shims.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/shims.mjs"() {
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/bytes.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/bytes.mjs
 function encodeUTF8(str) {
   let encoder3;
   return (encodeUTF8_ ?? (encoder3 = new globalThis.TextEncoder(), encodeUTF8_ = encoder3.encode.bind(encoder3)))(str);
@@ -2279,11 +2288,11 @@ function decodeUTF8(bytes3) {
 }
 var encodeUTF8_, decodeUTF8_;
 var init_bytes = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/bytes.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/bytes.mjs"() {
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/decoders/line.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/decoders/line.mjs
 function findNewlineIndex(buffer2, start, end2) {
   const newline = 10;
   const carriage = 13;
@@ -2323,7 +2332,7 @@ function lineEndingLength(buffer2, index3) {
 }
 var _LineDecoder_instances, _LineDecoder_buffer, _LineDecoder_start, _LineDecoder_end, _LineDecoder_searchIndex, _LineDecoder_skipLeadingLF, _LineDecoder_append, MAX_RETAINED_BUFFER_BYTES, LineDecoder;
 var init_line = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/decoders/line.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/decoders/line.mjs"() {
     init_tslib();
     init_bytes();
     MAX_RETAINED_BUFFER_BYTES = 64 * 1024;
@@ -2444,7 +2453,7 @@ var init_line = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/log.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/log.mjs
 function noop() {
 }
 function makeLogFn(fnLevel, logger, logLevel) {
@@ -2494,7 +2503,7 @@ function redactURL(value) {
 }
 var levelNumbers, parseLogLevel, noopLogger, cachedLoggers, sensitiveQueryNames, sensitiveHeaderNames, formatRequestDetails;
 var init_log = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/log.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/log.mjs"() {
     init_values();
     levelNumbers = {
       off: 0,
@@ -2583,7 +2592,7 @@ var init_log = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/streaming.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/streaming.mjs
 function isTransportAbortError(error) {
   return !(error instanceof APIError) && isAbortError(error);
 }
@@ -2854,7 +2863,7 @@ function partition(str, delimiter) {
 }
 var _Stream_instances, _Stream_client, _Stream_isTeeBranch, _Stream_cancelIterator, Stream, DOUBLE_NEWLINE_DELIMITER_MAX_OVERLAP_BYTES, SSEDecoder;
 var init_streaming = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/streaming.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/streaming.mjs"() {
     init_tslib();
     init_error();
     init_shims();
@@ -3178,7 +3187,7 @@ var init_streaming = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/parse.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/parse.mjs
 async function defaultParseResponse(client, props) {
   const { response, requestLogID, retryOfRequestLogID, startTime } = props;
   let jsonBodyLength;
@@ -3246,22 +3255,22 @@ function addRequestID(value, response) {
   });
 }
 var init_parse = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/parse.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/parse.mjs"() {
     init_streaming();
     init_errors();
     init_log();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/version.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/version.mjs
 var VERSION;
 var init_version = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/version.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/version.mjs"() {
     VERSION = "7.19.0";
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/detect-platform.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/detect-platform.mjs
 function getDetectedPlatform() {
   if (typeof Deno !== "undefined" && Deno.build != null) {
     return "deno";
@@ -3299,7 +3308,7 @@ function getBrowserInfo() {
 }
 var isRunningInBrowser, getPlatformProperties, normalizeArch, normalizePlatform, _platformHeaders, getPlatformHeaders;
 var init_detect_platform = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/detect-platform.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/detect-platform.mjs"() {
     init_version();
     isRunningInBrowser = () => {
       return (
@@ -3400,7 +3409,7 @@ var init_detect_platform = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/request-options.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/request-options.mjs
 function observeJSONRequestBody(body, observer) {
   let observers = jsonRequestBodyObservers.get(body);
   if (!observers) {
@@ -3421,7 +3430,7 @@ function observeJSONRequestBody(body, observer) {
 }
 var jsonRequestBodyObservers, FallbackEncoder;
 var init_request_options = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/request-options.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/request-options.mjs"() {
     jsonRequestBodyObservers = /* @__PURE__ */ new WeakMap();
     FallbackEncoder = ({ headers, body }) => {
       const observers = typeof body === "object" && body !== null ? jsonRequestBodyObservers.get(body) : void 0;
@@ -3454,10 +3463,10 @@ var init_request_options = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/qs/formats.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/qs/formats.mjs
 var default_format, default_formatter, formatters, RFC1738;
 var init_formats = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/qs/formats.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/qs/formats.mjs"() {
     default_format = "RFC3986";
     default_formatter = String;
     formatters = {
@@ -3468,7 +3477,7 @@ var init_formats = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/qs/utils.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/qs/utils.mjs
 function is_buffer(obj) {
   if (!obj || typeof obj !== "object") {
     return false;
@@ -3487,7 +3496,7 @@ function maybe_map(val, fn) {
 }
 var cachedHas, has, hex_table, limit, encode;
 var init_utils = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/qs/utils.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/qs/utils.mjs"() {
     init_formats();
     init_values();
     has = (obj, key) => {
@@ -3561,7 +3570,7 @@ var init_utils = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/qs/stringify.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/qs/stringify.mjs
 function is_non_nullish_primitive(v) {
   return typeof v === "string" || typeof v === "number" || typeof v === "boolean" || typeof v === "symbol" || typeof v === "bigint";
 }
@@ -3816,7 +3825,7 @@ function stringify(object2, opts = {}) {
 }
 var array_prefix_generators, push_to_array, toISOString, defaults, sentinel;
 var init_stringify = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/qs/stringify.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/qs/stringify.mjs"() {
     init_utils();
     init_formats();
     init_values();
@@ -3861,17 +3870,17 @@ var init_stringify = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/query.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/query.mjs
 function stringifyQuery(query) {
   return stringify(query, { arrayFormat: "brackets" });
 }
 var init_query = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/query.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/query.mjs"() {
     init_stringify();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/data-residency.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/data-residency.mjs
 function resolveDataResidency(options2) {
   if (options2.dataResidency === null || options2.dataResidency === void 0) {
     return void 0;
@@ -3887,7 +3896,7 @@ function resolveDataResidency(options2) {
 }
 var endpoints;
 var init_data_residency = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/data-residency.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/data-residency.mjs"() {
     init_error();
     init_values();
     endpoints = /* @__PURE__ */ new Map([
@@ -3899,10 +3908,10 @@ var init_data_residency = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/api-promise.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/api-promise.mjs
 var _APIPromise_client, APIPromise;
 var init_api_promise = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/api-promise.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/api-promise.mjs"() {
     init_tslib();
     init_parse();
     APIPromise = class _APIPromise extends Promise {
@@ -3968,10 +3977,10 @@ var init_api_promise = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/pagination.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/pagination.mjs
 var _AbstractPage_client, AbstractPage, PagePromise, Page, CursorPage, ConversationCursorPage, NextCursorPage, TokenPage;
 var init_pagination = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/pagination.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/pagination.mjs"() {
     init_tslib();
     init_error();
     init_parse();
@@ -4168,7 +4177,7 @@ var init_pagination = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/auth/workload-identity-auth.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/auth/workload-identity-auth.mjs
 function calculateExpiresAt(expiresIn, exchangeStartedAt) {
   if (typeof expiresIn !== "number" || !Number.isFinite(expiresIn) || expiresIn <= 0) {
     throw new OpenAIError("Token exchange response has invalid 'expires_in' field");
@@ -4248,7 +4257,7 @@ function isUnsafeAccessToken(accessToken) {
 }
 var SUBJECT_TOKEN_TYPES, TOKEN_EXCHANGE_GRANT_TYPE, MAX_REFRESH_BUFFER_FRACTION, NATIVE_RESPONSE_PROTOTYPE, READ_NATIVE_RESPONSE_BODY, WorkloadIdentityAuth;
 var init_workload_identity_auth = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/auth/workload-identity-auth.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/auth/workload-identity-auth.mjs"() {
     init_shims();
     init_error();
     SUBJECT_TOKEN_TYPES = {
@@ -4387,7 +4396,7 @@ var init_workload_identity_auth = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-api-origin.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-api-origin.mjs
 function assertX509APIOrigin(value) {
   let target;
   try {
@@ -4407,14 +4416,14 @@ function assertX509APIOrigin(value) {
 }
 var X509_API_BASE_URL;
 var init_x509_api_origin = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-api-origin.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-api-origin.mjs"() {
     init_error();
     init_log();
     X509_API_BASE_URL = "https://mtls.api.openai.com/v1";
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/headers.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/headers.mjs
 function* iterateHeaders(headers) {
   if (!headers)
     return;
@@ -4454,7 +4463,7 @@ function* iterateHeaders(headers) {
 }
 var brand_privateNullableHeaders, httpTokenHeaderName, buildHeaders;
 var init_headers = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/headers.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/headers.mjs"() {
     init_values();
     brand_privateNullableHeaders = /* @__PURE__ */ Symbol("brand.privateNullableHeaders");
     httpTokenHeaderName = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
@@ -4486,7 +4495,7 @@ var init_headers = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state-browser.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state-browser.mjs
 var x509_transport_state_browser_exports = {};
 __export(x509_transport_state_browser_exports, {
   findRegisteredX509Transport: () => findRegisteredX509Transport,
@@ -4504,7 +4513,7 @@ __export(x509_transport_state_browser_exports, {
 });
 var registeredX509Transports, transientX509ConnectionErrors, retryableX509IssuerErrors, approvedX509Clients, approvedX509OAuthErrors, approvedX509Credentials, findRegisteredX509Transport, rememberRegisteredX509Transport, markTransientX509ConnectionError, isTransientX509ConnectionError, markRetryableX509IssuerError, isRetryableX509IssuerError, markApprovedX509Client, isApprovedX509Client, rememberX509OAuthError, findX509OAuthError, rememberX509Credential, findX509Credential;
 var init_x509_transport_state_browser = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state-browser.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state-browser.mjs"() {
     registeredX509Transports = /* @__PURE__ */ new WeakMap();
     transientX509ConnectionErrors = /* @__PURE__ */ new WeakSet();
     retryableX509IssuerErrors = /* @__PURE__ */ new WeakSet();
@@ -4526,9 +4535,9 @@ var init_x509_transport_state_browser = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state.js
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state.js
 var require_x509_transport_state = __commonJS({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state.js"(exports, module) {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state.js"(exports, module) {
     "use strict";
     if (typeof module !== "undefined" && module !== globalThis.module && typeof exports !== "undefined" && module.exports === exports) {
       Object.defineProperty(exports, "__esModule", { value: true });
@@ -4555,10 +4564,10 @@ var require_x509_transport_state = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state.mjs
 var nodeState, state2, findRegisteredX509Transport3, rememberRegisteredX509Transport2, markTransientX509ConnectionError2, isTransientX509ConnectionError2, markRetryableX509IssuerError2, isRetryableX509IssuerError2, markApprovedX509Client2, isApprovedX509Client2, rememberX509OAuthError2, findX509OAuthError2, rememberX509Credential2, findX509Credential2;
 var init_x509_transport_state = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-state.mjs"() {
     init_x509_transport_state_browser();
     nodeState = __toESM(require_x509_transport_state(), 1);
     state2 = typeof nodeState.findRegisteredX509Transport === "function" ? nodeState : x509_transport_state_browser_exports;
@@ -4579,7 +4588,7 @@ var init_x509_transport_state = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-registry.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-registry.mjs
 function resolveX509Transport(value) {
   if (!value || typeof value !== "object") {
     throw new OpenAIError("X.509 workload identity requires an approved X.509 transport capability.");
@@ -4590,16 +4599,14 @@ function resolveX509Transport(value) {
   }
   return registered;
 }
-var x509TransportBrand;
 var init_x509_transport_registry = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-registry.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-transport-registry.mjs"() {
     init_error();
     init_x509_transport_state();
-    x509TransportBrand = Symbol("X.509 transport capability");
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-workload-identity-auth.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-workload-identity-auth.mjs
 function assertSafeHeaders(headers) {
   for (const name of Headers.prototype.keys.call(headers)) {
     const canonical3 = name.toLowerCase().split("_").join("-");
@@ -4704,7 +4711,7 @@ function snapshotX509RequestOptions(options2) {
 }
 var _X509WorkloadIdentityAuth_instances, _a, _X509WorkloadIdentityAuth_identityProviderId, _X509WorkloadIdentityAuth_serviceAccountId, _X509WorkloadIdentityAuth_configuredRefreshBufferMs, _X509WorkloadIdentityAuth_configuredRefreshBufferSeconds, _X509WorkloadIdentityAuth_organization, _X509WorkloadIdentityAuth_project, _X509WorkloadIdentityAuth_transport, _X509WorkloadIdentityAuth_refreshBufferMs, _X509WorkloadIdentityAuth_cachedToken, _X509WorkloadIdentityAuth_refresh, _X509WorkloadIdentityAuth_tokenGeneration, _X509WorkloadIdentityAuth_cancelRequestBody, _X509WorkloadIdentityAuth_assignToken, _X509WorkloadIdentityAuth_recoverRefreshFailure, _X509WorkloadIdentityAuth_fallbackToken, _X509WorkloadIdentityAuth_retireRefresh, _X509WorkloadIdentityAuth_beginRefresh, _X509WorkloadIdentityAuth_refreshToken, _X509WorkloadIdentityAuth_preflight, _X509WorkloadIdentityAuth_scope, _X509WorkloadIdentityAuth_assertTenantHeaders, FORBIDDEN_TRANSPORT_OPTIONS, headerValue, DEFAULT_REFRESH_BUFFER_MS, FAILED_REFRESH_COOLDOWN_MS, userAbortError, X509WorkloadIdentityAuth;
 var init_x509_workload_identity_auth = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-workload-identity-auth.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-workload-identity-auth.mjs"() {
     init_tslib();
     init_error();
     init_headers();
@@ -5299,7 +5306,7 @@ var init_x509_workload_identity_auth = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-credential-options.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-credential-options.mjs
 function normalizeX509CredentialOptions(options2) {
   const { credential } = options2;
   if (credential === void 0) {
@@ -5399,7 +5406,7 @@ function prepareX509ClientClone(inherited, overrides, credential, currentlyX509)
   return { credential: nextCredential, provider: prepareProviderClone(inherited, overrides) };
 }
 var init_x509_credential_options = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/auth/x509-credential-options.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/auth/x509-credential-options.mjs"() {
     init_error();
     init_values();
     init_x509_workload_identity_auth();
@@ -5407,7 +5414,7 @@ var init_x509_credential_options = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/uploads.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/uploads.mjs
 function toStreamingFile(data, name, options2) {
   if (typeof name !== "string" || !name) {
     throw new TypeError("toStreamingFile requires a non-empty file name");
@@ -5617,7 +5624,7 @@ function escapeHeaderValue(value) {
 }
 var brand_privateStreamingFile, checkFileSupport, arrayBufferByteLengthGetter, isAsyncIterable, maybeMultipartFormRequestOptions, multipartFormRequestOptions, supportsFormDataMap, createForm, isBlob, isReadableStream, isStreamingFile, isUploadable, hasStreamingUploadableValue, hasUploadableValue, snapshotPreservedUploadEntries, createStreamingFormRequestOptions, addFormValue;
 var init_uploads = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/uploads.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/uploads.mjs"() {
     init_headers();
     init_shims();
     init_bytes();
@@ -5757,7 +5764,7 @@ var init_uploads = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/to-file.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/to-file.mjs
 async function toFile(value, name, options2) {
   checkFileSupport();
   value = await value;
@@ -5817,7 +5824,7 @@ function propsForError(value) {
 }
 var isBlobLike, isFileLike, isResponseLike, hasFilePropertyOverrides, canReuseNativeFile;
 var init_to_file = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/to-file.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/to-file.mjs"() {
     init_uploads();
     isBlobLike = (value) => value != null && typeof value === "object" && typeof value.size === "number" && typeof value.type === "string" && typeof value.text === "function" && typeof value.slice === "function" && typeof value.arrayBuffer === "function";
     isFileLike = (value) => value != null && typeof value === "object" && typeof value.name === "string" && typeof value.lastModified === "number" && isBlobLike(value);
@@ -5827,18 +5834,18 @@ var init_to_file = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/uploads.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/uploads.mjs
 var init_uploads2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/uploads.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/uploads.mjs"() {
     init_uploads();
     init_to_file();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/resource.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/resource.mjs
 var APIResource;
 var init_resource = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/core/resource.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/core/resource.mjs"() {
     APIResource = class {
       constructor(client) {
         this._client = client;
@@ -5847,13 +5854,13 @@ var init_resource = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/path.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/path.mjs
 function encodeURIPath(str) {
   return str.replace(/[^A-Za-z0-9\-._~!$&'()*+,;=:@]+/g, encodeURIComponent);
 }
 var EMPTY, createPathTagFunction, path;
 var init_path = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/path.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/path.mjs"() {
     init_error();
     EMPTY = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.create(null));
     createPathTagFunction = (pathEncoder = encodeURIPath) => function path2(statics, ...params2) {
@@ -5915,10 +5922,10 @@ ${underline}`);
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/chat/completions/messages.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/chat/completions/messages.mjs
 var Messages;
 var init_messages = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/chat/completions/messages.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/chat/completions/messages.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -5944,14 +5951,14 @@ var init_messages = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/error.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/error.mjs
 var init_error2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/error.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/error.mjs"() {
     init_error();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/parser.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/parser.mjs
 function isChatCompletionFunctionTool(tool) {
   return tool !== void 0 && "function" in tool && tool.function !== void 0;
 }
@@ -6073,21 +6080,21 @@ function validateInputTools(tools) {
   }
 }
 var init_parser = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/parser.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/parser.mjs"() {
     init_error2();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/chatCompletionUtils.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/chatCompletionUtils.mjs
 var isAssistantMessage, isToolMessage;
 var init_chatCompletionUtils = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/chatCompletionUtils.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/chatCompletionUtils.mjs"() {
     isAssistantMessage = (message) => message?.role === "assistant";
     isToolMessage = (message) => message?.role === "tool";
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/EventStream.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/EventStream.mjs
 function captureNativeProxyDetector() {
   if (typeof process === "undefined") {
     return void 0;
@@ -6847,7 +6854,7 @@ function createBufferedEventLedger() {
 }
 var _EventStream_instances, _EventStream_connectedPromise, _EventStream_resolveConnectedPromise, _EventStream_rejectConnectedPromise, _EventStream_endPromise, _EventStream_resolveEndPromise, _EventStream_rejectEndPromise, _EventStream_listeners, _EventStream_abortListeners, _EventStream_emittedListenerRegistrations, _EventStream_pendingListenerCleanup, _EventStream_pendingBufferedEventChecks, _EventStream_listenerDispatchDepth, _EventStream_ended, _EventStream_errored, _EventStream_aborted, _EventStream_catchingPromiseCreated, _EventStream_terminalFailure, _EventStream_abortFromSignal, _EventStream_removeAbortListeners, _EventStream_onceForEmitted, _EventStream_removeEmittedListener, _EventStream_cleanupEmittedListeners, _EventStream_handleError, _EventStream_settleTerminalEvent, MAX_BUFFERED_ITERATOR_EVENTS, MAX_BUFFERED_ITERATOR_BYTES, MAX_INSPECTABLE_TYPED_ARRAY_ELEMENTS, MAX_BUFFERED_EVENT_DEPTH, bufferedJSONStringify, bufferedJSONParse, sdkOwnedBufferedEventArguments, typedArrayBufferGetter, typedArrayLengthGetter, dataViewBufferGetter, symbolDescriptionGetter, dateTimestampGetter, arrayBufferByteLengthGetter2, sharedArrayBufferByteLengthGetter, errorStackDescriptor, functionToString, objectToString, errorBrandDescriptor, nativeErrorBrand, nativeErrorConstructorSource, nativeDateConstructorSource, nativeFunctionConstructorSource, trustedIntrinsicPrototypes, trustedNativeConstructorSources, canonicalIntrinsicDescriptors, foreignErrorStackDescriptors, nativeProxyDetector, typedArrayConstructorDescriptor, blobInternalHandlePrototype, mapEntries, setValues, headersEntriesDescriptor, headersEntries, retainedStorageBrands, BUFFERED_LEDGER_ENTRY_BYTES, BUFFERED_LEDGER_NODE_BYTES, BUFFERED_LEDGER_EDGE_BYTES, BUFFERED_LEDGER_OWNER_BYTES, MAX_BUFFERED_LEDGER_RECONCILIATION_WORK, EventStream2;
 var init_EventStream = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/EventStream.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/EventStream.mjs"() {
     init_tslib();
     init_error2();
     MAX_BUFFERED_ITERATOR_EVENTS = 4096;
@@ -7551,16 +7558,16 @@ var init_EventStream = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/RunnableFunction.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/RunnableFunction.mjs
 function isRunnableFunctionWithParse(fn) {
   return typeof fn.parse === "function";
 }
 var init_RunnableFunction = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/RunnableFunction.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/RunnableFunction.mjs"() {
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/AbstractChatCompletionRunner.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/AbstractChatCompletionRunner.mjs
 function normalizeToolCallIds(chatCompletion) {
   for (const choice of chatCompletion.choices) {
     for (const toolCall of choice.message.tool_calls ?? []) {
@@ -7616,7 +7623,7 @@ function toRequestMessage(message) {
 }
 var _AbstractChatCompletionRunner_instances, _a2, _AbstractChatCompletionRunner_completionArrivedBeforeAbort, _AbstractChatCompletionRunner_afterCompletionInvoked, _AbstractChatCompletionRunner_getFinalContent, _AbstractChatCompletionRunner_getFinalMessage, _AbstractChatCompletionRunner_getFinalFunctionToolCall, _AbstractChatCompletionRunner_getFinalFunctionToolCallResult, _AbstractChatCompletionRunner_calculateTotalUsage, _AbstractChatCompletionRunner_throwIfAborted, _AbstractChatCompletionRunner_validateParams, _AbstractChatCompletionRunner_stringifyFunctionCallResult, DEFAULT_MAX_CHAT_COMPLETIONS, AbstractChatCompletionRunner;
 var init_AbstractChatCompletionRunner = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/AbstractChatCompletionRunner.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/AbstractChatCompletionRunner.mjs"() {
     init_tslib();
     init_error2();
     init_uuid();
@@ -7993,10 +8000,10 @@ var init_AbstractChatCompletionRunner = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionRunner.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionRunner.mjs
 var ChatCompletionRunner;
 var init_ChatCompletionRunner = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionRunner.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionRunner.mjs"() {
     init_AbstractChatCompletionRunner();
     init_chatCompletionUtils();
     ChatCompletionRunner = class _ChatCompletionRunner extends AbstractChatCompletionRunner {
@@ -8024,7 +8031,7 @@ var init_ChatCompletionRunner = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/_vendor/partial-json-parser/parser.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/_vendor/partial-json-parser/parser.mjs
 function parseJSON(jsonString, allowPartial = Allow.ALL) {
   if (typeof jsonString !== "string") {
     throw new TypeError(`expecting str, got ${typeof jsonString}`);
@@ -8036,7 +8043,7 @@ function parseJSON(jsonString, allowPartial = Allow.ALL) {
 }
 var STR, NUM, ARR, OBJ, NULL, BOOL, NAN, INFINITY, MINUS_INFINITY, INF, SPECIAL, ATOM, COLLECTION, ALL, Allow, PartialJSON, MalformedJSON, _parseJSON, partialParse;
 var init_parser2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/_vendor/partial-json-parser/parser.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/_vendor/partial-json-parser/parser.mjs"() {
     STR = 1;
     NUM = 2;
     ARR = 4;
@@ -8254,14 +8261,14 @@ var init_parser2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/streaming.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/streaming.mjs
 var init_streaming2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/streaming.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/streaming.mjs"() {
     init_streaming();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionStream.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionStream.mjs
 function parseStructuredStreamingJSON(content) {
   try {
     return partialParse(content);
@@ -9103,7 +9110,7 @@ function assertNever(_x) {
 }
 var _ChatCompletionStream_instances, _ChatCompletionStream_params, _ChatCompletionStream_rejectsUnfinishedTurns, _ChatCompletionStream_audioDoneChoiceIndexes, _ChatCompletionStream_choiceEventStates, _ChatCompletionStream_currentChatCompletionSnapshot, _ChatCompletionStream_hasAutoParseableTool, _ChatCompletionStream_partialJSONParseBudget, _ChatCompletionStream_beginRequest, _ChatCompletionStream_getChoiceEventState, _ChatCompletionStream_addChunk, _ChatCompletionStream_emitToolCallDoneEvent, _ChatCompletionStream_emitContentDoneEvents, _ChatCompletionStream_validateStructuredSnapshots, _ChatCompletionStream_endRequest, _ChatCompletionStream_accumulateChatCompletion, CHAT_COMPLETION_READABLE_STREAM_MESSAGE_PREFIX, MAX_STREAM_CHOICES, MAX_STREAM_TOOL_CALLS, MAX_PARTIAL_JSON_BYTES, MAX_PARTIAL_JSON_FRAGMENTS, MAX_PARTIAL_JSON_DEPTH, MAX_PARTIAL_JSON_PARSE_WORK, EAGER_PARTIAL_JSON_BYTES, MAX_SERIALIZED_PARSER_SCHEMA_NODES, stringifyParserSchemaValue, MAX_SERIALIZED_PARSER_SCHEMA_BYTES, MAX_SERIALIZED_PARSER_SCHEMA_DEPTH, OMITTED_SERIALIZED_PARSER_VALUE, UNSAFE_SERIALIZED_PARSER_VALUE, ChatCompletionStream;
 var init_ChatCompletionStream = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionStream.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionStream.mjs"() {
     init_tslib();
     init_parser2();
     init_error2();
@@ -9125,8 +9132,8 @@ var init_ChatCompletionStream = __esm({
     stringifyParserSchemaValue = JSON.stringify;
     MAX_SERIALIZED_PARSER_SCHEMA_BYTES = 1024 * 1024;
     MAX_SERIALIZED_PARSER_SCHEMA_DEPTH = 64;
-    OMITTED_SERIALIZED_PARSER_VALUE = Symbol("omitted serialized parser value");
-    UNSAFE_SERIALIZED_PARSER_VALUE = Symbol("unsafe serialized parser value");
+    OMITTED_SERIALIZED_PARSER_VALUE = /* @__PURE__ */ Symbol("omitted serialized parser value");
+    UNSAFE_SERIALIZED_PARSER_VALUE = /* @__PURE__ */ Symbol("unsafe serialized parser value");
     ChatCompletionStream = class _ChatCompletionStream extends AbstractChatCompletionRunner {
       /** Creates an unstarted stream, retaining request parameters for structured-output parsing. */
       constructor(params2) {
@@ -9803,10 +9810,10 @@ var init_ChatCompletionStream = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionStreamingRunner.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionStreamingRunner.mjs
 var ChatCompletionStreamingRunner;
 var init_ChatCompletionStreamingRunner = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionStreamingRunner.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/ChatCompletionStreamingRunner.mjs"() {
     init_ChatCompletionStream();
     init_error2();
     init_streaming2();
@@ -9867,10 +9874,10 @@ var init_ChatCompletionStreamingRunner = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/chat/completions/completions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/chat/completions/completions.mjs
 var Completions;
 var init_completions = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/chat/completions/completions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/chat/completions/completions.mjs"() {
     init_resource();
     init_messages();
     init_messages();
@@ -9992,10 +9999,10 @@ var init_completions = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/chat/chat.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/chat/chat.mjs
 var Chat;
 var init_chat = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/chat/chat.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/chat/chat.mjs"() {
     init_resource();
     init_completions();
     init_completions();
@@ -10009,33 +10016,33 @@ var init_chat = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/chat/completions/index.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/chat/completions/index.mjs
 var init_completions2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/chat/completions/index.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/chat/completions/index.mjs"() {
     init_completions();
     init_completions();
     init_messages();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/chat/index.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/chat/index.mjs
 var init_chat2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/chat/index.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/chat/index.mjs"() {
     init_chat();
     init_completions2();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/shared.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/shared.mjs
 var init_shared = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/shared.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/shared.mjs"() {
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/admin-api-keys.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/admin-api-keys.mjs
 var AdminAPIKeys;
 var init_admin_api_keys = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/admin-api-keys.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/admin-api-keys.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -10114,10 +10121,10 @@ var init_admin_api_keys = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/audit-logs.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/audit-logs.mjs
 var AuditLogs;
 var init_audit_logs = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/audit-logs.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/audit-logs.mjs"() {
     init_resource();
     init_pagination();
     AuditLogs = class extends APIResource {
@@ -10143,10 +10150,10 @@ var init_audit_logs = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/certificates.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/certificates.mjs
 var Certificates;
 var init_certificates = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/certificates.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/certificates.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -10288,10 +10295,10 @@ var init_certificates = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/data-retention.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/data-retention.mjs
 var DataRetention;
 var init_data_retention = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/data-retention.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/data-retention.mjs"() {
     init_resource();
     DataRetention = class extends APIResource {
       /**
@@ -10331,10 +10338,10 @@ var init_data_retention = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/invites.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/invites.mjs
 var Invites;
 var init_invites = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/invites.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/invites.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -10415,10 +10422,10 @@ var init_invites = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/roles.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/roles.mjs
 var Roles;
 var init_roles = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/roles.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/roles.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -10512,10 +10519,10 @@ var init_roles = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/spend-alerts.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/spend-alerts.mjs
 var SpendAlerts;
 var init_spend_alerts = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/spend-alerts.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/spend-alerts.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -10623,10 +10630,10 @@ var init_spend_alerts = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/spend-limit.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/spend-limit.mjs
 var SpendLimit;
 var init_spend_limit = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/spend-limit.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/spend-limit.mjs"() {
     init_resource();
     SpendLimit = class extends APIResource {
       /**
@@ -10683,10 +10690,10 @@ var init_spend_limit = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/usage.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/usage.mjs
 var Usage;
 var init_usage = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/usage.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/usage.mjs"() {
     init_resource();
     Usage = class extends APIResource {
       /**
@@ -10891,10 +10898,10 @@ var init_usage = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/roles.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/roles.mjs
 var Roles2;
 var init_roles2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/roles.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/roles.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -10976,10 +10983,10 @@ var init_roles2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/users.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/users.mjs
 var Users;
 var init_users = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/users.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/users.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -11061,10 +11068,10 @@ var init_users = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/groups.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/groups.mjs
 var Groups;
 var init_groups = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/groups.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/groups/groups.mjs"() {
     init_resource();
     init_roles2();
     init_roles2();
@@ -11170,10 +11177,10 @@ var init_groups = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/api-keys.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/api-keys.mjs
 var APIKeys;
 var init_api_keys = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/api-keys.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/api-keys.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -11239,10 +11246,10 @@ var init_api_keys = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/certificates.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/certificates.mjs
 var Certificates2;
 var init_certificates2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/certificates.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/certificates.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -11304,10 +11311,10 @@ var init_certificates2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/data-retention.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/data-retention.mjs
 var DataRetention2;
 var init_data_retention2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/data-retention.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/data-retention.mjs"() {
     init_resource();
     init_path();
     DataRetention2 = class extends APIResource {
@@ -11351,10 +11358,10 @@ var init_data_retention2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/hosted-tool-permissions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/hosted-tool-permissions.mjs
 var HostedToolPermissions;
 var init_hosted_tool_permissions = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/hosted-tool-permissions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/hosted-tool-permissions.mjs"() {
     init_resource();
     init_path();
     HostedToolPermissions = class extends APIResource {
@@ -11397,10 +11404,10 @@ var init_hosted_tool_permissions = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/model-permissions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/model-permissions.mjs
 var ModelPermissions;
 var init_model_permissions = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/model-permissions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/model-permissions.mjs"() {
     init_resource();
     init_path();
     ModelPermissions = class extends APIResource {
@@ -11461,10 +11468,10 @@ var init_model_permissions = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/rate-limits.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/rate-limits.mjs
 var RateLimits;
 var init_rate_limits = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/rate-limits.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/rate-limits.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -11509,10 +11516,10 @@ var init_rate_limits = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/roles.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/roles.mjs
 var Roles3;
 var init_roles3 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/roles.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/roles.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -11618,10 +11625,10 @@ var init_roles3 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/spend-alerts.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/spend-alerts.mjs
 var SpendAlerts2;
 var init_spend_alerts2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/spend-alerts.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/spend-alerts.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -11740,10 +11747,10 @@ var init_spend_alerts2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/spend-limit.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/spend-limit.mjs
 var SpendLimit2;
 var init_spend_limit2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/spend-limit.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/spend-limit.mjs"() {
     init_resource();
     init_path();
     SpendLimit2 = class extends APIResource {
@@ -11808,10 +11815,10 @@ var init_spend_limit2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/groups/roles.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/groups/roles.mjs
 var Roles4;
 var init_roles4 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/groups/roles.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/groups/roles.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -11896,10 +11903,10 @@ var init_roles4 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/groups/groups.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/groups/groups.mjs
 var Groups2;
 var init_groups2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/groups/groups.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/groups/groups.mjs"() {
     init_resource();
     init_roles4();
     init_roles4();
@@ -11989,10 +11996,10 @@ var init_groups2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/service-accounts/api-keys.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/service-accounts/api-keys.mjs
 var APIKeys2;
 var init_api_keys2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/service-accounts/api-keys.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/service-accounts/api-keys.mjs"() {
     init_resource();
     init_path();
     APIKeys2 = class extends APIResource {
@@ -12016,10 +12023,10 @@ var init_api_keys2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/service-accounts/service-accounts.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/service-accounts/service-accounts.mjs
 var ServiceAccounts;
 var init_service_accounts = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/service-accounts/service-accounts.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/service-accounts/service-accounts.mjs"() {
     init_resource();
     init_api_keys2();
     init_api_keys2();
@@ -12125,10 +12132,10 @@ var init_service_accounts = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/users/roles.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/users/roles.mjs
 var Roles5;
 var init_roles5 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/users/roles.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/users/roles.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -12213,10 +12220,10 @@ var init_roles5 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/users/users.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/users/users.mjs
 var Users2;
 var init_users2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/users/users.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/users/users.mjs"() {
     init_resource();
     init_roles5();
     init_roles5();
@@ -12329,10 +12336,10 @@ var init_users2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/projects.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/projects.mjs
 var Projects;
 var init_projects = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/projects.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/projects/projects.mjs"() {
     init_resource();
     init_api_keys();
     init_api_keys();
@@ -12482,10 +12489,10 @@ var init_projects = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/users/roles.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/users/roles.mjs
 var Roles6;
 var init_roles6 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/users/roles.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/users/roles.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -12567,10 +12574,10 @@ var init_roles6 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/users/users.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/users/users.mjs
 var Users3;
 var init_users3 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/users/users.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/users/users.mjs"() {
     init_resource();
     init_roles6();
     init_roles6();
@@ -12651,10 +12658,10 @@ var init_users3 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/organization.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/organization.mjs
 var Organization;
 var init_organization = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/organization/organization.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/organization/organization.mjs"() {
     init_resource();
     init_admin_api_keys();
     init_admin_api_keys();
@@ -12712,10 +12719,10 @@ var init_organization = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/admin.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/admin.mjs
 var Admin;
 var init_admin = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/admin/admin.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/admin/admin.mjs"() {
     init_resource();
     init_organization();
     init_organization();
@@ -12729,10 +12736,10 @@ var init_admin = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/audio/speech.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/audio/speech.mjs
 var Speech;
 var init_speech = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/audio/speech.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/audio/speech.mjs"() {
     init_resource();
     init_headers();
     Speech = class extends APIResource {
@@ -12766,10 +12773,10 @@ var init_speech = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/audio/transcriptions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/audio/transcriptions.mjs
 var Transcriptions;
 var init_transcriptions = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/audio/transcriptions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/audio/transcriptions.mjs"() {
     init_resource();
     init_uploads();
     Transcriptions = class extends APIResource {
@@ -12786,10 +12793,10 @@ var init_transcriptions = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/audio/translations.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/audio/translations.mjs
 var Translations;
 var init_translations = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/audio/translations.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/audio/translations.mjs"() {
     init_resource();
     init_uploads();
     Translations = class extends APIResource {
@@ -12800,10 +12807,10 @@ var init_translations = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/audio/audio.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/audio/audio.mjs
 var Audio;
 var init_audio = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/audio/audio.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/audio/audio.mjs"() {
     init_resource();
     init_speech();
     init_speech();
@@ -12825,10 +12832,10 @@ var init_audio = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/batches.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/batches.mjs
 var Batches;
 var init_batches = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/batches.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/batches.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -12870,10 +12877,10 @@ var init_batches = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/assistants.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/assistants.mjs
 var Assistants;
 var init_assistants = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/assistants.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/assistants.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -12946,10 +12953,10 @@ var init_assistants = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/sessions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/sessions.mjs
 var Sessions;
 var init_sessions = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/sessions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/sessions.mjs"() {
     init_resource();
     init_headers();
     Sessions = class extends APIResource {
@@ -12980,10 +12987,10 @@ var init_sessions = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/transcription-sessions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/transcription-sessions.mjs
 var TranscriptionSessions;
 var init_transcription_sessions = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/transcription-sessions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/transcription-sessions.mjs"() {
     init_resource();
     init_headers();
     TranscriptionSessions = class extends APIResource {
@@ -13014,10 +13021,10 @@ var init_transcription_sessions = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/realtime.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/realtime.mjs
 var Realtime;
 var init_realtime = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/realtime.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/realtime/realtime.mjs"() {
     init_resource();
     init_sessions();
     init_sessions();
@@ -13035,10 +13042,10 @@ var init_realtime = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/files.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/files.mjs
 var Files;
 var init_files = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/files.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/files.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -13097,10 +13104,10 @@ var init_files = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/templates.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/templates.mjs
 var Templates;
 var init_templates = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/templates.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/templates.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -13210,10 +13217,10 @@ var init_templates = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/environments.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/environments.mjs
 var Environments;
 var init_environments = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/environments.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/environments/environments.mjs"() {
     init_resource();
     init_files();
     init_files();
@@ -13253,10 +13260,10 @@ var init_environments = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/agents/turn-state.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/agents/turn-state.mjs
 var _TurnState_turnID, _TurnState_turnEnded, _TurnState_eventIDs, _TurnState_calls, TurnState;
 var init_turn_state = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/agents/turn-state.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/agents/turn-state.mjs"() {
     init_tslib();
     TurnState = class {
       constructor() {
@@ -13307,7 +13314,7 @@ var init_turn_state = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/agents/agent-session-stream.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/agents/agent-session-stream.mjs
 function isInputContent(value) {
   if (!isObj2(value)) {
     return false;
@@ -13354,7 +13361,7 @@ async function cancelBody(response) {
 }
 var _AgentSessionStream_instances, _AgentSessionStream_consumed, _AgentSessionStream_stream, _AgentSessionStream_response, _AgentSessionStream_reading, _AgentSessionStream_sessions, _AgentSessionStream_sessionID, _AgentSessionStream_input, _AgentSessionStream_handlers, _AgentSessionStream_inputKey, _AgentSessionStream_options, _AgentSessionStream_iterate, _AgentSessionStream_result, _AgentSessionStream_checkAbort, _AgentSessionStream_abortError, _AgentSessionStream_wait, _AgentSessionStream_submit, AgentSessionStream;
 var init_agent_session_stream = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/agents/agent-session-stream.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/agents/agent-session-stream.mjs"() {
     init_tslib();
     init_turn_state();
     init_error();
@@ -13541,10 +13548,10 @@ var init_agent_session_stream = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/artifacts.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/artifacts.mjs
 var Artifacts;
 var init_artifacts = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/artifacts.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/artifacts.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -13648,10 +13655,10 @@ var init_artifacts = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/events.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/events.mjs
 var Events;
 var init_events = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/events.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/events.mjs"() {
     init_resource();
     init_headers();
     init_path();
@@ -13724,10 +13731,10 @@ var init_events = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/items.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/items.mjs
 var Items;
 var init_items = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/items.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/items.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -13760,10 +13767,10 @@ var init_items = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/turns.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/turns.mjs
 var Turns;
 var init_turns = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/turns.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/turns.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -13818,10 +13825,10 @@ var init_turns = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/items.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/items.mjs
 var Items2;
 var init_items2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/items.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/items.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -13855,10 +13862,10 @@ var init_items2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/turns/items.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/turns/items.mjs
 var Items3;
 var init_items3 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/turns/items.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/turns/items.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -13892,10 +13899,10 @@ var init_items3 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/turns/turns.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/turns/turns.mjs
 var Turns2;
 var init_turns2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/turns/turns.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/turns/turns.mjs"() {
     init_resource();
     init_items3();
     init_items3();
@@ -13960,10 +13967,10 @@ var init_turns2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/subagents.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/subagents.mjs
 var Subagents;
 var init_subagents = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/subagents.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/subagents/subagents.mjs"() {
     init_resource();
     init_items2();
     init_items2();
@@ -14027,10 +14034,10 @@ var init_subagents = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/sessions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/sessions.mjs
 var Sessions2;
 var init_sessions2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/sessions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/sessions/sessions.mjs"() {
     init_agent_session_stream();
     init_resource();
     init_artifacts();
@@ -14154,10 +14161,10 @@ var init_sessions2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/vaults/credentials.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/vaults/credentials.mjs
 var Credentials;
 var init_credentials = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/vaults/credentials.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/vaults/credentials.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -14287,10 +14294,10 @@ var init_credentials = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/vaults/vaults.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/vaults/vaults.mjs
 var Vaults;
 var init_vaults = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/vaults/vaults.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/vaults/vaults.mjs"() {
     init_resource();
     init_credentials();
     init_credentials();
@@ -14380,10 +14387,10 @@ var init_vaults = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/agents.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/agents.mjs
 var Agents;
 var init_agents = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/agents/agents.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/agents/agents.mjs"() {
     init_resource();
     init_environments();
     init_environments();
@@ -14498,10 +14505,10 @@ var init_agents = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/sessions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/sessions.mjs
 var Sessions3;
 var init_sessions3 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/sessions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/sessions.mjs"() {
     init_resource();
     init_headers();
     init_path();
@@ -14548,10 +14555,10 @@ var init_sessions3 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/threads.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/threads.mjs
 var Threads;
 var init_threads = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/threads.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/threads.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -14634,10 +14641,10 @@ var init_threads = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/chatkit.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/chatkit.mjs
 var ChatKit;
 var init_chatkit = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/chatkit.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/chatkit/chatkit.mjs"() {
     init_resource();
     init_sessions3();
     init_sessions3();
@@ -14655,10 +14662,10 @@ var init_chatkit = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/responses/input-items.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/responses/input-items.mjs
 var InputItems;
 var init_input_items = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/responses/input-items.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/responses/input-items.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -14693,10 +14700,10 @@ var init_input_items = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/responses/input-tokens.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/responses/input-tokens.mjs
 var InputTokens;
 var init_input_tokens = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/responses/input-tokens.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/responses/input-tokens.mjs"() {
     init_resource();
     init_headers();
     InputTokens = class extends APIResource {
@@ -14728,10 +14735,10 @@ var init_input_tokens = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/responses/responses.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/responses/responses.mjs
 var Responses;
 var init_responses = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/responses/responses.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/responses/responses.mjs"() {
     init_resource();
     init_input_items();
     init_input_items();
@@ -14849,10 +14856,10 @@ var init_responses = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/threads/messages.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/threads/messages.mjs
 var Messages2;
 var init_messages2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/threads/messages.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/threads/messages.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -14928,10 +14935,10 @@ var init_messages2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/threads/runs/steps.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/threads/runs/steps.mjs
 var Steps;
 var init_steps = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/threads/runs/steps.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/threads/runs/steps.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -14969,10 +14976,10 @@ var init_steps = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/base64.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/base64.mjs
 var fromBase64, toFloat32Array;
 var init_base64 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/base64.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/base64.mjs"() {
     init_error();
     init_bytes();
     fromBase64 = (str) => {
@@ -15010,10 +15017,10 @@ var init_base64 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/env.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/env.mjs
 var readEnv;
 var init_env = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils/env.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/env.mjs"() {
     readEnv = (env) => {
       try {
         if (typeof globalThis.process !== "undefined") {
@@ -15030,9 +15037,9 @@ var init_env = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils.mjs
 var init_utils2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/utils.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils.mjs"() {
     init_values();
     init_base64();
     init_env();
@@ -15043,7 +15050,7 @@ var init_utils2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/assistant-stream-delta.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/assistant-stream-delta.mjs
 function getAssistantStreamDiagnosticProperty(property) {
   switch (property) {
     case "value":
@@ -15323,7 +15330,7 @@ function createAssistantStreamArrayDeltaCommit(accumulator, delta, kind, cacheAr
 }
 var MAX_ASSISTANT_STREAM_ARRAY_GROWTH, MAX_EXTERNALLY_MUTABLE_ASSISTANT_STREAM_ARRAY_LENGTH, assistantStreamArrayStates, externallyMutableAssistantStreamValues;
 var init_assistant_stream_delta = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/assistant-stream-delta.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/assistant-stream-delta.mjs"() {
     init_error2();
     init_utils2();
     MAX_ASSISTANT_STREAM_ARRAY_GROWTH = 1024;
@@ -15333,7 +15340,7 @@ var init_assistant_stream_delta = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/AssistantStream.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/AssistantStream.mjs
 function stabilizeAssistantStreamEvent(event) {
   const eventDescriptor = Object.getOwnPropertyDescriptor(event, "event");
   const dataDescriptor = Object.getOwnPropertyDescriptor(event, "data");
@@ -15364,7 +15371,7 @@ function assertNever2(_x) {
 }
 var _AssistantStream_instances, _AssistantStream_runStepSnapshots, _AssistantStream_runStepIDOwners, _AssistantStream_activeRunStepID, _AssistantStream_messageSnapshots, _AssistantStream_messageIDOwners, _AssistantStream_messageSnapshot, _AssistantStream_activeMessageID, _AssistantStream_finalRun, _AssistantStream_currentContentIndex, _AssistantStream_currentContent, _AssistantStream_currentToolCallIndex, _AssistantStream_currentToolCall, _AssistantStream_currentEvent, _AssistantStream_currentRunSnapshot, _AssistantStream_currentRunStepSnapshot, _AssistantStream_addEvent, _AssistantStream_endRequest, _AssistantStream_validateRunStepEvent, _AssistantStream_reserveRunStepAlias, _AssistantStream_validateMessageEvent, _AssistantStream_reserveMessageAlias, _AssistantStream_handleMessage, _AssistantStream_handleRunStep, _AssistantStream_emitExposed, _AssistantStream_handleEvent, _AssistantStream_accumulateRunStep, _AssistantStream_accumulateMessage, _AssistantStream_accumulateContent, _AssistantStream_handleRun, AssistantStream;
 var init_AssistantStream = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/AssistantStream.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/AssistantStream.mjs"() {
     init_tslib();
     init_streaming2();
     init_error2();
@@ -16008,7 +16015,7 @@ var init_AssistantStream = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/polling.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/polling.mjs
 function sleepUntilAborted(milliseconds, signal) {
   return new Promise((resolve2, reject) => {
     let timer;
@@ -16113,14 +16120,14 @@ async function pollWithResponse(retrieve, intermediateStatuses, terminalStatuses
   }
 }
 var init_polling = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/polling.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/polling.mjs"() {
     init_error();
     init_headers();
     init_sleep();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/assistant-run-polling.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/assistant-run-polling.mjs
 function pollAssistantRun(resource, runID, params2, options2) {
   return pollWithResponse((headers) => resource.retrieve(runID, params2, {
     ...options2,
@@ -16128,15 +16135,15 @@ function pollAssistantRun(resource, runID, params2, options2) {
   }), ["queued", "in_progress", "cancelling"], ["requires_action", "incomplete", "cancelled", "completed", "failed", "expired"], options2);
 }
 var init_assistant_run_polling = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/assistant-run-polling.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/assistant-run-polling.mjs"() {
     init_polling();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/threads/runs/runs.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/threads/runs/runs.mjs
 var Runs;
 var init_runs = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/threads/runs/runs.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/threads/runs/runs.mjs"() {
     init_resource();
     init_steps();
     init_steps();
@@ -16279,10 +16286,10 @@ var init_runs = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/threads/threads.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/threads/threads.mjs
 var Threads2;
 var init_threads2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/threads/threads.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/threads/threads.mjs"() {
     init_resource();
     init_messages2();
     init_messages2();
@@ -16378,10 +16385,10 @@ var init_threads2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/beta.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/beta.mjs
 var Beta;
 var init_beta = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/beta/beta.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/beta/beta.mjs"() {
     init_resource();
     init_assistants();
     init_assistants();
@@ -16415,10 +16422,10 @@ var init_beta = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/completions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/completions.mjs
 var Completions2;
 var init_completions3 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/completions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/completions.mjs"() {
     init_resource();
     Completions2 = class extends APIResource {
       create(body, options2) {
@@ -16433,10 +16440,10 @@ var init_completions3 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/containers/files/content.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/containers/files/content.mjs
 var Content;
 var init_content = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/containers/files/content.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/containers/files/content.mjs"() {
     init_resource();
     init_headers();
     init_path();
@@ -16457,10 +16464,10 @@ var init_content = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/containers/files/files.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/containers/files/files.mjs
 var Files2;
 var init_files2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/containers/files/files.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/containers/files/files.mjs"() {
     init_resource();
     init_content();
     init_content();
@@ -16518,10 +16525,10 @@ var init_files2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/containers/containers.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/containers/containers.mjs
 var Containers;
 var init_containers = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/containers/containers.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/containers/containers.mjs"() {
     init_resource();
     init_files2();
     init_files2();
@@ -16573,10 +16580,10 @@ var init_containers = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/content-provenance-checks.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/content-provenance-checks.mjs
 var ContentProvenanceChecks;
 var init_content_provenance_checks = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/content-provenance-checks.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/content-provenance-checks.mjs"() {
     init_resource();
     init_uploads();
     ContentProvenanceChecks = class extends APIResource {
@@ -16598,10 +16605,10 @@ var init_content_provenance_checks = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/conversations/items.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/conversations/items.mjs
 var Items4;
 var init_items4 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/conversations/items.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/conversations/items.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -16649,10 +16656,10 @@ var init_items4 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/conversations/conversations.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/conversations/conversations.mjs
 var Conversations;
 var init_conversations = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/conversations/conversations.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/conversations/conversations.mjs"() {
     init_resource();
     init_items4();
     init_items4();
@@ -16701,7 +16708,7 @@ var init_conversations = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/embeddings.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/embeddings.mjs
 function createEmbedding(client, body, options2) {
   const hasUserProvidedEncodingFormat = !!body.encoding_format;
   const encodingFormat = hasUserProvidedEncodingFormat ? body.encoding_format : "base64";
@@ -16741,15 +16748,15 @@ function createEmbedding(client, body, options2) {
   });
 }
 var init_embeddings = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/embeddings.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/embeddings.mjs"() {
     init_utils2();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/embeddings.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/embeddings.mjs
 var Embeddings;
 var init_embeddings2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/embeddings.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/embeddings.mjs"() {
     init_resource();
     init_embeddings();
     Embeddings = class extends APIResource {
@@ -16760,10 +16767,10 @@ var init_embeddings2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/evals/runs/output-items.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/evals/runs/output-items.mjs
 var OutputItems;
 var init_output_items = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/evals/runs/output-items.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/evals/runs/output-items.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -16789,10 +16796,10 @@ var init_output_items = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/evals/runs/runs.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/evals/runs/runs.mjs
 var Runs2;
 var init_runs2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/evals/runs/runs.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/evals/runs/runs.mjs"() {
     init_resource();
     init_output_items();
     init_output_items();
@@ -16860,10 +16867,10 @@ var init_runs2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/evals/evals.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/evals/evals.mjs
 var Evals;
 var init_evals = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/evals/evals.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/evals/evals.mjs"() {
     init_resource();
     init_runs2();
     init_runs2();
@@ -16918,7 +16925,7 @@ var init_evals = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/file-processing.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/file-processing.mjs
 async function waitForFileProcessing(resource, id, pollInterval, maxWait) {
   const terminalStates = /* @__PURE__ */ new Set(["processed", "error", "deleted"]);
   const start = performance.now();
@@ -16935,16 +16942,16 @@ async function waitForFileProcessing(resource, id, pollInterval, maxWait) {
   return file;
 }
 var init_file_processing = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/file-processing.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/file-processing.mjs"() {
     init_error2();
     init_sleep();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/files.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/files.mjs
 var Files3;
 var init_files3 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/files.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/files.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -17027,20 +17034,20 @@ var init_files3 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/methods.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/methods.mjs
 var Methods;
 var init_methods = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/methods.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/methods.mjs"() {
     init_resource();
     Methods = class extends APIResource {
     };
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/alpha/graders.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/alpha/graders.mjs
 var Graders;
 var init_graders = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/alpha/graders.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/alpha/graders.mjs"() {
     init_resource();
     Graders = class extends APIResource {
       /**
@@ -17095,10 +17102,10 @@ var init_graders = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/alpha/alpha.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/alpha/alpha.mjs
 var Alpha2;
 var init_alpha = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/alpha/alpha.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/alpha/alpha.mjs"() {
     init_resource();
     init_graders();
     init_graders();
@@ -17112,10 +17119,10 @@ var init_alpha = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/checkpoints/permissions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/checkpoints/permissions.mjs
 var Permissions;
 var init_permissions = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/checkpoints/permissions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/checkpoints/permissions.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -17204,10 +17211,10 @@ var init_permissions = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/checkpoints/checkpoints.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/checkpoints/checkpoints.mjs
 var Checkpoints;
 var init_checkpoints = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/checkpoints/checkpoints.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/checkpoints/checkpoints.mjs"() {
     init_resource();
     init_permissions();
     init_permissions();
@@ -17221,10 +17228,10 @@ var init_checkpoints = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/jobs/checkpoints.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/jobs/checkpoints.mjs
 var Checkpoints2;
 var init_checkpoints2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/jobs/checkpoints.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/jobs/checkpoints.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -17249,10 +17256,10 @@ var init_checkpoints2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/jobs/jobs.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/jobs/jobs.mjs
 var Jobs;
 var init_jobs = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/jobs/jobs.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/jobs/jobs.mjs"() {
     init_resource();
     init_checkpoints2();
     init_checkpoints2();
@@ -17388,10 +17395,10 @@ var init_jobs = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/fine-tuning.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/fine-tuning.mjs
 var FineTuning;
 var init_fine_tuning = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/fine-tuning.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/fine-tuning/fine-tuning.mjs"() {
     init_resource();
     init_methods();
     init_methods();
@@ -17417,20 +17424,20 @@ var init_fine_tuning = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/graders/grader-models.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/graders/grader-models.mjs
 var GraderModels;
 var init_grader_models = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/graders/grader-models.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/graders/grader-models.mjs"() {
     init_resource();
     GraderModels = class extends APIResource {
     };
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/graders/graders.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/graders/graders.mjs
 var Graders2;
 var init_graders2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/graders/graders.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/graders/graders.mjs"() {
     init_resource();
     init_grader_models();
     init_grader_models();
@@ -17444,10 +17451,10 @@ var init_graders2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/images.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/images.mjs
 var Images;
 var init_images = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/images.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/images.mjs"() {
     init_resource();
     init_uploads();
     Images = class extends APIResource {
@@ -17485,10 +17492,10 @@ var init_images = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/live/sessions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/live/sessions.mjs
 var Sessions4;
 var init_sessions4 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/live/sessions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/live/sessions.mjs"() {
     init_resource();
     init_headers();
     init_path();
@@ -17610,30 +17617,30 @@ var init_sessions4 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/live/forks/forks.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/live/forks/forks.mjs
 var Forks;
 var init_forks = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/live/forks/forks.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/live/forks/forks.mjs"() {
     init_resource();
     Forks = class extends APIResource {
     };
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/live/sideband/sideband.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/live/sideband/sideband.mjs
 var Sideband;
 var init_sideband = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/live/sideband/sideband.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/live/sideband/sideband.mjs"() {
     init_resource();
     Sideband = class extends APIResource {
     };
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/live/live.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/live/live.mjs
 var Live;
 var init_live = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/live/live.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/live/live.mjs"() {
     init_resource();
     init_sessions4();
     init_sessions4();
@@ -17670,10 +17677,10 @@ var init_live = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/models.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/models.mjs
 var Models;
 var init_models2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/models.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/models.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -17703,10 +17710,10 @@ var init_models2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/moderations.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/moderations.mjs
 var Moderations;
 var init_moderations = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/moderations.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/moderations.mjs"() {
     init_resource();
     Moderations = class extends APIResource {
       /**
@@ -17721,7 +17728,7 @@ var init_moderations = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/multipart-encoding.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/multipart-encoding.mjs
 async function encodedMultipartFormRequestOptions(options2, client, encodings, rawBodyField = null) {
   if (options2.body === null || typeof options2.body !== "object" || Array.isArray(options2.body)) {
     throw new TypeError("Multipart request body must be an object");
@@ -17763,16 +17770,16 @@ async function encodedMultipartFormRequestOptions(options2, client, encodings, r
   };
 }
 var init_multipart_encoding = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/multipart-encoding.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/multipart-encoding.mjs"() {
     init_uploads();
     init_headers();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/realtime/calls.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/realtime/calls.mjs
 var Calls;
 var init_calls = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/realtime/calls.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/realtime/calls.mjs"() {
     init_resource();
     init_headers();
     init_path();
@@ -17873,10 +17880,10 @@ var init_calls = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/realtime/client-secrets.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/realtime/client-secrets.mjs
 var ClientSecrets;
 var init_client_secrets = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/realtime/client-secrets.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/realtime/client-secrets.mjs"() {
     init_resource();
     ClientSecrets = class extends APIResource {
       /**
@@ -17913,10 +17920,10 @@ var init_client_secrets = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/realtime/realtime.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/realtime/realtime.mjs
 var Realtime2;
 var init_realtime2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/realtime/realtime.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/realtime/realtime.mjs"() {
     init_resource();
     init_calls();
     init_calls();
@@ -17934,7 +17941,7 @@ var init_realtime2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/ResponsesParser.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/ResponsesParser.mjs
 function maybeParseResponse(response, params2) {
   if (!params2 || !hasAutoParseableInput2(params2)) {
     const parsed = {
@@ -18066,16 +18073,16 @@ function addOutputText(rsp) {
   rsp.output_text = texts.join("");
 }
 var init_ResponsesParser = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/ResponsesParser.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/ResponsesParser.mjs"() {
     init_error2();
     init_parser();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/responses/output-text-index.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/responses/output-text-index.mjs
 var OutputTextIndex;
 var init_output_text_index = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/responses/output-text-index.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/responses/output-text-index.mjs"() {
     OutputTextIndex = class {
       constructor() {
         this.capacity = 1;
@@ -18144,7 +18151,7 @@ var init_output_text_index = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/responses/canonical-output-text.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/responses/canonical-output-text.mjs
 function createCanonicalResponseContext() {
   return {
     canonicalSnapshot: void 0,
@@ -18249,12 +18256,12 @@ function updateOutputText(context, snapshot, outputIndex, previousText, nextText
   snapshot.output_text = snapshot.output_text.slice(0, offset) + nextText + snapshot.output_text.slice(offset + previousText.length);
 }
 var init_canonical_output_text = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/responses/canonical-output-text.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/responses/canonical-output-text.mjs"() {
     init_output_text_index();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/responses/response-accumulator.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/responses/response-accumulator.mjs
 function validateArrayIndex(collection, index3, kind, allowAppend = false) {
   if (!Array.isArray(collection) || !Number.isSafeInteger(index3) || index3 < 0 || index3 > collection.length || (index3 === collection.length ? !allowAppend || index3 in collection : !hasOwn(collection, index3))) {
     throw new OpenAIError(`missing ${kind} at index ${index3}`);
@@ -19033,7 +19040,7 @@ function accumulateResponseWithContext(event, snapshot, context, rejectInvalidSh
 }
 var responseOutputIdentityIndexes, expectedOutputItemTypes, supportedResponseEventTypes, responseEventRoutingFields;
 var init_response_accumulator = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/responses/response-accumulator.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/responses/response-accumulator.mjs"() {
     init_error2();
     init_utils2();
     init_canonical_output_text();
@@ -19154,13 +19161,13 @@ var init_response_accumulator = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/responses/ResponseStream.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/responses/ResponseStream.mjs
 function finalizeResponse(snapshot, params2) {
   return maybeParseResponse(snapshot, params2);
 }
 var _ResponseStream_instances, _ResponseStream_params, _ResponseStream_currentResponseSnapshot, _ResponseStream_finalResponse, _ResponseStream_accumulatorContext, _ResponseStream_beginRequest, _ResponseStream_addEvent, _ResponseStream_endRequest, ResponseStream;
 var init_ResponseStream = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/responses/ResponseStream.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/responses/ResponseStream.mjs"() {
     init_tslib();
     init_error2();
     init_EventStream();
@@ -19339,10 +19346,10 @@ var init_ResponseStream = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/responses/input-items.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/responses/input-items.mjs
 var InputItems2;
 var init_input_items2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/responses/input-items.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/responses/input-items.mjs"() {
     init_resource();
     init_pagination();
     init_path();
@@ -19367,10 +19374,10 @@ var init_input_items2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/responses/input-tokens.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/responses/input-tokens.mjs
 var InputTokens2;
 var init_input_tokens2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/responses/input-tokens.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/responses/input-tokens.mjs"() {
     init_resource();
     InputTokens2 = class extends APIResource {
       /**
@@ -19395,10 +19402,10 @@ var init_input_tokens2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/responses/responses.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/responses/responses.mjs
 var Responses2;
 var init_responses2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/responses/responses.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/responses/responses.mjs"() {
     init_ResponsesParser();
     init_ResponseStream();
     init_resource();
@@ -19508,10 +19515,10 @@ var init_responses2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/safety/alerts.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/safety/alerts.mjs
 var Alerts;
 var init_alerts = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/safety/alerts.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/safety/alerts.mjs"() {
     init_resource();
     init_path();
     Alerts = class extends APIResource {
@@ -19525,10 +19532,10 @@ var init_alerts = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/safety/safety.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/safety/safety.mjs
 var Safety;
 var init_safety = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/safety/safety.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/safety/safety.mjs"() {
     init_resource();
     init_alerts();
     init_alerts();
@@ -19542,10 +19549,10 @@ var init_safety = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/skills/content.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/skills/content.mjs
 var Content2;
 var init_content2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/skills/content.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/skills/content.mjs"() {
     init_resource();
     init_headers();
     init_path();
@@ -19565,10 +19572,10 @@ var init_content2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/skills/versions/content.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/skills/versions/content.mjs
 var Content3;
 var init_content3 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/skills/versions/content.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/skills/versions/content.mjs"() {
     init_resource();
     init_headers();
     init_path();
@@ -19589,10 +19596,10 @@ var init_content3 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/skills/versions/versions.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/skills/versions/versions.mjs
 var Versions;
 var init_versions = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/skills/versions/versions.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/skills/versions/versions.mjs"() {
     init_resource();
     init_content3();
     init_content3();
@@ -19647,10 +19654,10 @@ var init_versions = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/skills/skills.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/skills/skills.mjs
 var Skills;
 var init_skills = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/skills/skills.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/skills/skills.mjs"() {
     init_resource();
     init_content2();
     init_content2();
@@ -19711,10 +19718,10 @@ var init_skills = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/uploads/parts.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/uploads/parts.mjs
 var Parts;
 var init_parts = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/uploads/parts.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/uploads/parts.mjs"() {
     init_resource();
     init_uploads();
     init_path();
@@ -19740,10 +19747,10 @@ var init_parts = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/uploads/uploads.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/uploads/uploads.mjs
 var Uploads;
 var init_uploads3 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/uploads/uploads.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/uploads/uploads.mjs"() {
     init_resource();
     init_parts();
     init_parts();
@@ -19819,7 +19826,7 @@ var init_uploads3 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/vector-store-polling.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/vector-store-polling.mjs
 function pollVectorStoreFile(resource, vectorStoreID, fileID, options2) {
   return pollWithResponse((headers) => resource.retrieve(fileID, { vector_store_id: vectorStoreID }, { ...options2, headers }), ["in_progress"], ["failed", "cancelled", "completed"], options2);
 }
@@ -19827,15 +19834,15 @@ function pollVectorStoreFileBatch(resource, vectorStoreID, batchID, options2) {
   return pollWithResponse((headers) => resource.retrieve(batchID, { vector_store_id: vectorStoreID }, { ...options2, headers }), ["in_progress"], ["failed", "cancelled", "completed"], options2);
 }
 var init_vector_store_polling = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/vector-store-polling.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/vector-store-polling.mjs"() {
     init_polling();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/Util.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/Util.mjs
 var allSettledWithThrow;
 var init_Util = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/Util.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/Util.mjs"() {
     allSettledWithThrow = async (promises) => {
       const results = await Promise.allSettled(promises);
       const rejected = results.filter((result) => result.status === "rejected");
@@ -19857,7 +19864,7 @@ var init_Util = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/vector-store-upload.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/vector-store-upload.mjs
 async function uploadAndPollVectorStoreFileBatch(resource, client, vectorStoreId, files, fileIds, options2) {
   if (files === null || files === void 0 || files.length === 0) {
     throw new Error("No `files` provided to process. If you've already uploaded files you should use `.createAndPoll()` instead");
@@ -19884,15 +19891,15 @@ async function uploadAndPollVectorStoreFileBatch(resource, client, vectorStoreId
   return await resource.createAndPoll(vectorStoreId, { file_ids: allFileIds }, options2);
 }
 var init_vector_store_upload = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/vector-store-upload.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/vector-store-upload.mjs"() {
     init_Util();
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/vector-stores/file-batches.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/vector-stores/file-batches.mjs
 var FileBatches;
 var init_file_batches = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/vector-stores/file-batches.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/vector-stores/file-batches.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -19974,10 +19981,10 @@ var init_file_batches = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/vector-stores/files.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/vector-stores/files.mjs
 var Files4;
 var init_files4 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/vector-stores/files.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/vector-stores/files.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -20093,10 +20100,10 @@ var init_files4 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/vector-stores/vector-stores.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/vector-stores/vector-stores.mjs
 var VectorStores;
 var init_vector_stores = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/vector-stores/vector-stores.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/vector-stores/vector-stores.mjs"() {
     init_resource();
     init_file_batches();
     init_file_batches();
@@ -20183,10 +20190,10 @@ var init_vector_stores = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/videos.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/videos.mjs
 var Videos;
 var init_videos = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/videos.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/videos.mjs"() {
     init_resource();
     init_pagination();
     init_headers();
@@ -20293,7 +20300,7 @@ var init_videos = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/webhook-signature.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/webhook-signature.mjs
 function webhookSignatureRequiresSigning(signatureHeader) {
   return signatureHeader.split(" ", MAX_DIRECT_WEBHOOK_VERIFICATIONS + 1).length > MAX_DIRECT_WEBHOOK_VERIFICATIONS;
 }
@@ -20389,7 +20396,7 @@ async function verifyWebhookSignature(payload, signatureHeader, timestamp, webho
 }
 var MAX_DIRECT_WEBHOOK_VERIFICATIONS, SHA256_SIGNATURE_LENGTH;
 var init_webhook_signature = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/lib/webhook-signature.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/lib/webhook-signature.mjs"() {
     init_error2();
     init_base64();
     init_bytes();
@@ -20398,10 +20405,10 @@ var init_webhook_signature = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/webhooks/event-types.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/webhooks/event-types.mjs
 var EventTypes;
 var init_event_types = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/webhooks/event-types.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/webhooks/event-types.mjs"() {
     init_resource();
     EventTypes = class extends APIResource {
       /**
@@ -20420,10 +20427,10 @@ var init_event_types = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/webhooks/webhooks.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/webhooks/webhooks.mjs
 var _Webhooks_instances, _Webhooks_validateSecret, _Webhooks_getRequiredHeader, Webhooks;
 var init_webhooks = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/webhooks/webhooks.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/webhooks/webhooks.mjs"() {
     init_tslib();
     init_resource();
     init_headers();
@@ -20603,9 +20610,9 @@ var init_webhooks = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/index.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/index.mjs
 var init_resources = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/resources/index.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/resources/index.mjs"() {
     init_chat2();
     init_shared();
     init_admin();
@@ -20636,7 +20643,7 @@ var init_resources = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/realtime-credentials.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/realtime-credentials.mjs
 async function resolveRealtimeAPIKey(client) {
   let apiKey;
   const isProvider = await client._callApiKey((resolved) => {
@@ -20645,11 +20652,11 @@ async function resolveRealtimeAPIKey(client) {
   return { apiKey: apiKey === void 0 ? client.apiKey : apiKey, isProvider };
 }
 var init_realtime_credentials = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/realtime-credentials.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/realtime-credentials.mjs"() {
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/provider.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/provider.mjs
 function configureProvider(provider2) {
   const definition = providerDefinitions.get(provider2);
   if (!definition) {
@@ -20659,8 +20666,8 @@ function configureProvider(provider2) {
 }
 var providerDefinitionsKey, providerGlobal, existingProviderDefinitions, providerDefinitions;
 var init_provider = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/provider.mjs"() {
-    providerDefinitionsKey = Symbol.for("openai.node.providerDefinitions.v1");
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/provider.mjs"() {
+    providerDefinitionsKey = /* @__PURE__ */ Symbol.for("openai.node.providerDefinitions.v1");
     providerGlobal = globalThis;
     existingProviderDefinitions = providerGlobal[providerDefinitionsKey];
     providerDefinitions = existingProviderDefinitions ?? /* @__PURE__ */ new WeakMap();
@@ -20670,7 +20677,7 @@ var init_provider = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/client.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/client.mjs
 function isRunningInBrowserOrBrowserWorker() {
   if (isRunningInBrowser())
     return true;
@@ -20716,7 +20723,7 @@ function isUndiciDispatcherVersionMismatchError(error) {
 }
 var _OpenAI_instances, _a3, _OpenAI_encoder, _OpenAI_x509Authentication, _OpenAI_x509Credential, _OpenAI_x509Fetch, _OpenAI_explicitDataResidency, _OpenAI_responseAttempts, _OpenAI_baseURLOverridden, WORKLOAD_IDENTITY_API_KEY_PLACEHOLDER, inheritedDataResidencySelection, OpenAI, composedCallerSignals;
 var init_client = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/client.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/client.mjs"() {
     init_tslib();
     init_uuid();
     init_values();
@@ -20775,7 +20782,7 @@ var init_client = __esm({
     init_log();
     init_values();
     WORKLOAD_IDENTITY_API_KEY_PLACEHOLDER = "workload-identity-auth";
-    inheritedDataResidencySelection = Symbol("inheritedDataResidencySelection");
+    inheritedDataResidencySelection = /* @__PURE__ */ Symbol("inheritedDataResidencySelection");
     OpenAI = class {
       /**
        * API Client for interfacing with the OpenAI API.
@@ -21844,9 +21851,9 @@ var init_client = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/azure.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/azure.mjs
 var init_azure = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/azure.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/azure.mjs"() {
     init_headers();
     init_error2();
     init_utils2();
@@ -21856,20 +21863,20 @@ var init_azure = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/bedrock.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/bedrock.mjs
 var brand_privateBedrockClient;
 var init_bedrock = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/internal/bedrock.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/bedrock.mjs"() {
     init_error2();
     init_utils2();
-    brand_privateBedrockClient = Symbol.for("openai.privateBedrockClient");
+    brand_privateBedrockClient = /* @__PURE__ */ Symbol.for("openai.privateBedrockClient");
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/bedrock.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/bedrock.mjs
 var _a4;
 var init_bedrock2 = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/bedrock.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/bedrock.mjs"() {
     init_error2();
     init_client();
     init_realtime_credentials();
@@ -21883,9 +21890,9 @@ var init_bedrock2 = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/index.mjs
+// ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/index.mjs
 var init_openai = __esm({
-  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.11.2_ws@8.22.0_zod@4.6.5/node_modules/openai/index.mjs"() {
+  "../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/index.mjs"() {
     init_client();
     init_uploads2();
     init_api_promise();
@@ -21897,7 +21904,7 @@ var init_openai = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/error-body.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/error-body.js
 function normalizeProviderError(error) {
   if (!(error instanceof Error)) {
     return { message: safeJsonStringify2(error), messageCarriesBody: false };
@@ -21979,12 +21986,12 @@ function safeJsonStringify2(value) {
 }
 var MAX_PROVIDER_ERROR_BODY_CHARS;
 var init_error_body = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/error-body.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/error-body.js"() {
     MAX_PROVIDER_ERROR_BODY_CHARS = 4e3;
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/headers.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/headers.js
 function headersToRecord(headers) {
   const result = {};
   for (const [key, value] of headers.entries()) {
@@ -21993,11 +22000,11 @@ function headersToRecord(headers) {
   return result;
 }
 var init_headers2 = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/headers.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/headers.js"() {
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/pi-user-agent.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/pi-user-agent.js
 function loadNodeOs() {
   if (typeof process === "undefined" || !(process.versions?.node || process.versions?.bun)) {
     return null;
@@ -22009,12 +22016,12 @@ function getPiUserAgent() {
 }
 var nodeOs;
 var init_pi_user_agent = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/pi-user-agent.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/pi-user-agent.js"() {
     nodeOs = loadNodeOs();
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/provider-env.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/provider-env.js
 function getBunSandboxEnvValue(name) {
   if (typeof process === "undefined" || !process.versions?.bun || Object.keys(process.env).length > 0) {
     return void 0;
@@ -22040,12 +22047,12 @@ function getProviderEnvValue(name, env) {
 }
 var procEnvCache;
 var init_provider_env = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/provider-env.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/provider-env.js"() {
     procEnvCache = null;
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/provider-retry.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/provider-retry.js
 function isProviderError(error) {
   if (!(error instanceof Error) || !("status" in error) || !("headers" in error))
     return false;
@@ -22128,12 +22135,12 @@ async function retryProviderRequest(request2, options2 = {}) {
 }
 var DEFAULT_MAX_RETRY_DELAY_MS;
 var init_provider_retry = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/provider-retry.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/provider-retry.js"() {
     DEFAULT_MAX_RETRY_DELAY_MS = 6e4;
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/constrained-sampling.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/constrained-sampling.js
 function isJsonSchemaObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -22337,7 +22344,7 @@ function createGrammarToolInputProperties(tools, supportsOpenAIGrammarTools) {
 }
 var UnsupportedStrictJsonSchemaError, UNSUPPORTED_STRICT_SCHEMA_KEYS;
 var init_constrained_sampling = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/constrained-sampling.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/constrained-sampling.js"() {
     UnsupportedStrictJsonSchemaError = class extends Error {
     };
     UNSUPPORTED_STRICT_SCHEMA_KEYS = [
@@ -22361,7 +22368,7 @@ var init_constrained_sampling = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/github-copilot-headers.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/github-copilot-headers.js
 function inferCopilotInitiator(messages) {
   const last = messages[messages.length - 1];
   return last && last.role !== "user" ? "agent" : "user";
@@ -22388,11 +22395,11 @@ function buildCopilotDynamicHeaders(params2) {
   return headers;
 }
 var init_github_copilot_headers = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/github-copilot-headers.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/github-copilot-headers.js"() {
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/openai-prompt-cache.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/openai-prompt-cache.js
 function clampOpenAIPromptCacheKey(key) {
   if (key === void 0)
     return void 0;
@@ -22403,12 +22410,12 @@ function clampOpenAIPromptCacheKey(key) {
 }
 var OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH;
 var init_openai_prompt_cache = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/openai-prompt-cache.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/openai-prompt-cache.js"() {
     OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH = 64;
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/hash.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/hash.js
 function shortHash(str) {
   let h1 = 3735928559;
   let h2 = 1103547991;
@@ -22422,7 +22429,7 @@ function shortHash(str) {
   return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36);
 }
 var init_hash = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/hash.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/hash.js"() {
   }
 });
 
@@ -22662,7 +22669,7 @@ var require_dist = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/json-parse.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/json-parse.js
 function isControlCharacter(char) {
   const codePoint = char.codePointAt(0);
   return codePoint !== void 0 && codePoint >= 0 && codePoint <= 31;
@@ -22778,22 +22785,22 @@ function parseStreamingJson(partialJson) {
 }
 var import_partial_json, VALID_JSON_ESCAPES;
 var init_json_parse = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/json-parse.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/json-parse.js"() {
     import_partial_json = __toESM(require_dist(), 1);
     VALID_JSON_ESCAPES = /* @__PURE__ */ new Set(['"', "\\", "/", "b", "f", "n", "r", "t"]);
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/sanitize-unicode.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/sanitize-unicode.js
 function sanitizeSurrogates(text) {
   return text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "");
 }
 var init_sanitize_unicode = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/sanitize-unicode.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/sanitize-unicode.js"() {
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/transform-messages.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/transform-messages.js
 function replaceImagesWithPlaceholder(content, placeholder) {
   const result = [];
   let previousWasPlaceholder = false;
@@ -22950,13 +22957,13 @@ function transformMessages(messages, model2, normalizeToolCallId) {
 }
 var NON_VISION_USER_IMAGE_PLACEHOLDER, NON_VISION_TOOL_IMAGE_PLACEHOLDER;
 var init_transform_messages = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/transform-messages.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/transform-messages.js"() {
     NON_VISION_USER_IMAGE_PLACEHOLDER = "(image omitted: model does not support images)";
     NON_VISION_TOOL_IMAGE_PLACEHOLDER = "(tool image omitted: model does not support images)";
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/openai-responses-shared.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/openai-responses-shared.js
 function encodeTextSignatureV1(id, phase) {
   const payload = { v: 1, id };
   if (phase)
@@ -23595,7 +23602,7 @@ function mapStopReason(status, incompleteReason) {
   }
 }
 var init_openai_responses_shared = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/openai-responses-shared.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/openai-responses-shared.js"() {
     init_models();
     init_hash();
     init_json_parse();
@@ -23607,7 +23614,7 @@ var init_openai_responses_shared = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/simple-options.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/simple-options.js
 function clampMaxTokensToContext(model2, context, maxTokens) {
   if (model2.contextWindow <= 0)
     return Math.max(MIN_MAX_TOKENS, maxTokens);
@@ -23646,7 +23653,7 @@ function buildBaseOptions(model2, context, options2, apiKey) {
 }
 var CONTEXT_SAFETY_TOKENS, MIN_MAX_TOKENS;
 var init_simple_options = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/simple-options.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/simple-options.js"() {
     init_models();
     init_estimate();
     CONTEXT_SAFETY_TOKENS = 4096;
@@ -23654,7 +23661,7 @@ var init_simple_options = __esm({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/openai-responses.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/openai-responses.js
 var openai_responses_exports = {};
 __export(openai_responses_exports, {
   stream: () => stream,
@@ -23847,7 +23854,7 @@ function applyServiceTierPricing(usage, serviceTier, model2) {
 }
 var OPENAI_TOOL_CALL_PROVIDERS, OPENAI_RESPONSES_MIN_OUTPUT_TOKENS, CHATGPT_USAGE_URL, CONFIGURATION_UPDATE_REQUEST_EFFORT, stream, streamSimple;
 var init_openai_responses = __esm({
-  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/openai-responses.js"() {
+  "../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/openai-responses.js"() {
     init_openai();
     init_models();
     init_error_body();
@@ -23962,10 +23969,396 @@ Check your ChatGPT usage: ${CHATGPT_USAGE_URL}` : errorMessage2;
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/createActor-54296cf2.cjs.js
-var require_createActor_54296cf2_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/createActor-54296cf2.cjs.js"(exports) {
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/createActor-25900f76.cjs.js
+var require_createActor_25900f76_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/createActor-25900f76.cjs.js"(exports) {
     "use strict";
+    function xstateError(code, ...values) {
+      return `XState error E${code}${values.length ? ` (${values.map((value) => typeof value === "string" ? JSON.stringify(value) : String(value)).join(", ")})` : ""}. See https://github.com/statelyai/xstate/blob/next/docs/errors.md#e${code}`;
+    }
+    var REMOVED_ROOT_KEY_NAMES = ["types", "tsTypes", "schema", "internalEvents", "services", "devTools"];
+    var TRANSITION_KEYS = ["onDone", "onError", "onTimeout", "always"];
+    var INVOKE_TRANSITION_KEYS = ["onDone", "onError", "onSnapshot", "onTimeout"];
+    var SUFFIXED_LIFECYCLE = /^xstate\.(done\.actor|error\.actor|snapshot|done\.state|after)\.(.+)$/;
+    function checkLifecycleEventKey(eventType, stateId) {
+      const match = SUFFIXED_LIFECYCLE.exec(eventType);
+      if (!match || match[2] === "*" || match[1] === "snapshot" && (match[2] === "actor" || match[2] === "actor.*")) return;
+      {
+        throw new Error(xstateError(3, eventType, stateId));
+      }
+    }
+    function checkTransitions(transitions, name, stateId) {
+      if (!transitions) return;
+      for (const t of Array.isArray(transitions) ? transitions : [transitions]) {
+        if (!t || typeof t !== "object") continue;
+        if (t.cond !== void 0) {
+          throw new Error(xstateError(4, name, stateId, "cond"));
+        }
+        if (t.guard !== void 0) {
+          throw new Error(xstateError(4, name, stateId, "guard"));
+        }
+        if (t.actions !== void 0) {
+          throw new Error(xstateError(4, name, stateId, "actions"));
+        }
+      }
+    }
+    function checkInitialTransition(initial, stateId) {
+      if (!initial || typeof initial !== "object") return;
+      if (initial.cond !== void 0) {
+        throw new Error(xstateError(5, stateId, "cond"));
+      }
+      if (initial.guard !== void 0) {
+        throw new Error(xstateError(5, stateId, "guard"));
+      }
+      if (initial.actions !== void 0) {
+        throw new Error(xstateError(5, stateId, "actions"));
+      }
+    }
+    function checkStateNode(node, stateId) {
+      checkInitialTransition(node.initial, stateId);
+      if (node.activities !== void 0) {
+        throw new Error(xstateError(6, stateId));
+      }
+      for (const key of ["entry", "exit"]) {
+        const action = node[key];
+        if (action !== void 0 && typeof action !== "function") {
+          throw new Error(xstateError(7, stateId, key));
+        }
+      }
+      if (node.on) {
+        for (const eventType of Object.keys(node.on)) {
+          checkLifecycleEventKey(eventType, stateId);
+          checkTransitions(node.on[eventType], eventType, stateId);
+        }
+      }
+      if (node.after) {
+        for (const delay of Object.keys(node.after)) {
+          checkTransitions(node.after[delay], `after.${delay}`, stateId);
+        }
+      }
+      for (const key of TRANSITION_KEYS) {
+        checkTransitions(node[key], key, stateId);
+      }
+      if (node.invoke) {
+        for (const invoke of Array.isArray(node.invoke) ? node.invoke : [node.invoke]) {
+          if (!invoke || typeof invoke !== "object") continue;
+          for (const key of INVOKE_TRANSITION_KEYS) {
+            checkTransitions(invoke[key], `invoke.${key}`, stateId);
+          }
+        }
+      }
+      if (node.states) {
+        for (const key of Object.keys(node.states)) {
+          const child = node.states[key];
+          if (child && typeof child === "object") {
+            checkStateNode(child, child.id ?? (stateId ? `${stateId}.${key}` : key));
+          }
+        }
+      }
+    }
+    function diagnoseAuthorConfig(config) {
+      if (!config || typeof config !== "object") return;
+      for (const key of REMOVED_ROOT_KEY_NAMES) {
+        if (config[key] !== void 0) {
+          throw new Error(xstateError(1, key));
+        }
+      }
+      checkStateNode(config, config.id ?? "");
+    }
+    function diagnoseSetupConfig(config) {
+      if (!config || typeof config !== "object") return;
+      if (config.internalEvents !== void 0) {
+        throw new Error(xstateError(2));
+      }
+    }
+    var ACTOR_OPTIONS = /* @__PURE__ */ new Set(["clock", "logger", "syncSnapshot", "id", "registryKey", "input", "src", "inspect", "onRejectedEvent", "onUnhandledEvent", "_systemRef", "_sessionId", "_inert", "_restore"]);
+    function diagnoseActorOptions(options2) {
+      if (!options2 || typeof options2 !== "object") return;
+      for (const key of Object.keys(options2)) {
+        if (ACTOR_OPTIONS.has(key)) continue;
+        throw new Error(xstateError(8, key));
+      }
+    }
+    var STATE_DELIMITER = ".";
+    var TARGETLESS_KEY = "";
+    var NULL_EVENT = "";
+    var STATE_IDENTIFIER = "#";
+    var WILDCARD = "*";
+    var XSTATE_INIT2 = "xstate.init";
+    var XSTATE_START = "@xstate.start";
+    var XSTATE_SPAWN = "@xstate.spawn";
+    var XSTATE_STOP = "xstate.stop";
+    var XSTATE_STOP_EFFECT = "@xstate.stop";
+    var XSTATE_TERMINATE = "@xstate.terminate";
+    var XSTATE_TIMER2 = "xstate.timer";
+    var XSTATE_LOGIC_EFFECT_RESOLVE = "xstate.logic.effect.resolve";
+    var XSTATE_LOGIC_EFFECT_REJECT = "xstate.logic.effect.reject";
+    var XSTATE_LOGIC_EFFECT_START = "xstate.logic.effect.start";
+    var emptySubscription = {
+      unsubscribe() {
+      }
+    };
+    function isRemoteActorRef(actorRef) {
+      return actorRef._remote === true;
+    }
+    function isSerializedActorRef(target) {
+      if (typeof target !== "object" || target === null || Array.isArray(target) || typeof target.$actor !== "string") {
+        return false;
+      }
+      for (const key in target) {
+        if (key !== "$actor" && key !== "incarnation") {
+          return false;
+        }
+      }
+      const incarnation = target.incarnation;
+      return incarnation === void 0 || typeof incarnation === "string";
+    }
+    function getAddressId(address) {
+      const segment = address.slice(address.lastIndexOf("/") + 1);
+      return segment.includes("%") ? segment.replaceAll("%2F", "/").replaceAll("%25", "%") : segment;
+    }
+    function createMissingAddressError(target) {
+      return new Error(xstateError(50, ...target.incarnation === void 0 ? [target.$actor] : [target.$actor, target.incarnation]));
+    }
+    function resolveSerializedActorRef(system, target) {
+      const live = system._getByAddress?.(target.$actor);
+      return live && (target.incarnation === void 0 || live.sessionId === target.incarnation) ? live : void 0;
+    }
+    var remoteSnapshot = Object.freeze({
+      status: "active",
+      output: void 0,
+      error: void 0
+    });
+    function createInertActorRef(options2) {
+      const {
+        id,
+        address
+      } = options2;
+      const handle2 = {
+        ref: void 0,
+        id,
+        address,
+        src: options2.src,
+        sessionId: void 0,
+        send() {
+        },
+        getSnapshot() {
+          return remoteSnapshot;
+        },
+        subscribe() {
+          return emptySubscription;
+        },
+        on() {
+          return emptySubscription;
+        },
+        toJSON() {
+          if (address === void 0) {
+            throw new Error(xstateError(51, id));
+          }
+          return {
+            $actor: address
+          };
+        }
+      };
+      const ref = handle2;
+      handle2.ref = ref;
+      return ref;
+    }
+    function createRemoteActorRef(system, options2) {
+      const handle2 = {
+        _remote: true,
+        // Self-reference so context persistence recognizes the handle as an
+        // actor reference instead of recursing into it.
+        ref: void 0,
+        id: options2.id,
+        address: options2.address,
+        src: options2.src,
+        registryKey: options2.registryKey,
+        // The host-supplied incarnation token, when present: the owner's
+        // sessionId for this child, letting this side drop stale completions and
+        // journaled sends name the intended incarnation. Without one the handle
+        // does not know the child's incarnation and the owning runtime is the
+        // authority on staleness.
+        sessionId: options2.incarnation,
+        system,
+        _parent: options2.parent,
+        // Round-trips through persistence verbatim (undefined stays undefined,
+        // so re-persisting is byte-stable); a remote handle cannot act on it
+        // locally.
+        _syncSnapshot: options2.syncSnapshot,
+        send(event) {
+          void system.sendEvent(void 0, ref, event);
+        },
+        _send(event) {
+          throw new Error(xstateError(52, options2.address, event.type));
+        },
+        getSnapshot() {
+          return remoteSnapshot;
+        },
+        getPersistedSnapshot() {
+          throw new Error(xstateError(53, options2.address));
+        },
+        start() {
+        },
+        _stop() {
+        },
+        stop() {
+          throw new Error(xstateError(54, options2.address));
+        },
+        select() {
+          throw new Error(xstateError(55, options2.address));
+        },
+        get trigger() {
+          throw new Error(xstateError(56, options2.address));
+        },
+        // Observation is a co-location capability: a remote handle never emits,
+        // so subscriptions are inert rather than errors — generic observers may
+        // attach to any ref.
+        subscribe() {
+          return emptySubscription;
+        },
+        on() {
+          return emptySubscription;
+        },
+        _isRunning() {
+          return false;
+        },
+        // The same shape Actor.toJSON produces, so serialized snapshots carry
+        // one actor-reference shape whether a child is co-located or remote.
+        toJSON() {
+          return {
+            $actor: options2.address
+          };
+        }
+      };
+      const ref = handle2;
+      handle2.ref = ref;
+      return ref;
+    }
+    function publishEmittedEvent(source, event, runtime) {
+      source.system._notifyEmitted(source, event);
+      return runtime.emitEvent(source, event);
+    }
+    function getStepEffect(actor, key) {
+      const effects = actor.getSnapshot().effects;
+      return effects && Object.prototype.hasOwnProperty.call(effects, key) ? effects[key] : void 0;
+    }
+    var pendingSteps = /* @__PURE__ */ new WeakMap();
+    async function runStep2(actor, key, exec, sendSelf = (event) => void actor.system.sendEvent(actor, actor, event)) {
+      const effect = getStepEffect(actor, key);
+      if (effect?.status === "done") {
+        return effect.output;
+      }
+      if (effect?.status === "error") {
+        throw effect.error;
+      }
+      const running = pendingSteps.get(actor)?.get(key);
+      if (running) {
+        return running;
+      }
+      if (actor.getSnapshot().status !== "active") {
+        throw new Error(xstateError(72, key));
+      }
+      let resolve2;
+      let reject;
+      const promise = new Promise((resolvePromise, rejectPromise) => {
+        resolve2 = resolvePromise;
+        reject = rejectPromise;
+      });
+      let steps = pendingSteps.get(actor);
+      if (!steps) {
+        steps = /* @__PURE__ */ new Map();
+        pendingSteps.set(actor, steps);
+      }
+      steps.set(key, promise);
+      let subscription;
+      const cleanup = () => {
+        subscription?.unsubscribe();
+        steps.delete(key);
+        if (!steps.size) {
+          pendingSteps.delete(actor);
+        }
+      };
+      void promise.then(cleanup, cleanup);
+      subscription = actor.subscribe({
+        error: reject,
+        complete: () => reject(new Error(xstateError(72, key)))
+      });
+      void (async () => {
+        try {
+          sendSelf({
+            type: XSTATE_LOGIC_EFFECT_START,
+            key
+          });
+          const output = await exec();
+          if (actor.getSnapshot().status === "active") {
+            sendSelf({
+              type: XSTATE_LOGIC_EFFECT_RESOLVE,
+              key,
+              output
+            });
+            resolve2(output);
+          }
+        } catch (error) {
+          if (actor.getSnapshot().status === "active") {
+            sendSelf({
+              type: XSTATE_LOGIC_EFFECT_REJECT,
+              key,
+              error
+            });
+          }
+          reject(error);
+        }
+      })().catch(reject);
+      return promise;
+    }
+    function deliverEvent2(source, target, event) {
+      if (isSerializedActorRef(target)) {
+        const serialized = target;
+        const system = source?.system;
+        const live = system && resolveSerializedActorRef(system, serialized);
+        if (!live) {
+          const error = createMissingAddressError(serialized);
+          if (!system) {
+            throw error;
+          }
+          void system.deadLetter(source, void 0, event, "missingTarget", {
+            targetId: getAddressId(serialized.$actor),
+            error
+          });
+          return;
+        }
+        target = live;
+      }
+      if (rejectUndeliverableEvent(source, target, event)) {
+        return;
+      }
+      const runtimeTarget = target;
+      runtimeTarget._send(event, source);
+    }
+    function getEventBoundaryError(source, target, event) {
+      const runtimeTarget = target;
+      if (source !== target && runtimeTarget.logic?.isInternalEventType?.(event.type)) {
+        return new Error(xstateError(73, event.type, target.id));
+      }
+      return void 0;
+    }
+    function rejectUndeliverableEvent(source, target, event) {
+      const error = getEventBoundaryError(source, target, event);
+      if (error) {
+        void target.system.deadLetter(source, target, event, "internalEvent", {
+          error
+        });
+        return true;
+      }
+      return false;
+    }
+    function terminateActor2(actor, termination) {
+      actor._terminate(termination);
+    }
+    function stopActor2(actor) {
+      actor._stop();
+    }
     var Mailbox = class {
       constructor(_process) {
         this._process = _process;
@@ -24008,21 +24401,6 @@ var require_createActor_54296cf2_cjs = __commonJS({
         this._last = null;
       }
     };
-    var STATE_DELIMITER = ".";
-    var TARGETLESS_KEY = "";
-    var NULL_EVENT = "";
-    var STATE_IDENTIFIER = "#";
-    var WILDCARD = "*";
-    var XSTATE_INIT2 = "xstate.init";
-    var XSTATE_START = "@xstate.start";
-    var XSTATE_SPAWN = "@xstate.spawn";
-    var XSTATE_STOP = "xstate.stop";
-    var XSTATE_STOP_EFFECT = "@xstate.stop";
-    var XSTATE_TERMINATE = "@xstate.terminate";
-    var XSTATE_TIMER2 = "xstate.timer";
-    var XSTATE_LOGIC_EFFECT_RESOLVE = "xstate.logic.effect.resolve";
-    var XSTATE_LOGIC_EFFECT_REJECT = "xstate.logic.effect.reject";
-    var XSTATE_LOGIC_EFFECT_START = "xstate.logic.effect.start";
     function createAfterEvent(delayRef, id) {
       return {
         type: "xstate.after",
@@ -24218,7 +24596,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
     }
     function assertSendToEvent(event) {
       if (typeof event === "string") {
-        throw new Error(`Only event objects may be used with sendTo`);
+        throw new Error(xstateError(70, event));
       }
     }
     var builtInActions = {
@@ -24274,7 +24652,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       }
       return cache3.get(logic);
     }
-    var systemLogicMetadata = Symbol("xstate.systemLogicMetadata");
+    var systemLogicMetadata = /* @__PURE__ */ Symbol("xstate.systemLogicMetadata");
     var subscriptions2 = /* @__PURE__ */ new WeakMap();
     function createAttachedLogic(attach, id) {
       const initialTransition2 = (input, _) => [{
@@ -24406,154 +24784,12 @@ var require_createActor_54296cf2_cjs = __commonJS({
       }, "@xstate.subscription");
     }
     var subscriptionLogic = /* @__PURE__ */ createSubscriptionLogic2();
-    var emptySubscription = {
-      unsubscribe() {
-      }
-    };
-    var restoreHint = "or restore this snapshot with embedded children on the runtime that owns them.";
-    function isRemoteActorRef(actorRef) {
-      return actorRef._remote === true;
-    }
-    function isSerializedActorRef(target) {
-      if (typeof target !== "object" || target === null || Array.isArray(target) || typeof target.$actor !== "string") {
-        return false;
-      }
-      for (const key in target) {
-        if (key !== "$actor" && key !== "incarnation") {
-          return false;
-        }
-      }
-      const incarnation = target.incarnation;
-      return incarnation === void 0 || typeof incarnation === "string";
-    }
-    function getAddressId(address) {
-      const segment = address.slice(address.lastIndexOf("/") + 1);
-      return segment.includes("%") ? segment.replaceAll("%2F", "/").replaceAll("%25", "%") : segment;
-    }
-    function createMissingAddressError(target) {
-      return new Error(target.incarnation === void 0 ? `Unable to send event to actor '${target.$actor}': no live actor has that address` : `Unable to send event to actor '${target.$actor}' (incarnation '${target.incarnation}'): no live actor has that address and incarnation`);
-    }
-    function resolveSerializedActorRef(system, target) {
-      const live = system._getByAddress?.(target.$actor);
-      return live && (target.incarnation === void 0 || live.sessionId === target.incarnation) ? live : void 0;
-    }
-    var remoteSnapshot = Object.freeze({
-      status: "active",
-      output: void 0,
-      error: void 0
-    });
-    function createInertActorRef(options2) {
-      const {
-        id,
-        address
-      } = options2;
-      const handle2 = {
-        ref: void 0,
-        id,
-        address,
-        src: options2.src,
-        sessionId: void 0,
-        send() {
-        },
-        getSnapshot() {
-          return remoteSnapshot;
-        },
-        subscribe() {
-          return emptySubscription;
-        },
-        on() {
-          return emptySubscription;
-        },
-        toJSON() {
-          if (address === void 0) {
-            throw new Error(`Cannot serialize actor ref '${id}': it was returned by a spawn during speculative transition evaluation, which creates no actor and has no parent address.`);
-          }
-          return {
-            $actor: address
-          };
-        }
-      };
-      const ref = handle2;
-      handle2.ref = ref;
-      return ref;
-    }
-    function createRemoteActorRef(system, options2) {
-      const handle2 = {
-        _remote: true,
-        // Self-reference so context persistence recognizes the handle as an
-        // actor reference instead of recursing into it.
-        ref: void 0,
-        id: options2.id,
-        address: options2.address,
-        src: options2.src,
-        registryKey: options2.registryKey,
-        // The host-supplied incarnation token, when present: the owner's
-        // sessionId for this child, letting this side drop stale completions and
-        // journaled sends name the intended incarnation. Without one the handle
-        // does not know the child's incarnation and the owning runtime is the
-        // authority on staleness.
-        sessionId: options2.incarnation,
-        system,
-        _parent: options2.parent,
-        // Round-trips through persistence verbatim (undefined stays undefined,
-        // so re-persisting is byte-stable); a remote handle cannot act on it
-        // locally.
-        _syncSnapshot: options2.syncSnapshot,
-        send(event) {
-          void system.sendEvent(void 0, ref, event);
-        },
-        _send(event) {
-          throw new Error(`Remote actor '${options2.address}' has no local mailbox to receive "${event.type}". Its state lives with another runtime; install a runtime that can reach it (via \`createDurable\`'s adapter runtime operations, or \`system.runtime\`) before sending, ${restoreHint}`);
-        },
-        getSnapshot() {
-          return remoteSnapshot;
-        },
-        getPersistedSnapshot() {
-          throw new Error(`Cannot persist remote actor '${options2.address}' from here: its state lives with the runtime that owns it. Persist it there, ${restoreHint}`);
-        },
-        start() {
-        },
-        _stop() {
-        },
-        stop() {
-          throw new Error(`Cannot stop remote actor '${options2.address}' directly: stopping is a co-located operation. Stop it through the system runtime that owns it (\`system.stopActor(ref)\`), ${restoreHint}`);
-        },
-        select() {
-          throw new Error(`Cannot select from remote actor '${options2.address}': its snapshot is not synchronously readable because its state lives with another runtime. Read it on the runtime that owns it, ${restoreHint}`);
-        },
-        get trigger() {
-          throw new Error(`Remote actor '${options2.address}' has no \`trigger\` shorthand: it requires a co-located actor. Use \`send(...)\`, which routes through the system runtime.`);
-        },
-        // Observation is a co-location capability: a remote handle never emits,
-        // so subscriptions are inert rather than errors — generic observers may
-        // attach to any ref.
-        subscribe() {
-          return emptySubscription;
-        },
-        on() {
-          return emptySubscription;
-        },
-        _isRunning() {
-          return false;
-        },
-        // The same shape Actor.toJSON produces, so serialized snapshots carry
-        // one actor-reference shape whether a child is co-located or remote.
-        toJSON() {
-          return {
-            $actor: options2.address
-          };
-        }
-      };
-      const ref = handle2;
-      handle2.ref = ref;
-      return ref;
-    }
     function execCustomEffect() {
       const result = this.action?.(...this.args);
       return result;
     }
     function execEmitEffect(runtime = this.source.system) {
-      return runtime.emitEvent(this.source, this.event);
+      return publishEmittedEvent(this.source, this.event, runtime);
     }
     function createEmitEffect(actorScope, event) {
       return {
@@ -24594,7 +24830,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
         reason: "missingTarget",
         detail: {
           targetId,
-          error: new Error(targetId !== void 0 ? `Unable to send event to unknown child '${targetId}'` : "Unable to send event to an undefined actor")
+          error: new Error(xstateError(65, targetId))
         },
         params: void 0,
         args: []
@@ -24742,7 +24978,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
         }
       }
       if (!owned) {
-        throw new Error(`Cannot stop non-child actor ${update.actor.id}`);
+        throw new Error(xstateError(47, update.actor.id, actorScope.self.id));
       }
       actorScope.system._unregister(update.actor);
       return {
@@ -24785,7 +25021,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       if (typeof source === "string") {
         const logic = registeredActors?.[source];
         if (!logic) {
-          throw new Error(`Actor source '${source}' is not provided`);
+          throw new Error(xstateError(66, source));
         }
         return {
           logic,
@@ -24833,7 +25069,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       const existing = getWorkingSnapshotOf(actorScope)?.children?.[id];
       const occupied = existing !== void 0 && !allocation.stoppedIds.has(id) && existing.getSnapshot().status === "active";
       if (allocation.explicitIds.has(id) || occupied) {
-        throw new Error(`Child actor id '${id}' is already in use`);
+        throw new Error(xstateError(67, id, actorScope.self.id));
       }
       allocation.explicitIds.add(id);
     }
@@ -24867,7 +25103,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
     var detachedScopes = /* @__PURE__ */ new WeakSet();
     function assertRaiseEvent(event) {
       if (typeof event === "string") {
-        throw new Error(`Only event objects may be used with raise`);
+        throw new Error(xstateError(68, event));
       }
     }
     function createTransitionEnqueue(actorScope, actions, internalEvents, actorSubscriptions = false, createActors = true) {
@@ -25160,7 +25396,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
     }
     function createTerminationEffect(actorScope, snapshot) {
       if (snapshot.status !== "done" && snapshot.status !== "error") {
-        throw new Error("Cannot terminate an active or stopped actor");
+        throw new Error(xstateError(69, actorScope.self.id, snapshot.status));
       }
       const termination = snapshot.status === "done" ? {
         status: "done",
@@ -25435,7 +25671,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
         _set: (registryKey, actor) => {
           const existing = keyedActors.get(registryKey);
           if (existing && existing !== actor) {
-            throw new Error(`Actor with registry key '${String(registryKey)}' already exists.`);
+            throw new Error(xstateError(45, String(registryKey)));
           }
           keyedActors.set(registryKey, actor);
           reverseKeyedActors.set(actor, registryKey);
@@ -25443,6 +25679,8 @@ var require_createActor_54296cf2_cjs = __commonJS({
         },
         get: (registryKey) => keyedActors.get(registryKey),
         getAll: () => Object.fromEntries(keyedActors),
+        onEmitted: (listener) => baseSystem.onEmitted(listener),
+        _notifyEmitted: (actorRef, event) => baseSystem._notifyEmitted(actorRef, event),
         // Pure transition resolution must not leak topology inspection events
         // into a live runtime system — planning branches stay silent. The one
         // exception is a durable execution's own transitions (marked by the
@@ -25563,7 +25801,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
         }
       });
     }
-    var lazyActorScope = Symbol();
+    var lazyActorScope = /* @__PURE__ */ Symbol();
     function isLazyActorScope(actorScope) {
       return !!actorScope[lazyActorScope];
     }
@@ -25663,7 +25901,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       setLazySnapshotActorRef(snapshot, create4);
       return snapshot;
     }
-    var lazyInertActorState = Symbol();
+    var lazyInertActorState = /* @__PURE__ */ Symbol();
     var snapshotActorScopes = /* @__PURE__ */ new WeakMap();
     var inertActorMaterializationObserver;
     function getLazyInertActorState(actorScope) {
@@ -25797,7 +26035,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       }
       const parsedDelay = parseDurationToMilliseconds(delay);
       if (parsedDelay === void 0) {
-        throw new Error(`Invalid delay "${delay}": not a configured delay name or a valid duration string (e.g. "500ms", "1.5s", "PT1M30S").`);
+        throw new Error(xstateError(9, delay));
       }
       return parsedDelay;
     }
@@ -26033,7 +26271,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
     function formatTransition(stateNode, descriptor, transitionConfig) {
       const removedKey = getRemovedTransitionKey(transitionConfig);
       if (removedKey) {
-        throw new Error(`Transition "${descriptor || "always"}" in state "${stateNode.id}" uses ${removedKey}, which was removed in v6. Use a transition function.`);
+        throw new Error(xstateError(10, descriptor || "always", stateNode.id, removedKey));
       }
       const normalizedTarget = normalizeTarget(transitionConfig.target);
       const reenter = transitionConfig.reenter ?? false;
@@ -26107,7 +26345,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
           const right = targets[rightIndex];
           const commonAncestor = getLeastCommonStateNodeAncestor(left, right);
           if (left === right || isStateNodeDescendantOf(left, right) || isStateNodeDescendantOf(right, left) || commonAncestor?.type !== "parallel") {
-            throw new Error(`Invalid target set for '${source.id}'`);
+            throw new Error(xstateError(11, source.id));
           }
         }
       }
@@ -26183,10 +26421,10 @@ var require_createActor_54296cf2_cjs = __commonJS({
             const targetStateNode = getStateNodeByPath(stateNode.parent, resolvedTarget);
             return targetStateNode;
           } catch (err) {
-            throw new Error(`Invalid transition for '${stateNode.id}': ${err.message}`);
+            throw new Error(xstateError(12, stateNode.id, err.message));
           }
         } else {
-          throw new Error(`Invalid target: "${target}"`);
+          throw new Error(xstateError(13, target));
         }
       });
     }
@@ -26244,7 +26482,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
     function getStateNode(stateNode, stateKey) {
       const result = stateNode.states?.[stateKey];
       if (!result) {
-        throw new Error(`Child state '${stateKey}' does not exist on '${stateNode.id}'`);
+        throw new Error(xstateError(14, stateKey, stateNode.id));
       }
       return result;
     }
@@ -26267,7 +26505,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       if (typeof stateValue === "string") {
         const childStateNode = stateNode.states[stateValue];
         if (!childStateNode) {
-          throw new Error(`State '${stateValue}' does not exist on '${stateNode.id}'`);
+          throw new Error(xstateError(14, stateValue, stateNode.id));
         }
         return [stateNode, childStateNode];
       }
@@ -26848,7 +27086,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
               }
               const logic = typeof src3 === "string" ? currentSnapshot.machine.sources.actors[src3] : src3;
               if (!logic) {
-                throw new Error(`Actor logic '${typeof src3 === "string" ? src3 : "inline"}' not implemented`);
+                throw new Error(xstateError(15, typeof src3 === "string" ? src3 : "inline"));
               }
               const input = typeof invokeDef.input === "function" ? invokeDef.input({
                 self: actorScope.self,
@@ -26903,7 +27141,9 @@ var require_createActor_54296cf2_cjs = __commonJS({
               }
             }
             if (contextChangedByEntry) {
-              nextState.context = context2;
+              nextState = cloneMachineSnapshot(nextState, {
+                context: context2
+              });
             }
             if (statesForDefaultEntry.has(stateNodeToEnter)) {
               const defaultTransitions = [stateNodeToEnter.initial, ...historyDefaultsByParent.get(stateNodeToEnter) ?? []].filter(Boolean);
@@ -26921,7 +27161,9 @@ var require_createActor_54296cf2_cjs = __commonJS({
                   internalQueue.push(...initialInternalEvents);
                 }
                 if (initialContext !== void 0) {
-                  nextState.context = mergeContextPatch(nextState.context, initialContext);
+                  nextState = cloneMachineSnapshot(nextState, {
+                    context: mergeContextPatch(nextState.context, initialContext)
+                  });
                 }
                 if (initialInput && defaultTransition.target) {
                   for (const targetNode of defaultTransition.target) {
@@ -26985,6 +27227,27 @@ var require_createActor_54296cf2_cjs = __commonJS({
           nextState = cloneMachineSnapshot(nextState, {
             context
           });
+        }
+        const transitionContent = nextState.machine._microstepHooks?.transitionContent?.(filteredTransitions, [...mutStateNodeSet]);
+        if (transitionContent) {
+          const source = filteredTransitions[0].source;
+          const [actions, nextContext, raisedEvents, nextChildren] = getStateActionsAndContext(transitionContent, nextState.context, nextState.children, getStateInput(nextState, source.id), "transition", source);
+          if (raisedEvents?.length) {
+            internalQueue.push(...raisedEvents);
+          }
+          if (nextContext || nextChildren) {
+            nextState = cloneMachineSnapshot(nextState, {
+              ...nextContext ? {
+                context: nextContext
+              } : {},
+              ...nextChildren ? {
+                children: nextChildren
+              } : {}
+            });
+          }
+          const [resolvedState, effects] = resolveActionsWithContext(nextState, event, actorScope, actions);
+          nextState = resolvedState;
+          executableActions.push(...effects);
         }
         if (isInitial || changesState) {
           enterStates();
@@ -27117,10 +27380,9 @@ var require_createActor_54296cf2_cjs = __commonJS({
         input: resolvedInput
       };
     }
-    var DEFAULT_MAX_ITERATIONS = 1e3;
     var InfiniteTransitionError2 = class extends Error {
       constructor(actorId2, event, maxIterations, states) {
-        super(`Infinite loop detected in actor "${actorId2}" processing event "${event.type}": more than ${maxIterations} microsteps without reaching a stable state. Last states: ${states.map((value) => JSON.stringify(value)).join(" -> ")}. Check for a cycle of eventless transitions or raised events, or raise the bound with createMachine({ options: { maxIterations } }).`);
+        super(xstateError(16, actorId2, event.type, maxIterations));
         this.actorId = void 0;
         this.event = void 0;
         this.maxIterations = void 0;
@@ -27274,7 +27536,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
         return completeMacrostep();
       }
       let shouldSelectEventlessTransitions = true;
-      const maxIterations = snapshot.machine.options?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+      const maxIterations = snapshot.machine.options?.maxIterations ?? Infinity;
       let iterationCount = 0;
       const recentStates = [];
       while (nextSnapshot.status === "active") {
@@ -27323,7 +27585,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       if (res && typeof res.then === "function") {
         void Promise.resolve(res).catch(() => {
         });
-        throw new Error(kind ? `${kind === "entry" ? "Entry" : "Exit"} functions must be synchronous. The ${kind} function of state "${sourceId}" returned a promise (event "${event.type}"). Move async work into an invoked or spawned actor, or enq.effect.` : `Transition functions must be synchronous. Transition for event "${event.type}" in state "${sourceId}" returned a promise. Move async work into an invoked or spawned actor, or enq.effect.`);
+        throw new Error(xstateError(17, kind ?? "transition", sourceId, event.type));
       }
     }
     function createTransitionSelection(parent) {
@@ -27658,11 +27920,11 @@ var require_createActor_54296cf2_cjs = __commonJS({
         const sourceKey = typeof child.src === "string" ? child.src : void 0;
         const invoked = sourceKey === void 0 && child._invoked === true && nodes.some((node) => node.invoke.some((def2) => def2.id === id));
         if (sourceKey === void 0 && !invoked && (!options2 || !("__unsafeAllowInlineActors" in options2))) {
-          throw new Error("An inline child actor cannot be persisted.");
+          throw new Error(xstateError(41, id));
         }
         const embed = embedChildren && !isRemoteActorRef(child);
         if (!embed && sourceKey === void 0) {
-          throw new Error(`Unable to persist child '${id}' by address: it requires a registered source key.`);
+          throw new Error(xstateError(42, id));
         }
         childrenJson[id] = {
           address: child.address,
@@ -27712,7 +27974,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
               type: "parent"
             };
           } else {
-            throw new Error(`Unable to persist timer ${timer.id !== void 0 ? `'${timer.id}'` : `for event '${timer.event.type}'`}: target actor '${timer.target.id}' is no longer addressable from this snapshot.`);
+            throw new Error(xstateError(43, timer.target.id));
           }
         }
         const scheduled = scheduledTimers?.[getScheduledTimerKey(snapshotActor, getTimerKey(timer))];
@@ -27767,7 +28029,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
           } else {
             const valuePath = Array.isArray(contextPart) ? `${path2}[${key}]` : `${path2}.${key}`;
             if (ancestors.includes(value)) {
-              throw new Error(`Cannot persist actor "${getActorId()}": circular reference at ${valuePath}`);
+              throw new Error(xstateError(44, getActorId(), valuePath));
             }
             const result = persistContext(value, getActorId, valuePath, ancestors);
             if (result !== value) {
@@ -27803,7 +28065,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
     }
     function assertUnreservedSourceName(kind, name) {
       if (name.startsWith("xstate.") || name.startsWith("@xstate.")) {
-        throw new Error(`Invalid ${kind} name '${name}': the 'xstate.' and '@xstate.' prefixes are reserved for built-in names.`);
+        throw new Error(xstateError(37, kind, name));
       }
     }
     function hasUnescapedDot(key) {
@@ -27933,7 +28195,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       return toArrayStrict(configLike).map((transitionLike) => {
         const value = transitionLike;
         if (typeof value === "string") {
-          throw new Error(`Transition for "${name}" in ${stateId ? `state "${stateId}"` : "the root state"} is the string "${value}". Use { target: '${value}' }. The @xstate/codemod string-targets transform rewrites these.`);
+          throw new Error(xstateError(38, name, stateId, value));
         }
         if (typeof transitionLike === "undefined") {
           return {
@@ -27985,18 +28247,18 @@ var require_createActor_54296cf2_cjs = __commonJS({
         }
       }
       if (definitions.length !== 1) {
-        throw new Error(`Unable to restore child actor '${childId}': it has no source key, and ${definitions.length ? "several active states" : "no active state"} of ${describeMachine(machine.id)} ${definitions.length ? "invoke" : "invokes"} it.`);
+        throw new Error(xstateError(39, childId));
       }
       const logic = definitions[0].logic;
       if (typeof logic === "string") {
         const registered = machine.sources.actors[logic];
         if (!registered) {
-          throw new Error(`Unable to restore child actor '${childId}': child source '${logic}' is not provided in ${describeMachine(machine.id)}.`);
+          throw new Error(xstateError(29, childId, logic));
         }
         return registered;
       }
       if (typeof logic === "function") {
-        throw new Error(`Unable to restore child actor '${childId}': its invoke resolves \`src\` with a function that returned inline logic. Register the logic in \`actors\` and return its key so the child persists by source key.`);
+        throw new Error(xstateError(40, childId));
       }
       return logic;
     }
@@ -28043,126 +28305,6 @@ var require_createActor_54296cf2_cjs = __commonJS({
         }
       }
       return true;
-    }
-    function getStepEffect(actor, key) {
-      const effects = actor.getSnapshot().effects;
-      return effects && Object.prototype.hasOwnProperty.call(effects, key) ? effects[key] : void 0;
-    }
-    var pendingSteps = /* @__PURE__ */ new WeakMap();
-    async function runStep2(actor, key, exec, sendSelf = (event) => void actor.system.sendEvent(actor, actor, event)) {
-      const effect = getStepEffect(actor, key);
-      if (effect?.status === "done") {
-        return effect.output;
-      }
-      if (effect?.status === "error") {
-        throw effect.error;
-      }
-      const running = pendingSteps.get(actor)?.get(key);
-      if (running) {
-        return running;
-      }
-      if (actor.getSnapshot().status !== "active") {
-        throw new Error(`Actor terminated before step "${key}" completed`);
-      }
-      let resolve2;
-      let reject;
-      const promise = new Promise((resolvePromise, rejectPromise) => {
-        resolve2 = resolvePromise;
-        reject = rejectPromise;
-      });
-      let steps = pendingSteps.get(actor);
-      if (!steps) {
-        steps = /* @__PURE__ */ new Map();
-        pendingSteps.set(actor, steps);
-      }
-      steps.set(key, promise);
-      let subscription;
-      const cleanup = () => {
-        subscription?.unsubscribe();
-        steps.delete(key);
-        if (!steps.size) {
-          pendingSteps.delete(actor);
-        }
-      };
-      void promise.then(cleanup, cleanup);
-      subscription = actor.subscribe({
-        error: reject,
-        complete: () => reject(new Error(`Actor terminated before step "${key}" completed`))
-      });
-      void (async () => {
-        try {
-          sendSelf({
-            type: XSTATE_LOGIC_EFFECT_START,
-            key
-          });
-          const output = await exec();
-          if (actor.getSnapshot().status === "active") {
-            sendSelf({
-              type: XSTATE_LOGIC_EFFECT_RESOLVE,
-              key,
-              output
-            });
-            resolve2(output);
-          }
-        } catch (error) {
-          if (actor.getSnapshot().status === "active") {
-            sendSelf({
-              type: XSTATE_LOGIC_EFFECT_REJECT,
-              key,
-              error
-            });
-          }
-          reject(error);
-        }
-      })().catch(reject);
-      return promise;
-    }
-    function deliverEvent2(source, target, event) {
-      if (isSerializedActorRef(target)) {
-        const serialized = target;
-        const system = source?.system;
-        const live = system && resolveSerializedActorRef(system, serialized);
-        if (!live) {
-          const error = createMissingAddressError(serialized);
-          if (!system) {
-            throw error;
-          }
-          void system.deadLetter(source, void 0, event, "missingTarget", {
-            targetId: getAddressId(serialized.$actor),
-            error
-          });
-          return;
-        }
-        target = live;
-      }
-      if (rejectUndeliverableEvent(source, target, event)) {
-        return;
-      }
-      const runtimeTarget = target;
-      runtimeTarget._send(event, source);
-    }
-    function getEventBoundaryError(source, target, event) {
-      const runtimeTarget = target;
-      if (source !== target && runtimeTarget.logic?.isInternalEventType?.(event.type)) {
-        return new Error(`Internal event "${event.type}" cannot be sent to actor "${target.id}" from outside.`);
-      }
-      return void 0;
-    }
-    function rejectUndeliverableEvent(source, target, event) {
-      const error = getEventBoundaryError(source, target, event);
-      if (error) {
-        void target.system.deadLetter(source, target, event, "internalEvent", {
-          error
-        });
-        return true;
-      }
-      return false;
-    }
-    function terminateActor2(actor, termination) {
-      actor._terminate(termination);
-    }
-    function stopActor2(actor) {
-      actor._stop();
     }
     var executionIdPrefix;
     var nextExecutionId = 0;
@@ -28330,7 +28472,6 @@ var require_createActor_54296cf2_cjs = __commonJS({
         this._clock = void 0;
         this._logger = void 0;
         this.createActorRef = void 0;
-        const restoredSnapshot = typeof options2.snapshot === "object" && options2.snapshot !== null ? options2.snapshot : void 0;
         this._clock = options2.clock;
         this._logger = options2.logger;
         this.createActorRef = options2.createActorRef;
@@ -28339,7 +28480,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
           this.inspect(ambientInspector2);
         }
         this._snapshot = {
-          _scheduledTimers: restoredSnapshot?.scheduler ?? emptyScheduledTimers,
+          _scheduledTimers: emptyScheduledTimers,
           // System-level counters are process-local backstops; per-actor
           // counters persist on each machine snapshot, and restored explicit ids
           // reserve their numbering here via `resolveActorId`.
@@ -28476,7 +28617,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       _set(registryKey, actor) {
         const existing = this._keyedActors?.get(registryKey);
         if (existing && existing !== actor) {
-          throw new Error(`Actor with registry key '${registryKey}' already exists.`);
+          throw new Error(xstateError(45, String(registryKey)));
         }
         (this._keyedActors ??= /* @__PURE__ */ new Map()).set(registryKey, actor);
         (this._reverseKeyedActors ??= /* @__PURE__ */ new WeakMap()).set(actor, registryKey);
@@ -28501,6 +28642,32 @@ var require_createActor_54296cf2_cjs = __commonJS({
             this._rejectionListeners?.delete(entry3);
           }
         };
+      }
+      onEmitted(listener) {
+        const entry3 = (emission) => listener(emission);
+        (this._emissionListeners ??= /* @__PURE__ */ new Set()).add(entry3);
+        return {
+          unsubscribe: () => {
+            this._emissionListeners?.delete(entry3);
+          }
+        };
+      }
+      _notifyEmitted(actorRef, event) {
+        const listeners = this._emissionListeners;
+        if (!listeners?.size) {
+          return;
+        }
+        const emission = {
+          actorRef,
+          event
+        };
+        for (const listener of Array.from(listeners)) {
+          try {
+            listener(emission);
+          } catch (err) {
+            reportUnhandledError(err);
+          }
+        }
       }
       _hasInspectionObservers() {
         return !!this._inspectionObservers?.size;
@@ -28682,6 +28849,17 @@ var require_createActor_54296cf2_cjs = __commonJS({
     }
     var executingCustomAction = false;
     var emptyInspectionRecords = Object.freeze([]);
+    var reservedMachineEventTypes = {
+      "xstate.done.actor": true,
+      "xstate.error.actor": true,
+      "xstate.error.execution": true,
+      "xstate.snapshot.actor": true,
+      "xstate.done.state": true,
+      "xstate.after": true,
+      "xstate.timeout.state": true,
+      "xstate.timeout.actor": true,
+      [XSTATE_TIMER2]: true
+    };
     var ProcessingStatus = /* @__PURE__ */ (function(ProcessingStatus2) {
       ProcessingStatus2[ProcessingStatus2["NotStarted"] = 0] = "NotStarted";
       ProcessingStatus2[ProcessingStatus2["Running"] = 1] = "Running";
@@ -28803,11 +28981,11 @@ var require_createActor_54296cf2_cjs = __commonJS({
         this.system = parent ? parent.system : resolvedOptions._systemRef?.current ?? createRuntimeSystem(this, {
           clock,
           logger,
-          snapshot: resolvedOptions.snapshot,
           createActorRef
         });
         if (!parent && resolvedOptions._systemRef && !resolvedOptions._systemRef.current) {
           resolvedOptions._systemRef.current = this.system;
+          resolvedOptions._systemRef.initialize?.();
         }
         if (inspect && !parent) {
           this.system.inspect(toObserver2(inspect));
@@ -28833,14 +29011,11 @@ var require_createActor_54296cf2_cjs = __commonJS({
           this.system._set(registryKey, this);
         }
         this._collectedMicrosteps = void 0;
-        const persistedState = options2?.snapshot;
-        this._restored = persistedState !== void 0;
+        const restore = resolvedOptions._restore;
+        this._restored = restore !== void 0;
         try {
-          if (persistedState !== void 0) {
-            if (!this.logic.restoreSnapshot && persistedState === null) {
-              throw new Error("Persisted snapshot must be an object.");
-            }
-            this._setSnapshot(this.logic.restoreSnapshot ? this.logic.restoreSnapshot(persistedState, this._actorScope) : persistedState);
+          if (restore) {
+            this._setSnapshot(restore.restore(this._actorScope));
           } else if (options2?._inert) {
           } else {
             const [snapshot, effects] = finalizeTransitionResult(this._actorScope, void 0, this.logic.initialTransition(this.options?.input, this._actorScope));
@@ -28848,8 +29023,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
             this._initialEffects = effects.length ? effects : void 0;
           }
         } catch (err) {
-          const restoreErrorSnapshot = persistedState === void 0 ? void 0 : this.logic._createRestoreErrorSnapshot?.(persistedState, err);
-          this._setSnapshot(restoreErrorSnapshot ?? {
+          this._setSnapshot(restore?.error?.(err) ?? {
             status: "error",
             output: void 0,
             error: err
@@ -28894,7 +29068,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
         return stopChild;
       }
       get emit() {
-        const emit = (event) => this.system.emitEvent(this, event);
+        const emit = (event) => publishEmittedEvent(this, event, this.system);
         Object.defineProperty(this, "emit", {
           value: emit
         });
@@ -28918,7 +29092,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       /** @internal */
       _stopChild(child) {
         if (child._parent !== this) {
-          throw new Error(`Cannot stop non-child actor ${child.id}`);
+          throw new Error(xstateError(47, child.id, this.id));
         }
         child._stop();
       }
@@ -29194,7 +29368,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
           if (status2 === "done" || status2 === "error") {
             return this;
           }
-          throw new Error(`Actor ${this.id} was stopped and cannot be restarted. Create a new actor with createActor().`);
+          throw new Error(xstateError(48, this.id));
         }
         if (this._syncSnapshot) {
           this.subscribe({
@@ -29312,9 +29486,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
         try {
           const [nextSnapshot, effects] = nextState;
           if (nextSnapshot === previousSnapshot && !effects.length && // State machine snapshots only; other logic may ignore events freely.
-          "machine" in previousSnapshot && // `xstate.route` is sent by users, so a route that matches nothing is
-          // reported like any other unhandled event.
-          (!event.type.startsWith("xstate.") || event.type === "xstate.route")) {
+          "machine" in previousSnapshot && event.type !== XSTATE_STOP && (!sourceRef || !Object.hasOwn(reservedMachineEventTypes, event.type))) {
             this._reportUnhandledEvent(event);
           }
           snapshot = nextSnapshot;
@@ -29380,7 +29552,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       /** Stops the Actor and unsubscribe all listeners. */
       stop() {
         if (this._parent) {
-          throw new Error("A non-root actor cannot be stopped directly.");
+          throw new Error(xstateError(49, this.id));
         }
         return this._stop();
       }
@@ -29551,6 +29723,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
       }
     };
     function createActor2(logic, ...[options2]) {
+      diagnoseActorOptions(options2);
       return new Actor2(logic, options2);
     }
     exports.Actor = Actor2;
@@ -29594,6 +29767,9 @@ var require_createActor_54296cf2_cjs = __commonJS({
     exports.deliverEvent = deliverEvent2;
     exports.describeMachine = describeMachine;
     exports.detachedScopes = detachedScopes;
+    exports.diagnoseActorOptions = diagnoseActorOptions;
+    exports.diagnoseAuthorConfig = diagnoseAuthorConfig;
+    exports.diagnoseSetupConfig = diagnoseSetupConfig;
     exports.encodeAddressSegment = encodeAddressSegment;
     exports.evaluateCandidate = evaluateCandidate;
     exports.executeEffects = executeEffects2;
@@ -29637,6 +29813,7 @@ var require_createActor_54296cf2_cjs = __commonJS({
     exports.mergeActorIdCounters = mergeActorIdCounters;
     exports.parseDelayToMilliseconds = parseDelayToMilliseconds;
     exports.parseGeneratedActorId = parseGeneratedActorId;
+    exports.publishEmittedEvent = publishEmittedEvent;
     exports.readTimerKey = readTimerKey;
     exports.recordTimerStart = recordTimerStart;
     exports.reserveChildId = reserveChildId;
@@ -29655,26 +29832,36 @@ var require_createActor_54296cf2_cjs = __commonJS({
     exports.terminateActor = terminateActor2;
     exports.toArray = toArray;
     exports.toObserver = toObserver2;
-    exports.toStatePath = toStatePath;
     exports.toTransitionConfigArray = toTransitionConfigArray;
     exports.transitionNode = transitionNode;
     exports.withActorSelf = withActorSelf;
     exports.withExecutionIdentity = withExecutionIdentity;
     exports.withSystemInspector = withSystemInspector;
+    exports.xstateError = xstateError;
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/index-986372f2.cjs.js
-var require_index_986372f2_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/index-986372f2.cjs.js"(exports) {
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/validation-4561b43c.cjs.js
+var require_validation_4561b43c_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/validation-4561b43c.cjs.js"(exports) {
     "use strict";
-    var createActor2 = require_createActor_54296cf2_cjs();
     function assertValid(validator, request2) {
       const error = validator.check(request2);
       if (error) {
         throw error;
       }
     }
+    exports.assertValid = assertValid;
+  }
+});
+
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate-actors.cjs.js
+var require_xstate_actors_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate-actors.cjs.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var createActor2 = require_createActor_25900f76_cjs();
+    var validation = require_validation_4561b43c_cjs();
     var effectStates = /* @__PURE__ */ new WeakMap();
     function getEffectState(self) {
       let state3 = effectStates.get(self);
@@ -29690,7 +29877,7 @@ var require_index_986372f2_cjs = __commonJS({
         return;
       }
       const cleanup = effect();
-      state3.set(key ?? Symbol(), {
+      state3.set(key ?? /* @__PURE__ */ Symbol(), {
         cleanup: typeof cleanup === "function" ? cleanup : void 0
       });
     }
@@ -29845,7 +30032,7 @@ var require_index_986372f2_cjs = __commonJS({
         }
         const result = calculateTransition(snapshot, event, actorScope);
         if (config.validator) {
-          assertValid(config.validator, {
+          validation.assertValid(config.validator, {
             kind: "result",
             logic,
             snapshot: result[0],
@@ -29871,7 +30058,7 @@ var require_index_986372f2_cjs = __commonJS({
         },
         initialTransition: (input, actorScope) => {
           if (config.validator) {
-            assertValid(config.validator, {
+            validation.assertValid(config.validator, {
               kind: "input",
               logic,
               input
@@ -30007,7 +30194,7 @@ var require_index_986372f2_cjs = __commonJS({
               input,
               system,
               self,
-              emit: (event2) => void runtime.emitEvent(actorSelf, event2)
+              emit: (event2) => void createActor2.publishEmittedEvent(actorSelf, event2, runtime)
             }).subscribe({
               next: (value) => {
                 sendSelf({
@@ -30072,7 +30259,7 @@ var require_index_986372f2_cjs = __commonJS({
         },
         initialTransition: (input, _) => {
           if (validator) {
-            assertValid(validator, {
+            validation.assertValid(validator, {
               kind: "input",
               logic,
               input
@@ -30157,7 +30344,7 @@ var require_index_986372f2_cjs = __commonJS({
         }, enq) => {
           switch (event.type) {
             case XSTATE_ASYNC_RESOLVE: {
-              const resolvedValue = event.data ?? event.output;
+              const resolvedValue = "data" in event ? event.data : event.output;
               return {
                 status: "done",
                 output: resolvedValue,
@@ -30171,7 +30358,7 @@ var require_index_986372f2_cjs = __commonJS({
               };
             }
             case XSTATE_ASYNC_REJECT: {
-              const error = event.data ?? event.error;
+              const error = "data" in event ? event.data : event.error;
               return {
                 status: "error",
                 error,
@@ -30217,7 +30404,7 @@ var require_index_986372f2_cjs = __commonJS({
                   self,
                   signal: controller.signal
                 }, {
-                  emit: (event2) => void runtime.emitEvent(actorSelf, event2),
+                  emit: (event2) => void createActor2.publishEmittedEvent(actorSelf, event2, runtime),
                   // Steps route through the runtime: a durable host that
                   // implements `runStep` owns the step journal; otherwise the
                   // built-in behavior memoizes into this actor's own snapshot,
@@ -30277,8 +30464,9 @@ var require_index_986372f2_cjs = __commonJS({
     function createEmptyActor2() {
       return createActor2.createActor(emptyLogic);
     }
+    exports.createListenerLogic = createActor2.createListenerLogic;
+    exports.createSubscriptionLogic = createActor2.createSubscriptionLogic;
     exports.TimeoutError = TimeoutError2;
-    exports.assertValid = assertValid;
     exports.createAsyncLogic = createAsyncLogic2;
     exports.createCallbackLogic = createCallbackLogic2;
     exports.createEmptyActor = createEmptyActor2;
@@ -30288,9 +30476,1147 @@ var require_index_986372f2_cjs = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/schema.types-15a68ddc.cjs.js
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/machineSchemas-88d01821.cjs.js
+var require_machineSchemas_88d01821_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/machineSchemas-88d01821.cjs.js"(exports) {
+    "use strict";
+    var createActor2 = require_createActor_25900f76_cjs();
+    var validation = require_validation_4561b43c_cjs();
+    var isDevelopment = false;
+    function createSpawner(actorScope, actors, spawnedChildren) {
+      return (src3, options2) => {
+        const referencedSrc = createActor2.resolveRegisteredActorSource(actors, src3);
+        const id = options2?.id ?? createActor2.allocateChildId(actorScope, referencedSrc ?? src3).id;
+        if (options2?.id !== void 0) {
+          createActor2.assertChildIdFree(actorScope, options2.id);
+          createActor2.reserveChildId(actorScope, options2.id);
+        }
+        const actor = actorScope.system.createActorRef(src3, {
+          id,
+          parent: actorScope.self,
+          syncSnapshot: options2?.syncSnapshot,
+          input: options2?.input,
+          src: referencedSrc ?? src3,
+          registryKey: options2?.registryKey
+        });
+        spawnedChildren[actor.id] = actor;
+        return actor;
+      };
+    }
+    var cache3 = /* @__PURE__ */ new WeakMap();
+    function memo$1(object2, key, fn) {
+      let memoizedData = cache3.get(object2);
+      if (!memoizedData) {
+        memoizedData = {
+          [key]: fn()
+        };
+        cache3.set(object2, memoizedData);
+      } else if (!(key in memoizedData)) {
+        memoizedData[key] = fn();
+      }
+      return memoizedData[key];
+    }
+    var EMPTY_OBJECT = {};
+    var StateNode2 = class _StateNode {
+      constructor(config, options2) {
+        this.config = config;
+        this.key = void 0;
+        this.id = void 0;
+        this.type = void 0;
+        this.path = void 0;
+        this.states = void 0;
+        this.history = void 0;
+        this.entry = void 0;
+        this.exit = void 0;
+        this.parent = void 0;
+        this.machine = void 0;
+        this.meta = void 0;
+        this.output = void 0;
+        this.order = -1;
+        this.description = void 0;
+        this.schemas = void 0;
+        this.tags = [];
+        this.transitions = void 0;
+        this.always = void 0;
+        this.invoke = void 0;
+        this.on = void 0;
+        this.after = void 0;
+        this.events = void 0;
+        this.ownEvents = void 0;
+        this._candidateCache = void 0;
+        this.parent = options2._parent;
+        this.key = options2._key;
+        this.machine = options2._machine;
+        if (this.parent && createActor2.hasUnescapedDot(this.key)) {
+          throw new Error(createActor2.xstateError(57, this.key));
+        }
+        this.path = this.parent ? this.parent.path.concat(this.key) : [];
+        const firstStateKey = this.config.states ? Object.keys(this.config.states)[0] : void 0;
+        this.id = this.config.id || (this.machine.id ? [this.machine.id, ...this.path] : this.path).join(createActor2.STATE_DELIMITER);
+        this.type = this.config.type || (firstStateKey !== void 0 ? "compound" : this.config.history ? "history" : "atomic");
+        this.description = this.config.description;
+        this.schemas = this.config.schemas;
+        validateStateNodeConfig(this);
+        const existing = this.machine.idMap.get(this.id);
+        if (existing) {
+          throw new Error(createActor2.xstateError(58, this.id));
+        }
+        this.order = this.machine.idMap.size;
+        this.machine.idMap.set(this.id, this);
+        this.states = this.config.states ? createActor2.mapValues(this.config.states, (stateConfig, key) => {
+          const stateNode = new _StateNode(stateConfig, {
+            _parent: this,
+            _key: key,
+            _machine: this.machine
+          });
+          return stateNode;
+        }) : EMPTY_OBJECT;
+        if (this.type === "compound" && !this.config.initial) {
+          throw new Error(createActor2.xstateError(59, this.id));
+        }
+        this.history = this.config.history === true ? "shallow" : this.config.history || false;
+        this.entry = this.config.entry;
+        this.exit = this.config.exit;
+        this.meta = this.config.meta;
+        this.output = this.type === "final" || !this.parent ? this.config.output : void 0;
+        this.tags = createActor2.toArray(config.tags).slice();
+        this.invoke = createActor2.toArray(this.config.invoke).map((invokeConfig, i) => {
+          const {
+            src: src3,
+            registryKey
+          } = invokeConfig;
+          const invokeId = createActor2.createInvokeId(this.id, i);
+          const resolvedId = invokeConfig.id ?? invokeId;
+          return {
+            ...invokeConfig,
+            // Registered (string) sources persist by key; inline logic has no
+            // source key and restores through this invoke definition's id.
+            src: typeof src3 === "string" ? src3 : void 0,
+            logic: src3,
+            id: resolvedId,
+            registryKey
+          };
+        });
+      }
+      /** @internal */
+      _initialize() {
+        this.after = createActor2.getDelayedTransitions(this);
+        this.transitions = formatTransitions(this);
+        if (this.type === "choice") {
+          this.always = formatChoiceTransitions(this);
+        } else if (this.config.always) {
+          this.always = mapTransitionConfigs(this, "always", this.config.always, (transition2) => createActor2.formatTransition(this, createActor2.NULL_EVENT, transition2));
+        }
+        for (const key of Object.keys(this.states)) {
+          this.states[key]._initialize();
+        }
+        this._refreshEventMetadata();
+      }
+      /** @internal */
+      _refreshEventMetadata() {
+        const on = {};
+        const ownEvents = [];
+        for (const [descriptor, transitions] of this.transitions) {
+          on[descriptor] = transitions.slice();
+          if (transitions.some((transition2) => transition2.target || transition2.reenter || transition2.to)) {
+            ownEvents.push(descriptor);
+          }
+        }
+        this.on = on;
+        this.ownEvents = ownEvents;
+        const events = new Set(ownEvents);
+        for (const state3 of Object.values(this.states)) {
+          for (const event of state3.events) {
+            events.add(event);
+          }
+        }
+        this.events = Array.from(events);
+      }
+      get initial() {
+        return memo$1(this, "initial", () => formatInitialTransition(this, this.config.initial));
+      }
+      /** @internal */
+      next(snapshot, event, actorScope, selectionResults) {
+        if (this.type === "final") {
+          return void 0;
+        }
+        let candidates = this._candidateCache?.get(event.type);
+        if (!candidates) {
+          candidates = createActor2.getCandidates(this, event);
+          (this._candidateCache ??= /* @__PURE__ */ new Map()).set(event.type, candidates);
+        }
+        for (const candidate of candidates) {
+          const guardPassed = createActor2.evaluateCandidate(candidate, event, snapshot, this, actorScope, selectionResults);
+          if (guardPassed) {
+            return [candidate];
+          }
+        }
+        return void 0;
+      }
+    };
+    function validateStateNodeConfig(stateNode) {
+      const config = stateNode.config;
+      if (stateNode.type === "history" && !(typeof config.target === "string" && config.target.trim().length > 0 || Array.isArray(config.target) && config.target.length > 0 && config.target.every((target) => typeof target === "string" && target.trim().length > 0))) {
+        throw new Error(createActor2.xstateError(60, stateNode.id));
+      }
+      if (stateNode.type !== "choice") {
+        return;
+      }
+      if (typeof config.choice !== "function") {
+        throw new Error(createActor2.xstateError(61, stateNode.id));
+      }
+    }
+    function formatChoiceTransitions(stateNode) {
+      const choice = stateNode.config.choice;
+      const validateChoiceResult = (result) => {
+        if (!result || result.target === void 0) {
+          throw new Error(createActor2.xstateError(62, stateNode.id));
+        }
+        return result;
+      };
+      return [createActor2.formatTransition(stateNode, createActor2.NULL_EVENT, {
+        to: (args) => validateChoiceResult(choice(args))
+      })];
+    }
+    function mapTransitionConfigs(stateNode, name, transitionsConfig, mapper) {
+      const transitionConfigs = createActor2.toTransitionConfigArray(transitionsConfig, name, stateNode.id);
+      const transitions = new Array(transitionConfigs.length);
+      for (let i = 0; i < transitionConfigs.length; i++) {
+        transitions[i] = mapper(transitionConfigs[i]);
+      }
+      return transitions;
+    }
+    function formatTransitions(stateNode) {
+      const transitions = /* @__PURE__ */ new Map();
+      const addTransitions = (descriptor, additions) => {
+        transitions.set(descriptor, [...transitions.get(descriptor) ?? [], ...additions]);
+      };
+      if (stateNode.config.on) {
+        for (const descriptor of Object.keys(stateNode.config.on)) {
+          if (descriptor === createActor2.NULL_EVENT) {
+            throw new Error(createActor2.xstateError(63, stateNode.id));
+          }
+          const transitionsConfig = stateNode.config.on[descriptor];
+          transitions.set(descriptor, mapTransitionConfigs(stateNode, descriptor, transitionsConfig, (transition2) => createActor2.formatTransition(stateNode, descriptor, transition2)));
+        }
+      }
+      if (stateNode.config.onDone) {
+        const descriptor = "xstate.done.state";
+        addTransitions(descriptor, mapTransitionConfigs(stateNode, "onDone", stateNode.config.onDone, (transition2) => createActor2.formatTransition(stateNode, descriptor, {
+          ...transition2,
+          matches: {
+            ...transition2.matches,
+            stateId: stateNode.id
+          }
+        })));
+      }
+      if (stateNode.config.onError) {
+        const descriptor = "xstate.error.*";
+        transitions.set(descriptor, mapTransitionConfigs(stateNode, "onError", stateNode.config.onError, (transition2) => createActor2.formatTransition(stateNode, descriptor, transition2)));
+      }
+      const createCancelInvokeTimeoutTransition = (descriptor, timeoutKey, actorId2) => createActor2.formatTransition(stateNode, descriptor, {
+        matches: {
+          actorId: actorId2
+        },
+        _eventMatcher: (event, snapshot) => createActor2.matchesActorSession(event, snapshot, actorId2),
+        to: (_args, enq) => {
+          enq.cancel(timeoutKey);
+          return {};
+        }
+      });
+      const formatInvokeCompletionTransition = (descriptor, transitionConfig, timeoutKey) => {
+        const {
+          target,
+          to,
+          reenter,
+          ...rest
+        } = transitionConfig;
+        return createActor2.formatTransition(stateNode, descriptor, {
+          ...rest,
+          reenter,
+          to: (args, enq) => {
+            if (to) {
+              let didEnqueue = false;
+              const trackingEnqueue = new Proxy(enq, {
+                apply(target2, thisArg, argArray) {
+                  didEnqueue = true;
+                  return Reflect.apply(target2, thisArg, argArray);
+                },
+                get(target2, prop, receiver) {
+                  const value = Reflect.get(target2, prop, receiver);
+                  if (typeof value !== "function") {
+                    return value;
+                  }
+                  return (...argArray) => {
+                    didEnqueue = true;
+                    return value.apply(target2, argArray);
+                  };
+                }
+              });
+              const result = to(args, trackingEnqueue);
+              if (result !== void 0 || didEnqueue) {
+                enq.cancel(timeoutKey);
+              }
+              return result;
+            }
+            enq.cancel(timeoutKey);
+            return {
+              target,
+              reenter
+            };
+          }
+        });
+      };
+      for (const invokeDef of stateNode.invoke) {
+        const withInvokeMatch = (transition2) => ({
+          ...transition2,
+          matches: {
+            ...transition2.matches,
+            actorId: invokeDef.id
+          },
+          _eventMatcher: (event, snapshot) => createActor2.matchesActorSession(event, snapshot, invokeDef.id)
+        });
+        const invokeTimeoutKey = invokeDef.timeout !== void 0 ? {
+          event: {
+            type: "xstate.timeout.actor",
+            actorId: invokeDef.id
+          }
+        } : void 0;
+        if (invokeDef.onDone) {
+          const descriptor = "xstate.done.actor";
+          const invokeDoneTransitions = mapTransitionConfigs(stateNode, "invoke.onDone", invokeDef.onDone, (rawTransition) => {
+            const transition2 = withInvokeMatch(rawTransition);
+            return invokeTimeoutKey ? formatInvokeCompletionTransition(descriptor, transition2, invokeTimeoutKey) : createActor2.formatTransition(stateNode, descriptor, transition2);
+          });
+          if (invokeTimeoutKey) {
+            invokeDoneTransitions.push(createCancelInvokeTimeoutTransition(descriptor, invokeTimeoutKey, invokeDef.id));
+          }
+          addTransitions(descriptor, invokeDoneTransitions);
+        } else if (invokeTimeoutKey) {
+          const descriptor = "xstate.done.actor";
+          addTransitions(descriptor, [createCancelInvokeTimeoutTransition(descriptor, invokeTimeoutKey, invokeDef.id)]);
+        }
+        if (invokeDef.onError) {
+          const descriptor = "xstate.error.actor";
+          addTransitions(descriptor, mapTransitionConfigs(stateNode, "invoke.onError", invokeDef.onError, (rawTransition) => {
+            const transition2 = withInvokeMatch(rawTransition);
+            return invokeTimeoutKey ? formatInvokeCompletionTransition(descriptor, transition2, invokeTimeoutKey) : createActor2.formatTransition(stateNode, descriptor, transition2);
+          }));
+        }
+        if (invokeDef.onSnapshot) {
+          const descriptor = "xstate.snapshot.actor";
+          addTransitions(descriptor, mapTransitionConfigs(stateNode, "invoke.onSnapshot", invokeDef.onSnapshot, (transition2) => createActor2.formatTransition(stateNode, descriptor, withInvokeMatch(transition2))));
+        }
+      }
+      for (const delayedTransition of stateNode.after) {
+        let existing = transitions.get(delayedTransition.eventType);
+        if (!existing) {
+          existing = [];
+          transitions.set(delayedTransition.eventType, existing);
+        }
+        existing.push(delayedTransition);
+      }
+      return transitions;
+    }
+    function formatInitialTransition(stateNode, _target) {
+      const targetString = typeof _target === "object" && _target !== null ? _target.target : _target;
+      const input = typeof _target === "object" && _target !== null ? _target.input : void 0;
+      const to = typeof _target === "object" && _target !== null ? _target.to : void 0;
+      const meta = typeof _target === "object" && _target !== null ? _target.meta : void 0;
+      const description = typeof _target === "object" && _target !== null ? _target.description : void 0;
+      const targetStrings = Array.isArray(targetString) ? targetString : targetString ? [targetString] : [];
+      const resolvedTargets = targetStrings.map((target) => target.startsWith("#") ? stateNode.machine.getStateNodeById(target.slice(1)) : stateNode.states[target]);
+      if (resolvedTargets.some((target) => !target)) {
+        throw new Error(createActor2.xstateError(64, targetStrings.find((_, index3) => !resolvedTargets[index3]), stateNode.id));
+      }
+      const transition2 = {
+        source: stateNode,
+        target: resolvedTargets.length ? resolvedTargets : void 0,
+        input,
+        to,
+        meta,
+        description
+      };
+      return transition2;
+    }
+    var InvalidSnapshotError2 = class extends Error {
+      constructor(message) {
+        super(message);
+        this.name = "InvalidSnapshotError";
+      }
+    };
+    function isSnapshotRecord(value) {
+      return value !== null && typeof value === "object" && !Array.isArray(value);
+    }
+    function isActorLogic(value) {
+      return isSnapshotRecord(value) && typeof value.transition === "function" && typeof value.getInitialSnapshot === "function";
+    }
+    function validatePersistedStateValue(machine, stateValue, node, path2) {
+      if (typeof stateValue === "string") {
+        if (!node.states[stateValue]) {
+          throw new InvalidSnapshotError2(createActor2.xstateError(21, path2.concat(stateValue).join(".")));
+        }
+        return;
+      }
+      const invalidValue = (code) => new InvalidSnapshotError2(code === 22 ? createActor2.xstateError(22, path2.join(".")) : createActor2.xstateError(23, path2.join(".")));
+      if (!stateValue || typeof stateValue !== "object" || Array.isArray(stateValue)) {
+        throw invalidValue(22);
+      }
+      const keys = Object.keys(stateValue);
+      if (keys.length > 1 && node.type !== "parallel") {
+        throw invalidValue(23);
+      }
+      for (const key of keys) {
+        const childNode = node.states[key];
+        if (!childNode) {
+          throw new InvalidSnapshotError2(createActor2.xstateError(21, path2.concat(key).join(".")));
+        }
+        validatePersistedStateValue(machine, stateValue[key], childNode, path2.concat(key));
+      }
+    }
+    function validatePersistedSnapshot(machine, snapshot) {
+      if (!isSnapshotRecord(snapshot)) {
+        throw new InvalidSnapshotError2(createActor2.xstateError(24, machine.id));
+      }
+      if (snapshot.value === void 0) {
+        throw new InvalidSnapshotError2(createActor2.xstateError(25, machine.id));
+      }
+      validatePersistedStateValue(machine, snapshot.value, machine.root, []);
+      const nodes = Array.from(createActor2.getAllStateNodes(createActor2.getStateNodes(machine.root, snapshot.value)));
+      if (!isSnapshotRecord(snapshot.children)) {
+        throw new InvalidSnapshotError2(createActor2.xstateError(26));
+      }
+      const childLogics = /* @__PURE__ */ new Map();
+      for (const [id, child] of Object.entries(snapshot.children)) {
+        if (!isSnapshotRecord(child) || child.remote !== void 0 && typeof child.remote !== "boolean" || child.address !== void 0 && typeof child.address !== "string" || child.syncSnapshot !== void 0 && typeof child.syncSnapshot !== "boolean" || child.registryKey !== void 0 && typeof child.registryKey !== "string" || child.incarnation !== void 0 && typeof child.incarnation !== "string" || child.snapshot !== void 0 && !isSnapshotRecord(child.snapshot)) {
+          throw new InvalidSnapshotError2(createActor2.xstateError(27, id));
+        }
+        if (child.remote === true) {
+          if (typeof child.address !== "string" || typeof child.src !== "string") {
+            throw new InvalidSnapshotError2(createActor2.xstateError(28, id));
+          }
+          continue;
+        }
+        if (child.src !== void 0 && typeof child.src !== "string" && !isActorLogic(child.src)) {
+          throw new InvalidSnapshotError2(createActor2.xstateError(27, id));
+        }
+        try {
+          const logic = child.src === void 0 ? createActor2.resolveInvokedActorLogic(machine, nodes, id) : typeof child.src === "string" ? Object.hasOwn(machine.sources.actors, child.src) ? machine.sources.actors[child.src] : void 0 : child.src;
+          if (!logic) {
+            throw new InvalidSnapshotError2(isDevelopment ? `Unable to restore child actor '${id}': child source '${typeof child.src === "string" ? child.src : "<inline>"}' is not provided in ${createActor2.describeMachine(machine.id)}.` : createActor2.xstateError(29, id, typeof child.src === "string" ? child.src : "<inline>"));
+          }
+          childLogics.set(id, logic);
+        } catch (error) {
+          if (error instanceof InvalidSnapshotError2) {
+            throw error;
+          }
+          throw new InvalidSnapshotError2(error instanceof Error ? error.message : createActor2.xstateError(30, id));
+        }
+      }
+      if (snapshot.timers !== void 0 && !Array.isArray(snapshot.timers)) {
+        throw new InvalidSnapshotError2(createActor2.xstateError(31));
+      }
+      for (const timer of snapshot.timers ?? []) {
+        if (!isSnapshotRecord(timer) || typeof timer.delay !== "number" || timer.type !== "@xstate.raise" && timer.type !== "@xstate.sendTo" || !isSnapshotRecord(timer.event) || typeof timer.event.type !== "string" || timer.id !== void 0 && typeof timer.id !== "string" || timer.seq !== void 0 && typeof timer.seq !== "number" || timer.scheduledAt !== void 0 && typeof timer.scheduledAt !== "number" || !(typeof timer.target === "string" || isSnapshotRecord(timer.target) && timer.target.type === "parent" || createActor2.isSerializedActorRef(timer.target))) {
+          throw new InvalidSnapshotError2(createActor2.xstateError(32));
+        }
+        if (typeof timer.target === "string" && timer.target !== "self" && !Object.hasOwn(snapshot.children, timer.target)) {
+          throw new InvalidSnapshotError2(createActor2.xstateError(33, timer.target));
+        }
+      }
+      return {
+        nodes,
+        childLogics
+      };
+    }
+    var STATE_IDENTIFIER = "#";
+    var emptyCanActor;
+    var emptyCanActorScope;
+    function getEmptyCanActor() {
+      return emptyCanActor ??= createActor2.createActor({
+        transition: (snapshot) => [snapshot, []],
+        initialTransition: () => [{
+          status: "active",
+          output: void 0,
+          error: void 0
+        }, []],
+        getInitialSnapshot: () => ({
+          status: "active",
+          output: void 0,
+          error: void 0
+        }),
+        getPersistedSnapshot: (snapshot) => snapshot
+      });
+    }
+    function getEmptyCanActorScope() {
+      if (emptyCanActorScope) {
+        return emptyCanActorScope;
+      }
+      const actor = getEmptyCanActor();
+      emptyCanActorScope = {
+        self: actor,
+        logger: () => {
+        },
+        id: "",
+        sessionId: "",
+        defer: () => {
+        },
+        system: actor.system,
+        stopChild: () => {
+        },
+        emit: () => {
+        },
+        actionExecutor: () => {
+        }
+      };
+      createActor2.detachedScopes.add(emptyCanActorScope);
+      return emptyCanActorScope;
+    }
+    var StateMachine2 = class _StateMachine {
+      constructor(config, sources, validator) {
+        this.config = config;
+        this.validator = validator;
+        this._internalEventType = void 0;
+        this._transitionMetaType = void 0;
+        this._inputType = void 0;
+        this._actionMap = void 0;
+        this._actorMap = void 0;
+        this._stateSchema = void 0;
+        this.version = void 0;
+        this.schemas = void 0;
+        this.sources = void 0;
+        this.options = void 0;
+        this.idMap = /* @__PURE__ */ new Map();
+        this.root = void 0;
+        this.id = void 0;
+        this.states = void 0;
+        this.events = void 0;
+        this.internalEventDescriptors = void 0;
+        this._hasEventlessTransitions = void 0;
+        this._microstepHooks = void 0;
+        this._json = void 0;
+        if (config.version !== void 0 && !config.id) {
+          throw new Error(createActor2.xstateError(18, config.version));
+        }
+        this.id = config.id ?? "";
+        this.sources = {
+          actors: config.actors ?? {},
+          actions: config.actions ?? {},
+          delays: config.delays ?? {},
+          guards: config.guards ?? {},
+          ...sources
+        };
+        this.version = this.config.version;
+        this.schemas = this.config.schemas;
+        this.internalEventDescriptors = Object.keys(this.schemas?.internalEvents ?? {});
+        this.options = {
+          ...this.config.options
+        };
+        this.transition = this.transition.bind(this);
+        this.initialTransition = this.initialTransition.bind(this);
+        this.getInitialSnapshot = this.getInitialSnapshot.bind(this);
+        this.getPersistedSnapshot = this.getPersistedSnapshot.bind(this);
+        this.start = this.start.bind(this);
+        this.root = new StateNode2(config, {
+          _key: this.id,
+          _machine: this
+        });
+        this.root._initialize();
+        createActor2.formatRouteTransitions(this.root);
+        this.root._refreshEventMetadata();
+        this._hasEventlessTransitions = Array.from(this.idMap.values()).some((stateNode) => !!stateNode.always?.length);
+        this.states = this.root.states;
+        this.events = this.root.events;
+      }
+      /**
+       * Clones this state machine with the provided sources.
+       *
+       * @param sources Options (`actions`, `guards`, `actors`, `delays`) to
+       *   recursively merge with the existing options.
+       * @returns A new `StateMachine` instance with the provided sources.
+       */
+      provide(sources) {
+        const {
+          actions,
+          guards,
+          actors,
+          delays
+        } = this.sources;
+        const provided = new _StateMachine(this.config, {
+          actions: {
+            ...actions,
+            ...sources.actions
+          },
+          guards: {
+            ...guards,
+            ...sources.guards
+          },
+          actors: {
+            ...actors,
+            ...sources.actors
+          },
+          delays: {
+            ...delays,
+            ...sources.delays
+          }
+        }, this.validator);
+        provided._json = this._json;
+        provided.internalEventDescriptors = this.internalEventDescriptors;
+        provided._microstepHooks = this._microstepHooks;
+        return provided;
+      }
+      resolveState(config) {
+        const resolvedStateValue = createActor2.resolveStateValue(this.root, config.value);
+        const nodeSet = createActor2.getAllStateNodes(createActor2.getStateNodes(this.root, resolvedStateValue));
+        const nodes = [...nodeSet];
+        return createActor2.createMachineSnapshot({
+          _nodes: nodes,
+          value: resolvedStateValue,
+          context: config.context || {},
+          children: {},
+          status: createActor2.isInFinalState(nodeSet, this.root) ? "done" : config.status || "active",
+          output: config.output,
+          error: config.error,
+          historyValue: config.historyValue
+        }, this);
+      }
+      /**
+       * Determines the next snapshot given the current `snapshot` and received
+       * `event`. Calculates a full macrostep from all microsteps.
+       *
+       * @param snapshot The current snapshot
+       * @param event The received event
+       */
+      transition(snapshot, event, actorScope) {
+        const usesInertScope = !actorScope;
+        const resolvedActorScope = actorScope ?? createActor2.createInertActorScope(this, snapshot);
+        if (usesInertScope) {
+          createActor2.setInertActorScopeSnapshot(resolvedActorScope, snapshot, false);
+        }
+        if (this.validator) {
+          const sourceRef = actorScope && actorScope.self._lastSourceRef;
+          const eventOrigin = sourceRef ? "actor" : "external";
+          const error = this.validator.check({
+            kind: "event",
+            logic: this,
+            event,
+            eventOrigin
+          });
+          if (error) {
+            return [snapshot, [createActor2.createDeadLetterEffect(resolvedActorScope, sourceRef, event, "invalidEvent", {
+              issues: error.issues,
+              error
+            })]];
+          }
+        }
+        createActor2.beginSpawnAllocation(resolvedActorScope);
+        const fastSnapshot = this._transitionFast(snapshot, event, resolvedActorScope);
+        if (fastSnapshot) {
+          if (usesInertScope) {
+            createActor2.setInertActorScopeSnapshot(resolvedActorScope, fastSnapshot, false);
+          }
+          const returnedSnapshot2 = usesInertScope && fastSnapshot !== snapshot ? createActor2.attachSnapshotActorRef(resolvedActorScope, fastSnapshot) : this._attachPureActorRef(fastSnapshot, resolvedActorScope);
+          if (this.validator) {
+            validation.assertValid(this.validator, {
+              kind: "result",
+              logic: this,
+              snapshot: returnedSnapshot2,
+              effects: []
+            });
+          }
+          return [returnedSnapshot2, []];
+        }
+        const {
+          snapshot: nextSnapshot,
+          microsteps
+        } = createActor2.macrostep(snapshot, event, resolvedActorScope, []);
+        if (usesInertScope) {
+          createActor2.setInertActorScopeSnapshot(resolvedActorScope, nextSnapshot, false);
+        }
+        const returnedSnapshot = usesInertScope ? nextSnapshot === snapshot ? nextSnapshot : createActor2.attachSnapshotActorRef(resolvedActorScope, nextSnapshot) : this._attachPureActorRef(nextSnapshot, resolvedActorScope);
+        const effects = this._collectEffects(microsteps);
+        if (this.validator) {
+          validation.assertValid(this.validator, {
+            kind: "result",
+            logic: this,
+            snapshot: returnedSnapshot,
+            effects
+          });
+        }
+        return [returnedSnapshot, effects];
+      }
+      _collectEffects(microsteps) {
+        return microsteps.flatMap(([, actions]) => actions);
+      }
+      _attachPureActorRef(snapshot, actorScope, skipInitializingActor = false) {
+        if (createActor2.isInertActorScope(actorScope)) {
+          return snapshot;
+        }
+        if (skipInitializingActor && actorScope.self._actorScope === actorScope && actorScope.self._snapshot === void 0) {
+          return snapshot;
+        }
+        createActor2.setSnapshotActorRef(snapshot, actorScope.self, actorScope.system);
+        return snapshot;
+      }
+      _transitionFast(snapshot, event, actorScope) {
+        if (snapshot.status !== "active" || typeof snapshot.value !== "string" || this.root.always?.length) {
+          return void 0;
+        }
+        const sourceNode = this.root.states[snapshot.value];
+        if (!sourceNode || sourceNode.type !== "atomic" || sourceNode.exit || sourceNode.invoke.length || sourceNode.always?.length || sourceNode.after?.length) {
+          return void 0;
+        }
+        const transitions = sourceNode.transitions.get(event.type);
+        if (transitions?.length !== 1) {
+          return void 0;
+        }
+        const selected = transitions[0];
+        if (selected.guard || selected.actions || selected.to || selected.reenter || selected.input || typeof selected.context === "function" || selected.target && selected.target.length !== 1) {
+          return void 0;
+        }
+        const targetNode = selected.target?.[0] ?? sourceNode;
+        const stateChanged = targetNode !== sourceNode;
+        if (targetNode.parent !== this.root || targetNode.type !== "atomic" || stateChanged && (targetNode.entry || targetNode.invoke.length || targetNode.always?.length || targetNode.after?.length)) {
+          return void 0;
+        }
+        const context = selected.context !== void 0 ? {
+          ...snapshot.context,
+          ...selected.context
+        } : snapshot.context;
+        if (!createActor2.isInertActorScope(actorScope) && (actorScope.system._hasInspectionObservers?.() ?? true)) {
+          const collectedMicrosteps = actorScope.self._collectedMicrosteps || [];
+          collectedMicrosteps.push(selected);
+          actorScope.self._collectedMicrosteps = collectedMicrosteps;
+        }
+        const rootInput = snapshot._stateInputs[this.root.id];
+        return createActor2.cloneMachineSnapshot(snapshot, {
+          ...context !== snapshot.context ? {
+            context
+          } : {},
+          ...stateChanged ? {
+            _nodes: [this.root, targetNode],
+            // The source state exited, so only the root input remains.
+            _stateInputs: rootInput ? {
+              [this.root.id]: rootInput
+            } : {}
+          } : {}
+        });
+      }
+      /**
+       * Determines the next state given the current `state` and `event`. Calculates
+       * a microstep.
+       *
+       * @param state The current state
+       * @param event The received event
+       */
+      microstep(snapshot, event, actorScope) {
+        const {
+          microsteps
+        } = createActor2.macrostep(snapshot, event, actorScope, []);
+        const snapshots = new Array(microsteps.length);
+        for (let i = 0; i < microsteps.length; i++) {
+          snapshots[i] = microsteps[i][0];
+        }
+        return snapshots;
+      }
+      getTransitionData(snapshot, event, actorScope, selectionResults) {
+        this._microstepHooks?.begin(actorScope.self);
+        return createActor2.transitionNode(this.root, snapshot.value, snapshot, event, actorScope, selectionResults) || [];
+      }
+      isInternalEventType(eventType) {
+        if (eventType === createActor2.XSTATE_TIMER) {
+          return true;
+        }
+        for (const descriptor of this.internalEventDescriptors) {
+          if (createActor2.matchesEventDescriptor(eventType, descriptor)) {
+            return true;
+          }
+        }
+        return false;
+      }
+      /**
+       * Determines whether sending the `event` to the given snapshot would select a
+       * non-forbidden transition. Backs `snapshot.can(...)`; lives here so that
+       * non-machine bundles don't pay for the transition-resolution machinery.
+       *
+       * @internal
+       */
+      _canTransition(snapshot, event) {
+        if (snapshot.status !== "active") {
+          return false;
+        }
+        const emptyActorScope = getEmptyCanActorScope();
+        const transitionData = this.getTransitionData(snapshot, event, emptyActorScope);
+        if (!transitionData?.length) {
+          return false;
+        }
+        for (const transition2 of transitionData) {
+          if (transition2.target !== void 0) {
+            return true;
+          }
+          const res = createActor2.getTransitionResult(transition2, snapshot, event, emptyActorScope, {
+            resolveActions: false
+          });
+          if (res.targets?.length || res.context || createActor2.hasEffect(transition2, snapshot.context, event, snapshot, emptyActorScope)) {
+            return true;
+          }
+        }
+        return false;
+      }
+      /**
+       * Returns the error event that the actor should transition with to recover
+       * from an execution error, if any active state node declares `onError`.
+       *
+       * @internal
+       */
+      getExecutionErrorEvent(snapshot, error) {
+        if (snapshot?.status !== "active" || !snapshot.nodes?.some((stateNode) => stateNode.config.onError)) {
+          return void 0;
+        }
+        return createActor2.createErrorPlatformEvent("execution", error);
+      }
+      /**
+       * The initial state _before_ evaluating any microsteps. This "pre-initial"
+       * state is provided to initial actions executed in the initial state.
+       *
+       * @internal
+       */
+      _getPreInitialState(actorScope, initEvent) {
+        const {
+          context
+        } = this.config;
+        const preInitial = createActor2.createMachineSnapshot({
+          context: typeof context !== "function" && context ? context : {},
+          _nodes: [this.root],
+          children: {},
+          status: "active"
+        }, this);
+        if (typeof context === "function") {
+          const children = {};
+          const spawn = createSpawner(actorScope, this.sources.actors, children);
+          const resolvedContext = context(createActor2.withActorSelf({
+            spawn,
+            input: initEvent.input,
+            actors: this.sources.actors
+          }, actorScope));
+          const [nextState] = createActor2.resolveActionsWithContext(preInitial, initEvent, actorScope, []);
+          if (resolvedContext) {
+            nextState.context = resolvedContext;
+          }
+          if (Object.keys(children).length > 0) {
+            nextState.children = {
+              ...nextState.children,
+              ...children
+            };
+            const counters = createActor2.takeSpawnAllocationCounters(actorScope);
+            if (counters) {
+              nextState._nextActorIds = createActor2.mergeActorIdCounters(nextState._nextActorIds, counters);
+            }
+          }
+          return nextState;
+        }
+        return preInitial;
+      }
+      /**
+       * Returns the initial `State` instance, with reference to `self` as an
+       * `ActorRef`.
+       */
+      getInitialSnapshot(actorScope, input) {
+        return this.initialTransition(input, actorScope)[0];
+      }
+      initialTransition(input, actorScope) {
+        if (this.validator) {
+          validation.assertValid(this.validator, {
+            kind: "input",
+            logic: this,
+            input
+          });
+        }
+        const usesInertScope = !actorScope;
+        const resolvedActorScope = actorScope ?? createActor2.createInertActorScope(this);
+        createActor2.beginSpawnAllocation(resolvedActorScope);
+        const initEvent = createActor2.createInitEvent(input);
+        const internalQueue = [];
+        const finalizeInitialResult = (macroState, microsteps) => {
+          if (usesInertScope) {
+            createActor2.setInertActorScopeSnapshot(resolvedActorScope, macroState, false);
+          }
+          const returnedSnapshot = usesInertScope ? createActor2.attachSnapshotActorRef(resolvedActorScope, macroState) : this._attachPureActorRef(macroState, resolvedActorScope, true);
+          const effects = this._collectEffects(microsteps);
+          if (this.validator && macroState.status !== "error") {
+            validation.assertValid(this.validator, {
+              kind: "result",
+              logic: this,
+              snapshot: returnedSnapshot,
+              effects
+            });
+          }
+          return [returnedSnapshot, effects];
+        };
+        let preInitialState;
+        try {
+          preInitialState = this._getPreInitialState(resolvedActorScope, initEvent);
+        } catch (error) {
+          const errorSnapshot = createActor2.cloneMachineSnapshot(createActor2.createMachineSnapshot({
+            context: typeof this.config.context !== "function" && this.config.context ? this.config.context : {},
+            _nodes: [this.root],
+            children: {},
+            status: "active"
+          }, this), {
+            status: "error",
+            error
+          });
+          return finalizeInitialResult(errorSnapshot, []);
+        }
+        const contextSpawnEffects = Object.values(preInitialState.children).filter(Boolean).map((actor) => createActor2.createSpawnEffect(actor));
+        try {
+          const [nextState, initialActions] = createActor2.initialMicrostep(this.root, preInitialState, resolvedActorScope, initEvent, internalQueue);
+          const {
+            snapshot: macroState,
+            microsteps
+          } = createActor2.macrostep(nextState, initEvent, resolvedActorScope, internalQueue, [[nextState, [...contextSpawnEffects, ...initialActions]]]);
+          return finalizeInitialResult(macroState, microsteps);
+        } catch (err) {
+          if (!this.root.config.onError) {
+            throw err;
+          }
+          const errorEvent = createActor2.createErrorPlatformEvent("execution", err);
+          const errorMacrostep = createActor2.macrostep(preInitialState, errorEvent, resolvedActorScope, [], [[preInitialState, contextSpawnEffects]]);
+          return finalizeInitialResult(errorMacrostep.snapshot, errorMacrostep.microsteps);
+        }
+      }
+      start(snapshot, actorScope) {
+        if (!snapshot?.children) {
+          return;
+        }
+        const children = snapshot.children;
+        for (const childId in children) {
+          if (!Object.hasOwn(children, childId)) {
+            continue;
+          }
+          const child = children[childId];
+          if (child._rehydrated && child.getSnapshot?.().status === "active") {
+            if (actorScope) {
+              actorScope.actionExecutor(createActor2.createStartEffect(child));
+            } else {
+              void child.system.startActor(child);
+            }
+          }
+        }
+      }
+      getStateNodeById(stateId) {
+        const hasPrefix = createActor2.isStateId(stateId);
+        const id = hasPrefix ? stateId.slice(STATE_IDENTIFIER.length) : stateId;
+        if (id === "" && hasPrefix) {
+          throw new Error(createActor2.xstateError(19, this.id));
+        }
+        const stateNode = this.idMap.get(id);
+        if (stateNode) {
+          return stateNode;
+        }
+        throw new Error(createActor2.xstateError(20, id));
+      }
+      getPersistedSnapshot(snapshot, options2) {
+        return createActor2.getPersistedSnapshot(snapshot, options2);
+      }
+    };
+    function findEventSchema(schemas, eventType) {
+      if (!schemas) {
+        return void 0;
+      }
+      if (Object.hasOwn(schemas, eventType)) {
+        return schemas[eventType];
+      }
+      const descriptor = Object.keys(schemas).find((key) => createActor2.matchesEventDescriptor(eventType, key));
+      return descriptor === void 0 ? void 0 : schemas[descriptor];
+    }
+    function memo(cache4, key, create4) {
+      let value = cache4.get(key);
+      if (!value) {
+        cache4.set(key, value = create4());
+      }
+      return value;
+    }
+    var snapshotSchemas = /* @__PURE__ */ new WeakMap();
+    var historicalEventSchemas = /* @__PURE__ */ new WeakMap();
+    var eventSchemas = /* @__PURE__ */ new WeakMap();
+    function snapshotSchema(machine) {
+      return memo(snapshotSchemas, machine, () => ({
+        "~standard": {
+          version: 1,
+          vendor: "xstate",
+          validate: async (value) => {
+            if (value === null || typeof value !== "object") {
+              return {
+                issues: [{
+                  message: "Expected a persisted snapshot."
+                }]
+              };
+            }
+            const snapshot = {
+              historyValue: {},
+              timers: [],
+              ...value
+            };
+            const contextSchema = machine.schemas?.context;
+            let context = snapshot.context;
+            if (contextSchema) {
+              const result = await contextSchema["~standard"].validate(context);
+              if (result.issues) {
+                return {
+                  issues: [{
+                    message: `Invalid context for machine '${machine.id}' version '${machine.version}': ${result.issues[0]?.message}`
+                  }]
+                };
+              }
+              context = result.value;
+            }
+            for (const key of ["value", "children"]) {
+              if (!(key in snapshot)) {
+                return {
+                  issues: [{
+                    message: `Persisted snapshot is missing '${key}'.`
+                  }]
+                };
+              }
+            }
+            if (!["active", "done", "error", "stopped"].includes(snapshot.status)) {
+              return {
+                issues: [{
+                  message: "Persisted snapshot has invalid status."
+                }]
+              };
+            }
+            if (!isSnapshotRecord(snapshot.historyValue)) {
+              return {
+                issues: [{
+                  message: "Persisted snapshot has invalid 'historyValue'."
+                }]
+              };
+            }
+            try {
+              validatePersistedSnapshot(machine, snapshot);
+            } catch (error) {
+              return {
+                issues: [{
+                  message: error instanceof Error ? error.message : "Persisted snapshot has invalid state value."
+                }]
+              };
+            }
+            return {
+              value: {
+                ...snapshot,
+                context
+              }
+            };
+          }
+        }
+      }));
+    }
+    function historicalEventSchema(machine) {
+      return memo(historicalEventSchemas, machine, () => ({
+        "~standard": {
+          version: 1,
+          vendor: "xstate",
+          validate: async (value) => {
+            if (value === null || typeof value !== "object" || typeof value.type !== "string") {
+              return {
+                issues: [{
+                  message: "Expected an event object."
+                }]
+              };
+            }
+            const event = value;
+            const eventSchemas2 = machine.schemas?.events;
+            const internalEventSchemas = machine.schemas?.internalEvents;
+            const isFrameworkEvent = event.type.startsWith("xstate.") || event.type.startsWith("@xstate.");
+            const schema2 = findEventSchema(internalEventSchemas, event.type) ?? findEventSchema(eventSchemas2, event.type);
+            if ((eventSchemas2 || internalEventSchemas) && !schema2 && !isFrameworkEvent) {
+              return {
+                issues: [{
+                  message: `Unknown event '${event.type}' for machine '${machine.id}' version '${machine.version}'.`
+                }]
+              };
+            }
+            if (!schema2) {
+              return {
+                value: event
+              };
+            }
+            const {
+              type,
+              ...payload
+            } = event;
+            const result = await schema2["~standard"].validate(payload);
+            if (result.issues) {
+              return result;
+            }
+            if (result.value === null || typeof result.value !== "object") {
+              return {
+                issues: [{
+                  message: "Expected an event payload."
+                }]
+              };
+            }
+            return {
+              value: {
+                ...result.value,
+                type
+              }
+            };
+          }
+        }
+      }));
+    }
+    function eventSchema2(machine) {
+      return memo(eventSchemas, machine, () => ({
+        "~standard": {
+          version: 1,
+          vendor: "xstate",
+          validate: async (value) => {
+            const event = value;
+            if (event && typeof event.type === "string") {
+              const internal = findEventSchema(machine.schemas?.internalEvents, event.type);
+              const framework = event.type.startsWith("xstate.") || event.type.startsWith("@xstate.");
+              if (internal || framework) {
+                if (!internal && event.type === "xstate.route") {
+                  const result = await historicalEventSchema(machine)["~standard"].validate(value);
+                  if (result.issues) {
+                    return result;
+                  }
+                  const to = result.value.to;
+                  const route2 = typeof to === "string" && to.startsWith("#") ? machine.idMap.get(to.slice(1)) : void 0;
+                  if (route2 && route2 !== machine.root && route2.config.id && route2.config.route) {
+                    return {
+                      value: result.value
+                    };
+                  }
+                }
+                return {
+                  issues: [{
+                    message: `Event '${event.type}' is not a public input event.`
+                  }]
+                };
+              }
+            }
+            return historicalEventSchema(machine)["~standard"].validate(value);
+          }
+        }
+      }));
+    }
+    exports.InvalidSnapshotError = InvalidSnapshotError2;
+    exports.StateMachine = StateMachine2;
+    exports.StateNode = StateNode2;
+    exports.eventSchema = eventSchema2;
+    exports.historicalEventSchema = historicalEventSchema;
+    exports.snapshotSchema = snapshotSchema;
+    exports.validatePersistedSnapshot = validatePersistedSnapshot;
+  }
+});
+
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/schema.types-15a68ddc.cjs.js
 var require_schema_types_15a68ddc_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/schema.types-15a68ddc.cjs.js"(exports) {
+  "../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/schema.types-15a68ddc.cjs.js"(exports) {
     "use strict";
     function types2() {
       return {
@@ -30311,11 +31637,11 @@ var require_schema_types_15a68ddc_cjs = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/effectDescriptor-425644eb.cjs.js
-var require_effectDescriptor_425644eb_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/effectDescriptor-425644eb.cjs.js"(exports) {
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/effectDescriptor-2fa27c54.cjs.js
+var require_effectDescriptor_2fa27c54_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/effectDescriptor-2fa27c54.cjs.js"(exports) {
     "use strict";
-    var createActor2 = require_createActor_54296cf2_cjs();
+    var createActor2 = require_createActor_25900f76_cjs();
     function attachMicrostepActorRefs(microsteps, actorScope, inputSnapshot) {
       const result = microsteps.map(([snapshot, actions, transitions]) => [snapshot, actions, transitions ?? []]);
       if (!result.length) {
@@ -30533,1323 +31859,90 @@ var require_effectDescriptor_425644eb_cjs = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate.cjs.js
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate.cjs.js
 var require_xstate_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate.cjs.js"(exports) {
+  "../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate.cjs.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var dist_xstateActors = require_index_986372f2_cjs();
-    var createActor2 = require_createActor_54296cf2_cjs();
+    var dist_xstateActors = require_xstate_actors_cjs();
+    var createActor2 = require_createActor_25900f76_cjs();
+    var machineSchemas = require_machineSchemas_88d01821_cjs();
     var schema_types = require_schema_types_15a68ddc_cjs();
-    var effectDescriptor = require_effectDescriptor_425644eb_cjs();
+    var effectDescriptor = require_effectDescriptor_2fa27c54_cjs();
+    require_validation_4561b43c_cjs();
     function assertEvent2(event, type) {
       const types2 = createActor2.toArray(type);
       const matches = types2.some((descriptor) => createActor2.matchesEventDescriptor(event.type, descriptor));
       if (!matches) {
-        const typesText = types2.length === 1 ? `type matching "${types2[0]}"` : `one of types matching "${types2.join('", "')}"`;
-        throw new Error(`Expected event ${JSON.stringify(event)} to have ${typesText}`);
+        throw new Error(createActor2.xstateError(74, event.type, types2.join(", ")));
       }
     }
-    var historicalEventSchemas = /* @__PURE__ */ new WeakMap();
-    function createSpawner(actorScope, actors, spawnedChildren) {
-      return (src3, options2) => {
-        const referencedSrc = createActor2.resolveRegisteredActorSource(actors, src3);
-        const id = options2?.id ?? createActor2.allocateChildId(actorScope, referencedSrc ?? src3).id;
-        if (options2?.id !== void 0) {
-          createActor2.assertChildIdFree(actorScope, options2.id);
-          createActor2.reserveChildId(actorScope, options2.id);
-        }
-        const actor = actorScope.system.createActorRef(src3, {
-          id,
-          parent: actorScope.self,
-          syncSnapshot: options2?.syncSnapshot,
-          input: options2?.input,
-          src: referencedSrc ?? src3,
-          registryKey: options2?.registryKey
-        });
-        spawnedChildren[actor.id] = actor;
-        return actor;
-      };
-    }
-    var cache3 = /* @__PURE__ */ new WeakMap();
-    function memo(object2, key, fn) {
-      let memoizedData = cache3.get(object2);
-      if (!memoizedData) {
-        memoizedData = {
-          [key]: fn()
-        };
-        cache3.set(object2, memoizedData);
-      } else if (!(key in memoizedData)) {
-        memoizedData[key] = fn();
+    function createMachine2(config, ...rest) {
+      if (rest[0] !== void 0) {
+        throw new Error(createActor2.xstateError(71));
       }
-      return memoizedData[key];
-    }
-    var EMPTY_OBJECT = {};
-    var StateNode2 = class _StateNode {
-      constructor(config, options2) {
-        this.config = config;
-        this.key = void 0;
-        this.id = void 0;
-        this.type = void 0;
-        this.path = void 0;
-        this.states = void 0;
-        this.history = void 0;
-        this.entry = void 0;
-        this.exit = void 0;
-        this.parent = void 0;
-        this.machine = void 0;
-        this.meta = void 0;
-        this.output = void 0;
-        this.order = -1;
-        this.description = void 0;
-        this.schemas = void 0;
-        this.tags = [];
-        this.transitions = void 0;
-        this.always = void 0;
-        this.invoke = void 0;
-        this.on = void 0;
-        this.after = void 0;
-        this.events = void 0;
-        this.ownEvents = void 0;
-        this._candidateCache = void 0;
-        this.parent = options2._parent;
-        this.key = options2._key;
-        this.machine = options2._machine;
-        if (this.parent && createActor2.hasUnescapedDot(this.key)) {
-          throw new Error(
-            // The suggestion is written as a JS string literal.
-            `State key "${this.key}" contains "." \u2014 nest the states or escape it as "${this.key.replaceAll(/(?<!\\)\./g, "\\\\.")}".`
-          );
-        }
-        this.path = this.parent ? this.parent.path.concat(this.key) : [];
-        const firstStateKey = this.config.states ? Object.keys(this.config.states)[0] : void 0;
-        this.id = this.config.id || (this.machine.id ? [this.machine.id, ...this.path] : this.path).join(createActor2.STATE_DELIMITER);
-        this.type = this.config.type || (firstStateKey !== void 0 ? "compound" : this.config.history ? "history" : "atomic");
-        this.description = this.config.description;
-        this.schemas = this.config.schemas;
-        validateStateNodeConfig(this);
-        const existing = this.machine.idMap.get(this.id);
-        if (existing) {
-          throw new Error(`Duplicate state id '${this.id}': the states at '${existing.path.join(createActor2.STATE_DELIMITER)}' and '${this.path.join(createActor2.STATE_DELIMITER)}' both have it. State ids must be unique; rename the explicit \`id\`.`);
-        }
-        this.order = this.machine.idMap.size;
-        this.machine.idMap.set(this.id, this);
-        this.states = this.config.states ? createActor2.mapValues(this.config.states, (stateConfig, key) => {
-          const stateNode = new _StateNode(stateConfig, {
-            _parent: this,
-            _key: key,
-            _machine: this.machine
-          });
-          return stateNode;
-        }) : EMPTY_OBJECT;
-        if (this.type === "compound" && !this.config.initial) {
-          throw new Error(`No initial state specified for compound state node "#${this.id}".`);
-        }
-        this.history = this.config.history === true ? "shallow" : this.config.history || false;
-        this.entry = this.config.entry;
-        this.exit = this.config.exit;
-        this.meta = this.config.meta;
-        this.output = this.type === "final" || !this.parent ? this.config.output : void 0;
-        this.tags = createActor2.toArray(config.tags).slice();
-        this.invoke = createActor2.toArray(this.config.invoke).map((invokeConfig, i) => {
-          const {
-            src: src3,
-            registryKey
-          } = invokeConfig;
-          const invokeId = createActor2.createInvokeId(this.id, i);
-          const resolvedId = invokeConfig.id ?? invokeId;
-          return {
-            ...invokeConfig,
-            // Registered (string) sources persist by key; inline logic has no
-            // source key and restores through this invoke definition's id.
-            src: typeof src3 === "string" ? src3 : void 0,
-            logic: src3,
-            id: resolvedId,
-            registryKey
-          };
-        });
-      }
-      /** @internal */
-      _initialize() {
-        this.after = createActor2.getDelayedTransitions(this);
-        this.transitions = formatTransitions(this);
-        if (this.type === "choice") {
-          this.always = formatChoiceTransitions(this);
-        } else if (this.config.always) {
-          this.always = mapTransitionConfigs(this, "always", this.config.always, (transition2) => createActor2.formatTransition(this, createActor2.NULL_EVENT, transition2));
-        }
-        for (const key of Object.keys(this.states)) {
-          this.states[key]._initialize();
-        }
-        this._refreshEventMetadata();
-      }
-      /** @internal */
-      _refreshEventMetadata() {
-        const on = {};
-        const ownEvents = [];
-        for (const [descriptor, transitions] of this.transitions) {
-          on[descriptor] = transitions.slice();
-          if (transitions.some((transition2) => transition2.target || transition2.reenter || transition2.to)) {
-            ownEvents.push(descriptor);
-          }
-        }
-        this.on = on;
-        this.ownEvents = ownEvents;
-        const events = new Set(ownEvents);
-        for (const state3 of Object.values(this.states)) {
-          for (const event of state3.events) {
-            events.add(event);
-          }
-        }
-        this.events = Array.from(events);
-      }
-      get initial() {
-        return memo(this, "initial", () => formatInitialTransition(this, this.config.initial));
-      }
-      /** @internal */
-      next(snapshot, event, actorScope, selectionResults) {
-        if (this.type === "final") {
-          return void 0;
-        }
-        let candidates = this._candidateCache?.get(event.type);
-        if (!candidates) {
-          candidates = createActor2.getCandidates(this, event);
-          (this._candidateCache ??= /* @__PURE__ */ new Map()).set(event.type, candidates);
-        }
-        for (const candidate of candidates) {
-          const guardPassed = createActor2.evaluateCandidate(candidate, event, snapshot, this, actorScope, selectionResults);
-          if (guardPassed) {
-            return [candidate];
-          }
-        }
-        return void 0;
-      }
-    };
-    function validateStateNodeConfig(stateNode) {
-      const config = stateNode.config;
-      if (stateNode.type === "history" && !(typeof config.target === "string" && config.target.trim().length > 0 || Array.isArray(config.target) && config.target.length > 0 && config.target.every((target) => typeof target === "string" && target.trim().length > 0))) {
-        throw new Error(`Missing history target on "${stateNode.id}"`);
-      }
-      if (stateNode.type !== "choice") {
-        return;
-      }
-      if (typeof config.choice !== "function") {
-        throw new Error(`Missing \`choice\` function on "${stateNode.id}"`);
-      }
-    }
-    function formatChoiceTransitions(stateNode) {
-      const choice = stateNode.config.choice;
-      const validateChoiceResult = (result) => {
-        if (!result || result.target === void 0) {
-          throw new Error(`Choice "${stateNode.id}" has no target`);
-        }
-        return result;
-      };
-      return [createActor2.formatTransition(stateNode, createActor2.NULL_EVENT, {
-        to: (args) => validateChoiceResult(choice(args))
-      })];
-    }
-    function mapTransitionConfigs(stateNode, name, transitionsConfig, mapper) {
-      const transitionConfigs = createActor2.toTransitionConfigArray(transitionsConfig, name, stateNode.id);
-      const transitions = new Array(transitionConfigs.length);
-      for (let i = 0; i < transitionConfigs.length; i++) {
-        transitions[i] = mapper(transitionConfigs[i]);
-      }
-      return transitions;
-    }
-    function formatTransitions(stateNode) {
-      const transitions = /* @__PURE__ */ new Map();
-      const addTransitions = (descriptor, additions) => {
-        transitions.set(descriptor, [...transitions.get(descriptor) ?? [], ...additions]);
-      };
-      if (stateNode.config.on) {
-        for (const descriptor of Object.keys(stateNode.config.on)) {
-          if (descriptor === createActor2.NULL_EVENT) {
-            throw new Error("Null event transition key");
-          }
-          const transitionsConfig = stateNode.config.on[descriptor];
-          transitions.set(descriptor, mapTransitionConfigs(stateNode, descriptor, transitionsConfig, (transition2) => createActor2.formatTransition(stateNode, descriptor, transition2)));
-        }
-      }
-      if (stateNode.config.onDone) {
-        const descriptor = "xstate.done.state";
-        addTransitions(descriptor, mapTransitionConfigs(stateNode, "onDone", stateNode.config.onDone, (transition2) => createActor2.formatTransition(stateNode, descriptor, {
-          ...transition2,
-          matches: {
-            ...transition2.matches,
-            stateId: stateNode.id
-          }
-        })));
-      }
-      if (stateNode.config.onError) {
-        const descriptor = "xstate.error.*";
-        transitions.set(descriptor, mapTransitionConfigs(stateNode, "onError", stateNode.config.onError, (transition2) => createActor2.formatTransition(stateNode, descriptor, transition2)));
-      }
-      const createCancelInvokeTimeoutTransition = (descriptor, timeoutKey, actorId2) => createActor2.formatTransition(stateNode, descriptor, {
-        matches: {
-          actorId: actorId2
-        },
-        _eventMatcher: (event, snapshot) => createActor2.matchesActorSession(event, snapshot, actorId2),
-        to: (_args, enq) => {
-          enq.cancel(timeoutKey);
-          return {};
-        }
-      });
-      const formatInvokeCompletionTransition = (descriptor, transitionConfig, timeoutKey) => {
-        const {
-          target,
-          to,
-          reenter,
-          ...rest
-        } = transitionConfig;
-        return createActor2.formatTransition(stateNode, descriptor, {
-          ...rest,
-          reenter,
-          to: (args, enq) => {
-            if (to) {
-              let didEnqueue = false;
-              const trackingEnqueue = new Proxy(enq, {
-                apply(target2, thisArg, argArray) {
-                  didEnqueue = true;
-                  return Reflect.apply(target2, thisArg, argArray);
-                },
-                get(target2, prop, receiver) {
-                  const value = Reflect.get(target2, prop, receiver);
-                  if (typeof value !== "function") {
-                    return value;
-                  }
-                  return (...argArray) => {
-                    didEnqueue = true;
-                    return value.apply(target2, argArray);
-                  };
-                }
-              });
-              const result = to(args, trackingEnqueue);
-              if (result !== void 0 || didEnqueue) {
-                enq.cancel(timeoutKey);
-              }
-              return result;
-            }
-            enq.cancel(timeoutKey);
-            return {
-              target,
-              reenter
-            };
-          }
-        });
-      };
-      for (const invokeDef of stateNode.invoke) {
-        const withInvokeMatch = (transition2) => ({
-          ...transition2,
-          matches: {
-            ...transition2.matches,
-            actorId: invokeDef.id
-          },
-          _eventMatcher: (event, snapshot) => createActor2.matchesActorSession(event, snapshot, invokeDef.id)
-        });
-        const invokeTimeoutKey = invokeDef.timeout !== void 0 ? {
-          event: {
-            type: "xstate.timeout.actor",
-            actorId: invokeDef.id
-          }
-        } : void 0;
-        if (invokeDef.onDone) {
-          const descriptor = "xstate.done.actor";
-          const invokeDoneTransitions = mapTransitionConfigs(stateNode, "invoke.onDone", invokeDef.onDone, (rawTransition) => {
-            const transition2 = withInvokeMatch(rawTransition);
-            return invokeTimeoutKey ? formatInvokeCompletionTransition(descriptor, transition2, invokeTimeoutKey) : createActor2.formatTransition(stateNode, descriptor, transition2);
-          });
-          if (invokeTimeoutKey) {
-            invokeDoneTransitions.push(createCancelInvokeTimeoutTransition(descriptor, invokeTimeoutKey, invokeDef.id));
-          }
-          addTransitions(descriptor, invokeDoneTransitions);
-        } else if (invokeTimeoutKey) {
-          const descriptor = "xstate.done.actor";
-          addTransitions(descriptor, [createCancelInvokeTimeoutTransition(descriptor, invokeTimeoutKey, invokeDef.id)]);
-        }
-        if (invokeDef.onError) {
-          const descriptor = "xstate.error.actor";
-          addTransitions(descriptor, mapTransitionConfigs(stateNode, "invoke.onError", invokeDef.onError, (rawTransition) => {
-            const transition2 = withInvokeMatch(rawTransition);
-            return invokeTimeoutKey ? formatInvokeCompletionTransition(descriptor, transition2, invokeTimeoutKey) : createActor2.formatTransition(stateNode, descriptor, transition2);
-          }));
-        }
-        if (invokeDef.onSnapshot) {
-          const descriptor = "xstate.snapshot.actor";
-          addTransitions(descriptor, mapTransitionConfigs(stateNode, "invoke.onSnapshot", invokeDef.onSnapshot, (transition2) => createActor2.formatTransition(stateNode, descriptor, withInvokeMatch(transition2))));
-        }
-      }
-      for (const delayedTransition of stateNode.after) {
-        let existing = transitions.get(delayedTransition.eventType);
-        if (!existing) {
-          existing = [];
-          transitions.set(delayedTransition.eventType, existing);
-        }
-        existing.push(delayedTransition);
-      }
-      return transitions;
-    }
-    function formatInitialTransition(stateNode, _target) {
-      const targetString = typeof _target === "object" && _target !== null ? _target.target : _target;
-      const input = typeof _target === "object" && _target !== null ? _target.input : void 0;
-      const to = typeof _target === "object" && _target !== null ? _target.to : void 0;
-      const meta = typeof _target === "object" && _target !== null ? _target.meta : void 0;
-      const description = typeof _target === "object" && _target !== null ? _target.description : void 0;
-      const targetStrings = Array.isArray(targetString) ? targetString : targetString ? [targetString] : [];
-      const resolvedTargets = targetStrings.map((target) => target.startsWith("#") ? stateNode.machine.getStateNodeById(target.slice(1)) : stateNode.states[target]);
-      if (resolvedTargets.some((target) => !target)) {
-        throw new Error(`Initial state not found on "#${stateNode.id}"`);
-      }
-      const transition2 = {
-        source: stateNode,
-        target: resolvedTargets.length ? resolvedTargets : void 0,
-        input,
-        to,
-        meta,
-        description
-      };
-      return transition2;
-    }
-    var STATE_IDENTIFIER = "#";
-    function findEventSchema(schemas, eventType) {
-      if (!schemas) {
-        return void 0;
-      }
-      if (Object.hasOwn(schemas, eventType)) {
-        return schemas[eventType];
-      }
-      const descriptor = Object.keys(schemas).find((key) => createActor2.matchesEventDescriptor(eventType, key));
-      return descriptor === void 0 ? void 0 : schemas[descriptor];
-    }
-    var emptyCanActor;
-    var emptyCanActorScope;
-    function getEmptyCanActor() {
-      return emptyCanActor ??= createActor2.createActor({
-        transition: (snapshot) => [snapshot, []],
-        initialTransition: () => [{
-          status: "active",
-          output: void 0,
-          error: void 0
-        }, []],
-        getInitialSnapshot: () => ({
-          status: "active",
-          output: void 0,
-          error: void 0
-        }),
-        getPersistedSnapshot: (snapshot) => snapshot
-      });
-    }
-    function getEmptyCanActorScope() {
-      if (emptyCanActorScope) {
-        return emptyCanActorScope;
-      }
-      const actor = getEmptyCanActor();
-      emptyCanActorScope = {
-        self: actor,
-        logger: () => {
-        },
-        id: "",
-        sessionId: "",
-        defer: () => {
-        },
-        system: actor.system,
-        stopChild: () => {
-        },
-        emit: () => {
-        },
-        actionExecutor: () => {
-        }
-      };
-      createActor2.detachedScopes.add(emptyCanActorScope);
-      return emptyCanActorScope;
-    }
-    var InvalidSnapshotError2 = class extends Error {
-      constructor(message) {
-        super(message);
-        this.name = "InvalidSnapshotError";
-      }
-    };
-    var StateMachine2 = class _StateMachine {
-      constructor(config, sources, validator) {
-        this.config = config;
-        this.validator = validator;
-        this._internalEventType = void 0;
-        this._transitionMetaType = void 0;
-        this._inputType = void 0;
-        this._actionMap = void 0;
-        this._actorMap = void 0;
-        this._stateSchema = void 0;
-        this.version = void 0;
-        this.schemas = void 0;
-        this.snapshotSchema = void 0;
-        this.eventSchema = void 0;
-        this.sources = void 0;
-        this.options = void 0;
-        this.idMap = /* @__PURE__ */ new Map();
-        this.root = void 0;
-        this.id = void 0;
-        this.states = void 0;
-        this.events = void 0;
-        this.internalEventDescriptors = void 0;
-        this._hasEventlessTransitions = void 0;
-        this._microstepHooks = void 0;
-        this._json = void 0;
-        if (config.version !== void 0 && !config.id) {
-          throw new Error(`Machine with version '${config.version}' must declare an id.`);
-        }
-        this.id = config.id ?? "";
-        this.sources = {
-          actors: config.actors ?? {},
-          actions: config.actions ?? {},
-          delays: config.delays ?? {},
-          guards: config.guards ?? {},
-          ...sources
-        };
-        this.version = this.config.version;
-        this.schemas = this.config.schemas;
-        this.snapshotSchema = {
-          "~standard": {
-            version: 1,
-            vendor: "xstate",
-            validate: async (value) => {
-              if (value === null || typeof value !== "object") {
-                return {
-                  issues: [{
-                    message: "Expected a persisted snapshot."
-                  }]
-                };
-              }
-              const snapshot = {
-                historyValue: {},
-                timers: [],
-                ...value
-              };
-              const contextSchema = this.schemas?.context;
-              let context = snapshot.context;
-              if (contextSchema) {
-                const result = await contextSchema["~standard"].validate(context);
-                if (result.issues) {
-                  return {
-                    issues: [{
-                      message: `Invalid context for machine '${this.id}' version '${this.version}': ${result.issues[0]?.message}`
-                    }]
-                  };
-                }
-                context = result.value;
-              }
-              for (const key of ["value", "children"]) {
-                if (!(key in snapshot)) {
-                  return {
-                    issues: [{
-                      message: `Persisted snapshot is missing '${key}'.`
-                    }]
-                  };
-                }
-              }
-              if (!["active", "done", "error", "stopped"].includes(snapshot.status)) {
-                return {
-                  issues: [{
-                    message: "Persisted snapshot has invalid status."
-                  }]
-                };
-              }
-              for (const key of ["children", "historyValue"]) {
-                if (snapshot[key] === null || typeof snapshot[key] !== "object" || Array.isArray(snapshot[key])) {
-                  return {
-                    issues: [{
-                      message: `Persisted snapshot has invalid '${key}'.`
-                    }]
-                  };
-                }
-              }
-              if (!Array.isArray(snapshot.timers)) {
-                return {
-                  issues: [{
-                    message: "Persisted snapshot has invalid 'timers'."
-                  }]
-                };
-              }
-              try {
-                this.resolveState({
-                  value: snapshot.value,
-                  context
-                });
-              } catch (error) {
-                return {
-                  issues: [{
-                    message: error instanceof Error ? error.message : "Persisted snapshot has invalid state value."
-                  }]
-                };
-              }
-              return {
-                value: {
-                  ...snapshot,
-                  context
-                }
-              };
-            }
-          }
-        };
-        const historicalEventSchema = {
-          "~standard": {
-            version: 1,
-            vendor: "xstate",
-            validate: async (value) => {
-              if (value === null || typeof value !== "object" || typeof value.type !== "string") {
-                return {
-                  issues: [{
-                    message: "Expected an event object."
-                  }]
-                };
-              }
-              const event = value;
-              const eventSchemas = this.schemas?.events;
-              const internalEventSchemas = this.schemas?.internalEvents;
-              const isFrameworkEvent = event.type.startsWith("xstate.") || event.type.startsWith("@xstate.");
-              const schema2 = findEventSchema(internalEventSchemas, event.type) ?? findEventSchema(eventSchemas, event.type);
-              if ((eventSchemas || internalEventSchemas) && !schema2 && !isFrameworkEvent) {
-                return {
-                  issues: [{
-                    message: `Unknown event '${event.type}' for machine '${this.id}' version '${this.version}'.`
-                  }]
-                };
-              }
-              if (!schema2) {
-                return {
-                  value: event
-                };
-              }
-              const {
-                type,
-                ...payload
-              } = event;
-              const result = await schema2["~standard"].validate(payload);
-              if (result.issues) {
-                return result;
-              }
-              if (result.value === null || typeof result.value !== "object") {
-                return {
-                  issues: [{
-                    message: "Expected an event payload."
-                  }]
-                };
-              }
-              return {
-                value: {
-                  ...result.value,
-                  type
-                }
-              };
-            }
-          }
-        };
-        historicalEventSchemas.set(this, historicalEventSchema);
-        this.eventSchema = {
-          "~standard": {
-            version: 1,
-            vendor: "xstate",
-            validate: async (value) => {
-              const event = value;
-              if (event && typeof event.type === "string") {
-                const internal = findEventSchema(this.schemas?.internalEvents, event.type);
-                const framework = event.type.startsWith("xstate.") || event.type.startsWith("@xstate.");
-                if (internal || framework) {
-                  if (!internal && event.type === "xstate.route") {
-                    const result = await historicalEventSchema["~standard"].validate(value);
-                    if (result.issues) {
-                      return result;
-                    }
-                    const to = result.value.to;
-                    const route2 = typeof to === "string" && to.startsWith("#") ? this.idMap.get(to.slice(1)) : void 0;
-                    if (route2 && route2 !== this.root && route2.config.id && route2.config.route) {
-                      return {
-                        value: result.value
-                      };
-                    }
-                  }
-                  return {
-                    issues: [{
-                      message: `Event '${event.type}' is not a public input event.`
-                    }]
-                  };
-                }
-              }
-              return historicalEventSchema["~standard"].validate(value);
-            }
-          }
-        };
-        this.internalEventDescriptors = Object.keys(this.schemas?.internalEvents ?? {});
-        this.options = {
-          ...this.config.options
-        };
-        this.transition = this.transition.bind(this);
-        this.initialTransition = this.initialTransition.bind(this);
-        this.getInitialSnapshot = this.getInitialSnapshot.bind(this);
-        this.getPersistedSnapshot = this.getPersistedSnapshot.bind(this);
-        this.restoreSnapshot = this.restoreSnapshot.bind(this);
-        this.start = this.start.bind(this);
-        this.root = new StateNode2(config, {
-          _key: this.id,
-          _machine: this
-        });
-        this.root._initialize();
-        createActor2.formatRouteTransitions(this.root);
-        this.root._refreshEventMetadata();
-        this._hasEventlessTransitions = Array.from(this.idMap.values()).some((stateNode) => !!stateNode.always?.length);
-        this.states = this.root.states;
-        this.events = this.root.events;
-      }
-      /**
-       * Clones this state machine with the provided sources.
-       *
-       * @param sources Options (`actions`, `guards`, `actors`, `delays`) to
-       *   recursively merge with the existing options.
-       * @returns A new `StateMachine` instance with the provided sources.
-       */
-      provide(sources) {
-        const {
-          actions,
-          guards,
-          actors,
-          delays
-        } = this.sources;
-        const provided = new _StateMachine(this.config, {
-          actions: {
-            ...actions,
-            ...sources.actions
-          },
-          guards: {
-            ...guards,
-            ...sources.guards
-          },
-          actors: {
-            ...actors,
-            ...sources.actors
-          },
-          delays: {
-            ...delays,
-            ...sources.delays
-          }
-        }, this.validator);
-        provided._json = this._json;
-        provided.internalEventDescriptors = this.internalEventDescriptors;
-        provided._microstepHooks = this._microstepHooks;
-        return provided;
-      }
-      resolveState(config) {
-        const resolvedStateValue = createActor2.resolveStateValue(this.root, config.value);
-        const nodeSet = createActor2.getAllStateNodes(createActor2.getStateNodes(this.root, resolvedStateValue));
-        const nodes = [...nodeSet];
-        return createActor2.createMachineSnapshot({
-          _nodes: nodes,
-          value: resolvedStateValue,
-          context: config.context || {},
-          children: {},
-          status: createActor2.isInFinalState(nodeSet, this.root) ? "done" : config.status || "active",
-          output: config.output,
-          error: config.error,
-          historyValue: config.historyValue
-        }, this);
-      }
-      /**
-       * Determines the next snapshot given the current `snapshot` and received
-       * `event`. Calculates a full macrostep from all microsteps.
-       *
-       * @param snapshot The current snapshot
-       * @param event The received event
-       */
-      transition(snapshot, event, actorScope) {
-        const usesInertScope = !actorScope;
-        const resolvedActorScope = actorScope ?? createActor2.createInertActorScope(this, snapshot);
-        if (usesInertScope) {
-          createActor2.setInertActorScopeSnapshot(resolvedActorScope, snapshot, false);
-        }
-        if (this.validator) {
-          const sourceRef = actorScope && actorScope.self._lastSourceRef;
-          const eventOrigin = sourceRef ? "actor" : "external";
-          const error = this.validator.check({
-            kind: "event",
-            logic: this,
-            event,
-            eventOrigin
-          });
-          if (error) {
-            return [snapshot, [createActor2.createDeadLetterEffect(resolvedActorScope, sourceRef, event, "invalidEvent", {
-              issues: error.issues,
-              error
-            })]];
-          }
-        }
-        createActor2.beginSpawnAllocation(resolvedActorScope);
-        const fastSnapshot = this._transitionFast(snapshot, event, resolvedActorScope);
-        if (fastSnapshot) {
-          if (usesInertScope) {
-            createActor2.setInertActorScopeSnapshot(resolvedActorScope, fastSnapshot, false);
-          }
-          const returnedSnapshot2 = usesInertScope && fastSnapshot !== snapshot ? createActor2.attachSnapshotActorRef(resolvedActorScope, fastSnapshot) : this._attachPureActorRef(fastSnapshot, resolvedActorScope);
-          if (this.validator) {
-            dist_xstateActors.assertValid(this.validator, {
-              kind: "result",
-              logic: this,
-              snapshot: returnedSnapshot2,
-              effects: []
-            });
-          }
-          return [returnedSnapshot2, []];
-        }
-        const {
-          snapshot: nextSnapshot,
-          microsteps
-        } = createActor2.macrostep(snapshot, event, resolvedActorScope, []);
-        if (usesInertScope) {
-          createActor2.setInertActorScopeSnapshot(resolvedActorScope, nextSnapshot, false);
-        }
-        const returnedSnapshot = usesInertScope ? nextSnapshot === snapshot ? nextSnapshot : createActor2.attachSnapshotActorRef(resolvedActorScope, nextSnapshot) : this._attachPureActorRef(nextSnapshot, resolvedActorScope);
-        const effects = this._collectEffects(microsteps);
-        if (this.validator) {
-          dist_xstateActors.assertValid(this.validator, {
-            kind: "result",
-            logic: this,
-            snapshot: returnedSnapshot,
-            effects
-          });
-        }
-        return [returnedSnapshot, effects];
-      }
-      _collectEffects(microsteps) {
-        return microsteps.flatMap(([, actions]) => actions);
-      }
-      _attachPureActorRef(snapshot, actorScope, skipInitializingActor = false) {
-        if (createActor2.isInertActorScope(actorScope)) {
-          return snapshot;
-        }
-        if (skipInitializingActor && actorScope.self._actorScope === actorScope && actorScope.self._snapshot === void 0) {
-          return snapshot;
-        }
-        createActor2.setSnapshotActorRef(snapshot, actorScope.self, actorScope.system);
-        return snapshot;
-      }
-      _transitionFast(snapshot, event, actorScope) {
-        if (snapshot.status !== "active" || typeof snapshot.value !== "string" || this.root.always?.length) {
-          return void 0;
-        }
-        const sourceNode = this.root.states[snapshot.value];
-        if (!sourceNode || sourceNode.type !== "atomic" || sourceNode.exit || sourceNode.invoke.length || sourceNode.always?.length || sourceNode.after?.length) {
-          return void 0;
-        }
-        const transitions = sourceNode.transitions.get(event.type);
-        if (transitions?.length !== 1) {
-          return void 0;
-        }
-        const selected = transitions[0];
-        if (selected.guard || selected.actions || selected.to || selected.reenter || selected.input || typeof selected.context === "function" || selected.target && selected.target.length !== 1) {
-          return void 0;
-        }
-        const targetNode = selected.target?.[0] ?? sourceNode;
-        const stateChanged = targetNode !== sourceNode;
-        if (targetNode.parent !== this.root || targetNode.type !== "atomic" || stateChanged && (targetNode.entry || targetNode.invoke.length || targetNode.always?.length || targetNode.after?.length)) {
-          return void 0;
-        }
-        const context = selected.context !== void 0 ? {
-          ...snapshot.context,
-          ...selected.context
-        } : snapshot.context;
-        if (!createActor2.isInertActorScope(actorScope) && (actorScope.system._hasInspectionObservers?.() ?? true)) {
-          const collectedMicrosteps = actorScope.self._collectedMicrosteps || [];
-          collectedMicrosteps.push(selected);
-          actorScope.self._collectedMicrosteps = collectedMicrosteps;
-        }
-        const rootInput = snapshot._stateInputs[this.root.id];
-        return createActor2.cloneMachineSnapshot(snapshot, {
-          ...context !== snapshot.context ? {
-            context
-          } : {},
-          ...stateChanged ? {
-            _nodes: [this.root, targetNode],
-            // The source state exited, so only the root input remains.
-            _stateInputs: rootInput ? {
-              [this.root.id]: rootInput
-            } : {}
-          } : {}
-        });
-      }
-      /**
-       * Determines the next state given the current `state` and `event`. Calculates
-       * a microstep.
-       *
-       * @param state The current state
-       * @param event The received event
-       */
-      microstep(snapshot, event, actorScope) {
-        const {
-          microsteps
-        } = createActor2.macrostep(snapshot, event, actorScope, []);
-        const snapshots = new Array(microsteps.length);
-        for (let i = 0; i < microsteps.length; i++) {
-          snapshots[i] = microsteps[i][0];
-        }
-        return snapshots;
-      }
-      getTransitionData(snapshot, event, actorScope, selectionResults) {
-        this._microstepHooks?.begin(actorScope.self);
-        return createActor2.transitionNode(this.root, snapshot.value, snapshot, event, actorScope, selectionResults) || [];
-      }
-      isInternalEventType(eventType) {
-        if (eventType === createActor2.XSTATE_TIMER) {
-          return true;
-        }
-        for (const descriptor of this.internalEventDescriptors) {
-          if (createActor2.matchesEventDescriptor(eventType, descriptor)) {
-            return true;
-          }
-        }
-        return false;
-      }
-      /**
-       * Determines whether sending the `event` to the given snapshot would select a
-       * non-forbidden transition. Backs `snapshot.can(...)`; lives here so that
-       * non-machine bundles don't pay for the transition-resolution machinery.
-       *
-       * @internal
-       */
-      _canTransition(snapshot, event) {
-        if (snapshot.status !== "active") {
-          return false;
-        }
-        const emptyActorScope = getEmptyCanActorScope();
-        const transitionData = this.getTransitionData(snapshot, event, emptyActorScope);
-        if (!transitionData?.length) {
-          return false;
-        }
-        for (const transition2 of transitionData) {
-          if (transition2.target !== void 0) {
-            return true;
-          }
-          const res = createActor2.getTransitionResult(transition2, snapshot, event, emptyActorScope, {
-            resolveActions: false
-          });
-          if (res.targets?.length || res.context || createActor2.hasEffect(transition2, snapshot.context, event, snapshot, emptyActorScope)) {
-            return true;
-          }
-        }
-        return false;
-      }
-      /**
-       * Returns the error event that the actor should transition with to recover
-       * from an execution error, if any active state node declares `onError`.
-       *
-       * @internal
-       */
-      getExecutionErrorEvent(snapshot, error) {
-        if (snapshot?.status !== "active" || !snapshot.nodes?.some((stateNode) => stateNode.config.onError)) {
-          return void 0;
-        }
-        return createActor2.createErrorPlatformEvent("execution", error);
-      }
-      /**
-       * The initial state _before_ evaluating any microsteps. This "pre-initial"
-       * state is provided to initial actions executed in the initial state.
-       *
-       * @internal
-       */
-      _getPreInitialState(actorScope, initEvent) {
-        const {
-          context
-        } = this.config;
-        const preInitial = createActor2.createMachineSnapshot({
-          context: typeof context !== "function" && context ? context : {},
-          _nodes: [this.root],
-          children: {},
-          status: "active"
-        }, this);
-        if (typeof context === "function") {
-          const children = {};
-          const spawn = createSpawner(actorScope, this.sources.actors, children);
-          const resolvedContext = context(createActor2.withActorSelf({
-            spawn,
-            input: initEvent.input,
-            actors: this.sources.actors
-          }, actorScope));
-          const [nextState] = createActor2.resolveActionsWithContext(preInitial, initEvent, actorScope, []);
-          if (resolvedContext) {
-            nextState.context = resolvedContext;
-          }
-          if (Object.keys(children).length > 0) {
-            nextState.children = {
-              ...nextState.children,
-              ...children
-            };
-            const counters = createActor2.takeSpawnAllocationCounters(actorScope);
-            if (counters) {
-              nextState._nextActorIds = createActor2.mergeActorIdCounters(nextState._nextActorIds, counters);
-            }
-          }
-          return nextState;
-        }
-        return preInitial;
-      }
-      /**
-       * Returns the initial `State` instance, with reference to `self` as an
-       * `ActorRef`.
-       */
-      getInitialSnapshot(actorScope, input) {
-        return this.initialTransition(input, actorScope)[0];
-      }
-      initialTransition(input, actorScope) {
-        if (this.validator) {
-          dist_xstateActors.assertValid(this.validator, {
-            kind: "input",
-            logic: this,
-            input
-          });
-        }
-        const usesInertScope = !actorScope;
-        const resolvedActorScope = actorScope ?? createActor2.createInertActorScope(this);
-        createActor2.beginSpawnAllocation(resolvedActorScope);
-        const initEvent = createActor2.createInitEvent(input);
-        const internalQueue = [];
-        const finalizeInitialResult = (macroState, microsteps) => {
-          if (usesInertScope) {
-            createActor2.setInertActorScopeSnapshot(resolvedActorScope, macroState, false);
-          }
-          const returnedSnapshot = usesInertScope ? createActor2.attachSnapshotActorRef(resolvedActorScope, macroState) : this._attachPureActorRef(macroState, resolvedActorScope, true);
-          const effects = this._collectEffects(microsteps);
-          if (this.validator && macroState.status !== "error") {
-            dist_xstateActors.assertValid(this.validator, {
-              kind: "result",
-              logic: this,
-              snapshot: returnedSnapshot,
-              effects
-            });
-          }
-          return [returnedSnapshot, effects];
-        };
-        let preInitialState;
-        try {
-          preInitialState = this._getPreInitialState(resolvedActorScope, initEvent);
-        } catch (error) {
-          const errorSnapshot = createActor2.cloneMachineSnapshot(createActor2.createMachineSnapshot({
-            context: typeof this.config.context !== "function" && this.config.context ? this.config.context : {},
-            _nodes: [this.root],
-            children: {},
-            status: "active"
-          }, this), {
-            status: "error",
-            error
-          });
-          return finalizeInitialResult(errorSnapshot, []);
-        }
-        const contextSpawnEffects = Object.values(preInitialState.children).filter(Boolean).map((actor) => createActor2.createSpawnEffect(actor));
-        try {
-          const [nextState, initialActions] = createActor2.initialMicrostep(this.root, preInitialState, resolvedActorScope, initEvent, internalQueue);
-          const {
-            snapshot: macroState,
-            microsteps
-          } = createActor2.macrostep(nextState, initEvent, resolvedActorScope, internalQueue, [[nextState, [...contextSpawnEffects, ...initialActions]]]);
-          return finalizeInitialResult(macroState, microsteps);
-        } catch (err) {
-          if (!this.root.config.onError) {
-            throw err;
-          }
-          const errorEvent = createActor2.createErrorPlatformEvent("execution", err);
-          const errorMacrostep = createActor2.macrostep(preInitialState, errorEvent, resolvedActorScope, [], [[preInitialState, contextSpawnEffects]]);
-          return finalizeInitialResult(errorMacrostep.snapshot, errorMacrostep.microsteps);
-        }
-      }
-      start(snapshot, actorScope) {
-        if (!snapshot?.children) {
-          return;
-        }
-        const children = snapshot.children;
-        for (const childId in children) {
-          if (!Object.hasOwn(children, childId)) {
-            continue;
-          }
-          const child = children[childId];
-          if (child._rehydrated && child.getSnapshot?.().status === "active") {
-            if (actorScope) {
-              actorScope.actionExecutor(createActor2.createStartEffect(child));
-            } else {
-              void child.system.startActor(child);
-            }
-          }
-        }
-      }
-      getStateNodeById(stateId) {
-        const hasPrefix = createActor2.isStateId(stateId);
-        const id = hasPrefix ? stateId.slice(STATE_IDENTIFIER.length) : stateId;
-        if (id === "" && hasPrefix) {
-          throw new Error(this.id ? `State id '#' is empty. Target the root of ${createActor2.describeMachine(this.id)} with '#${this.id}'.` : "State id '#' is empty: the root of a machine without an `id` cannot be referenced by id. Give the machine an `id` to reference its root as '#<id>'.");
-        }
-        const stateNode = this.idMap.get(id);
-        if (stateNode) {
-          return stateNode;
-        }
-        throw new Error(this._describeUnknownStateId(id));
-      }
-      /**
-       * The error message for an id that matches no state. When a prefix of the
-       * id is a state id and the rest resolves beneath it as a relative path,
-       * suggests the target's own id.
-       */
-      _describeUnknownStateId(id) {
-        const message = `No state has id "${id}".`;
-        const segments = createActor2.toStatePath(id);
-        for (let i = segments.length - 1; i > 0; i--) {
-          let node = this.idMap.get(segments.slice(0, i).join(createActor2.STATE_DELIMITER));
-          for (let j = i; node && j < segments.length; j++) {
-            node = node.states?.[segments[j]];
-          }
-          if (node) {
-            return node.config.id ? `${message} Use "#${node.id}".` : `${message} Use "#${node.id}", or give that state an id.`;
-          }
-        }
-        return message;
-      }
-      getPersistedSnapshot(snapshot, options2) {
-        return createActor2.getPersistedSnapshot(snapshot, options2);
-      }
-      /**
-       * @internal Builds a machine-shaped `'error'` snapshot (root configuration,
-       * no children) for a persisted snapshot that failed to restore, so
-       * consumers keep `matches()`, `can()` and friends.
-       */
-      _createRestoreErrorSnapshot(persisted, error) {
-        const context = persisted?.context;
-        return createActor2.cloneMachineSnapshot(createActor2.createMachineSnapshot({
-          context: context && typeof context === "object" ? context : {},
-          _nodes: [this.root],
-          children: {},
-          status: "active"
-        }, this), {
-          status: "error",
-          error
-        });
-      }
-      _validatePersistedStateValue(stateValue, node, path2) {
-        if (typeof stateValue === "string") {
-          if (!node.states[stateValue]) {
-            throw new InvalidSnapshotError2(`Persisted snapshot references state '${path2.concat(stateValue).join(".")}' which does not exist on ${createActor2.describeMachine(this.id)}.`);
-          }
-          return;
-        }
-        const invalidValue = (reason) => new InvalidSnapshotError2(`Persisted snapshot for ${createActor2.describeMachine(this.id)} has an invalid state value${path2.length ? ` at '${path2.join(".")}'` : ""}: ${reason}.`);
-        if (!stateValue || typeof stateValue !== "object" || Array.isArray(stateValue)) {
-          throw invalidValue("expected a state name or an object of state values");
-        }
-        const keys = Object.keys(stateValue);
-        if (keys.length > 1 && node.type !== "parallel") {
-          throw invalidValue(`state '${path2.length ? path2.join(".") : node.key}' is not parallel, so only one child state can be active`);
-        }
-        for (const key of keys) {
-          const childNode = node.states[key];
-          if (!childNode) {
-            throw new InvalidSnapshotError2(`Persisted snapshot references state '${path2.concat(key).join(".")}' which does not exist on ${createActor2.describeMachine(this.id)}.`);
-          }
-          this._validatePersistedStateValue(stateValue[key], childNode, path2.concat(key));
-        }
-      }
-      restoreSnapshot(snapshot, actorScope) {
-        const usesInertScope = !actorScope;
-        const resolvedActorScope = actorScope ?? createActor2.createInertActorScope(this);
-        if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
-          throw new InvalidSnapshotError2(`Persisted snapshot for ${createActor2.describeMachine(this.id)} must be an object.`);
-        }
-        const snapshotMachine = snapshot.machine;
-        const persistedMachine = snapshotMachine && typeof snapshotMachine === "object" && typeof snapshotMachine.transition === "function" && "root" in snapshotMachine ? void 0 : snapshotMachine;
-        const legacyPersistedVersion = snapshot.version;
-        const persistedVersion = typeof persistedMachine?.version === "string" ? persistedMachine.version : legacyPersistedVersion;
-        if (legacyPersistedVersion !== void 0 && persistedMachine?.version !== void 0 && persistedMachine.version !== legacyPersistedVersion) {
-          throw new Error(`Persisted snapshot version '${legacyPersistedVersion}' conflicts with machine version '${persistedMachine.version}'.`);
-        }
-        if (persistedMachine && typeof persistedMachine.id === "string" && persistedMachine.id !== this.id) {
-          throw new Error(`Machine ID mismatch: persisted snapshot machine '${persistedMachine.id}' does not match '${this.id}'.`);
-        }
-        if (persistedVersion !== this.version) {
-          const migrate = this.config.migrate;
-          if (typeof migrate !== "function") {
-            throw new Error(`Persisted snapshot version '${persistedVersion}' does not match machine version '${this.version}'.`);
-          }
-          snapshot = migrate(snapshot, persistedVersion);
-        }
-        const snapshotData2 = snapshot;
-        if (!snapshotData2 || typeof snapshotData2 !== "object") {
-          throw new InvalidSnapshotError2(`Persisted snapshot for ${createActor2.describeMachine(this.id)} must be an object.`);
-        }
-        if (snapshotData2.value === void 0) {
-          throw new InvalidSnapshotError2(`Persisted snapshot for ${createActor2.describeMachine(this.id)} has no state value.`);
-        }
-        this._validatePersistedStateValue(snapshotData2.value, this.root, []);
-        const nodes = Array.from(createActor2.getAllStateNodes(createActor2.getStateNodes(this.root, snapshotData2.value)));
-        const children = {};
-        const snapshotChildren = snapshotData2.children;
-        for (const actorId2 of Object.keys(snapshotChildren)) {
-          const actorData = snapshotChildren[actorId2];
-          if (actorData.remote === true && actorData.address !== void 0) {
-            if (typeof actorData.src !== "string") {
-              throw new Error(`Unable to restore remote child '${actorId2}': a child referenced by address requires a registered source key.`);
-            }
-            const handle2 = createActor2.createRemoteActorRef(resolvedActorScope.system, {
-              id: actorId2,
-              address: actorData.address,
-              src: actorData.src,
-              parent: resolvedActorScope.self,
-              registryKey: actorData.registryKey,
-              syncSnapshot: actorData.syncSnapshot,
-              incarnation: actorData.incarnation
-            });
-            if (actorData.registryKey) {
-              resolvedActorScope.system._set(actorData.registryKey, handle2);
-            }
-            children[actorId2] = handle2;
-            continue;
-          }
-          const childState = actorData.snapshot;
-          const src3 = actorData.src;
-          const logic = src3 === void 0 ? createActor2.resolveInvokedActorLogic(this, nodes, actorId2) : typeof src3 === "string" ? this.sources.actors[src3] : src3;
-          if (!logic) {
-            throw new Error(`Unable to restore child actor '${actorId2}': child source '${typeof src3 === "string" ? src3 : "<inline>"}' is not provided in ${createActor2.describeMachine(this.id)}.`);
-          }
-          const actor = resolvedActorScope.system.createActorRef(logic, {
-            id: actorId2,
-            parent: resolvedActorScope.self,
-            syncSnapshot: actorData.syncSnapshot,
-            snapshot: childState,
-            src: src3,
-            registryKey: actorData.registryKey
-          });
-          actor._rehydrated = true;
-          if (src3 === void 0) {
-            actor._invoked = true;
-          }
-          children[actorId2] = actor;
-        }
-        const timers = [];
-        const persistedTimers = snapshotData2.timers ?? [];
-        for (const timer of persistedTimers) {
-          let event = timer.event;
-          if (event.type === "xstate.timeout.actor") {
-            const actorId2 = event.actorId;
-            const child = children[actorId2];
-            if (child) {
-              event = createActor2.createInvokeTimeoutEvent(actorId2, child.sessionId);
-            }
-          }
-          const target = typeof timer.target === "string" ? timer.target === "self" ? "self" : children[timer.target] : createActor2.isSerializedActorRef(timer.target) ? timer.target : resolvedActorScope.self._parent;
-          if (!target) {
-            const targetDescription = typeof timer.target === "string" ? timer.target : timer.target.type;
-            throw new Error(`Unable to restore timer ${timer.id !== void 0 ? `'${timer.id}'` : `for event '${timer.event.type}'`}: target actor '${targetDescription}' is unavailable.`);
-          }
-          timers.push({
-            ...timer,
-            event,
-            target
-          });
-        }
-        const reviveHistoryValue = (historyValue) => {
-          if (!historyValue || typeof historyValue !== "object") {
-            return {};
-          }
-          const revived2 = {};
-          for (const key of Object.keys(historyValue)) {
-            const arr = historyValue[key];
-            for (const item of arr) {
-              let resolved;
-              if (item instanceof StateNode2) {
-                resolved = item;
-              } else {
-                try {
-                  resolved = this.root.machine.getStateNodeById(item.id);
-                } catch {
-                }
-              }
-              if (!resolved) {
-                continue;
-              }
-              revived2[key] ??= [];
-              revived2[key].push(resolved);
-            }
-          }
-          return revived2;
-        };
-        const revivedHistoryValue = reviveHistoryValue(snapshotData2.historyValue);
-        const {
-          version: _persistedSnapshotVersion,
-          // The legacy system-wide counter: superseded by per-snapshot
-          // `_nextActorIds` plus the child-id fold below; dropped so old and new
-          // snapshots round-trip to the same shape.
-          _nextActorId: _legacyNextActorId,
-          ...persistedRest
-        } = snapshot;
-        let restoredCounters = persistedRest._nextActorIds;
-        for (const childId of Object.keys(snapshotChildren)) {
-          const generated = createActor2.parseGeneratedActorId(childId);
-          if (generated && (restoredCounters?.[generated.prefix] ?? 0) <= generated.index) {
-            restoredCounters = {
-              ...restoredCounters,
-              [generated.prefix]: generated.index + 1
-            };
-          }
-        }
-        const revived = /* @__PURE__ */ new Map();
-        function reviveContext(value, isRoot = false) {
-          if (!value || typeof value !== "object") {
-            return value;
-          }
-          if (!isRoot && createActor2.isSerializedActorRef(value)) {
-            if (value.incarnation !== void 0) {
-              return value;
-            }
-            return Object.values(children).find((child) => child.address === value.$actor) ?? value;
-          }
-          const proto = Object.getPrototypeOf(value);
-          if (!Array.isArray(value) && proto !== Object.prototype && proto !== null) {
-            return value;
-          }
-          let copy2 = revived.get(value);
-          if (!copy2) {
-            revived.set(value, copy2 = Array.isArray(value) ? [] : Object.create(proto));
-            for (const key of Object.keys(value)) {
-              Object.defineProperty(copy2, key, {
-                value: reviveContext(value[key]),
-                writable: true,
-                enumerable: true,
-                configurable: true
-              });
-            }
-          }
-          return copy2;
-        }
-        const restoredSnapshot = createActor2.createMachineSnapshot({
-          ...persistedRest,
-          context: reviveContext(persistedRest.context, true),
-          children,
-          timers,
-          _nextActorIds: restoredCounters,
-          _nodes: nodes,
-          // Derived from the resolved configuration, so a partial value such as
-          // `{ active: {} }` is completed with initial states and agrees with
-          // `nodes`.
-          value: void 0,
-          historyValue: revivedHistoryValue,
-          // Inputs only belong to active states; drop any others.
-          _stateInputs: Object.fromEntries(Object.entries(snapshotData2.stateInputs ?? {}).filter(([id]) => nodes.some((node) => node.id === id)))
-        }, this, resolvedActorScope.self);
-        if (usesInertScope) {
-          createActor2.setInertActorScopeSnapshot(resolvedActorScope, restoredSnapshot, false);
-          return createActor2.attachSnapshotActorRef(resolvedActorScope, restoredSnapshot);
-        }
-        return this._attachPureActorRef(restoredSnapshot, resolvedActorScope);
-      }
-    };
-    function createMachine2(config) {
-      return new StateMachine2(config);
+      createActor2.diagnoseAuthorConfig(config);
+      return new machineSchemas.StateMachine(config);
     }
     function createMachineFromCompiledConfig(config, validator) {
-      return new StateMachine2(config, void 0, validator);
+      return new machineSchemas.StateMachine(config, void 0, validator);
     }
     function createStateConfig2(config) {
       return config;
+    }
+    function getMachineSerializationDiagnostics2(machine) {
+      const diagnostics = [];
+      const ancestors = /* @__PURE__ */ new Set();
+      const visit = (value, path2, runtimeSource = false) => {
+        const report2 = (code, message) => diagnostics.push({
+          code,
+          path: path2,
+          message
+        });
+        if (typeof value === "function") {
+          report2(runtimeSource ? "runtime-source" : "code-expression", runtimeSource ? "Supply this named implementation when reviving the definition." : "This function becomes source text and requires an evaluator and its dependencies.");
+          return;
+        }
+        if (value === void 0 || typeof value === "bigint" || typeof value === "symbol") {
+          report2("omitted-value", "This value is omitted from the exported definition.");
+          return;
+        }
+        if (typeof value === "number" && !Number.isFinite(value)) {
+          report2("unsupported-value", "Nonfinite numbers do not retain their value in JSON.");
+          return;
+        }
+        if (!value || typeof value !== "object") return;
+        if (isActorLogic(value)) {
+          const named2 = typeof value.id === "string";
+          report2(named2 ? "runtime-source" : "omitted-value", named2 ? "Supply the actor implementation under its source ID when reviving." : "This actor has no named source; an invocation using it is omitted.");
+          return;
+        }
+        if (isRuntimeSchema(value)) {
+          report2("omitted-value", "Runtime schemas are omitted; supply runtime schemas again when reviving.");
+          return;
+        }
+        if (ancestors.has(value)) {
+          report2("unsupported-value", "Cyclic data cannot be exported as a JSON definition.");
+          return;
+        }
+        if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) {
+          report2("omitted-value", "Class instances are omitted from the exported definition.");
+          return;
+        }
+        if (Object.hasOwn(value, "@code")) {
+          report2("code-expression", "This source expression requires an evaluator and its dependencies.");
+          return;
+        }
+        ancestors.add(value);
+        for (const [key, entry3] of Object.entries(value)) {
+          const pointer = `${path2}/${key.replaceAll("~", "~0").replaceAll("/", "~1")}`;
+          const sourceEntry = /^\/(actions|guards|actors|delays)$/.test(path2);
+          visit(entry3, pointer, sourceEntry);
+        }
+        ancestors.delete(value);
+      };
+      visit(machine._json ?? machine.config, "");
+      return diagnostics;
     }
     function machineToJSON2(machine) {
       const json3 = machine._json;
@@ -32708,11 +32801,11 @@ var require_xstate_cjs = __commonJS({
     function isVersionedStateMachine(entry3) {
       return "transition" in entry3 && typeof entry3.transition === "function";
     }
-    function hasSnapshotSchema(entry3) {
-      return "snapshotSchema" in entry3 && entry3.snapshotSchema !== void 0;
+    function getEntrySnapshotSchema(entry3) {
+      return isVersionedStateMachine(entry3) ? machineSchemas.snapshotSchema(entry3) : entry3.snapshotSchema;
     }
-    function hasEventSchema(entry3) {
-      return "eventSchema" in entry3 && entry3.eventSchema !== void 0;
+    function getEntryEventSchema(entry3) {
+      return isVersionedStateMachine(entry3) ? machineSchemas.historicalEventSchema(entry3) : entry3.eventSchema;
     }
     function getSnapshotSource(raw) {
       if (!isObject3(raw)) {
@@ -32737,7 +32830,7 @@ var require_xstate_cjs = __commonJS({
       return result.value;
     }
     async function finalizeSnapshot(snapshot, target) {
-      return await validate4(target.snapshotSchema, {
+      return await validate4(machineSchemas.snapshotSchema(target), {
         ...snapshot,
         machine: {
           id: target.id,
@@ -32745,9 +32838,8 @@ var require_xstate_cjs = __commonJS({
         }
       }, `snapshot for machine '${target.id}' version '${target.version}'`);
     }
-    async function validateEvents(events, source) {
+    async function validateEvents(events, _source, schema2) {
       return Promise.all(events.map(async (event, index3) => {
-        const schema2 = historicalEventSchemas.get(source) ?? source.eventSchema;
         const result = await schema2["~standard"].validate(event);
         if (result.issues) {
           const message = result.issues[0]?.message;
@@ -32823,10 +32915,11 @@ var require_xstate_cjs = __commonJS({
         if (!source) {
           throw new Error(`Unknown machine identity '${id}' version '${version}'.`);
         }
-        if (!hasSnapshotSchema(source)) {
+        const sourceSnapshotSchema = getEntrySnapshotSchema(source);
+        if (!sourceSnapshotSchema) {
           throw new Error(`Machine version '${version}' does not define a snapshot schema.`);
         }
-        const snapshot = await validate4(source.snapshotSchema, raw, `snapshot for machine '${id}' version '${version}'`);
+        const snapshot = await validate4(sourceSnapshotSchema, raw, `snapshot for machine '${id}' version '${version}'`);
         return {
           source,
           ...isVersionedStateMachine(source) && {
@@ -32852,11 +32945,12 @@ var require_xstate_cjs = __commonJS({
           const source = byIdentity.get(`${sourceId}\0${adaptationOptions.from.version}`);
           let sourceError;
           let sourceValidationFailed = false;
-          const hasTypedSource = source && hasEventSchema(source);
-          if (hasTypedSource) {
+          const sourceEventSchema = source && getEntryEventSchema(source);
+          const hasTypedSource = !!source && !!sourceEventSchema;
+          if (source && sourceEventSchema) {
             let sourceEvents;
             try {
-              sourceEvents = await validateEvents(events, source);
+              sourceEvents = await validateEvents(events, source, sourceEventSchema);
             } catch (error) {
               sourceError = error;
               sourceValidationFailed = true;
@@ -32867,13 +32961,13 @@ var require_xstate_cjs = __commonJS({
               }
               const adapter = adaptationOptions.adapters[source.version];
               if (adapter) {
-                return validateEvents(await adapter(sourceEvents), target);
+                return validateEvents(await adapter(sourceEvents), target, machineSchemas.historicalEventSchema(target));
               }
             }
           }
           const wildcardAdapter = adaptationOptions.adapters["*"];
           if (wildcardAdapter) {
-            return validateEvents(await wildcardAdapter(events, adaptationOptions.from), target);
+            return validateEvents(await wildcardAdapter(events, adaptationOptions.from), target, machineSchemas.historicalEventSchema(target));
           }
           if (hasTypedSource) {
             if (sourceValidationFailed) {
@@ -33021,6 +33115,7 @@ var require_xstate_cjs = __commonJS({
       return items.some((item) => holdsActorRef(item, refs, visited2));
     }
     var setup2 = function setupImplementation(config = {}) {
+      createActor2.diagnoseSetupConfig(config);
       const {
         validator,
         states = {},
@@ -33034,7 +33129,10 @@ var require_xstate_cjs = __commonJS({
         extend(extension) {
           return setup2(mergeSetupConfigs(config, extension));
         },
-        createMachine(machineConfig) {
+        createMachine(machineConfig, ...rest) {
+          if (rest[0] !== void 0) {
+            throw new Error(createActor2.xstateError(71));
+          }
           const configSchemas = machineConfig.schemas;
           const mergedSchemas = mergeSchemas(configSchemas, schemas);
           const mergedStates = mergeStateSchemas(machineConfig.states, states);
@@ -33063,7 +33161,8 @@ var require_xstate_cjs = __commonJS({
               delays: mergedDelays
             } : void 0
           };
-          return new StateMachine2(config2, void 0, validator);
+          createActor2.diagnoseAuthorConfig(config2);
+          return new machineSchemas.StateMachine(config2, void 0, validator);
         },
         createInvoke(invokeConfig, ..._check) {
           return typeof invokeConfig.src === "function" ? {
@@ -33081,17 +33180,22 @@ var require_xstate_cjs = __commonJS({
         schemas: schemas ?? {}
       };
     };
-    function createSystem2(_config = {}) {
-      const runtimeRef = {};
-      const pending = [];
+    function createSystem2(config = {}) {
+      const runtimeRef = {
+        initialize: () => flushObservers()
+      };
+      const pending = /* @__PURE__ */ new Set();
       const flushObservers = () => {
         const runtime = runtimeRef.current;
         if (!runtime) {
           return;
         }
         for (const entry3 of pending) {
-          if (entry3.active && !entry3.subscription) {
-            entry3.subscription = entry3.subscribe(runtime);
+          const subscription = entry3.subscribe(runtime);
+          if (pending.delete(entry3)) {
+            entry3.subscription = subscription;
+          } else {
+            subscription.unsubscribe();
           }
         }
       };
@@ -33101,24 +33205,26 @@ var require_xstate_cjs = __commonJS({
           return subscribe(runtime);
         }
         const entry3 = {
-          subscribe,
-          active: true
+          subscribe
         };
-        pending.push(entry3);
+        pending.add(entry3);
         return {
           unsubscribe() {
-            entry3.active = false;
+            pending.delete(entry3);
             entry3.subscription?.unsubscribe();
           }
         };
       };
+      if (config.onEmitted) {
+        const listener = config.onEmitted;
+        subscribeToSystem((system) => system.onEmitted(listener));
+      }
       return {
         createActor(logic, ...[options2]) {
           const actor = createActor2.createActor(logic, {
             ...options2,
             _systemRef: runtimeRef
           });
-          flushObservers();
           return actor;
         },
         get(key) {
@@ -33129,6 +33235,9 @@ var require_xstate_cjs = __commonJS({
         },
         inspect(observer) {
           return subscribeToSystem((system) => system.inspect(observer));
+        },
+        onEmitted(listener) {
+          return subscribeToSystem((system) => system.onEmitted(listener));
         },
         onRejectedEvent(listener) {
           return subscribeToSystem((system) => system.onRejectedEvent(listener));
@@ -33359,7 +33468,7 @@ var require_xstate_cjs = __commonJS({
     function isHandle(value) {
       return !!value && typeof value.address === "string" && typeof value.getSnapshot === "function";
     }
-    var systemActorHandle = Symbol("xstate.systemActorHandle");
+    var systemActorHandle = /* @__PURE__ */ Symbol("xstate.systemActorHandle");
     var systemLogger = () => {
     };
     function encode9(value, seen = /* @__PURE__ */ new Set(), mappers) {
@@ -34098,7 +34207,7 @@ var require_xstate_cjs = __commonJS({
         let done = false;
         const handle2 = resolvedOptions.timeout === Infinity ? void 0 : setTimeout(() => {
           dispose();
-          rej(new Error(`Timeout of ${resolvedOptions.timeout} ms exceeded`));
+          rej(new Error(createActor2.xstateError(75, resolvedOptions.timeout)));
         }, resolvedOptions.timeout);
         const dispose = () => {
           clearTimeout(handle2);
@@ -34135,7 +34244,7 @@ var require_xstate_cjs = __commonJS({
           },
           complete: () => {
             dispose();
-            rej(new Error(`Actor terminated without satisfying predicate`));
+            rej(new Error(createActor2.xstateError(76)));
           }
         });
         if (done) {
@@ -34166,6 +34275,10 @@ var require_xstate_cjs = __commonJS({
     exports.runStep = createActor2.runStep;
     exports.stopActor = createActor2.stopActor;
     exports.terminateActor = createActor2.terminateActor;
+    exports.InvalidSnapshotError = machineSchemas.InvalidSnapshotError;
+    exports.StateMachine = machineSchemas.StateMachine;
+    exports.StateNode = machineSchemas.StateNode;
+    exports.eventSchema = machineSchemas.eventSchema;
     exports.isTypeSchema = schema_types.isTypeSchema;
     exports.types = schema_types.types;
     exports.describeExecutableEffect = effectDescriptor.describeExecutableEffect;
@@ -34175,10 +34288,7 @@ var require_xstate_cjs = __commonJS({
     exports.initialTransition = effectDescriptor.initialTransition;
     exports.isUnhandled = effectDescriptor.isUnhandled;
     exports.transition = effectDescriptor.transition;
-    exports.InvalidSnapshotError = InvalidSnapshotError2;
     exports.SimulatedClock = SimulatedClock2;
-    exports.StateMachine = StateMachine2;
-    exports.StateNode = StateNode2;
     exports._createMachineFromCompiledConfig = createMachineFromCompiledConfig;
     exports._hotSwapActorLogic = hotSwapActorLogic;
     exports.advanceSystemTime = advanceSystemTime2;
@@ -34186,6 +34296,7 @@ var require_xstate_cjs = __commonJS({
     exports.createMachine = createMachine2;
     exports.createStateConfig = createStateConfig2;
     exports.createSystem = createSystem2;
+    exports.getMachineSerializationDiagnostics = getMachineSerializationDiagnostics2;
     exports.initialSystemTransition = initialSystemTransition2;
     exports.machineConfigToJSON = machineConfigToJSON2;
     exports.machineFromJSON = machineFromJSON2;
@@ -34199,13 +34310,260 @@ var require_xstate_cjs = __commonJS({
   }
 });
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate-durable.cjs.js
-var require_xstate_durable_cjs = __commonJS({
-  "../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate-durable.cjs.js"(exports) {
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate-persist.cjs.js
+var require_xstate_persist_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate-persist.cjs.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var createActor2 = require_createActor_54296cf2_cjs();
-    var effectDescriptor = require_effectDescriptor_425644eb_cjs();
+    var createActor2 = require_createActor_25900f76_cjs();
+    var machineSchemas = require_machineSchemas_88d01821_cjs();
+    require_validation_4561b43c_cjs();
+    function restoreActor(logic, persistedSnapshot, options2) {
+      const {
+        system,
+        ...actorOptions
+      } = options2 ?? {};
+      createActor2.diagnoseActorOptions(actorOptions);
+      const resolvedOptions = {
+        ...actorOptions,
+        _restore: createRestoreHook(logic, persistedSnapshot)
+      };
+      return system ? system.createActor(logic, resolvedOptions) : new createActor2.Actor(logic, resolvedOptions);
+    }
+    function restoreLogicSnapshot(logic, persisted, actorScope) {
+      if (logic instanceof machineSchemas.StateMachine) {
+        return restoreMachineSnapshot(logic, persisted, actorScope);
+      }
+      if (!logic.restoreSnapshot && persisted === null) {
+        throw new Error(createActor2.xstateError(46));
+      }
+      return logic.restoreSnapshot ? logic.restoreSnapshot(persisted, actorScope) : persisted;
+    }
+    function createRestoreHook(logic, persisted) {
+      return {
+        restore: (actorScope) => restoreLogicSnapshot(logic, persisted, actorScope),
+        error: (error) => logic instanceof machineSchemas.StateMachine ? createRestoreErrorSnapshot(logic, persisted, error) : void 0
+      };
+    }
+    function createRestoreErrorSnapshot(machine, persisted, error) {
+      const context = persisted?.context;
+      return createActor2.cloneMachineSnapshot(createActor2.createMachineSnapshot({
+        context: context && typeof context === "object" ? context : {},
+        _nodes: [machine.root],
+        children: {},
+        status: "active"
+      }, machine), {
+        status: "error",
+        error
+      });
+    }
+    function restoreMachineSnapshot(machine, snapshot, actorScope) {
+      const usesInertScope = !actorScope;
+      const resolvedActorScope = actorScope ?? createActor2.createInertActorScope(machine);
+      if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+        throw new machineSchemas.InvalidSnapshotError(createActor2.xstateError(24, machine.id));
+      }
+      const snapshotMachine = snapshot.machine;
+      const persistedMachine = snapshotMachine && typeof snapshotMachine === "object" && typeof snapshotMachine.transition === "function" && "root" in snapshotMachine ? void 0 : snapshotMachine;
+      const legacyPersistedVersion = snapshot.version;
+      const persistedVersion = typeof persistedMachine?.version === "string" ? persistedMachine.version : legacyPersistedVersion;
+      if (legacyPersistedVersion !== void 0 && persistedMachine?.version !== void 0 && persistedMachine.version !== legacyPersistedVersion) {
+        throw new Error(createActor2.xstateError(34, legacyPersistedVersion, persistedMachine.version));
+      }
+      if (persistedMachine && typeof persistedMachine.id === "string" && persistedMachine.id !== machine.id) {
+        throw new Error(createActor2.xstateError(35, persistedMachine.id, machine.id));
+      }
+      if (persistedVersion !== machine.version) {
+        const migrate = machine.config.migrate;
+        if (typeof migrate !== "function") {
+          throw new Error(createActor2.xstateError(36, persistedVersion, machine.version));
+        }
+        snapshot = migrate(snapshot, persistedVersion);
+      }
+      const snapshotData = snapshot;
+      const {
+        nodes,
+        childLogics
+      } = machineSchemas.validatePersistedSnapshot(machine, snapshotData);
+      const children = {};
+      const snapshotChildren = snapshotData.children;
+      for (const actorId2 of Object.keys(snapshotChildren)) {
+        const actorData = snapshotChildren[actorId2];
+        if (actorData.remote === true && actorData.address !== void 0) {
+          if (typeof actorData.src !== "string") {
+            throw new Error(createActor2.xstateError(28, actorId2));
+          }
+          const handle2 = createActor2.createRemoteActorRef(resolvedActorScope.system, {
+            id: actorId2,
+            address: actorData.address,
+            src: actorData.src,
+            parent: resolvedActorScope.self,
+            registryKey: actorData.registryKey,
+            syncSnapshot: actorData.syncSnapshot,
+            incarnation: actorData.incarnation
+          });
+          if (actorData.registryKey) {
+            resolvedActorScope.system._set(actorData.registryKey, handle2);
+          }
+          children[actorId2] = handle2;
+          continue;
+        }
+        const childState = actorData.snapshot;
+        const src3 = actorData.src;
+        const logic = childLogics.get(actorId2);
+        const actor = resolvedActorScope.system.createActorRef(logic, {
+          id: actorId2,
+          parent: resolvedActorScope.self,
+          syncSnapshot: actorData.syncSnapshot,
+          ...childState !== void 0 ? {
+            _restore: createRestoreHook(logic, childState)
+          } : {},
+          src: src3,
+          registryKey: actorData.registryKey
+        });
+        actor._rehydrated = true;
+        if (src3 === void 0) {
+          actor._invoked = true;
+        }
+        children[actorId2] = actor;
+      }
+      const timers = [];
+      const persistedTimers = snapshotData.timers ?? [];
+      for (const timer of persistedTimers) {
+        let event = timer.event;
+        if (event.type === "xstate.timeout.actor") {
+          const actorId2 = event.actorId;
+          const child = children[actorId2];
+          if (child) {
+            event = createActor2.createInvokeTimeoutEvent(actorId2, child.sessionId);
+          }
+        }
+        const target = typeof timer.target === "string" ? timer.target === "self" ? "self" : children[timer.target] : createActor2.isSerializedActorRef(timer.target) ? timer.target : resolvedActorScope.self._parent;
+        if (!target) {
+          const targetDescription = typeof timer.target === "string" ? timer.target : timer.target.type;
+          throw new machineSchemas.InvalidSnapshotError(createActor2.xstateError(33, targetDescription));
+        }
+        timers.push({
+          ...timer,
+          event,
+          target
+        });
+      }
+      const reviveHistoryValue = (historyValue) => {
+        if (!historyValue || typeof historyValue !== "object") {
+          return {};
+        }
+        const revived2 = {};
+        for (const key of Object.keys(historyValue)) {
+          const arr = historyValue[key];
+          for (const item of arr) {
+            let resolved;
+            if (item instanceof machineSchemas.StateNode) {
+              resolved = item;
+            } else {
+              try {
+                resolved = machine.getStateNodeById(item.id);
+              } catch {
+              }
+            }
+            if (!resolved) {
+              continue;
+            }
+            revived2[key] ??= [];
+            revived2[key].push(resolved);
+          }
+        }
+        return revived2;
+      };
+      const revivedHistoryValue = reviveHistoryValue(snapshotData.historyValue);
+      const {
+        version: _persistedSnapshotVersion,
+        // The legacy system-wide counter: superseded by per-snapshot
+        // `_nextActorIds` plus the child-id fold below; dropped so old and new
+        // snapshots round-trip to the same shape.
+        _nextActorId: _legacyNextActorId,
+        ...persistedRest
+      } = snapshot;
+      let restoredCounters = persistedRest._nextActorIds;
+      for (const childId of Object.keys(snapshotChildren)) {
+        const generated = createActor2.parseGeneratedActorId(childId);
+        if (generated && (restoredCounters?.[generated.prefix] ?? 0) <= generated.index) {
+          restoredCounters = {
+            ...restoredCounters,
+            [generated.prefix]: generated.index + 1
+          };
+        }
+      }
+      const revived = /* @__PURE__ */ new Map();
+      function reviveContext(value, isRoot = false) {
+        if (!value || typeof value !== "object") {
+          return value;
+        }
+        if (!isRoot && createActor2.isSerializedActorRef(value)) {
+          if (value.incarnation !== void 0) {
+            return value;
+          }
+          return Object.values(children).find((child) => child.address === value.$actor) ?? value;
+        }
+        const proto = Object.getPrototypeOf(value);
+        if (!Array.isArray(value) && proto !== Object.prototype && proto !== null) {
+          return value;
+        }
+        let copy2 = revived.get(value);
+        if (!copy2) {
+          revived.set(value, copy2 = Array.isArray(value) ? [] : Object.create(proto));
+          for (const key of Object.keys(value)) {
+            Object.defineProperty(copy2, key, {
+              value: reviveContext(value[key]),
+              writable: true,
+              enumerable: true,
+              configurable: true
+            });
+          }
+        }
+        return copy2;
+      }
+      const restoredSnapshot = createActor2.createMachineSnapshot({
+        ...persistedRest,
+        context: reviveContext(persistedRest.context, true),
+        children,
+        timers,
+        _nextActorIds: restoredCounters,
+        _nodes: nodes,
+        // Derived from the resolved configuration, so a partial value such as
+        // `{ active: {} }` is completed with initial states and agrees with
+        // `nodes`.
+        value: void 0,
+        historyValue: revivedHistoryValue,
+        // Inputs only belong to active states; drop any others.
+        _stateInputs: Object.fromEntries(Object.entries(snapshotData.stateInputs ?? {}).filter(([id]) => nodes.some((node) => node.id === id)))
+      }, machine, resolvedActorScope.self);
+      if (usesInertScope) {
+        createActor2.setInertActorScopeSnapshot(resolvedActorScope, restoredSnapshot, false);
+        return createActor2.attachSnapshotActorRef(resolvedActorScope, restoredSnapshot);
+      }
+      if (!createActor2.isInertActorScope(resolvedActorScope)) {
+        createActor2.setSnapshotActorRef(restoredSnapshot, resolvedActorScope.self, resolvedActorScope.system);
+      }
+      return restoredSnapshot;
+    }
+    exports.snapshotSchema = machineSchemas.snapshotSchema;
+    exports.restoreActor = restoreActor;
+    exports.restoreLogicSnapshot = restoreLogicSnapshot;
+    exports.restoreMachineSnapshot = restoreMachineSnapshot;
+  }
+});
+
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate-durable.cjs.js
+var require_xstate_durable_cjs = __commonJS({
+  "../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate-durable.cjs.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var dist_xstatePersist = require_xstate_persist_cjs();
+    var createActor2 = require_createActor_25900f76_cjs();
+    var effectDescriptor = require_effectDescriptor_2fa27c54_cjs();
+    require_machineSchemas_88d01821_cjs();
+    require_validation_4561b43c_cjs();
     var DurableExecutionCancelledError2 = class extends Error {
       constructor() {
         super("Durable execution was stopped");
@@ -34332,14 +34690,15 @@ var require_xstate_durable_cjs = __commonJS({
           wrapped.runLogic = runtime.runLogic;
         }
         wrapped.sendEvent = (source, target, event) => {
-          if (!currentBatch && target.address === rootAddress && !runtime.sendEvent && adapter.enqueueRootEvent) {
+          const captureBatch = options2?.captureRootEvents !== false ? currentBatch : void 0;
+          if (!captureBatch && target.address === rootAddress && !runtime.sendEvent && adapter.enqueueRootEvent) {
             return dispatch(() => adapter.enqueueRootEvent(source, event));
           }
-          if (!currentBatch && target.address === rootAddress && !runtime.sendEvent) {
-            throw new Error(`A root-addressed event ("${event.type}") was produced while the durable loop was parked, but the adapter has no enqueueRootEvent or sendEvent to receive it. Implement enqueueRootEvent to place root-addressed events in the host's mailbox.`);
+          if (!captureBatch && target.address === rootAddress && !runtime.sendEvent) {
+            throw new Error(`A root-addressed event ("${event.type}") was produced outside batch capture (for example, while the durable loop was parked), but the adapter has no enqueueRootEvent or sendEvent to receive it. Implement enqueueRootEvent to place root-addressed events in the host's mailbox.`);
           }
-          if (currentBatch && target.address === rootAddress) {
-            currentBatch.rootEvents.push({
+          if (captureBatch && target.address === rootAddress) {
+            captureBatch.rootEvents.push({
               event,
               source
             });
@@ -34440,7 +34799,7 @@ var require_xstate_durable_cjs = __commonJS({
             scope
           } = createActor2.withSystemInspector(inspect, () => createActor2.withExecutionIdentity(executionIdentity, () => {
             const scope2 = createActor2.createInertActorScope(logic);
-            const snapshot2 = logic.restoreSnapshot ? logic.restoreSnapshot(persistedSnapshot, scope2) : persistedSnapshot;
+            const snapshot2 = dist_xstatePersist.restoreLogicSnapshot(logic, persistedSnapshot, scope2);
             createActor2.setInertActorScopeSnapshot(scope2, snapshot2, false);
             return {
               snapshot: installSystemRuntime(createActor2.attachSnapshotActorRef(scope2, snapshot2), true),
@@ -34621,7 +34980,7 @@ var require_dist2 = __commonJS({
 // ../../packages/thinking/dist/faux.js
 init_models();
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/providers/faux.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/providers/faux.js
 init_models();
 init_event_stream();
 init_text();
@@ -42961,7 +43320,7 @@ function FromString8(_context, type) {
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/value/create/from_symbol.mjs
 function FromSymbol2(_context, _type) {
-  return Symbol();
+  return /* @__PURE__ */ Symbol();
 }
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/value/create/from_template_literal.mjs
@@ -43625,7 +43984,7 @@ function isContainer(value) {
 }
 
 // ../../node_modules/.pnpm/@earendil-works+chord@file+vendor+pi-main-73f8de8+earendil-works-chord-1.3.1-main.73f8de8.tgz/node_modules/@earendil-works/chord/dist/delta/tracker.js
-var NODE = Symbol("chord.delta.overlay.node");
+var NODE = /* @__PURE__ */ Symbol("chord.delta.overlay.node");
 var PREPARED = /* @__PURE__ */ new WeakMap();
 var RELEASED = {};
 var ARRAY_MUTATORS = /* @__PURE__ */ new Set([
@@ -45951,10 +46310,10 @@ function resolve(root, path2) {
 // ../../node_modules/.pnpm/@earendil-works+chord@file+vendor+pi-main-73f8de8+earendil-works-chord-1.3.1-main.73f8de8.tgz/node_modules/@earendil-works/chord/dist/context/index.js
 init_dist();
 var ABORT_SIGNAL_CONTEXT_KEY = Object.freeze({
-  token: Symbol("chord.abortSignal")
+  token: /* @__PURE__ */ Symbol("chord.abortSignal")
 });
 var TELEMETRY_CONTEXT_KEY = Object.freeze({
-  token: Symbol("chord.telemetry")
+  token: /* @__PURE__ */ Symbol("chord.telemetry")
 });
 var BaseContext = class {
   get abortSignal() {
@@ -46300,7 +46659,7 @@ function isReplicatedStateSource(value) {
   return typeof value.attach === "function";
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/ids.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/ids.js
 function idFromNumber(value) {
   return value;
 }
@@ -46308,7 +46667,7 @@ function seqFromNumber(value) {
   return value;
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/documents.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/documents.js
 function defineDoc(definition) {
   validateDefinition(definition);
   return { definition };
@@ -46392,7 +46751,7 @@ function materializeDocumentValue(definition, record, version, value) {
   return copyJson(definition.migrate(value, version));
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/entries.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/entries.js
 function defineEntry(kind) {
   if (typeof kind !== "string" || kind.length === 0)
     throw new TypeError("Entry kind must be a non-empty string");
@@ -46408,7 +46767,7 @@ var ToolResultEntry = defineEntry("pi.tool-result");
 var ResetEntry = defineEntry("pi.reset");
 var CompactionEntry = defineEntry("pi.compaction");
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/errors.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/errors.js
 function errorMessage(error) {
   if (error instanceof Error)
     return error.message;
@@ -46445,7 +46804,7 @@ var ConversationBusy = class extends Error {
   }
 };
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/timers.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/timers.js
 var MAX_TIMER_DELAY = 2147483647;
 var inWorkers = typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
 var nativeTimer = (callback, delayMs, options2) => {
@@ -46501,7 +46860,7 @@ function hostTimers(setTimer, report2) {
   };
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/session/observation.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/session/observation.js
 var MAX_PENDING_WATCH_FRAMES = 100;
 var RETIREMENT_OPERATIONS = [["r", null]];
 var CommittedStateSource = class {
@@ -46764,10 +47123,10 @@ function toError2(error) {
   return error instanceof Error ? error : new Error(errorMessage(error));
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/types.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/types.js
 var ROOT_CONVERSATION_ID = 1;
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/session/forks.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/session/forks.js
 var SCAN_PAGE_SIZE = 256;
 async function prepareForkDocumentCopies(storage, parentConversationId, at, childConversationId, context) {
   const entry3 = await storage.entry(parentConversationId, at, context);
@@ -46806,7 +47165,7 @@ async function collectCopies(storage, scope, at, policy, childConversationId, co
   } while (cursor !== void 0);
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/session/transaction.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/session/transaction.js
 function applySubmissionChange(current, change) {
   if (current.status === "done" || current.status === "unanswered")
     return current;
@@ -47567,7 +47926,7 @@ function publishes(plan) {
   return plan.retire || plan.change?.loaded === void 0 || plan.content !== void 0;
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/session/session.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/session/session.js
 var LISTENER = { type: "listener_error" };
 var defaultRetention = 6e5;
 function documentRetention(ms) {
@@ -48311,7 +48670,7 @@ var GuardedStorage = class {
   }
 };
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/agent.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/agent.js
 var DEFAULT_RETRY_POLICY = {
   enabled: true,
   maxRetries: 3,
@@ -48565,10 +48924,10 @@ function applyWrap(items, target, wrap, nameOf, report2) {
   }
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/compaction.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/compaction.js
 init_estimate();
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/retry.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/retry.js
 function buildProviderErrorPattern(patterns) {
   return new RegExp(patterns.join("|"), "i");
 }
@@ -48689,12 +49048,12 @@ function isRetryableAssistantError(message) {
   return RETRYABLE_PROVIDER_ERROR_PATTERN.test(errorMessage2);
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/tasks.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/tasks.js
 function defineTask(definition) {
   return { definition };
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/context.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/context.js
 var SCAN_PAGE_SIZE2 = 256;
 var EXCLUDED_STOP_REASONS = /* @__PURE__ */ new Set(["aborted", "error", "deferred"]);
 var MISSING_RESULT_TEXT = "Tool result unavailable: history ends before this call completed.";
@@ -48888,7 +49247,7 @@ function missingResult(call, timestamp) {
   });
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/overflow.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/overflow.js
 var OVERFLOW_PATTERNS = [
   /prompt (?:is )?too long/i,
   // Anthropic and z.ai token overflow
@@ -48980,10 +49339,10 @@ function isContextOverflow(message, contextWindow) {
   return false;
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/generation.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/generation.js
 init_transcript();
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/inbox.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/inbox.js
 var InboxDoc = defineDoc({
   kind: "pi.inbox",
   version: 1,
@@ -49076,7 +49435,7 @@ async function withdrawQueuedInputs(tx, conversationId, reason = "aborted") {
   }
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/json.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/json.js
 function assignJson(target, key, value) {
   const slots = target;
   const current = slots[key];
@@ -49105,7 +49464,7 @@ function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/prompt.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/prompt.js
 init_transcript();
 function replaySections(messages) {
   const shown2 = /* @__PURE__ */ new Map();
@@ -49212,7 +49571,7 @@ function systemEntry(sections, tools, timestamp) {
   return { model: [message] };
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/uuid.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/uuid.js
 var MAX_UUID_V7_TIMESTAMP = 281474976710655;
 var MAX_SEQUENCE = (1n << 41n) - 1n;
 var lastOrdinaryTimestamp = -1;
@@ -49248,7 +49607,7 @@ function uuidv7(timestampMs) {
   return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/provider.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/provider.js
 var ProviderDoc = defineDoc({
   kind: "pi.provider",
   version: 1,
@@ -49685,9 +50044,9 @@ function Compile(...args) {
   return new Validator(context, type);
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/utils/validation.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/utils/validation.js
 var validatorCache = /* @__PURE__ */ new WeakMap();
-var TYPEBOX_KIND = Symbol.for("TypeBox.Kind");
+var TYPEBOX_KIND = /* @__PURE__ */ Symbol.for("TypeBox.Kind");
 function getSchemaTypes(schema2) {
   if (typeof schema2.type === "string") {
     return [schema2.type];
@@ -49966,11 +50325,11 @@ ${JSON.stringify(toolCall.arguments, null, 2)}`;
   throw new Error(errorMessage2);
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/truncate.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/truncate.js
 var DEFAULT_MAX_LINES = 2e3;
 var DEFAULT_MAX_BYTES = 50 * 1024;
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/usage.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/usage.js
 var UsageDoc = defineDoc({
   kind: "pi.usage",
   version: 1,
@@ -50020,7 +50379,7 @@ function addUsageState(sum, state3) {
   }
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/util.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/util.js
 var Waiters = class {
   #sets = /* @__PURE__ */ new Map();
   add(key, context) {
@@ -50078,7 +50437,7 @@ function optionalExtension(extension) {
   return extension === void 0 ? {} : { extension };
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/tool.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/tool.js
 var MADE_NESTED_CALLS = "pi.tool.madeNestedCalls";
 var NestedCallDoc = defineDocFamily({
   kind: "pi.tool.nested-call",
@@ -50703,7 +51062,7 @@ function jsonEqual(a, b) {
   return keys.length === Object.keys(b).length && keys.every((key) => Object.hasOwn(b, key) && jsonEqual(a[key], b[key]));
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/generation.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/generation.js
 var DEFAULT_POLL_AFTER_MS = 5e3;
 var GenerationTask = defineTask({
   name: "pi.generation",
@@ -51208,7 +51567,7 @@ function handOver(live, from4, to) {
     live.run.taskId = to;
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/live.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/live.js
 var LiveDoc = defineDoc({
   kind: "pi.live",
   version: 1,
@@ -51327,10 +51686,10 @@ async function settleSchedulerOutcome(tx, record, outcome) {
   endRun(tx, live, record.id, outcome.status === "faulted" ? { status: "unanswered", reason: "faulted", detail: outcome.error.message } : { status: "unanswered", reason: outcome.reason });
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/submissions.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/submissions.js
 init_dist();
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/telemetry.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/telemetry.js
 init_dist();
 var entry = {
   description: "A transcript entry was committed; content remains in the transcript.",
@@ -51466,7 +51825,7 @@ var DURABLE_TELEMETRY_SCHEMA = defineTelemetrySchema({
   }
 });
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/submissions.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/submissions.js
 var Submissions = class {
   #telemetry;
   #session;
@@ -51660,7 +52019,7 @@ async function admitSubmission(tx, conversationId, draft, now, queueModes, span)
   return { id, status: "placed" };
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/compaction.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/compaction.js
 var TOOL_RESULT_MAX_CHARS = 2e3;
 var SUMMARY_PREFIX = "The conversation history before this point was compacted into the following summary:\n\n<summary>\n";
 var SUMMARY_SUFFIX = "\n</summary>";
@@ -52004,7 +52363,7 @@ async function failNoModel2(runtime, ref, context) {
   }, context);
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/view.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/view.js
 var MOUNTED = [
   AgentDoc,
   LiveDoc,
@@ -52183,7 +52542,7 @@ function prefixed(op, prefix) {
   }
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/events.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/events.js
 function parts(view) {
   return {
     live: view.docs["pi.live"] ?? {},
@@ -52511,10 +52870,10 @@ function startsWith(path2, prefix) {
   return prefix.length <= path2.length && prefix.every((segment, index3) => path2[index3] === segment);
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/harness.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/harness.js
 init_dist();
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/registry.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/registry.js
 var SECTION_KEY = /^[a-z][a-z0-9_-]*$/;
 var BUILTIN_TASKS = [GenerationTask, ToolTask, CompactionTask];
 var RegistryState = class {
@@ -52608,7 +52967,7 @@ function createRegistry() {
   return new RegistryImpl();
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/scheduler.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/scheduler.js
 init_dist();
 var SCAN_PAGE_SIZE3 = 256;
 var LIVE_STATUSES = ["pending", "running", "waiting", "sleeping", "completing"];
@@ -54710,7 +55069,7 @@ function jsonEqual2(left, right) {
   return keys.every((key) => Object.hasOwn(right, key) && jsonEqual2(left[key], right[key]));
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/task-graph.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/task-graph.js
 var LIVE_STATUSES2 = ["pending", "running", "waiting", "sleeping", "completing"];
 var SCAN_PAGE_SIZE4 = 256;
 var TaskGraphView = class {
@@ -54895,9 +55254,9 @@ function phaseOf(checkpoint) {
   return checkpoint.phase;
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/harness/harness.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/harness/harness.js
 var SCAN_PAGE_SIZE5 = 256;
-var SCHEDULER_INDEX_SIZES = Symbol.for("pi-durable.schedulerIndexSizes");
+var SCHEDULER_INDEX_SIZES = /* @__PURE__ */ Symbol.for("pi-durable.schedulerIndexSizes");
 var ConversationImpl = class {
   id;
   #host;
@@ -55239,7 +55598,7 @@ var Harness = {
   }
 };
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/storage/scan.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/storage/scan.js
 function scanStart(requested, cursor, fallback) {
   if (requested !== void 0 && requested !== "ascending" && requested !== "descending") {
     throw new StorageRequestError(`Invalid scan order: ${String(requested)}`);
@@ -55262,7 +55621,7 @@ function nextCursor(id, order) {
   return { after: id, order };
 }
 
-// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_bee171b422d7213a32066bf641cf305e/node_modules/@earendil-works/pi-durable/dist/storage/memory.js
+// ../../node_modules/.pnpm/@earendil-works+pi-durable@file+vendor+pi-main-73f8de8+earendil-works-pi-durable-1.3.1-_49edf60ac987c597814df4f16fa94c8c/node_modules/@earendil-works/pi-durable/dist/storage/memory.js
 function* documentDeltaBatches(id, version, revisions, start) {
   for (let index3 = start; index3 < revisions.length; index3++) {
     const revision = revisions[index3];
@@ -56005,7 +56364,7 @@ var fauxThinkerOptions = (storageFor, respond = echo) => {
   };
 };
 
-// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_1977c1ca1e36dc53017f9a124bce0e38/node_modules/@earendil-works/pi-ai/dist/api/openai-responses.lazy.js
+// ../../node_modules/.pnpm/@earendil-works+pi-ai@file+vendor+pi-main-73f8de8+earendil-works-pi-ai-1.3.1-main.73f8d_0319cff4dec819076cc3dfca67a7ccf5/node_modules/@earendil-works/pi-ai/dist/api/openai-responses.lazy.js
 init_lazy();
 var openAIResponsesApi = () => lazyApi(() => Promise.resolve().then(() => (init_openai_responses(), openai_responses_exports)));
 
@@ -56598,23 +56957,69 @@ var watchActor = Effect7.fnUntraced(function* watchActor2(machine, actor) {
   yield* watcher.watch(machine, actor);
 });
 
-// ../../node_modules/.pnpm/@xstate+effect@1.0.0-alpha.9_effect@4.0.5_xstate@6.0.0-alpha.70/node_modules/@xstate/effect/dist/xstate-effect.js
-import { Schema as Schema10, Effect as Effect9, Stream as Stream2, Exit as Exit2, Cause as Cause2, Queue as Queue2 } from "effect";
+// ../../node_modules/.pnpm/@xstate+effect@1.0.0-beta.0_@oxlint+plugins@1.93.0_effect@4.1.4_xstate@6.0.0-beta.1/node_modules/@xstate/effect/dist/xstate-effect.js
+import { Schema as Schema10, Effect as Effect9, Stream as Stream2, Cause as Cause2, Exit as Exit2, Queue as Queue2, Data as Data4 } from "effect";
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate.cjs.mjs
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate.cjs.mjs
 var import_xstate_cjs = __toESM(require_xstate_cjs(), 1);
 
-// ../../node_modules/.pnpm/@xstate+effect@1.0.0-alpha.9_effect@4.0.5_xstate@6.0.0-alpha.70/node_modules/@xstate/effect/dist/state-a2e5cb31.js
-import { Queue, Effect as Effect8, Fiber, Scope, Exit, Cause, Context as Context7, Clock, Duration as Duration2, Data as Data3 } from "effect";
+// ../../node_modules/.pnpm/@xstate+effect@1.0.0-beta.0_@oxlint+plugins@1.93.0_effect@4.1.4_xstate@6.0.0-beta.1/node_modules/@xstate/effect/dist/state-a2154dce.js
+import { Cause, Data as Data3, Queue, Effect as Effect8, Exit, Fiber, Scope, Context as Context7, Clock, Duration as Duration2 } from "effect";
 
-// ../../node_modules/.pnpm/xstate@6.0.0-alpha.70/node_modules/xstate/dist/xstate-durable.cjs.mjs
+// ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate-durable.cjs.mjs
 var import_xstate_durable_cjs = __toESM(require_xstate_durable_cjs(), 1);
 
-// ../../node_modules/.pnpm/@xstate+effect@1.0.0-alpha.9_effect@4.0.5_xstate@6.0.0-alpha.70/node_modules/@xstate/effect/dist/state-a2e5cb31.js
-var actionFailure = Symbol.for("@xstate/effect/actionFailure");
-function isActionFailure(value) {
-  return typeof value === "object" && value !== null && actionFailure in value;
+// ../../node_modules/.pnpm/@xstate+effect@1.0.0-beta.0_@oxlint+plugins@1.93.0_effect@4.1.4_xstate@6.0.0-beta.1/node_modules/@xstate/effect/dist/state-a2154dce.js
+function _checkPrivateRedeclaration(e, t) {
+  if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object");
 }
+function _classPrivateFieldInitSpec(e, t, a) {
+  _checkPrivateRedeclaration(e, t), t.set(e, a);
+}
+function _checkInRHS(e) {
+  if (Object(e) !== e) throw TypeError("right-hand side of 'in' should be an object, got " + (null !== e ? typeof e : "null"));
+  return e;
+}
+function _assertClassBrand(e, t, n) {
+  if ("function" == typeof e ? e === t : e.has(t)) return arguments.length < 3 ? t : n;
+  throw new TypeError("Private element is not present on this object");
+}
+function _classPrivateFieldGet2(s, a) {
+  return s.get(_assertClassBrand(s, a));
+}
+var _effectFailure = /* @__PURE__ */ new WeakMap();
+var EffectFailure = class extends Error {
+  static is(value) {
+    return typeof value === "object" && value !== null && _effectFailure.has(_checkInRHS(value)) && _classPrivateFieldGet2(_effectFailure, value);
+  }
+  constructor(cause) {
+    super(Cause.pretty(cause));
+    this.cause = cause;
+    this._tag = "EffectFailure";
+    _classPrivateFieldInitSpec(this, _effectFailure, true);
+    this.name = "EffectFailure";
+  }
+};
+var EffectInterruptedError = class extends Data3.TaggedError("EffectInterruptedError") {
+  get message() {
+    return "Effect was interrupted before the actor completed";
+  }
+};
+var ActorStoppedError = class extends Data3.TaggedError("ActorStoppedError") {
+  get message() {
+    return `Actor "${this.actorId}" ${this.snapshot.status === "error" ? "errored" : "stopped"} before completing`;
+  }
+};
+var NotReadyError = class extends Data3.TaggedError("NotReadyError") {
+  get message() {
+    return "The actor is not ready yet";
+  }
+};
+function causeFromError(error) {
+  return error instanceof EffectFailure ? error.cause : Cause.fail(error);
+}
+var EventRejectedError = class extends Data3.TaggedError("EventRejectedError") {
+};
 var symbolObservable = (() => typeof Symbol === "function" && Symbol.observable || "@@observable")();
 function safeCall(fn, arg) {
   try {
@@ -56650,6 +57055,7 @@ var EffectActor = class {
     this._observers = /* @__PURE__ */ new Set();
     this._listeners = /* @__PURE__ */ new Map();
     this._settled = false;
+    this._pending = /* @__PURE__ */ new Set();
     this._root = root;
     this.id = root.id;
     this.address = root.address;
@@ -56665,11 +57071,66 @@ var EffectActor = class {
   }
   /** Sends an event; the actor processes it on its own fiber. */
   send(event) {
+    if (this._deliveryError(event)) return;
+    Queue.offerUnsafe(this._mailbox, {
+      kind: "event",
+      event
+    });
+  }
+  /** @internal */
+  _sendAndAwait(event) {
+    return Effect8.callback((resume) => {
+      const error = this._deliveryError(event);
+      if (error) {
+        resume(Effect8.fail(error));
+        return;
+      }
+      const receipt = {
+        resume: (exit) => resume(exit)
+      };
+      this._pending.add(receipt);
+      Queue.offerUnsafe(this._mailbox, {
+        kind: "event",
+        event,
+        receipt
+      });
+      return Effect8.sync(() => {
+        this._pending.delete(receipt);
+        receipt.resume = void 0;
+      });
+    });
+  }
+  _deliveryError(event) {
     if (this._settled) {
       this.system.deadLetter(void 0, this._root, event, "stopped");
-      return;
+      return this._stoppedError();
     }
-    Queue.offerUnsafe(this._mailbox, event);
+    if (this.logic instanceof import_xstate_cjs.StateMachine && this.logic.isInternalEventType(event.type)) {
+      this.system.deadLetter(void 0, this._root, event, "internalEvent");
+      return new EventRejectedError({
+        actorId: this.id,
+        event,
+        reason: "internalEvent"
+      });
+    }
+    return void 0;
+  }
+  /** @internal */
+  _rejectReceipts() {
+    for (const receipt of this._pending) this._completeReceipt(receipt, Exit.fail(this._stoppedError()));
+  }
+  _stoppedError() {
+    return new ActorStoppedError({
+      actorId: this.id,
+      snapshot: this._snapshot
+    });
+  }
+  /** @internal */
+  _completeReceipt(receipt, exit) {
+    if (!receipt || !this._pending.delete(receipt)) return;
+    const resume = receipt.resume;
+    receipt.resume = void 0;
+    resume?.(exit);
   }
   /** Stops the actor, its children and every Effect it hosts. */
   stop() {
@@ -56740,7 +57201,8 @@ var EffectActor = class {
     };
   }
   /** @internal Publishes a snapshot produced by the execution loop. */
-  _publish(snapshot) {
+  _publish(snapshot, receipt) {
+    if (this._settled) return;
     this._snapshot = snapshot;
     const status = snapshot.status;
     if (status === "active") {
@@ -56749,15 +57211,18 @@ var EffectActor = class {
       }
       return;
     }
-    this._settle(snapshot);
+    this._settle(snapshot, receipt);
   }
   /** @internal Marks the actor stopped and notifies observers. */
-  _settle(snapshot) {
+  _settle(snapshot, processing) {
     if (this._settled) {
       return;
     }
     this._snapshot = snapshot;
     this._settled = true;
+    for (const receipt of this._pending) {
+      if (receipt !== processing) this._completeReceipt(receipt, Exit.fail(this._stoppedError()));
+    }
     const observers = [...this._observers];
     this._observers.clear();
     const status = snapshot.status;
@@ -56876,7 +57341,7 @@ function trackEffect(actor, host, interrupt) {
   }
   interruptors.add(interrupt);
 }
-function startHostedEffect(actor, effect, spanName, onExit) {
+function startHostedEffect(actor, effect, spanName, onExit, onCancel) {
   const host = requireEffectHost(actor);
   let active = true;
   const traced = Effect8.withSpan(spanName, {
@@ -56893,11 +57358,16 @@ function startHostedEffect(actor, effect, spanName, onExit) {
     }
     active = false;
     untrackEffect(actor, host, cancel);
+    onCancel?.();
     interrupt();
   };
-  const fiber = Fiber.runIn(Effect8.runForkWith(host.context)(traced), host.scope);
+  const registered = Effect8.withFiber((fiber2) => {
+    Fiber.runIn(fiber2, host.scope);
+    host.fibers.add(fiber2);
+    return traced;
+  });
+  const fiber = Effect8.runForkWith(host.context)(registered);
   const interrupt = () => fiber.interruptUnsafe();
-  host.fibers.add(fiber);
   fiber.addObserver((exit) => {
     host.fibers.delete(fiber);
     if (!active) {
@@ -56915,12 +57385,12 @@ function startHostedEffect(actor, effect, spanName, onExit) {
 function runHostedEffect(actor, effect, spanName) {
   return new Promise((resolve2, reject) => {
     startHostedEffect(actor, effect, spanName, (exit) => {
-      if (Exit.isSuccess(exit) || Cause.hasInterruptsOnly(exit.cause)) {
+      if (Exit.isSuccess(exit)) {
         resolve2();
       } else {
-        reject(Cause.squash(exit.cause));
+        reject(new EffectFailure(exit.cause));
       }
-    });
+    }, resolve2);
   });
 }
 function closeEffectHost(host) {
@@ -56954,6 +57424,8 @@ function createEffectActor(logic, ...[options2]) {
     const runFork = Effect8.runForkWith(context);
     const runPromise = Effect8.runPromiseWith(context);
     const mailbox = yield* Queue.unbounded();
+    let delivered;
+    const getDelivered = () => delivered;
     const timers = /* @__PURE__ */ new Map();
     let stopped = false;
     const isRoot = (candidate) => candidate.address === durable.rootAddress;
@@ -56976,14 +57448,14 @@ function createEffectActor(logic, ...[options2]) {
           if (result && typeof result.then === "function") {
             void Promise.resolve(result).catch((error) => {
               offer({
-                [actionFailure]: true,
+                kind: "actionFailure",
                 error
               });
             });
           }
         } catch (error) {
           offer({
-            [actionFailure]: true,
+            kind: "actionFailure",
             error
           });
         }
@@ -57006,7 +57478,10 @@ function createEffectActor(logic, ...[options2]) {
       },
       sendEvent: (source, target, event) => {
         if (isRoot(target)) {
-          offer(event);
+          offer({
+            kind: "event",
+            event
+          });
           return;
         }
         (0, import_xstate_cjs.deliverEvent)(source, target, event);
@@ -57028,7 +57503,10 @@ function createEffectActor(logic, ...[options2]) {
             ...timer
           };
           if (isRoot(source)) {
-            offer(timerEvent);
+            offer({
+              kind: "event",
+              event: timerEvent
+            });
           } else {
             (0, import_xstate_cjs.deliverEvent)(source, source, timerEvent);
           }
@@ -57048,8 +57526,15 @@ function createEffectActor(logic, ...[options2]) {
           }
         }
       },
-      waitForEvent: () => runPromise(Queue.take(mailbox))
+      waitForEvent: () => runPromise(Queue.take(mailbox)).then((item) => {
+        delivered = item;
+        return item.kind === "event" ? item.event : {
+          type: "xstate.effect.actionFailure"
+        };
+      })
     }, {
+      // A live actor needs one FIFO for child events, sends and timers.
+      captureRootEvents: false,
       inspect: (event) => {
         if (event.type === "@xstate.actor" && event.actorRef.address === durable.rootAddress) {
           if (rootAnnounced) {
@@ -57095,6 +57580,7 @@ function createEffectActor(logic, ...[options2]) {
           status: "stopped"
         });
       }
+      actor._rejectReceipts();
       closeEffectHost(host);
     };
     let [snapshot, effects] = options2?.snapshot ? durable.restore(options2.snapshot) : durable.initialTransition(options2?.input);
@@ -57114,19 +57600,23 @@ function createEffectActor(logic, ...[options2]) {
     bindEffectHost(actor, host);
     const executeEffects2 = (batch) => Effect8.promise(() => durable.executeEffects(batch).then(() => void 0, (error) => {
       offer({
-        [actionFailure]: true,
+        kind: "actionFailure",
         error
       });
     }));
     const loop = Effect8.gen(function* () {
       yield* executeEffects2(effects);
       while (snapshot.status === "active" && !stopped) {
-        const item = yield* Effect8.promise(() => durable.waitForEvent().then((event2) => event2, () => void 0));
-        if (item === void 0 || stopped) {
-          break;
-        }
+        delivered = void 0;
+        const received = yield* Effect8.promise(() => durable.waitForEvent().catch(() => void 0));
+        if (received === void 0 || stopped) break;
+        const item = getDelivered() ?? {
+          kind: "event",
+          event: received
+        };
+        const receipt = item.kind === "event" ? item.receipt : void 0;
         let event;
-        if (isActionFailure(item)) {
+        if (item.kind === "actionFailure") {
           const errorEvent = logic.getExecutionErrorEvent?.(snapshot, item.error);
           if (!errorEvent) {
             snapshot = errorSnapshot(snapshot, item.error);
@@ -57134,16 +57624,25 @@ function createEffectActor(logic, ...[options2]) {
           }
           event = errorEvent;
         } else {
-          event = item;
+          event = item.event;
         }
         try {
           [snapshot, effects] = durable.transition(snapshot, event);
         } catch (error) {
           snapshot = errorSnapshot(snapshot, error);
+          actor._publish(snapshot, receipt);
+          actor._completeReceipt(receipt, Exit.succeed(snapshot));
           break;
         }
-        actor._publish(snapshot);
+        actor._publish(snapshot, receipt);
+        if (stopped) break;
+        const rejectedReason = effects.length === 1 && effects[0].effect.type === "@xstate.deadLetter" && "reason" in effects[0].effect && effects[0].effect.reason === "invalidEvent" ? effects[0].effect.reason : void 0;
         yield* executeEffects2(effects);
+        actor._completeReceipt(receipt, rejectedReason !== void 0 ? Exit.fail(new EventRejectedError({
+          actorId: actor.id,
+          event,
+          reason: rejectedReason
+        })) : Exit.succeed(snapshot));
       }
       if (!stopped) {
         actor._publish(snapshot);
@@ -57172,23 +57671,8 @@ function createEffectActor(logic, ...[options2]) {
     actor
   }) => actor));
 }
-var EffectInterruptedError = class extends Data3.TaggedError("EffectInterruptedError") {
-  get message() {
-    return "Effect was interrupted before the actor completed";
-  }
-};
-var ActorStoppedError = class extends Data3.TaggedError("ActorStoppedError") {
-  get message() {
-    return `Actor "${this.actorId}" ${this.snapshot.status === "error" ? "errored" : "stopped"} before completing`;
-  }
-};
-var NotReadyError = class extends Data3.TaggedError("NotReadyError") {
-  get message() {
-    return "The actor is not ready yet";
-  }
-};
 
-// ../../node_modules/.pnpm/@xstate+effect@1.0.0-alpha.9_effect@4.0.5_xstate@6.0.0-alpha.70/node_modules/@xstate/effect/dist/xstate-effect.js
+// ../../node_modules/.pnpm/@xstate+effect@1.0.0-beta.0_@oxlint+plugins@1.93.0_effect@4.1.4_xstate@6.0.0-beta.1/node_modules/@xstate/effect/dist/xstate-effect.js
 import { dual } from "effect/Function";
 function isStandardSchema(value) {
   return !!value && (typeof value === "object" || typeof value === "function") && "~standard" in value;
@@ -57234,17 +57718,9 @@ function toStandardSetupStates(states) {
 var EFFECT_INIT = "xstate.init";
 var EFFECT_RESOLVE = "xstate.effect.resolve";
 var EFFECT_REJECT = "xstate.effect.reject";
-var effectLogicBrand = Symbol.for("@xstate/effect/logic");
-function toError3(exit) {
-  if (Exit2.isSuccess(exit)) {
-    return void 0;
-  }
-  if (Cause2.hasInterruptsOnly(exit.cause)) {
-    return new EffectInterruptedError({
-      cause: exit.cause
-    });
-  }
-  return Cause2.squash(exit.cause);
+var effectLogicBrand = /* @__PURE__ */ Symbol.for("@xstate/effect/logic");
+function preserveFailure(error) {
+  return EffectFailure.is(error) ? error : new EffectFailure(Cause2.die(error));
 }
 function createSourceArgs(input, self, system) {
   return {
@@ -57257,6 +57733,32 @@ function createSourceArgs(input, self, system) {
   };
 }
 function brandLogic(logic, error, requirements) {
+  const transition2 = logic.transition.bind(logic);
+  logic.transition = (snapshot, event, scope) => {
+    try {
+      return transition2(snapshot, event, scope);
+    } catch (error2) {
+      throw preserveFailure(error2);
+    }
+  };
+  const initialTransition2 = logic.initialTransition.bind(logic);
+  logic.initialTransition = (input, scope) => {
+    try {
+      return initialTransition2(input, scope);
+    } catch (error2) {
+      throw preserveFailure(error2);
+    }
+  };
+  const restoreSnapshot = logic.restoreSnapshot?.bind(logic);
+  if (restoreSnapshot) {
+    logic.restoreSnapshot = (persisted, scope) => {
+      const snapshot = restoreSnapshot(persisted, scope);
+      if (snapshot.status === "error" && !EffectFailure.is(snapshot.error)) {
+        throw new Error("Cannot restore a serialized Effect failure. Recover the error before persisting the actor.");
+      }
+      return snapshot;
+    };
+  }
   Object.defineProperty(logic, effectLogicBrand, {
     configurable: false,
     enumerable: false,
@@ -57301,14 +57803,14 @@ function createEffectLogic(sourceOrConfig) {
       if (event.type === EFFECT_REJECT) {
         return {
           status: "error",
-          error: event.error,
+          error: preserveFailure(event.error),
           input: void 0
         };
       }
       if (event.type !== EFFECT_INIT) {
         return;
       }
-      const effect = typeof source === "function" ? source(createSourceArgs(input, self, system)) : source;
+      const effect = Effect9.suspend(() => typeof source === "function" ? source(createSourceArgs(input, self, system)) : source);
       enq.effect(() => startHostedEffect(self, Effect9.scoped(effect), "createEffectLogic", (exit) => {
         if (self.getSnapshot().status !== "active") {
           return;
@@ -57321,7 +57823,7 @@ function createEffectLogic(sourceOrConfig) {
         } else {
           self.send({
             type: EFFECT_REJECT,
-            error: toError3(exit)
+            error: new EffectFailure(exit.cause)
           });
         }
       }));
@@ -57405,7 +57907,7 @@ function join(actor) {
       if (snapshot.status === "done") {
         resume(Effect9.succeed(snapshot.output));
       } else if (snapshot.status === "error") {
-        resume(Effect9.fail(snapshot.error));
+        resume(Effect9.failCause(causeFromError(snapshot.error)));
       } else {
         resume(Effect9.fail(stoppedError(actor)));
       }
@@ -57446,7 +57948,12 @@ function wrapActions(actions) {
   for (const key of Object.keys(actions)) {
     const action = actions[key];
     wrapped[key] = (args) => {
-      const result = action(args);
+      let result;
+      try {
+        result = action(args);
+      } catch (error) {
+        result = Effect9.die(error);
+      }
       return Effect9.isEffect(result) ? runHostedEffect(args.self, result, `action.${key}`) : result;
     };
   }
@@ -57481,10 +57988,15 @@ function setupEffect(config = {}) {
     actions: wrapActions(config.actions)
   }));
 }
+var SnapshotCodecError = class extends Data4.TaggedError("SnapshotCodecError") {
+  get message() {
+    return `${this.stage} at ${this.path}: ${this.reason}`;
+  }
+};
 
 // ../../packages/core/dist/inspect-machine.js
-import { Data as Data4, Effect as Effect10, Schema as Schema11 } from "effect";
-var inspectOutcome = Data4.taggedEnum();
+import { Cause as Cause3, Data as Data5, Effect as Effect10, Option as Option2, Schema as Schema11 } from "effect";
+var inspectOutcome = Data5.taggedEnum();
 var readStats = createEffectLogic({
   effect: ({ input }) => FileInspector.use((inspector) => inspector.inspect(input.path)),
   schemas: { input: Schema11.Struct({ path: Schema11.String }) }
@@ -57512,7 +58024,11 @@ var inspectMachine = setupEffect({
         },
         onError: {
           context: ({ event }) => ({
-            outcome: inspectOutcome.Unreadable({ error: event.error })
+            outcome: inspectOutcome.Unreadable({
+              error: Option2.getOrElse(Cause3.findErrorOption(event.error.cause), () => {
+                throw event.error;
+              })
+            })
           }),
           target: "unreadable"
         },
@@ -57544,7 +58060,7 @@ var missingCriteria = (plan, judge) => stepsOf(plan.machine.states).flatMap(({ s
 ] : []);
 
 // ../../packages/core/dist/plans/validate.js
-import { Effect as Effect12, Option as Option2, Schema as Schema14 } from "effect";
+import { Effect as Effect12, Option as Option3, Schema as Schema14 } from "effect";
 import { absurd as absurd3, constFalse, constVoid } from "effect/Function";
 
 // ../../packages/core/dist/steps/call-registry.js
@@ -58473,7 +58989,7 @@ var checkPlan = Effect12.fn("checkPlan")(function* checkPlan2(plan, seeded = [],
   return resolvedPlan;
 });
 var decodeEnvelopeKeys = Schema14.decodeUnknownOption(Schema14.Struct({ envelope: Schema14.Record(Schema14.String, Schema14.Json) }));
-var refuseRetired = (input) => Option2.match(decodeEnvelopeKeys(input), {
+var refuseRetired = (input) => Option3.match(decodeEnvelopeKeys(input), {
   onNone: () => Effect12.void,
   onSome: ({ envelope }) => "budgetTokens" in envelope ? new PlanRefused({
     errors: [
@@ -58615,7 +59131,7 @@ var ProviderUnavailable = class extends Schema21.TaggedError()("ProviderUnavaila
 };
 
 // ../../packages/core/dist/steps/receipt.js
-import { Effect as Effect13, Option as Option3, Schema as Schema22 } from "effect";
+import { Effect as Effect13, Option as Option4, Schema as Schema22 } from "effect";
 var ThinkReceiptSchema = Schema22.Struct({
   effective: Schema22.Struct({
     model: Schema22.NullOr(Schema22.String),
@@ -58653,7 +59169,7 @@ var receiptsIn = (value) => {
   if (!isRecord2(value)) {
     return [];
   }
-  return Object.entries(value).flatMap(([key, field]) => key === "receipt" ? Option3.match(decodeReceipt(field), {
+  return Object.entries(value).flatMap(([key, field]) => key === "receipt" ? Option4.match(decodeReceipt(field), {
     onNone: () => receiptsIn(field),
     onSome: (receipt) => [receipt]
   }) : receiptsIn(field));
@@ -58950,7 +59466,8 @@ var extendRunContract = defineContract("extendRun", {
 });
 
 // ../../packages/core/dist/runs/host.js
-import { Clock as Clock3, Context as Context23, Crypto as Crypto2, Effect as Effect31, Exit as Exit5, Layer as Layer14, Option as Option14, Result as Result6, Schema as Schema45 } from "effect";
+import { Clock as Clock3, Context as Context23, Effect as Effect31, Exit as Exit5, Layer as Layer14, Option as Option15, Result as Result6, Schema as Schema45 } from "effect";
+import * as Digest4 from "effect/crypto/Digest";
 
 // ../../packages/core/dist/steps/judge.js
 import { Context as Context12, Effect as Effect15, Layer as Layer5, Schema as Schema26 } from "effect";
@@ -58976,7 +59493,7 @@ var Operator = class extends Context13.Service()("@mischief/core/Operator") {
 };
 
 // ../../packages/core/dist/runs/close-asks.js
-import { Effect as Effect18, Option as Option5, Result, Schema as Schema30 } from "effect";
+import { Effect as Effect18, Option as Option6, Result, Schema as Schema30 } from "effect";
 
 // ../../packages/core/dist/steps/mail.js
 import { Context as Context14, Effect as Effect16, Layer as Layer6, Schema as Schema27 } from "effect";
@@ -58996,7 +59513,7 @@ var Mail = class extends Context14.Service()("@mischief/core/Mail") {
 };
 
 // ../../packages/core/dist/runs/run-store.js
-import { Cause as Cause3, Context as Context15, Effect as Effect17, Exit as Exit3, Layer as Layer7, Option as Option4 } from "effect";
+import { Cause as Cause4, Context as Context15, Effect as Effect17, Exit as Exit3, Layer as Layer7, Option as Option5 } from "effect";
 
 // ../../packages/core/dist/runs/run-left-uncommitted.js
 import { Schema as Schema28 } from "effect";
@@ -59096,7 +59613,7 @@ var bufferedRunStore = (backend) => {
       for (const pending of buffers.values()) {
         const runId2 = pending.messages.get(messageId);
         if (runId2 !== void 0) {
-          return Effect17.succeed(Option4.some(runId2));
+          return Effect17.succeed(Option5.some(runId2));
         }
       }
       return backend.readMessage(messageId);
@@ -59107,11 +59624,11 @@ var bufferedRunStore = (backend) => {
     }),
     readPlan: (runId2, version) => Effect17.suspend(() => {
       const plan = buffers.get(runId2)?.plans.get(version);
-      return plan === void 0 ? backend.readPlan(runId2, version) : Effect17.succeed(Option4.some(structuredClone(plan)));
+      return plan === void 0 ? backend.readPlan(runId2, version) : Effect17.succeed(Option5.some(structuredClone(plan)));
     }),
     readRun: (runId2) => Effect17.suspend(() => {
       const run2 = buffers.get(runId2)?.run;
-      return run2 === void 0 ? backend.readRun(runId2) : Effect17.succeed(Option4.some(structuredClone(run2)));
+      return run2 === void 0 ? backend.readRun(runId2) : Effect17.succeed(Option5.some(structuredClone(run2)));
     }),
     replaceDocs: (runId2, docs) => buffer2(runId2, "replaceDocs", (pending) => {
       pending.replaceDocs = true;
@@ -59192,16 +59709,16 @@ var memoryRunBackend = () => {
     readDocs: (runId2) => Effect17.sync(() => structuredClone({ ...docs.get(runId2) })),
     readFingerprints: (runId2) => Effect17.sync(() => new Map(fingerprints.get(runId2))),
     readJournal: (runId2) => Effect17.sync(() => structuredClone(new Map(journals.get(runId2)))),
-    readMessage: (messageId) => Effect17.sync(() => Option4.fromUndefinedOr(messages.get(messageId))),
+    readMessage: (messageId) => Effect17.sync(() => Option5.fromUndefinedOr(messages.get(messageId))),
     readPaused: (runId2) => Effect17.sync(() => paused.has(runId2)),
-    readPlan: (runId2, version) => Effect17.sync(() => Option4.fromUndefinedOr(plans.get(`${runId2}#${version}`)).pipe(Option4.map((plan) => structuredClone(plan)))),
-    readRun: (runId2) => Effect17.sync(() => Option4.fromUndefinedOr(runs.get(runId2)).pipe(Option4.map((state3) => structuredClone(state3))))
+    readPlan: (runId2, version) => Effect17.sync(() => Option5.fromUndefinedOr(plans.get(`${runId2}#${version}`)).pipe(Option5.map((plan) => structuredClone(plan)))),
+    readRun: (runId2) => Effect17.sync(() => Option5.fromUndefinedOr(runs.get(runId2)).pipe(Option5.map((state3) => structuredClone(state3))))
   };
 };
 var RunStore = class extends Context15.Service()("@mischief/core/RunStore") {
   static memory = Layer7.sync(this, () => bufferedRunStore(memoryRunBackend()));
 };
-var withinRun = (store, runId2) => (effect) => Effect17.acquireUseRelease(store.open(runId2), () => effect, (_, exit) => (Exit3.isSuccess(exit) || Cause3.hasFails(exit.cause) && !Cause3.hasDies(exit.cause) && !Cause3.hasInterrupts(exit.cause) ? store.commit(runId2) : store.discard(runId2)).pipe(Effect17.andThen(store.close(runId2))));
+var withinRun = (store, runId2) => (effect) => Effect17.acquireUseRelease(store.open(runId2), () => effect, (_, exit) => (Exit3.isSuccess(exit) || Cause4.hasFails(exit.cause) && !Cause4.hasDies(exit.cause) && !Cause4.hasInterrupts(exit.cause) ? store.commit(runId2) : store.discard(runId2)).pipe(Effect17.andThen(store.close(runId2))));
 
 // ../../packages/core/dist/runs/close-asks.js
 var SHADOW = "shadow/";
@@ -59224,7 +59741,7 @@ var closeOpenAsks = (runId2, open3, supersededBy) => Effect18.gen(function* clos
     }
     const call = { epoch: 0, key, runId: runId2, visit: 1 };
     const stored2 = decodeSealed(journal.get(`seal:${key}`));
-    const sealed = Option5.isSome(stored2) ? Result.succeed(stored2.value) : yield* Effect18.result(mail.seal({
+    const sealed = Option6.isSome(stored2) ? Result.succeed(stored2.value) : yield* Effect18.result(mail.seal({
       ...call,
       message: closeText(runId2, messageId, supersededBy),
       to
@@ -59233,7 +59750,7 @@ var closeOpenAsks = (runId2, open3, supersededBy) => Effect18.gen(function* clos
       yield* Effect18.logWarning(`${runId2} could not seal its closing note for ${messageId}: ${reasonOf(sealed.failure)}`);
       continue;
     }
-    if (Option5.isNone(stored2)) {
+    if (Option6.isNone(stored2)) {
       yield* store.writeJournal(runId2, `seal:${key}`, { ...sealed.success });
     }
     yield* store.commit(runId2);
@@ -59254,7 +59771,8 @@ var Drive = class extends Context16.Service()("@mischief/core/Drive") {
 };
 
 // ../../packages/core/dist/runs/fingerprint.js
-import { Effect as Effect20, Option as Option6, Schema as Schema31 } from "effect";
+import { Effect as Effect20, Option as Option7, Schema as Schema31 } from "effect";
+import * as Digest from "effect/crypto/Digest";
 import { Hex } from "effect/encoding";
 var canonical = (value) => {
   if (Schema31.is(Schema31.Array(Schema31.Json))(value)) {
@@ -59267,14 +59785,14 @@ var canonical = (value) => {
   return JSON.stringify(value);
 };
 var fingerprintOf = (crypto2, value) => Effect20.gen(function* fingerprint() {
-  const digest2 = yield* crypto2.digest("SHA-256", new TextEncoder().encode(canonical(value)));
-  return Hex.encode(digest2);
+  const digest = yield* crypto2.digest(Digest.sha256, new TextEncoder().encode(canonical(value)));
+  return Hex.encode(digest);
 }).pipe(Effect20.orDie);
 var ActorStepSchema = Schema31.Struct({
   options: Schema31.Struct({ input: Schema31.Unknown, src: Schema31.String })
 });
 var decodeJson = Schema31.decodeUnknownOption(Schema31.fromJsonString(Schema31.Json));
-var stepOf = (actor) => Schema31.decodeUnknownOption(ActorStepSchema)(actor).pipe(Option6.flatMap(({ options: options2 }) => decodeJson(JSON.stringify({ input: options2.input, src: options2.src }))), Option6.getOrElse(() => null));
+var stepOf = (actor) => Schema31.decodeUnknownOption(ActorStepSchema)(actor).pipe(Option7.flatMap(({ options: options2 }) => decodeJson(JSON.stringify({ input: options2.input, src: options2.src }))), Option7.getOrElse(() => null));
 
 // ../../packages/core/dist/runs/provider-resume.js
 import { Context as Context17, Effect as Effect21, Layer as Layer9, Random, Schema as Schema32 } from "effect";
@@ -59312,7 +59830,8 @@ var providerWakeAt = (held) => {
 };
 
 // ../../packages/core/dist/runs/session.js
-import { Clock as Clock2, Cause as Cause4, Exit as Exit4, Crypto, Deferred as Deferred2, Effect as Effect29, Option as Option12, Result as Result5, Schema as Schema43, Semaphore } from "effect";
+import { Clock as Clock2, Cause as Cause5, Exit as Exit4, Deferred as Deferred2, Effect as Effect29, Option as Option13, Result as Result5, Schema as Schema43, Semaphore } from "effect";
+import * as Digest2 from "effect/crypto/Digest";
 import { constVoid as constVoid2 } from "effect/Function";
 
 // ../../packages/core/dist/plans/amend.js
@@ -59410,8 +59929,8 @@ var thinkConcurrencyFrom = (text) => {
 var thinkConcurrencyLayer = (text) => Layer11.effect(ThinkConcurrency, Effect24.fromResult(thinkConcurrencyFrom(text)).pipe(Effect24.orDie));
 
 // ../../packages/core/dist/steps/think-model-unmapped.js
-import { Data as Data5 } from "effect";
-var ThinkModelUnmapped = class extends Data5.TaggedError("ThinkModelUnmapped") {
+import { Data as Data6 } from "effect";
+var ThinkModelUnmapped = class extends Data6.TaggedError("ThinkModelUnmapped") {
 };
 var unmappedReason = ({ mapped, model: model2 }) => `ThinkModelUnmapped: the think rung asks for model "${model2}", which this host does not map (mapped: ${mapped.join(", ") || "none"}), so no model weighed in and the judge came to you. Fix: answer the question. To let the think rung decide next time, set the plan's defaults.agent.model to a mapped model, or drop envelope.thresholds.think to send every sub-threshold verdict straight to you.`;
 
@@ -59430,8 +59949,8 @@ var Thinker = class extends Context21.Service()("@mischief/core/Thinker") {
 };
 
 // ../../packages/core/dist/steps/verdict-deferred.js
-import { Data as Data6 } from "effect";
-var VerdictDeferred = class extends Data6.TaggedError("VerdictDeferred") {
+import { Data as Data7 } from "effect";
+var VerdictDeferred = class extends Data7.TaggedError("VerdictDeferred") {
   onlyTheShadowJudgeDefers = true;
 };
 
@@ -59468,7 +59987,7 @@ var withheldOutage = (outage) => new ProviderUnavailable({
 var withheldThink = (key) => (failure5) => Schema36.is(ProviderUnavailable)(failure5) ? withheldOutage(failure5) : withheldFailure(key, "model", "")(failure5);
 
 // ../../packages/core/dist/runs/completions.js
-import { Effect as Effect26, Option as Option7, Predicate, Schema as Schema38 } from "effect";
+import { Effect as Effect26, Option as Option8, Predicate, Schema as Schema38 } from "effect";
 
 // ../../packages/core/dist/runs/completion-lost.js
 import { Schema as Schema37 } from "effect";
@@ -59514,7 +60033,7 @@ var ChildrenSchema = Schema38.Struct({
 var decodeDone = Schema38.decodeUnknownOption(DoneSchema);
 var decodeChildren = Schema38.decodeUnknownOption(ChildrenSchema);
 var settledEffect = ({ output: _output, ...effect }) => effect;
-var withoutOutput = (child) => Option7.match(decodeDone(child.snapshot), {
+var withoutOutput = (child) => Option8.match(decodeDone(child.snapshot), {
   onNone: () => child,
   onSome: ({ effects, output: _output, ...done }) => ({
     ...child,
@@ -59527,7 +60046,7 @@ var withoutOutput = (child) => Option7.match(decodeDone(child.snapshot), {
     }
   })
 });
-var withoutDoneOutputs = (persisted) => Option7.match(decodeChildren(persisted), {
+var withoutDoneOutputs = (persisted) => Option8.match(decodeChildren(persisted), {
   onNone: () => persisted,
   onSome: ({ children }) => {
     const compact = {
@@ -59542,12 +60061,12 @@ var withoutDoneOutputs = (persisted) => Option7.match(decodeChildren(persisted),
 });
 
 // ../../packages/core/dist/runs/execution.js
-import { Effect as Effect27, Option as Option9, Predicate as Predicate2, Schema as Schema40 } from "effect";
+import { Effect as Effect27, Option as Option10, Predicate as Predicate2, Schema as Schema40 } from "effect";
 
 // ../../packages/core/dist/runs/restore-snapshot.js
-import { Option as Option8, Schema as Schema39 } from "effect";
+import { Option as Option9, Schema as Schema39 } from "effect";
 var decodeEmptyLegacyTimers = Schema39.decodeUnknownOption(Schema39.Struct({ timers: Schema39.Record(Schema39.String, Schema39.Never) }));
-var restorePlanSnapshot = (persisted) => Option8.match(decodeEmptyLegacyTimers(persisted), {
+var restorePlanSnapshot = (persisted) => Option9.match(decodeEmptyLegacyTimers(persisted), {
   onNone: () => persisted,
   onSome: () => ({
     ...persisted,
@@ -59585,11 +60104,11 @@ var openExecution = (compiled, sources, adapter, opening) => {
     ...adapter,
     transitionIndex: opening.transitionIndex
   });
-  const cursor = typed(Option9.match(opening.persisted, {
+  const cursor = typed(Option10.match(opening.persisted, {
     onNone: () => durable.initialTransition(),
     onSome: (persisted) => durable.restore(restorePlanSnapshot(persisted))
   }));
-  const startsOf = () => cursor.effects.flatMap((effect) => Option9.match(decodeStart(effect), {
+  const startsOf = () => cursor.effects.flatMap((effect) => Option10.match(decodeStart(effect), {
     onNone: () => [],
     onSome: ({ descriptor }) => [descriptor.actor.$actor]
   }));
@@ -59608,13 +60127,13 @@ var openExecution = (compiled, sources, adapter, opening) => {
       Object.assign(cursor, typed(durable.transition(cursor.snapshot, event)));
       return startsOf();
     },
-    started: Option9.isNone(opening.persisted) ? startsOf() : [],
+    started: Option10.isNone(opening.persisted) ? startsOf() : [],
     view: () => decodeView(cursor.snapshot)
   };
 };
 
 // ../../packages/core/dist/runs/redrive.js
-import { Context as Context22, Effect as Effect28, Layer as Layer13, Option as Option10, Result as Result4, Schema as Schema41 } from "effect";
+import { Context as Context22, Effect as Effect28, Layer as Layer13, Option as Option11, Result as Result4, Schema as Schema41 } from "effect";
 var Attempts = Schema41.Int.check(Schema41.isGreaterThan(0));
 var RedriveAttempts = Context22.Reference("@mischief/core/RedriveAttempts", {
   defaultValue: () => 3
@@ -59631,7 +60150,7 @@ var decode = Schema41.decodeUnknownOption(ThinkAttemptSchema);
 var settleThinkAttempt = (call, journal) => Effect28.gen(function* settleAttempt() {
   const key = `think-attempt:${call.key}#${call.visit}@${call.epoch}`;
   const attempt = decode(journal.get(key));
-  if (Option10.isSome(attempt) && attempt.value.pending) {
+  if (Option11.isSome(attempt) && attempt.value.pending) {
     const entry3 = { ...attempt.value, pending: false };
     journal.set(key, entry3);
     yield* (yield* RunStore).writeJournal(call.runId, key, entry3);
@@ -59642,7 +60161,7 @@ var attemptedThink = (call, journal, effect, exhausted) => Effect28.gen(function
   const cap = yield* RedriveAttempts;
   const key = `think-attempt:${call.key}#${call.visit}@${call.epoch}`;
   const previous2 = decode(journal.get(key));
-  const before = Option10.getOrElse(previous2, () => ({
+  const before = Option11.getOrElse(previous2, () => ({
     attempts: 0,
     level: call.agent.thinking ?? `host default (ceiling ${call.ceiling})`,
     model: call.agent.model ?? "host default",
@@ -59677,7 +60196,7 @@ var attemptedThink = (call, journal, effect, exhausted) => Effect28.gen(function
 });
 
 // ../../packages/core/dist/runs/replay.js
-import { Option as Option11, Schema as Schema42 } from "effect";
+import { Option as Option12, Schema as Schema42 } from "effect";
 var isText2 = Schema42.is(Schema42.String);
 var isList3 = Schema42.is(Schema42.Array(Schema42.Json));
 var isRecord3 = Schema42.is(Schema42.Record(Schema42.String, Schema42.Json));
@@ -59704,10 +60223,10 @@ var namesOf = (names3) => {
   return isText2(names3) ? [names3] : names3;
 };
 var docsRead = (step) => {
-  const reads = decodeReads(step).pipe(Option11.map(({ input }) => [
+  const reads = decodeReads(step).pipe(Option12.map(({ input }) => [
     ...namesOf(input.reads),
     ...namesOf(input.ephemeral?.reads)
-  ]), Option11.getOrElse(() => []));
+  ]), Option12.getOrElse(() => []));
   return [.../* @__PURE__ */ new Set([...textsIn(step).flatMap(docRefs), ...reads])].toSorted();
 };
 var ThinkSchema = Schema42.Struct({
@@ -59766,16 +60285,16 @@ var decodeElaborate = Schema42.decodeUnknownOption(ElaborateSchema);
 var docWrites = (step, output) => {
   const done = { output, step };
   return [
-    ...Option11.toArray(decodeThink(done)).map((thought2) => [thought2.step.input.writes, thought2.output.output]),
-    ...Option11.toArray(decodeCalled(done)).map((called) => [called.step.input.writes, called.output.output]),
-    ...Option11.toArray(decodeAsk(done)).map((sent) => [
+    ...Option12.toArray(decodeThink(done)).map((thought2) => [thought2.step.input.writes, thought2.output.output]),
+    ...Option12.toArray(decodeCalled(done)).map((called) => [called.step.input.writes, called.output.output]),
+    ...Option12.toArray(decodeAsk(done)).map((sent) => [
       `__sent:${sent.step.input.key}`,
       { messageId: sent.output.messageId, to: sent.step.input.to }
     ]),
-    ...Option11.toArray(decodeJudged(done)).map((verdict) => [whyDocName(verdict.step.input.key), [...verdict.output.why]]),
-    ...Option11.toArray(decodeAsked(done)).map((verdict) => [askedDocName(verdict.step.input.key), verdict.output.asked]),
-    ...Option11.toArray(decodeReason(done)).map((verdict) => [reasonDocName(verdict.step.input.key), verdict.output.reason]),
-    ...Option11.toArray(decodeElaborate(done)).map((result) => [
+    ...Option12.toArray(decodeJudged(done)).map((verdict) => [whyDocName(verdict.step.input.key), [...verdict.output.why]]),
+    ...Option12.toArray(decodeAsked(done)).map((verdict) => [askedDocName(verdict.step.input.key), verdict.output.asked]),
+    ...Option12.toArray(decodeReason(done)).map((verdict) => [reasonDocName(verdict.step.input.key), verdict.output.reason]),
+    ...Option12.toArray(decodeElaborate(done)).map((result) => [
       `__amendment:${result.step.input.key}`,
       result.output.amendment
     ])
@@ -59824,13 +60343,13 @@ var shown = (ask, docs) => {
   };
   return isText3(reason) ? { ...question, reason } : question;
 };
-var verdictOf = (event) => Option12.match(decodeVerdict(event), {
+var verdictOf = (event) => Option13.match(decodeVerdict(event), {
   onNone: () => ({}),
   onSome: ({ output }) => output
 });
 var migrateTo = (persisted, plan) => {
   const version = String(plan.version);
-  const id = Option12.match(decodeIdentity(persisted), {
+  const id = Option13.match(decodeIdentity(persisted), {
     onNone: () => plan.machine.id,
     onSome: ({ machine }) => machine.id
   });
@@ -59842,7 +60361,7 @@ var reportOf = (runId2, plan, state3) => Effect29.gen(function* buildReport() {
   const store = yield* RunStore;
   const journal = [...yield* store.readJournal(runId2)];
   const thought2 = thinkTotals(journal.map(([, entry3]) => entry3));
-  const failures = journal.flatMap(([key, entry3]) => Option12.match(decodeFailure(entry3), {
+  const failures = journal.flatMap(([key, entry3]) => Option13.match(decodeFailure(entry3), {
     onNone: () => [],
     onSome: (failure5) => [{ key, reason: reasonOf2(failure5) }]
   }));
@@ -59879,7 +60398,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect29.gen(f
   const judge = yield* Judge;
   const mail = yield* Mail;
   const operator = yield* Operator;
-  const crypto2 = yield* Crypto.Crypto;
+  const crypto2 = yield* Digest2.Digest;
   const registry = yield* CallRegistry;
   const saving = yield* Semaphore.make(1);
   const thinkPermits = yield* Semaphore.make(yield* ThinkConcurrency);
@@ -59919,10 +60438,10 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect29.gen(f
     const strict2 = strictFor(key);
     if (hit !== void 0 && !strict2) {
       const failure6 = decodeFailure(hit);
-      return Option12.isSome(failure6) ? yield* failed(key, failure6.value.error) : hit;
+      return Option13.isSome(failure6) ? yield* failed(key, failure6.value.error) : hit;
     }
     const print = yield* fingerprint;
-    if (hit !== void 0 && print !== "" && prints.get(key) === print && Option12.isNone(decodeFailure(hit))) {
+    if (hit !== void 0 && print !== "" && prints.get(key) === print && Option13.isNone(decodeFailure(hit))) {
       if (key.startsWith("logic:")) {
         watch2?.reused.push(key);
       }
@@ -59967,7 +60486,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect29.gen(f
   const produce = (key, directive) => Effect29.suspend(() => journal.has(`${PRODUCED}${key}`) ? Effect29.void : recordJournal(`${PRODUCED}${key}`, directive));
   const deliveryKey = (stepKey, cause) => Effect29.suspend(() => {
     const known = Schema43.decodeUnknownOption(DirectiveKey)(journal.get(cause));
-    if (Option12.isSome(known)) {
+    if (Option13.isSome(known)) {
       return Effect29.succeed(known.value);
     }
     const key = directiveKey({
@@ -60030,7 +60549,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect29.gen(f
       provider: "caller-share",
       status: 408
     }))))
-  })), ({ release }, outcome) => Exit4.isFailure(outcome) && (Cause4.hasInterrupts(outcome.cause) || Option12.exists(Cause4.findErrorOption(outcome.cause), Schema43.is(ThinkAbortUnconfirmed))) ? Effect29.void : release).pipe(Effect29.catchIf(Schema43.is(ThinkAbortUnconfirmed), ({ reason }) => new ProviderUnavailable({
+  })), ({ release }, outcome) => Exit4.isFailure(outcome) && (Cause5.hasInterrupts(outcome.cause) || Option13.exists(Cause5.findErrorOption(outcome.cause), Schema43.is(ThinkAbortUnconfirmed))) ? Effect29.void : release).pipe(Effect29.catchIf(Schema43.is(ThinkAbortUnconfirmed), ({ reason }) => new ProviderUnavailable({
     cause: "timeout",
     error: `the leased think could not confirm its conversation stopped (${reason}); its lease remains held until expiry, and the run's alarm retries`,
     key,
@@ -60147,12 +60666,12 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect29.gen(f
     const finisher = yield* capabilityNamed(input.key, post2.capability);
     const prompt = yield* withDocs(input.key, input.prompt);
     yield* store.commit(runId2);
-    const ephemeral = input.ephemeral === void 0 ? Option12.none() : Option12.some(yield* fetchEphemeral(input.key, input.ephemeral, call));
+    const ephemeral = input.ephemeral === void 0 ? Option13.none() : Option13.some(yield* fetchEphemeral(input.key, input.ephemeral, call));
     const thought2 = yield* attempt(input.key, input.agent ?? {}, thinkUnrecorded({
       ...call,
       agent: input.agent ?? {},
       ceiling: run2.plan.envelope.maxThinking,
-      prompt: Option12.match(ephemeral, {
+      prompt: Option13.match(ephemeral, {
         onNone: () => prompt,
         onSome: (text) => `${prompt}
 
@@ -60160,7 +60679,7 @@ ${docText(text)}`
       })
     })).pipe(Effect29.mapError(withheldThink(input.key)));
     yield* observed(input.key, thought2.receipt);
-    const output = yield* callPermits.withPermits(1)(finisher.invoke(Option12.match(ephemeral, {
+    const output = yield* callPermits.withPermits(1)(finisher.invoke(Option13.match(ephemeral, {
       onNone: () => ({ answer: thought2.output }),
       onSome: (text) => ({
         answer: thought2.output,
@@ -60214,13 +60733,13 @@ ${docText(text)}`
       runId: runId2,
       visit: visitOf(input.key)
     };
-    const reply = Option12.fromNullishOr(run2.state.replies.find(({ key }) => key === input.key));
+    const reply = Option13.fromNullishOr(run2.state.replies.find(({ key }) => key === input.key));
     const docs = Object.fromEntries((input.reads ?? []).flatMap((name) => name in stored2 ? [[name, stored2[name] ?? null]] : []));
     const { probabilities, usage, why } = yield* step(input.key, judge.choose({
       ...call,
       criteria: input.criteria,
       docs,
-      reply: reply.pipe(Option12.map(({ body }) => body))
+      reply: reply.pipe(Option13.map(({ body }) => body))
     }));
     const [top] = Object.entries(probabilities).toSorted((left, right) => right[1] - left[1]);
     const jev = { probs: probabilities, rung: "jev", usage: { ...usage } };
@@ -60253,7 +60772,7 @@ ${docText(text)}`
     }
     const deliberation = deliberated.success;
     const tokens = usage.tokens + deliberation.usage.tokens;
-    const rung = Option12.match(deliberation.decision, {
+    const rung = Option13.match(deliberation.decision, {
       onNone: () => ({ rung: "think", usage: { ...deliberation.usage } }),
       onSome: ({ choice, confidence }) => ({
         choice,
@@ -60262,8 +60781,8 @@ ${docText(text)}`
         usage: { ...deliberation.usage }
       })
     });
-    const confident = deliberation.decision.pipe(Option12.filter(({ choice, confidence }) => confidence >= thinkThreshold && input.options.includes(choice)));
-    if (Option12.isNone(confident)) {
+    const confident = deliberation.decision.pipe(Option13.filter(({ choice, confidence }) => confidence >= thinkThreshold && input.options.includes(choice)));
+    if (Option13.isNone(confident)) {
       return yield* escalated([jev, rung], tokens);
     }
     return withWhy({
@@ -60409,7 +60928,7 @@ ${docText(text)}`
   };
   const { checkpoint } = opened.state;
   let execution = openExecution(compilePlan(run2.plan), sources, adapter, {
-    persisted: Option12.fromNullOr(checkpoint).pipe(Option12.map(({ snapshot }) => migrateTo(
+    persisted: Option13.fromNullOr(checkpoint).pipe(Option13.map(({ snapshot }) => migrateTo(
       // SAFETY: the checkpoint snapshot was written by getPersistedSnapshot for this run's plan.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       snapshot,
@@ -60434,7 +60953,7 @@ ${docText(text)}`
     return (run2.state.revision === null || !run2.state.revision.diverged) && isText3(answer2) ? answer2 : void 0;
   };
   const awaitsHere = () => factsHere().flatMap((fact) => fact.kind === "await" ? [fact] : []);
-  const awaitingOf = (docs) => awaitsHere().flatMap((fact) => Option12.toArray(decodeSent(docs[`__sent:${fact.key}`])).map(({ message, messageId }) => ({
+  const awaitingOf = (docs) => awaitsHere().flatMap((fact) => Option13.toArray(decodeSent(docs[`__sent:${fact.key}`])).map(({ message, messageId }) => ({
     key: fact.key,
     message: message ?? null,
     messageId,
@@ -60543,13 +61062,13 @@ ${docText(text)}`
       dropStale();
       const event = mailbox.shift();
       if (event !== void 0) {
-        return Option12.some(event);
+        return Option13.some(event);
       }
       const wake2 = yield* Deferred2.make();
       wakers.add(wake2);
       if (pending.size === 0) {
         wakers.delete(wake2);
-        return Option12.none();
+        return Option13.none();
       }
       const inFlight = [...pending.values()];
       yield* Effect29.raceFirst(
@@ -60562,7 +61081,7 @@ ${docText(text)}`
   });
   const choose = Effect29.gen(function* chooseEvent() {
     const next = yield* nextEvent;
-    if (Option12.isSome(next)) {
+    if (Option13.isSome(next)) {
       return { event: next.value, kind: "event" };
     }
     const awaiting = awaitsHere();
@@ -60618,18 +61137,18 @@ ${docText(text)}`
     const docs = yield* store.readDocs(runId2);
     const raw = docs[`__amendment:${point.path.join(".")}`] ?? null;
     const amendment = yield* refuseCode(raw).pipe(Effect29.andThen(decodeAmendment(raw)), Effect29.option);
-    if (Option12.isNone(amendment)) {
+    if (Option13.isNone(amendment)) {
       return false;
     }
     const next = yield* checkPlan(amendPlan(run2.plan, point, amendment.value), Object.keys(yield* store.readDocs(runId2))).pipe(Effect29.option);
-    if (Option12.isNone(next)) {
+    if (Option13.isNone(next)) {
       return false;
     }
     run2.plan = next.value;
     run2.facts = planFacts(run2.plan);
     yield* store.writePlan(runId2, run2.plan);
     execution = openExecution(compilePlan(run2.plan), sources, adapter, {
-      persisted: Option12.some(migrateTo(execution.persist(), run2.plan)),
+      persisted: Option13.some(migrateTo(execution.persist(), run2.plan)),
       transitionIndex: execution.nextTransitionIndex()
     });
     run2.state = { ...run2.state, planVersion: run2.plan.version };
@@ -60725,7 +61244,7 @@ ${docText(text)}`
 }).pipe(Effect29.scoped);
 
 // ../../packages/core/dist/runs/submission.js
-import { Effect as Effect30, Option as Option13, Schema as Schema44 } from "effect";
+import { Effect as Effect30, Option as Option14, Schema as Schema44 } from "effect";
 var decodeJsonObject = Schema44.decodeUnknownOption(Schema44.JsonObject);
 var docKeyGuard = Schema44.is(DocKey);
 var isDocKey = (name) => docKeyGuard(name);
@@ -60736,7 +61255,7 @@ var checkSubmission = Effect30.fn("checkSubmission")(function* checkSubmission2(
       errors: badNames.map((name) => `docs.${name}: seed doc names are lowercase, start with a letter and use only a-z, 0-9, _ and -, up to 64 characters`)
     });
   }
-  return yield* validatePlan(Option13.match(decodeJsonObject(input), {
+  return yield* validatePlan(Option14.match(decodeJsonObject(input), {
     onNone: () => input,
     onSome: (fields) => ({ ...fields, version: 1 })
   }), Object.keys(docs));
@@ -60758,11 +61277,11 @@ var RunHost = class extends Context23.Service()("@mischief/core/RunHost", {
     const hostGates = (effect) => effect.pipe(Effect31.provideService(EnabledStepKinds, enabledKinds), Effect31.provideService(CallRegistry, registry), Effect31.provideService(DeclaredThinking, declared));
     const loadRun = Effect31.fn("RunHost.loadRun")(function* loadRun2(runId2) {
       const state3 = yield* store.readRun(runId2);
-      if (Option14.isNone(state3)) {
+      if (Option15.isNone(state3)) {
         return yield* new UnknownRun({ runId: runId2 });
       }
       const plan = yield* store.readPlan(runId2, state3.value.planVersion);
-      if (Option14.isNone(plan)) {
+      if (Option15.isNone(plan)) {
         return yield* new UnknownRun({ runId: runId2 });
       }
       return { plan: plan.value, state: state3.value };
@@ -60801,7 +61320,7 @@ var RunHost = class extends Context23.Service()("@mischief/core/RunHost", {
       if (journal.has("done:abort-notices")) {
         return;
       }
-      const reason = Option14.getOrElse(Schema45.decodeUnknownOption(Schema45.String)(journal.get("abort-reason")), () => "abortRun was requested");
+      const reason = Option15.getOrElse(Schema45.decodeUnknownOption(Schema45.String)(journal.get("abort-reason")), () => "abortRun was requested");
       const sent = yield* Effect31.exit(operator.aborted?.(runId2, reason) ?? Effect31.void);
       if (Exit5.isSuccess(sent)) {
         yield* store.writeJournal(runId2, "done:abort-notices", true);
@@ -60841,9 +61360,9 @@ var RunHost = class extends Context23.Service()("@mischief/core/RunHost", {
       };
     });
     const submit = Effect31.fn("RunHost.submit")(function* submit2(runId2, input, docs = {}) {
-      const submitted = yield* fingerprintOf(Context23.get(context, Crypto2.Crypto), { docs, plan: input });
+      const submitted = yield* fingerprintOf(Context23.get(context, Digest4.Digest), { docs, plan: input });
       const existing = yield* store.readRun(runId2);
-      if (Option14.isSome(existing)) {
+      if (Option15.isSome(existing)) {
         if (existing.value.submitted !== null && existing.value.submitted !== submitted) {
           return yield* new PlanRefused({
             errors: [
@@ -60959,7 +61478,7 @@ var RunHost = class extends Context23.Service()("@mischief/core/RunHost", {
     const deliver = Effect31.fn("RunHost.deliver")(function* deliver2(line) {
       const refuse2 = (reason) => new ReplyRefused({ reason, replyTo: line.replyTo });
       const owner = yield* store.readMessage(line.replyTo);
-      if (Option14.isNone(owner)) {
+      if (Option15.isNone(owner)) {
         return yield* refuse2("no run sent that message. Check replyTo against the messageId the ask sent; inspectRun shows it under awaiting.");
       }
       const runId2 = owner.value;
@@ -61051,7 +61570,7 @@ var RunHost = class extends Context23.Service()("@mischief/core/RunHost", {
       if (opened.state.status === "aborted") {
         return yield* refuse2(`the run was aborted and stays ended. submitPlan the revised plan as a new run.`);
       }
-      const plan = yield* hostGates(validatePlan(Option14.match(decodeJsonObject2(input), {
+      const plan = yield* hostGates(validatePlan(Option15.match(decodeJsonObject2(input), {
         onNone: () => input,
         onSome: (fields) => ({
           ...fields,
@@ -61104,7 +61623,7 @@ ${refusals.map((error) => `- ${error}`).join("\n")}`);
       abort: (runId2, supersededBy, reason) => unit(runId2)(abort(runId2, supersededBy, reason)),
       advance: (runId2) => unit(runId2)(advance3(runId2)),
       answer: (runId2, reply) => afterStored(unit(runId2)(answer2(runId2, reply))),
-      deliver: (line) => afterStored(store.readMessage(line.replyTo).pipe(Effect31.flatMap((owner) => Option14.isSome(owner) ? unit(owner.value)(deliver(line)) : deliver(line)))),
+      deliver: (line) => afterStored(store.readMessage(line.replyTo).pipe(Effect31.flatMap((owner) => Option15.isSome(owner) ? unit(owner.value)(deliver(line)) : deliver(line)))),
       extend: (runId2, maxSteps) => afterStored(unit(runId2)(extend(runId2, maxSteps))),
       inspect,
       pause: (runId2) => unit(runId2)(pause(runId2)),
@@ -61143,7 +61662,7 @@ var runCapabilities = [
 ];
 
 // ../../packages/core/dist/runs/drain.js
-import { Effect as Effect32, Option as Option15, Schema as Schema46 } from "effect";
+import { Effect as Effect32, Option as Option16, Schema as Schema46 } from "effect";
 var DrainOutcomeSchema = Schema46.TaggedUnion({
   AlreadyJournaled: {
     messageId: Schema46.String,
@@ -61158,7 +61677,7 @@ var UNROUTED_REASON = "not a reply to a Mischief ask: it needs string body and r
 var decodeLine = Schema46.decodeUnknownOption(Schema46.fromJsonString(ReplyLineSchema));
 var consumeDrained = Effect32.fn("consumeDrained")(function* consume(raw) {
   const line = decodeLine(raw);
-  if (Option15.isNone(line)) {
+  if (Option16.isNone(line)) {
     return DrainOutcomeSchema.cases.Unrouted.make({
       line: raw,
       reason: UNROUTED_REASON
@@ -61173,7 +61692,7 @@ var consumeDrained = Effect32.fn("consumeDrained")(function* consume(raw) {
 });
 
 // ../../packages/core/dist/steps/shadow-judge.js
-import { Effect as Effect33, Layer as Layer15, Option as Option16, Schema as Schema47 } from "effect";
+import { Effect as Effect33, Layer as Layer15, Option as Option17, Schema as Schema47 } from "effect";
 var SHADOW_JUDGE = "shadow/judge";
 var Probability2 = Schema47.Number.check(Schema47.isBetween({ maximum: 1, minimum: 0 }));
 var VerdictSchema = Schema47.Union([
@@ -61190,9 +61709,9 @@ var refused = (key, why, options2) => Effect33.fail(new StepFailed({
   reason: `${why}. ${SHADOW_JUDGE} replies with JSON {"choice": "<option>"} or {"probabilities": {"<option>": 0..1}}, where each option is one of: ${options2.join(", ")}. Either may add "why": up to ${String(WHY_LINES)} lines of at most ${String(WHY_LINE_CHARS)} characters, ids and counts only`
 }));
 var shadowJudge = Layer15.succeed(Judge, Judge.of({
-  choose: ({ key, options: options2, reply }) => Option16.match(reply, {
+  choose: ({ key, options: options2, reply }) => Option17.match(reply, {
     onNone: () => Effect33.fail(new VerdictDeferred({ to: SHADOW_JUDGE })),
-    onSome: (body) => Option16.match(decodeVerdict2(body), {
+    onSome: (body) => Option17.match(decodeVerdict2(body), {
       onNone: () => refused(key, "the shadow verdict did not decode", options2),
       onSome: (verdict) => {
         const probabilities = "choice" in verdict ? { [verdict.choice]: 1 } : verdict.probabilities;
@@ -61205,10 +61724,10 @@ var shadowJudge = Layer15.succeed(Judge, Judge.of({
 }));
 
 // ../../packages/core/dist/schedules/host.js
-import { Clock as Clock4, Duration as Duration3, Effect as Effect35, Option as Option17, Result as Result8, Schema as Schema51 } from "effect";
+import { Clock as Clock4, Duration as Duration3, Effect as Effect35, Option as Option18, Result as Result8, Schema as Schema51 } from "effect";
 
 // ../../packages/core/dist/schedules/decide.js
-import { Cron, Data as Data7, Predicate as Predicate3, Result as Result7 } from "effect";
+import { Cron, Data as Data8, Predicate as Predicate3, Result as Result7 } from "effect";
 
 // ../../packages/core/dist/schedules/schema.js
 import { Effect as Effect34, Schema as Schema48 } from "effect";
@@ -61312,7 +61831,7 @@ var wakeRunId = (scheduleId2, n) => `${scheduleId2}-wake-${n}`;
 // ../../packages/core/dist/schedules/decide.js
 var DONE_DOC = "done";
 var CONFIRM_MS = 6e4;
-var previous = Data7.taggedEnum();
+var previous = Data8.taggedEnum();
 var parseCron = (expression) => Cron.parse(expression, "UTC");
 var slotAfter = (cadence, anchor, after) => {
   if (Predicate3.isTagged(cadence, "every")) {
@@ -61525,7 +62044,7 @@ var WakeRuns = class extends Context27.Service()("@mischief/core/WakeRuns") {
 // ../../packages/core/dist/schedules/host.js
 var MIN_EVERY_MS = 6e4;
 var decodeDuration = Schema51.decodeUnknownOption(Schema51.DurationFromString);
-var millisOf = (text) => decodeDuration(text).pipe(Option17.filter(Duration3.isFinite), Option17.map(Duration3.toMillis));
+var millisOf = (text) => decodeDuration(text).pipe(Option18.filter(Duration3.isFinite), Option18.map(Duration3.toMillis));
 var cadenceOf = (input) => {
   if (input.every === void 0 === (input.cron === void 0)) {
     return Result8.fail([
@@ -61540,7 +62059,7 @@ var cadenceOf = (input) => {
       onSuccess: () => Result8.succeed(CronCadence.make({ expression: input.cron ?? "" }))
     });
   }
-  return Option17.match(millisOf(input.every ?? ""), {
+  return Option18.match(millisOf(input.every ?? ""), {
     onNone: () => Result8.fail([
       `every "${String(input.every)}" is not a duration; write it as "<number> <unit>", such as "30 minutes" or "1 day"`
     ]),
@@ -61558,7 +62077,7 @@ var limitsOf = (input) => {
   if (input.timeout === void 0) {
     return Result8.succeed(null);
   }
-  return Option17.match(millisOf(input.timeout), {
+  return Option18.match(millisOf(input.timeout), {
     onNone: () => Result8.fail([
       `timeout "${input.timeout}" is not a finite duration; write it as "<number> <unit>", such as "7 days"`
     ]),
@@ -61569,7 +62088,7 @@ var wakeLimitOf = (input) => {
   if (input.wakeTimeout === void 0) {
     return Result8.succeed(null);
   }
-  return Option17.match(millisOf(input.wakeTimeout), {
+  return Option18.match(millisOf(input.wakeTimeout), {
     onNone: () => Result8.fail([
       `wakeTimeout "${input.wakeTimeout}" is not a finite duration; write it as "<number> <unit>", such as "2 hours"`
     ]),
@@ -61583,7 +62102,7 @@ var carryErrors = (input) => {
   return (input.carry ?? []).filter((name) => !Object.hasOwn(docs, name)).map((name) => `carry doc "${name}" has no starting value; add it to docs so the first wake has it too`);
 };
 var refuse = (scheduleId2, errors) => new ScheduleRefused({ errors, scheduleId: scheduleId2 });
-var loaded = (scheduleId2) => ScheduleStore.use((store) => store.load).pipe(Effect35.flatMap(Option17.match({
+var loaded = (scheduleId2) => ScheduleStore.use((store) => store.load).pipe(Effect35.flatMap(Option18.match({
   onNone: () => Effect35.fail(new UnknownSchedule({ scheduleId: scheduleId2 })),
   onSome: Effect35.succeed
 })));
@@ -61597,7 +62116,7 @@ var announceEnd = (before, after) => {
 var createSchedule = Effect35.fn("createSchedule")(function* createSchedule2(input) {
   const store = yield* ScheduleStore;
   const existing = yield* store.load;
-  if (Option17.isSome(existing)) {
+  if (Option18.isSome(existing)) {
     return reportOf2(existing.value);
   }
   const cadence = cadenceOf(input);
@@ -61669,7 +62188,7 @@ var previousOf = (state3) => {
   if (wake2 === void 0) {
     return Effect35.succeed(previous.None());
   }
-  return WakeRuns.use((runs) => runs.inspect(wake2.runId)).pipe(Effect35.map(Option17.match({
+  return WakeRuns.use((runs) => runs.inspect(wake2.runId)).pipe(Effect35.map(Option18.match({
     onNone: () => previous.Missing(),
     onSome: (report2) => previous.Reported({ report: report2 })
   })));
@@ -61677,7 +62196,7 @@ var previousOf = (state3) => {
 var wakeSchedule = Effect35.fn("wakeSchedule")(function* wakeSchedule2() {
   const store = yield* ScheduleStore;
   const found = yield* store.load;
-  if (Option17.isNone(found)) {
+  if (Option18.isNone(found)) {
     return yield* ScheduleAlarm.use((alarm) => alarm.set(null));
   }
   const now = yield* Clock4.currentTimeMillis;
@@ -61694,8 +62213,8 @@ var wakeSchedule = Effect35.fn("wakeSchedule")(function* wakeSchedule2() {
     const refused3 = yield* WakeRuns.use((runs) => runs.submit(runId2, decision.state.plan, docs, {
       escalateTo: decision.state.escalateTo,
       judge: decision.state.judge
-    })).pipe(Effect35.as(Option17.none()), Effect35.catchTag("PlanRefused", Effect35.succeedSome));
-    if (Option17.isSome(refused3)) {
+    })).pipe(Effect35.as(Option18.none()), Effect35.catchTag("PlanRefused", Effect35.succeedSome));
+    if (Option18.isSome(refused3)) {
       const ended = {
         ...decision.state,
         ended: {
@@ -61789,7 +62308,7 @@ var WakeUnanswered = class extends Schema53.TaggedError()("WakeUnanswered", {
 };
 
 // ../../packages/thinking/dist/gateway.js
-import { Hash as Hash3, Option as Option18, Redacted, Schema as Schema54 } from "effect";
+import { Hash as Hash3, Option as Option19, Redacted, Schema as Schema54 } from "effect";
 
 // ../../packages/thinking/dist/declared.js
 init_models();
@@ -61962,7 +62481,7 @@ var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2, opusB
       const source = models.getModel(ref.provider, ref.modelId);
       const { workspace } = agent;
       if (source === void 0 || workspace === void 0) {
-        return Option18.none();
+        return Option19.none();
       }
       const tools = (agent.tools ?? []).filter((tool) => WORKSPACE_TOOLS.some((name) => name === tool));
       const provider2 = `workspace-${encodeURIComponent(JSON.stringify([ref, workspace, tools]))}`;
@@ -61998,7 +62517,7 @@ var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2, opusB
         id: provider2,
         models: [{ ...source, baseUrl: bridgeUrl, provider: provider2 }]
       }));
-      return Option18.some({ modelId: ref.modelId, provider: provider2 });
+      return Option19.some({ modelId: ref.modelId, provider: provider2 });
     }
   };
 };
@@ -62110,10 +62629,10 @@ var jevJudge = ({ apiKey, patience = JEV_PATIENCE, retryBase = "500 millis", url
 
 // ../../packages/thinking/dist/pi-thinker.js
 init_models();
-import { Clock as Clock5, Deferred as Deferred3, Effect as Effect37, Layer as Layer17, Option as Option20, Ref as Ref3, Schema as Schema57, Semaphore as Semaphore2 } from "effect";
+import { Clock as Clock5, Deferred as Deferred3, Effect as Effect37, Layer as Layer17, Option as Option21, Ref as Ref3, Schema as Schema57, Semaphore as Semaphore2 } from "effect";
 
 // ../../packages/thinking/dist/provider-status.js
-import { Option as Option19, Schema as Schema56 } from "effect";
+import { Option as Option20, Schema as Schema56 } from "effect";
 var HOLD = /* @__PURE__ */ new Set([408, 429, 502, 503]);
 var RETRY_THEN_HOLD = /* @__PURE__ */ new Set([500, 507, 520]);
 var SERVER_ERROR = 500;
@@ -62149,7 +62668,7 @@ var RETRY_AFTER = /["']?retry-after["']?\s*[:=]\s*["']?(?<value>[^\r\n"}]+)/iu;
 var retryHeaderAt = (header, now) => /^\d+(?:\.\d+)?$/u.test(header) ? now + Number(header) * 1e3 : Date.parse(header);
 var retryAfterOf = (message, status, now) => {
   const body = message.slice(message.indexOf("{"), message.lastIndexOf("}") + 1);
-  const cooldown = status === TOO_MANY_REQUESTS ? decodeCooldown(body).pipe(Option19.map((decoded) => now + ("error" in decoded ? decoded.error.reset_seconds : decoded.reset_seconds) * 1e3), Option19.getOrUndefined) : void 0;
+  const cooldown = status === TOO_MANY_REQUESTS ? decodeCooldown(body).pipe(Option20.map((decoded) => now + ("error" in decoded ? decoded.error.reset_seconds : decoded.reset_seconds) * 1e3), Option20.getOrUndefined) : void 0;
   const header = RETRY_AFTER.exec(message)?.groups?.value?.trim();
   const retryAfter = header === void 0 ? Number.NaN : retryHeaderAt(header, now);
   const hints = [cooldown, retryAfter].filter((hint) => hint !== void 0 && Number.isFinite(hint));
@@ -62276,56 +62795,32 @@ var thought = (answered2) => answered2.pipe(Effect37.catchTag("ThinkModelUnmappe
   receipt,
   tokens
 })));
-var thinkerOf = (options2) => Layer17.effect(Thinker, Effect37.gen(function* make() {
-  const open3 = yield* Ref3.make(/* @__PURE__ */ new Map());
-  const opening = yield* Semaphore2.make(1);
-  yield* Effect37.addFinalizer(() => Ref3.get(open3).pipe(Effect37.flatMap((harnesses) => Effect37.forEach(harnesses.values(), ({ harness }) => Effect37.promise(async () => {
-    await harness.close(BACKGROUND_CONTEXT);
-  }), { discard: true }))));
-  const settingsFor = (runId2, parked) => ({
-    models: options2.models,
-    onReport: (_error, info2) => {
-      if (info2.type === "task_parked") {
-        Deferred3.doneUnsafe(parkedFor(parked, info2.task.conversationId), Effect37.succeed(info2.task));
-      }
-    },
-    registry: options2.registry,
-    settings: options2.streamFor === void 0 ? THINKER_OWNS_PROVIDER_RETRIES : {
-      ...THINKER_OWNS_PROVIDER_RETRIES,
-      stream: options2.streamFor(runId2)
+var firstToken = (call, harness, conversation) => Effect37.gen(function* watch2() {
+  const seen = yield* Deferred3.make();
+  const stream2 = yield* pi(call, "watch", async () => await watchEvents(harness, conversation.id, BACKGROUND_CONTEXT));
+  stream2.start(async (events) => {
+    if (events.some((event) => event.type === "message_update" || event.type === "message_end")) {
+      Deferred3.doneUnsafe(seen, Effect37.succeed(true));
+      await stream2.stop();
     }
   });
-  const openHarness = (call, operation, storage) => Effect37.gen(function* openingHarness() {
-    const parked = /* @__PURE__ */ new Map();
-    const harness = yield* pi(call, operation, async () => {
-      const opened = await Harness.open(storage, settingsFor(call.runId, parked), BACKGROUND_CONTEXT);
-      const inspection = await opened.inspect(BACKGROUND_CONTEXT);
-      for (const { record, state: state3 } of inspection.tasks) {
-        if (state3.kind === "blocked" && state3.reason === "restart_limit") {
-          Deferred3.doneUnsafe(parkedFor(parked, record.conversationId), Effect37.succeed({
-            conversationId: record.conversationId,
-            id: record.id,
-            kind: record.kind
-          }));
-        }
-      }
-      return opened;
-    });
-    return { fresh: true, harness, parked };
-  });
-  const unrecordedHarness = (call) => Effect37.acquireRelease(openHarness(call, "open in memory", new MemoryStorage()), ({ harness }) => Effect37.promise(async () => {
-    await harness.close(BACKGROUND_CONTEXT);
-  }));
-  const harnessFor = (call) => opening.withPermits(1)(Effect37.gen(function* activateHarness() {
-    const existing = (yield* Ref3.get(open3)).get(call.runId);
-    if (existing !== void 0) {
-      return { ...existing, fresh: false };
-    }
-    const storage = yield* options2.storageFor(call.runId);
-    const opened = yield* openHarness(call, "open", storage);
-    yield* Ref3.update(open3, (harnesses) => new Map(harnesses).set(call.runId, opened));
-    return opened;
-  }).pipe(Effect37.withSpan("spawn.activate")));
+  return { seen, stop: async () => await stream2.stop() };
+});
+var latestOf = (call, conversation) => pi(call, "find attempt", async () => await conversation.commit(async (tx) => {
+  const probe = async (attempt) => {
+    const next = await tx.submissionByRequest(conversation.id, attemptId(call, attempt + 1));
+    return next === void 0 ? {
+      attempt,
+      record: await tx.submissionByRequest(conversation.id, attemptId(call, attempt))
+    } : await probe(attempt + 1);
+  };
+  return await probe(1);
+}, BACKGROUND_CONTEXT));
+var failedMessagesOf = (call, conversation, { entry: entry3 }) => entry3 === void 0 ? Effect37.succeed([]) : pi(call, "read failure", async () => {
+  const page3 = await conversation.entries({ minEntryId: entry3 }, 20, void 0, BACKGROUND_CONTEXT);
+  return page3.items.flatMap((item) => (item.model ?? []).flatMap((message) => message.role === "assistant" ? [message] : []));
+});
+var thinkerOf = (options2) => {
   const modelOf = (call, requested) => {
     const name = requested.model;
     const ref = options2.modelRefs[name];
@@ -62345,8 +62840,8 @@ var thinkerOf = (options2) => Layer17.effect(Thinker, Effect37.gen(function* mak
     if (requested.agent.workspace === void 0) {
       return Effect37.succeed(ref);
     }
-    const workspaceRef = options2.workspaceModelRef?.(requested.agent, ref) ?? Option20.none();
-    return Option20.match(workspaceRef, {
+    const workspaceRef = options2.workspaceModelRef?.(requested.agent, ref) ?? Option21.none();
+    return Option21.match(workspaceRef, {
       onNone: () => Effect37.fail(new StepFailed({
         key: call.key,
         reason: `agent.workspace cannot route agent.model "${name}" (${ref.provider}/${ref.modelId}) through the workspace bridge because its source model is not registered. Register that model on this host or set agent.model to a registered model, then resume the run. The ordinary model gateway will not be used`
@@ -62389,148 +62884,174 @@ var thinkerOf = (options2) => Layer17.effect(Thinker, Effect37.gen(function* mak
     });
     return { conversation, created: found.created };
   }).pipe(Effect37.withSpan("spawn.restore"));
-  const firstToken = (call, harness, conversation) => Effect37.gen(function* watch2() {
-    const seen = yield* Deferred3.make();
-    const stream2 = yield* pi(call, "watch", async () => await watchEvents(harness, conversation.id, BACKGROUND_CONTEXT));
-    stream2.start(async (events) => {
-      if (events.some((event) => event.type === "message_update" || event.type === "message_end")) {
-        Deferred3.doneUnsafe(seen, Effect37.succeed(true));
-        await stream2.stop();
+  return Layer17.effect(Thinker, Effect37.gen(function* make() {
+    const open3 = yield* Ref3.make(/* @__PURE__ */ new Map());
+    const opening = yield* Semaphore2.make(1);
+    yield* Effect37.addFinalizer(() => Ref3.get(open3).pipe(Effect37.flatMap((harnesses) => Effect37.forEach(harnesses.values(), ({ harness }) => Effect37.promise(async () => {
+      await harness.close(BACKGROUND_CONTEXT);
+    }), { discard: true }))));
+    const settingsFor = (runId2, parked) => ({
+      models: options2.models,
+      onReport: (_error, info2) => {
+        if (info2.type === "task_parked") {
+          Deferred3.doneUnsafe(parkedFor(parked, info2.task.conversationId), Effect37.succeed(info2.task));
+        }
+      },
+      registry: options2.registry,
+      settings: options2.streamFor === void 0 ? THINKER_OWNS_PROVIDER_RETRIES : {
+        ...THINKER_OWNS_PROVIDER_RETRIES,
+        stream: options2.streamFor(runId2)
       }
     });
-    return { seen, stop: async () => await stream2.stop() };
-  });
-  const latestOf = (call, conversation) => pi(call, "find attempt", async () => await conversation.commit(async (tx) => {
-    const probe = async (attempt) => {
-      const next = await tx.submissionByRequest(conversation.id, attemptId(call, attempt + 1));
-      return next === void 0 ? {
-        attempt,
-        record: await tx.submissionByRequest(conversation.id, attemptId(call, attempt))
-      } : await probe(attempt + 1);
-    };
-    return await probe(1);
-  }, BACKGROUND_CONTEXT));
-  const failedMessagesOf = (call, conversation, { entry: entry3 }) => entry3 === void 0 ? Effect37.succeed([]) : pi(call, "read failure", async () => {
-    const page3 = await conversation.entries({ minEntryId: entry3 }, 20, void 0, BACKGROUND_CONTEXT);
-    return page3.items.flatMap((item) => (item.model ?? []).flatMap((message) => message.role === "assistant" ? [message] : []));
-  });
-  const settle4 = (call, conversation, model2, attempt, content, seen, retried) => Effect37.gen(function* submitted() {
-    if (attempt.fresh && attempt.n > 1) {
-      yield* pi(call, "reset", async () => {
-        await conversation.reset(void 0, BACKGROUND_CONTEXT);
+    const openHarness = (call, operation, storage) => Effect37.gen(function* openingHarness() {
+      const parked = /* @__PURE__ */ new Map();
+      const harness = yield* pi(call, operation, async () => {
+        const opened = await Harness.open(storage, settingsFor(call.runId, parked), BACKGROUND_CONTEXT);
+        const inspection = await opened.inspect(BACKGROUND_CONTEXT);
+        for (const { record, state: state3 } of inspection.tasks) {
+          if (state3.kind === "blocked" && state3.reason === "restart_limit") {
+            Deferred3.doneUnsafe(parkedFor(parked, record.conversationId), Effect37.succeed({
+              conversationId: record.conversationId,
+              id: record.id,
+              kind: record.kind
+            }));
+          }
+        }
+        return opened;
       });
-    }
-    const submission2 = yield* pi(call, "submit", async () => await conversation.submit({
-      content,
-      requestId: attemptId(call, attempt.n),
-      type: "input"
-    }, BACKGROUND_CONTEXT));
-    yield* Effect37.raceFirst(Deferred3.await(seen).pipe(Effect37.withSpan("first_token")), pi(call, "wait for first token", async () => await submission2.wait(BACKGROUND_CONTEXT)));
-    const settled2 = yield* pi(call, "wait", async () => await submission2.wait(BACKGROUND_CONTEXT));
-    if (settled2.status === "done" && settled2.type === "input") {
-      return settled2.answer;
-    }
-    if (settled2.status !== "unanswered" || settled2.reason !== "model_error") {
-      return yield* new StepFailed({
-        key: call.key,
-        reason: `the model left the input unanswered (${settled2.status === "unanswered" ? settled2.reason : settled2.status}). Check the model mapping and credentials, then resume the run`
-      });
-    }
-    const failure5 = failureOf(settled2, yield* failedMessagesOf(call, conversation, settled2));
-    const held = new ProviderUnavailable({
-      cause: causeOf(failure5.status),
-      error: failure5.message,
-      key: call.key,
-      provider: `${model2.provider}/${model2.modelId}`,
-      retryAfter: retryAfterOf(failure5.message, failure5.status, yield* Clock5.currentTimeMillis),
-      status: failure5.status
+      return { fresh: true, harness, parked };
     });
-    const outcomes = {
-      fail: () => Effect37.fail(new StepFailed({
-        key: call.key,
-        reason: `the model proxy refused the think with ${failure5.status === null ? "no HTTP status" : `HTTP ${failure5.status}`}: ${failure5.message}. Check the request, the model mapping (${model2.provider}/${model2.modelId}) and the key binding, then resume the run`
-      })),
-      hold: () => Effect37.fail(held),
-      retryThenHold: () => retried || held.retryAfter !== void 0 ? Effect37.fail(held) : settle4(call, conversation, model2, { fresh: true, n: attempt.n + 1 }, content, seen, true)
-    };
-    return yield* outcomes[verdictOf2(failure5.status, failure5.transient)]();
-  });
-  const answer2 = (call, requested, content, opened) => Effect37.gen(function* firstTurn() {
-    const { fresh, harness, parked } = yield* opened;
-    const { conversation, created } = yield* conversationFor(call, harness, requested);
-    const model2 = yield* modelOf(call, requested);
-    const watching = yield* firstToken(call, harness, conversation);
-    const latest = yield* latestOf(call, conversation);
-    const resumed = latest.record?.status === "unanswered";
-    const answered2 = yield* Effect37.raceFirst(settle4(call, conversation, model2, {
-      fresh: resumed,
-      n: resumed ? latest.attempt + 1 : latest.attempt
-    }, content, watching.seen, false), Deferred3.await(parkedFor(parked, conversation.id)).pipe(Effect37.flatMap((task) => Effect37.fail(new StepFailed({
-      key: call.key,
-      reason: `pi-durable task ${task.id} (${task.kind}) is parked: restart_limit after repeated crashes without progress. The think cannot finish while parked. Inspect the run with inspectRun; fix the crash cause, then abort the run and submit a new run`
-    }))))).pipe(Effect37.ensuring(Effect37.promise(async () => await watching.stop())));
-    const page3 = yield* pi(call, "read answer", async () => await conversation.entries({ maxEntryId: answered2, minEntryId: answered2 }, 1, void 0, BACKGROUND_CONTEXT));
-    const text = (page3.items[0]?.model ?? []).flatMap((message) => message.role === "assistant" ? message.content : []).flatMap((block) => block.type === "text" ? [block.text] : []).join("");
-    const usage = yield* pi(call, "usage", async () => await harness.snapshot(UsageDoc, conversation.id, BACKGROUND_CONTEXT));
-    const totals = Object.values(usage?.models ?? {});
-    yield* Effect37.annotateCurrentSpan({
-      "cache.read": totals.reduce((sum, u) => sum + u.cacheRead, 0),
-      "cache.write": totals.reduce((sum, u) => sum + u.cacheWrite, 0),
-      respawn: fresh && !created
-    });
-    const served = options2.models.getModel(model2.provider, model2.modelId);
-    const receipt = receiptOf(requested, model2.modelId, served === void 0 ? requested.thinking : clampThinkingLevel(served, requested.thinking), page3.items[0]?.model);
-    yield* Effect37.logInfo("mischief.think").pipe(Effect37.annotateLogs({
-      key: call.key,
-      receipt: JSON.stringify(receipt),
-      runId: call.runId
+    const unrecordedHarness = (call) => Effect37.acquireRelease(openHarness(call, "open in memory", new MemoryStorage()), ({ harness }) => Effect37.promise(async () => {
+      await harness.close(BACKGROUND_CONTEXT);
     }));
-    return {
-      cacheRead: totals.reduce((sum, u) => sum + u.cacheRead, 0),
-      cacheWrite: totals.reduce((sum, u) => sum + u.cacheWrite, 0),
-      receipt,
-      text,
-      tokens: totals.reduce((sum, u) => sum + u.totalTokens, 0),
-      usd: totals.reduce((sum, u) => sum + u.cost.total, 0)
-    };
-  }).pipe(Effect37.withSpan("first_turn"));
-  return Thinker.of({
-    abort: Effect37.fn("piThinker.abort")(function* abortLeasedThink(call) {
-      const active = (yield* Ref3.get(open3)).get(call.runId);
-      if (active === void 0) {
-        return yield* Effect37.void;
+    const harnessFor = (call) => opening.withPermits(1)(Effect37.gen(function* activateHarness() {
+      const existing = (yield* Ref3.get(open3)).get(call.runId);
+      if (existing !== void 0) {
+        return { ...existing, fresh: false };
       }
-      const root = yield* pi(call, "abort root", async () => await active.harness.root(BACKGROUND_CONTEXT));
-      const steps = yield* pi(call, "abort address", async () => await active.harness.snapshot(StepsDoc, root.id, BACKGROUND_CONTEXT));
-      const id = steps?.byAddress[addressOf(call)];
-      if (id === void 0) {
-        return yield* Effect37.void;
-      }
-      const conversation = yield* pi(call, "abort conversation", async () => await active.harness.conversation(id, BACKGROUND_CONTEXT));
-      if (conversation === void 0) {
-        return yield* new StepFailed({
-          key: call.key,
-          reason: `cannot confirm the leased think stopped: conversation ${id} is missing; keep its lease until expiry and inspectRun`
+      const storage = yield* options2.storageFor(call.runId);
+      const opened = yield* openHarness(call, "open", storage);
+      yield* Ref3.update(open3, (harnesses) => new Map(harnesses).set(call.runId, opened));
+      return opened;
+    }).pipe(Effect37.withSpan("spawn.activate")));
+    const settle4 = (call, conversation, model2, attempt, content, seen, retried) => Effect37.gen(function* submitted() {
+      if (attempt.fresh && attempt.n > 1) {
+        yield* pi(call, "reset", async () => {
+          await conversation.reset(void 0, BACKGROUND_CONTEXT);
         });
       }
-      return yield* pi(call, "abort leased think and wait for idle", async () => {
-        await conversation.abort(BACKGROUND_CONTEXT);
+      const submission2 = yield* pi(call, "submit", async () => await conversation.submit({
+        content,
+        requestId: attemptId(call, attempt.n),
+        type: "input"
+      }, BACKGROUND_CONTEXT));
+      yield* Effect37.raceFirst(Deferred3.await(seen).pipe(Effect37.withSpan("first_token")), pi(call, "wait for first token", async () => await submission2.wait(BACKGROUND_CONTEXT)));
+      const settled2 = yield* pi(call, "wait", async () => await submission2.wait(BACKGROUND_CONTEXT));
+      if (settled2.status === "done" && settled2.type === "input") {
+        return settled2.answer;
+      }
+      if (settled2.status !== "unanswered" || settled2.reason !== "model_error") {
+        return yield* new StepFailed({
+          key: call.key,
+          reason: `the model left the input unanswered (${settled2.status === "unanswered" ? settled2.reason : settled2.status}). Check the model mapping and credentials, then resume the run`
+        });
+      }
+      const failure5 = failureOf(settled2, yield* failedMessagesOf(call, conversation, settled2));
+      const held = new ProviderUnavailable({
+        cause: causeOf(failure5.status),
+        error: failure5.message,
+        key: call.key,
+        provider: `${model2.provider}/${model2.modelId}`,
+        retryAfter: retryAfterOf(failure5.message, failure5.status, yield* Clock5.currentTimeMillis),
+        status: failure5.status
       });
-    }),
-    decide: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), `${call.question}
+      const outcomes = {
+        fail: () => Effect37.fail(new StepFailed({
+          key: call.key,
+          reason: `the model proxy refused the think with ${failure5.status === null ? "no HTTP status" : `HTTP ${failure5.status}`}: ${failure5.message}. Check the request, the model mapping (${model2.provider}/${model2.modelId}) and the key binding, then resume the run`
+        })),
+        hold: () => Effect37.fail(held),
+        retryThenHold: () => retried || held.retryAfter !== void 0 ? Effect37.fail(held) : settle4(call, conversation, model2, { fresh: true, n: attempt.n + 1 }, content, seen, true)
+      };
+      return yield* outcomes[verdictOf2(failure5.status, failure5.transient)]();
+    });
+    const answer2 = (call, requested, content, opened) => Effect37.gen(function* firstTurn() {
+      const { fresh, harness, parked } = yield* opened;
+      const { conversation, created } = yield* conversationFor(call, harness, requested);
+      const model2 = yield* modelOf(call, requested);
+      const watching = yield* firstToken(call, harness, conversation);
+      const latest = yield* latestOf(call, conversation);
+      const resumed = latest.record?.status === "unanswered";
+      const answered2 = yield* Effect37.raceFirst(settle4(call, conversation, model2, {
+        fresh: resumed,
+        n: resumed ? latest.attempt + 1 : latest.attempt
+      }, content, watching.seen, false), Deferred3.await(parkedFor(parked, conversation.id)).pipe(Effect37.flatMap((task) => Effect37.fail(new StepFailed({
+        key: call.key,
+        reason: `pi-durable task ${task.id} (${task.kind}) is parked: restart_limit after repeated crashes without progress. The think cannot finish while parked. Inspect the run with inspectRun; fix the crash cause, then abort the run and submit a new run`
+      }))))).pipe(Effect37.ensuring(Effect37.promise(async () => await watching.stop())));
+      const page3 = yield* pi(call, "read answer", async () => await conversation.entries({ maxEntryId: answered2, minEntryId: answered2 }, 1, void 0, BACKGROUND_CONTEXT));
+      const text = (page3.items[0]?.model ?? []).flatMap((message) => message.role === "assistant" ? message.content : []).flatMap((block) => block.type === "text" ? [block.text] : []).join("");
+      const usage = yield* pi(call, "usage", async () => await harness.snapshot(UsageDoc, conversation.id, BACKGROUND_CONTEXT));
+      const totals = Object.values(usage?.models ?? {});
+      yield* Effect37.annotateCurrentSpan({
+        "cache.read": totals.reduce((sum, u) => sum + u.cacheRead, 0),
+        "cache.write": totals.reduce((sum, u) => sum + u.cacheWrite, 0),
+        respawn: fresh && !created
+      });
+      const served = options2.models.getModel(model2.provider, model2.modelId);
+      const receipt = receiptOf(requested, model2.modelId, served === void 0 ? requested.thinking : clampThinkingLevel(served, requested.thinking), page3.items[0]?.model);
+      yield* Effect37.logInfo("mischief.think").pipe(Effect37.annotateLogs({
+        key: call.key,
+        receipt: JSON.stringify(receipt),
+        runId: call.runId
+      }));
+      return {
+        cacheRead: totals.reduce((sum, u) => sum + u.cacheRead, 0),
+        cacheWrite: totals.reduce((sum, u) => sum + u.cacheWrite, 0),
+        receipt,
+        text,
+        tokens: totals.reduce((sum, u) => sum + u.totalTokens, 0),
+        usd: totals.reduce((sum, u) => sum + u.cost.total, 0)
+      };
+    }).pipe(Effect37.withSpan("first_turn"));
+    return Thinker.of({
+      abort: Effect37.fn("piThinker.abort")(function* abortLeasedThink(call) {
+        const active = (yield* Ref3.get(open3)).get(call.runId);
+        if (active === void 0) {
+          return yield* Effect37.void;
+        }
+        const root = yield* pi(call, "abort root", async () => await active.harness.root(BACKGROUND_CONTEXT));
+        const steps = yield* pi(call, "abort address", async () => await active.harness.snapshot(StepsDoc, root.id, BACKGROUND_CONTEXT));
+        const id = steps?.byAddress[addressOf(call)];
+        if (id === void 0) {
+          return yield* Effect37.void;
+        }
+        const conversation = yield* pi(call, "abort conversation", async () => await active.harness.conversation(id, BACKGROUND_CONTEXT));
+        if (conversation === void 0) {
+          return yield* new StepFailed({
+            key: call.key,
+            reason: `cannot confirm the leased think stopped: conversation ${id} is missing; keep its lease until expiry and inspectRun`
+          });
+        }
+        return yield* pi(call, "abort leased think and wait for idle", async () => {
+          await conversation.abort(BACKGROUND_CONTEXT);
+        });
+      }),
+      decide: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), `${call.question}
 
 Answer with one JSON object and nothing else: {"choice": <one of ${JSON.stringify(call.options)}>, "confidence": <0 to 1>}.`, harnessFor(call)).pipe(Effect37.map(({ receipt, text, tokens, usd }) => ({
-      decision: Schema57.decodeUnknownOption(DecisionSchema)(text.trim()).pipe(Option20.filter(({ choice }) => call.options.includes(choice))),
-      usage: { receipt, tokens, usd }
-    }))),
-    elaborate: (call) => Effect37.fail(new StepFailed({
-      key: call.key,
-      reason: "elaborate is not wired on the pi-durable Thinker yet. Use think and judge steps, or run this plan on a host that wires elaborate"
-    })),
-    think: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), call.prompt, harnessFor(call)).pipe(thought),
-    thinkUnrecorded: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), call.prompt, unrecordedHarness(call)).pipe(thought, Effect37.scoped)
-  });
-}));
+        decision: Schema57.decodeUnknownOption(DecisionSchema)(text.trim()).pipe(Option21.filter(({ choice }) => call.options.includes(choice))),
+        usage: { receipt, tokens, usd }
+      }))),
+      elaborate: (call) => Effect37.fail(new StepFailed({
+        key: call.key,
+        reason: "elaborate is not wired on the pi-durable Thinker yet. Use think and judge steps, or run this plan on a host that wires elaborate"
+      })),
+      think: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), call.prompt, harnessFor(call)).pipe(thought),
+      thinkUnrecorded: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), call.prompt, unrecordedHarness(call)).pipe(thought, Effect37.scoped)
+    });
+  }));
+};
 var piThinker = (options2) => Layer17.merge(thinkerOf(options2), Layer17.succeed(DeclaredThinking, options2.declared ?? {
   fallback: options2.defaults?.thinking ?? "low",
   models: {}
@@ -62538,7 +63059,7 @@ var piThinker = (options2) => Layer17.merge(thinkerOf(options2), Layer17.succeed
 
 // src/caller-think-object.ts
 import { DurableObject as DurableObject2 } from "cloudflare:workers";
-import { Effect as Effect60, Option as Option43, Result as Result11 } from "effect";
+import { Effect as Effect59, Option as Option45, Result as Result11 } from "effect";
 
 // src/caller-think-host.ts
 import { Clock as Clock6, Effect as Effect38 } from "effect";
@@ -62682,7 +63203,7 @@ var callerThinkHost = (ports) => ({
 });
 
 // src/escalation.ts
-import { Effect as Effect40, Option as Option21, Schema as Schema60 } from "effect";
+import { Effect as Effect40, Option as Option22, Schema as Schema60 } from "effect";
 
 // src/call-deadline.ts
 import { Effect as Effect39, Schema as Schema59 } from "effect";
@@ -62756,8 +63277,8 @@ var SealedRow = Schema60.Struct({
 var fixEscalationAtFirstSubmit = (storage, body) => {
   storage.sql.exec(TARGET);
   const name = decodeSubmit(body).pipe(
-    Option21.flatMap(({ escalateTo }) => Option21.fromNullishOr(escalateTo)),
-    Option21.getOrElse(() => HOST_DEFAULT)
+    Option22.flatMap(({ escalateTo }) => Option22.fromNullishOr(escalateTo)),
+    Option22.getOrElse(() => HOST_DEFAULT)
   );
   const inserted = storage.transactionSync(() => {
     const fixed = storage.sql.exec("SELECT name FROM mischief_escalate_to WHERE id = 1").toArray().length > 0;
@@ -62777,12 +63298,12 @@ var fixEscalationAtFirstSubmit = (storage, body) => {
 };
 var escalationTargetOf = (storage) => {
   storage.sql.exec(TARGET);
-  return Option21.fromNullishOr(
+  return Option22.fromNullishOr(
     storage.sql.exec("SELECT name FROM mischief_escalate_to WHERE id = 1").toArray()[0]
   ).pipe(
-    Option21.flatMap(Schema60.decodeUnknownOption(TargetRow)),
-    Option21.map(({ name }) => name),
-    Option21.filter((name) => name !== HOST_DEFAULT)
+    Option22.flatMap(Schema60.decodeUnknownOption(TargetRow)),
+    Option22.map(({ name }) => name),
+    Option22.filter((name) => name !== HOST_DEFAULT)
   );
 };
 var isText4 = Schema60.is(Schema60.String);
@@ -62839,12 +63360,12 @@ var heldText = (runId2, { cause, key, provider: provider2, resumeAfter: resumeAf
   "",
   cause === "billing" ? `Fix: the ${provider2} account has a billing hold; tell Joel. Once it is cleared, call resumeRun {"runId": "${runId2}"} under the identity that submitted the run.` : `Fix: once ${provider2} answers again, call resumeRun {"runId": "${runId2}"} under the identity that submitted the run.`
 ].join("\n");
-var sealedFor = (storage, notice) => Option21.fromNullishOr(
+var sealedFor = (storage, notice) => Option22.fromNullishOr(
   storage.sql.exec(
     "SELECT envelope, message_id FROM mischief_escalations WHERE notice = ?",
     notice
   ).toArray()[0]
-).pipe(Option21.flatMap(Schema60.decodeUnknownOption(SealedRow)));
+).pipe(Option22.flatMap(Schema60.decodeUnknownOption(SealedRow)));
 var posted = (name, call) => Effect40.tryPromise({
   catch: (cause) => `the Postbox did not answer: ${String(cause)}`,
   try: call
@@ -62859,7 +63380,7 @@ var posted = (name, call) => Effect40.tryPromise({
   )
 );
 var sealOnce = (storage, postbox2, objectName, to, text, notice) => Effect40.suspend(
-  () => Option21.match(sealedFor(storage, notice), {
+  () => Option22.match(sealedFor(storage, notice), {
     onNone: () => posted(
       "Postbox.seal",
       async () => await postbox2().seal(objectName, to, text)
@@ -62871,7 +63392,7 @@ var sealOnce = (storage, postbox2, objectName, to, text, notice) => Effect40.sus
           envelope,
           messageId
         );
-        return Option21.getOrElse(sealedFor(storage, notice), () => ({
+        return Option22.getOrElse(sealedFor(storage, notice), () => ({
           envelope,
           message_id: messageId
         }));
@@ -62887,7 +63408,7 @@ var mailOnce = ({
 }) => (runId2, to, notice, text) => {
   storage.sql.exec(SEALED);
   const name = objectName();
-  if (Option21.isNone(name)) {
+  if (Option22.isNone(name)) {
     return Effect40.void;
   }
   return sealOnce(storage, postbox2, name.value, to, text, notice).pipe(
@@ -62904,7 +63425,7 @@ var mailOnce = ({
 };
 var mailConfirmed = (ports, runId2, to, notice, text) => {
   ports.storage.sql.exec(SEALED);
-  return Option21.match(ports.objectName(), {
+  return Option22.match(ports.objectName(), {
     onNone: () => Effect40.fail(
       `${runId2} cannot mail ${notice} to ${to}: the run object name is not stored. Check the run object routing, then redeliver its alarm`
     ),
@@ -62920,7 +63441,7 @@ var mailConfirmed = (ports, runId2, to, notice, text) => {
   });
 };
 var callerMailOnce = (ports) => (runId2, to, notice, text) => Effect40.suspend(() => {
-  const reason = Option21.match(ports.objectName(), {
+  const reason = Option22.match(ports.objectName(), {
     onNone: () => "the caller identity is missing. Submit through the Worker so mail reach can be checked",
     onSome: (name) => mailReachReason(
       name.slice(0, name.lastIndexOf("/")),
@@ -62945,7 +63466,7 @@ var alarmOnHolds = (ports, targets) => (runId2, held, attempts, notice) => Effec
   { discard: true }
 ).pipe(
   Effect40.andThen(
-    Option21.match(escalationTargetOf(ports.storage), {
+    Option22.match(escalationTargetOf(ports.storage), {
       onNone: () => Effect40.void,
       onSome: (to) => callerMailOnce(ports)(
         runId2,
@@ -62958,7 +63479,7 @@ var alarmOnHolds = (ports, targets) => (runId2, held, attempts, notice) => Effec
 );
 var escalate = (ports) => (runId2, notice, text) => {
   ports.storage.sql.exec(SEALED);
-  return Option21.match(escalationTargetOf(ports.storage), {
+  return Option22.match(escalationTargetOf(ports.storage), {
     onNone: () => Effect40.void,
     onSome: (target) => callerMailOnce(ports)(runId2, target, notice, text)
   });
@@ -65578,25 +66099,25 @@ function encodingLength(int) {
 }
 
 // ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/hashes/digest.js
-function create(code, digest2) {
-  const size = digest2.byteLength;
+function create(code, digest) {
+  const size = digest.byteLength;
   const sizeOffset = encodingLength(code);
   const digestOffset = sizeOffset + encodingLength(size);
   const bytes3 = new Uint8Array(digestOffset + size);
   encodeTo(code, bytes3, 0);
   encodeTo(size, bytes3, sizeOffset);
-  bytes3.set(digest2, digestOffset);
-  return new Digest(code, size, digest2, bytes3);
+  bytes3.set(digest, digestOffset);
+  return new Digest6(code, size, digest, bytes3);
 }
 function decode5(multihash) {
   const bytes3 = coerce(multihash);
   const [code, sizeOffset] = decode4(bytes3);
   const [size, digestOffset] = decode4(bytes3.subarray(sizeOffset));
-  const digest2 = bytes3.subarray(sizeOffset + digestOffset);
-  if (digest2.byteLength !== size) {
+  const digest = bytes3.subarray(sizeOffset + digestOffset);
+  if (digest.byteLength !== size) {
     throw new Error("Incorrect length");
   }
-  return new Digest(code, size, digest2, bytes3);
+  return new Digest6(code, size, digest, bytes3);
 }
 function equals2(a, b) {
   if (a === b) {
@@ -65606,7 +66127,7 @@ function equals2(a, b) {
     return a.code === data.code && a.size === data.size && data.bytes instanceof Uint8Array && equals(a.bytes, data.bytes);
   }
 }
-var Digest = class {
+var Digest6 = class {
   code;
   size;
   digest;
@@ -65614,10 +66135,10 @@ var Digest = class {
   /**
    * Creates a multihash digest.
    */
-  constructor(code, size, digest2, bytes3) {
+  constructor(code, size, digest, bytes3) {
     this.code = code;
     this.size = size;
-    this.digest = digest2;
+    this.digest = digest;
     this.bytes = bytes3;
   }
 };
@@ -65700,8 +66221,8 @@ var CID = class _CID {
   toV1() {
     switch (this.version) {
       case 0: {
-        const { code, digest: digest2 } = this.multihash;
-        const multihash = create(code, digest2);
+        const { code, digest } = this.multihash;
+        const multihash = create(code, digest);
         return _CID.createV1(this.code, multihash);
       }
       case 1: {
@@ -65730,7 +66251,7 @@ var CID = class _CID {
   }
   [Symbol.toStringTag] = "CID";
   // Legacy
-  [Symbol.for("nodejs.util.inspect.custom")]() {
+  [/* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom")]() {
     return `CID(${this.toString()})`;
   }
   /**
@@ -65755,8 +66276,8 @@ var CID = class _CID {
       return new _CID(version, code, multihash, bytes3 ?? encodeCID(version, code, multihash.bytes));
     } else if (value[cidSymbol] === true) {
       const { version, multihash, code } = value;
-      const digest2 = decode5(multihash);
-      return _CID.create(version, code, digest2);
+      const digest = decode5(multihash);
+      return _CID.create(version, code, digest);
     } else {
       return null;
     }
@@ -65766,11 +66287,11 @@ var CID = class _CID {
    * @param code - Code of the codec content is encoded in, see https://github.com/multiformats/multicodec/blob/master/table.csv
    * @param digest - (Multi)hash of the of the content.
    */
-  static create(version, code, digest2) {
+  static create(version, code, digest) {
     if (typeof code !== "number") {
       throw new Error("String codecs are no longer supported");
     }
-    if (!(digest2.bytes instanceof Uint8Array)) {
+    if (!(digest.bytes instanceof Uint8Array)) {
       throw new Error("Invalid digest");
     }
     switch (version) {
@@ -65778,12 +66299,12 @@ var CID = class _CID {
         if (code !== DAG_PB_CODE) {
           throw new Error(`Version 0 CID must use dag-pb (code: ${DAG_PB_CODE}) block encoding`);
         } else {
-          return new _CID(version, code, digest2, digest2.bytes);
+          return new _CID(version, code, digest, digest.bytes);
         }
       }
       case 1: {
-        const bytes3 = encodeCID(version, code, digest2.bytes);
-        return new _CID(version, code, digest2, bytes3);
+        const bytes3 = encodeCID(version, code, digest.bytes);
+        return new _CID(version, code, digest, bytes3);
       }
       default: {
         throw new Error("Invalid version");
@@ -65793,8 +66314,8 @@ var CID = class _CID {
   /**
    * Simplified version of `create` for CIDv0.
    */
-  static createV0(digest2) {
-    return _CID.create(0, DAG_PB_CODE, digest2);
+  static createV0(digest) {
+    return _CID.create(0, DAG_PB_CODE, digest);
   }
   /**
    * Simplified version of `create` for CIDv1.
@@ -65802,8 +66323,8 @@ var CID = class _CID {
    * @param code - Content encoding format code.
    * @param digest - Multihash of the content.
    */
-  static createV1(code, digest2) {
-    return _CID.create(1, code, digest2);
+  static createV1(code, digest) {
+    return _CID.create(1, code, digest);
   }
   /**
    * Decoded a CID from its binary representation. The byte array must contain
@@ -65836,8 +66357,8 @@ var CID = class _CID {
       throw new Error("Incorrect length");
     }
     const digestBytes2 = multihashBytes.subarray(specs.multihashSize - specs.digestSize);
-    const digest2 = new Digest(specs.multihashCode, specs.digestSize, digestBytes2, multihashBytes);
-    const cid2 = specs.version === 0 ? _CID.createV0(digest2) : _CID.createV1(specs.codec, digest2);
+    const digest = new Digest6(specs.multihashCode, specs.digestSize, digestBytes2, multihashBytes);
+    const cid2 = specs.version === 0 ? _CID.createV0(digest) : _CID.createV1(specs.codec, digest);
     return [cid2, bytes3.subarray(specs.size)];
   }
   /**
@@ -65956,7 +66477,7 @@ function encodeCID(version, code, multihash) {
   bytes3.set(multihash, hashOffset);
   return bytes3;
 }
-var cidSymbol = Symbol.for("@ipld/js-cid/CID");
+var cidSymbol = /* @__PURE__ */ Symbol.for("@ipld/js-cid/CID");
 
 // ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/hashes/hasher.js
 var DEFAULT_MIN_DIGEST_LENGTH = 20;
@@ -65990,27 +66511,27 @@ var Hasher = class {
       if (result instanceof Uint8Array) {
         return createDigest(result, this.code, options2?.truncate);
       }
-      return result.then((digest2) => createDigest(digest2, this.code, options2?.truncate));
+      return result.then((digest) => createDigest(digest, this.code, options2?.truncate));
     } else {
       throw Error("Unknown type, must be binary type");
     }
   }
 };
-function createDigest(digest2, code, truncate2) {
-  if (truncate2 != null && truncate2 !== digest2.byteLength) {
-    if (truncate2 > digest2.byteLength) {
-      throw new Error(`Invalid truncate option, must be less than or equal to ${digest2.byteLength}`);
+function createDigest(digest, code, truncate2) {
+  if (truncate2 != null && truncate2 !== digest.byteLength) {
+    if (truncate2 > digest.byteLength) {
+      throw new Error(`Invalid truncate option, must be less than or equal to ${digest.byteLength}`);
     }
-    digest2 = digest2.subarray(0, truncate2);
+    digest = digest.subarray(0, truncate2);
   }
-  return create(code, digest2);
+  return create(code, digest);
 }
 
 // ../../node_modules/.pnpm/multiformats@13.4.2/node_modules/multiformats/dist/src/hashes/sha2-browser.js
 function sha(name) {
   return async (data) => new Uint8Array(await crypto.subtle.digest(name, data));
 }
-var sha2562 = from2({
+var sha2563 = from2({
   name: "sha2-256",
   code: 18,
   encode: sha("SHA-256")
@@ -66166,7 +66687,7 @@ function ui8Equals(a, b) {
 // ../../node_modules/.pnpm/@atproto+lex-data@0.1.8/node_modules/@atproto/lex-data/dist/cid.js
 var CBOR_DATA_CODEC = 113;
 var RAW_DATA_CODEC = 85;
-var SHA256_HASH_CODE = sha2562.code;
+var SHA256_HASH_CODE = sha2563.code;
 var SHA512_HASH_CODE = sha5122.code;
 function isRawCid(cid2) {
   return cid2.version === 1 && cid2.code === RAW_DATA_CODEC;
@@ -70348,7 +70869,7 @@ ZodNaN.create = (params2) => {
     ...processCreateParams(params2)
   });
 };
-var BRAND = Symbol("zod_brand");
+var BRAND = /* @__PURE__ */ Symbol("zod_brand");
 var ZodBranded = class extends ZodType {
   _parse(input) {
     const { ctx } = this._processInputParams(input);
@@ -73828,8 +74349,8 @@ var Tokeniser = class {
     return token;
   }
 };
-var DONE = Symbol.for("DONE");
-var BREAK = Symbol.for("BREAK");
+var DONE = /* @__PURE__ */ Symbol.for("DONE");
+var BREAK = /* @__PURE__ */ Symbol.for("BREAK");
 function tokenToArray(token, tokeniser, options2) {
   const arr = [];
   for (let i = 0; i < token.value; i++) {
@@ -74584,25 +75105,25 @@ function encodingLength2(int) {
 }
 
 // ../../node_modules/.pnpm/multiformats@14.0.5/node_modules/multiformats/dist/src/hashes/digest.js
-function create3(code, digest2) {
-  const size = digest2.byteLength;
+function create3(code, digest) {
+  const size = digest.byteLength;
   const sizeOffset = encodingLength2(code);
   const digestOffset = sizeOffset + encodingLength2(size);
   const bytes3 = new Uint8Array(digestOffset + size);
   encodeTo2(code, bytes3, 0);
   encodeTo2(size, bytes3, sizeOffset);
-  bytes3.set(digest2, digestOffset);
-  return new Digest2(code, size, digest2, bytes3);
+  bytes3.set(digest, digestOffset);
+  return new Digest7(code, size, digest, bytes3);
 }
 function decode10(multihash) {
   const bytes3 = coerce3(multihash);
   const [code, sizeOffset] = decode9(bytes3);
   const [size, digestOffset] = decode9(bytes3.subarray(sizeOffset));
-  const digest2 = bytes3.subarray(sizeOffset + digestOffset);
-  if (digest2.byteLength !== size) {
+  const digest = bytes3.subarray(sizeOffset + digestOffset);
+  if (digest.byteLength !== size) {
     throw new Error("Incorrect length");
   }
-  return new Digest2(code, size, digest2, bytes3);
+  return new Digest7(code, size, digest, bytes3);
 }
 function equals4(a, b) {
   if (a === b) {
@@ -74612,7 +75133,7 @@ function equals4(a, b) {
     return a.code === data.code && a.size === data.size && data.bytes instanceof Uint8Array && equals3(a.bytes, data.bytes);
   }
 }
-var Digest2 = class {
+var Digest7 = class {
   code;
   size;
   digest;
@@ -74620,10 +75141,10 @@ var Digest2 = class {
   /**
    * Creates a multihash digest.
    */
-  constructor(code, size, digest2, bytes3) {
+  constructor(code, size, digest, bytes3) {
     this.code = code;
     this.size = size;
-    this.digest = toArrayBufferBackedArray(digest2);
+    this.digest = toArrayBufferBackedArray(digest);
     this.bytes = toArrayBufferBackedArray(bytes3);
   }
 };
@@ -74706,8 +75227,8 @@ var CID2 = class _CID {
   toV1() {
     switch (this.version) {
       case 0: {
-        const { code, digest: digest2 } = this.multihash;
-        const multihash = create3(code, digest2);
+        const { code, digest } = this.multihash;
+        const multihash = create3(code, digest);
         return _CID.createV1(this.code, multihash);
       }
       case 1: {
@@ -74736,7 +75257,7 @@ var CID2 = class _CID {
   }
   [Symbol.toStringTag] = "CID";
   // Legacy
-  [Symbol.for("nodejs.util.inspect.custom")]() {
+  [/* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom")]() {
     return `CID(${this.toString()})`;
   }
   /**
@@ -74761,8 +75282,8 @@ var CID2 = class _CID {
       return new _CID(version, code, multihash, bytes3 ?? encodeCID2(version, code, multihash.bytes));
     } else if (value[cidSymbol2] === true) {
       const { version, multihash, code } = value;
-      const digest2 = decode10(multihash);
-      return _CID.create(version, code, digest2);
+      const digest = decode10(multihash);
+      return _CID.create(version, code, digest);
     } else {
       return null;
     }
@@ -74772,11 +75293,11 @@ var CID2 = class _CID {
    * @param code - Code of the codec content is encoded in, see https://github.com/multiformats/multicodec/blob/master/table.csv
    * @param digest - (Multi)hash of the of the content.
    */
-  static create(version, code, digest2) {
+  static create(version, code, digest) {
     if (typeof code !== "number") {
       throw new Error("String codecs are no longer supported");
     }
-    if (!(digest2.bytes instanceof Uint8Array)) {
+    if (!(digest.bytes instanceof Uint8Array)) {
       throw new Error("Invalid digest");
     }
     switch (version) {
@@ -74784,12 +75305,12 @@ var CID2 = class _CID {
         if (code !== DAG_PB_CODE2) {
           throw new Error(`Version 0 CID must use dag-pb (code: ${DAG_PB_CODE2}) block encoding`);
         } else {
-          return new _CID(version, code, digest2, digest2.bytes);
+          return new _CID(version, code, digest, digest.bytes);
         }
       }
       case 1: {
-        const bytes3 = encodeCID2(version, code, digest2.bytes);
-        return new _CID(version, code, digest2, bytes3);
+        const bytes3 = encodeCID2(version, code, digest.bytes);
+        return new _CID(version, code, digest, bytes3);
       }
       default: {
         throw new Error("Invalid version");
@@ -74799,8 +75320,8 @@ var CID2 = class _CID {
   /**
    * Simplified version of `create` for CIDv0.
    */
-  static createV0(digest2) {
-    return _CID.create(0, DAG_PB_CODE2, digest2);
+  static createV0(digest) {
+    return _CID.create(0, DAG_PB_CODE2, digest);
   }
   /**
    * Simplified version of `create` for CIDv1.
@@ -74808,8 +75329,8 @@ var CID2 = class _CID {
    * @param code - Content encoding format code.
    * @param digest - Multihash of the content.
    */
-  static createV1(code, digest2) {
-    return _CID.create(1, code, digest2);
+  static createV1(code, digest) {
+    return _CID.create(1, code, digest);
   }
   /**
    * Decoded a CID from its binary representation. The byte array must contain
@@ -74842,8 +75363,8 @@ var CID2 = class _CID {
       throw new Error("Incorrect length");
     }
     const digestBytes2 = multihashBytes.subarray(specs.multihashSize - specs.digestSize);
-    const digest2 = new Digest2(specs.multihashCode, specs.digestSize, digestBytes2, multihashBytes);
-    const cid2 = specs.version === 0 ? _CID.createV0(digest2) : _CID.createV1(specs.codec, digest2);
+    const digest = new Digest7(specs.multihashCode, specs.digestSize, digestBytes2, multihashBytes);
+    const cid2 = specs.version === 0 ? _CID.createV0(digest) : _CID.createV1(specs.codec, digest);
     return [cid2, bytes3.subarray(specs.size)];
   }
   /**
@@ -74962,7 +75483,7 @@ function encodeCID2(version, code, multihash) {
   bytes3.set(multihash, hashOffset);
   return bytes3;
 }
-var cidSymbol2 = Symbol.for("@ipld/js-cid/CID");
+var cidSymbol2 = /* @__PURE__ */ Symbol.for("@ipld/js-cid/CID");
 
 // ../../node_modules/.pnpm/@ipld+dag-cbor@10.0.2/node_modules/@ipld/dag-cbor/src/index.js
 var CID_CBOR_TAG = 42;
@@ -75105,7 +75626,7 @@ import { Context as Context72 } from "effect";
 import { Effect as Effect212, Schema as Schema402 } from "effect";
 import { Effect as Effect202, Schema as Schema392 } from "effect";
 import { Effect as Effect222, Schema as Schema412 } from "effect";
-import { Effect as Effect232, Option as Option22, Schema as Schema422 } from "effect";
+import { Effect as Effect232, Option as Option23, Schema as Schema422 } from "effect";
 import { Schema as Schema432 } from "effect";
 import { Clock as Clock22, Effect as Effect242, Layer as Layer42, Result as Result32, Schema as Schema442 } from "effect";
 import { HttpClient as HttpClient2, HttpClientRequest as HttpClientRequest2 } from "effect/http";
@@ -75115,7 +75636,7 @@ import {
   Context as Context92,
   Duration as Duration4,
   Effect as Effect262,
-  Option as Option23,
+  Option as Option24,
   Predicate as Predicate5,
   Schedule as Schedule2,
   Schema as Schema462,
@@ -75188,7 +75709,7 @@ var Bytes2 = Schema61.StructWithRest(
     encode: SchemaGetter.transform((value) => ({ $bytes: value }))
   })
 );
-var Data8 = Schema61.suspend(
+var Data9 = Schema61.suspend(
   () => Schema61.Union([
     Schema61.Null,
     Schema61.Boolean,
@@ -75196,8 +75717,8 @@ var Data8 = Schema61.suspend(
     Schema61.String,
     Bytes2,
     Link,
-    Schema61.Array(Data8),
-    Schema61.Record(Schema61.String, Data8).check(
+    Schema61.Array(Data9),
+    Schema61.Record(Schema61.String, Data9).check(
       Schema61.makeFilter(
         (value) => !("$bytes" in value) && !("$link" in value),
         { expected: "data map, not a malformed byte or link wrapper" }
@@ -75205,14 +75726,14 @@ var Data8 = Schema61.suspend(
     )
   ])
 );
-var DataMap = Schema61.Record(Schema61.String, Data8).check(
+var DataMap = Schema61.Record(Schema61.String, Data9).check(
   Schema61.makeFilter((value) => !("$bytes" in value) && !("$link" in value), {
     expected: "data-model map"
   })
 );
 var TaggedMap = Schema61.StructWithRest(
   Schema61.Struct({ $type: Schema61.String }),
-  [Schema61.Record(Schema61.String, Data8)]
+  [Schema61.Record(Schema61.String, Data9)]
 );
 var lexString2 = (definition) => {
   const validators = new Lexicons([
@@ -75242,14 +75763,14 @@ var Blob2 = Schema61.StructWithRest(
     ref: Link,
     size: Schema61.Int.check(Schema61.isGreaterThanOrEqualTo(0))
   }),
-  [Schema61.Record(Schema61.String, Data8)]
+  [Schema61.Record(Schema61.String, Data9)]
 );
 var XrpcErrorBody = Schema61.StructWithRest(
   Schema61.Struct({
     error: Schema61.String,
     message: Schema61.optionalKey(Schema61.String)
   }),
-  [Schema61.Record(Schema61.String, Data8)]
+  [Schema61.Record(Schema61.String, Data9)]
 );
 var Main = Schema210.StructWithRest(
   Schema210.Struct({
@@ -75279,7 +75800,7 @@ var Main = Schema210.StructWithRest(
       Schema210.brand("Lexicon:did")
     )
   }),
-  [Schema210.Record(Schema210.String, Data8)]
+  [Schema210.Record(Schema210.String, Data9)]
 );
 var Aad = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75307,7 +75828,7 @@ var Aad = Schema310.StructWithRest(
       Schema310.brand("Lexicon:did")
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var AppSignature = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75333,7 +75854,7 @@ var AppSignature = Schema310.StructWithRest(
       )
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var BirthContext = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75351,7 +75872,7 @@ var BirthContext = Schema310.StructWithRest(
       type: "string"
     })
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var DelegationReceipt = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75362,7 +75883,7 @@ var DelegationReceipt = Schema310.StructWithRest(
       )
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var DeliveryState = lexString2({
   description: "Open values: accepted = durable admission; queued = awaiting runtime; delivered = injected into leased runtime, not processed; acked = recipient acknowledgment; expired = sender-set expiry reached; failed = terminal failure with a receipt. Unknown values are not success.",
@@ -75387,7 +75908,7 @@ var PublicJwk = Schema310.StructWithRest(
     x: lexString2({ type: "string" }),
     y: lexString2({ type: "string" })
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var DidVerificationMethod = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75395,7 +75916,7 @@ var DidVerificationMethod = Schema310.StructWithRest(
     id: lexString2({ type: "string" }),
     publicKeyJwk: PublicJwk
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var DidDocument = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75415,7 +75936,7 @@ var DidDocument = Schema310.StructWithRest(
       Schema310.isMaxLength(9007199254740991)
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var HpkeSuite = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75432,7 +75953,7 @@ var HpkeSuite = Schema310.StructWithRest(
       Schema310.isLessThanOrEqualTo(65535)
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var EncryptedEnvelope = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75455,7 +75976,7 @@ var EncryptedEnvelope = Schema310.StructWithRest(
       Schema310.isLessThanOrEqualTo(9007199254740991)
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var MessageRef = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75480,7 +76001,7 @@ var MessageRef = Schema310.StructWithRest(
       }).pipe(Schema310.brand("Lexicon:at-uri"))
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var SignedPass = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75489,7 +76010,7 @@ var SignedPass = Schema310.StructWithRest(
       Schema310.isPattern(/^[A-Za-z0-9_-]{86}$/u)
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var PassRun = lexString2({
   description: "Launcher-minted run handle '<label>:<id>'. The label is a lowercase agent label; the id is the worker's session UUID or 32 lowercase hex characters.",
@@ -75512,7 +76033,7 @@ var Via = Schema310.StructWithRest(
       Schema310.brand("Lexicon:did")
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var Receipt = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75548,7 +76069,7 @@ var Receipt = Schema310.StructWithRest(
     wakeReason: Schema310.optionalKey(lexString2({ type: "string" })),
     woke: Schema310.optionalKey(Schema310.Boolean)
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var MessageEvent = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75559,7 +76080,7 @@ var MessageEvent = Schema310.StructWithRest(
       Schema310.isLessThanOrEqualTo(9007199254740991)
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var PassIntent = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75569,7 +76090,7 @@ var PassIntent = Schema310.StructWithRest(
     }).pipe(Schema310.decodeTo(Schema310.Literals(["to", "quiet"]))),
     woke: Schema310.Boolean
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 ).check(
   Schema310.makeFilter(
     (value) => Object.keys(value).every((key) => ["wakeReason", "woke"].includes(key)),
@@ -75607,7 +76128,7 @@ var PassRequest = Schema310.StructWithRest(
       Schema310.isPattern(/^[A-Za-z0-9_-]{43}$/u)
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 ).check(
   Schema310.makeFilter(
     (value) => Object.keys(value).every(
@@ -75635,7 +76156,7 @@ var ReceiptEvent = Schema310.StructWithRest(
       Schema310.isLessThanOrEqualTo(9007199254740991)
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var SignedMessage = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75647,7 +76168,7 @@ var SignedMessage = Schema310.StructWithRest(
       )
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var SigningPayload = Schema310.StructWithRest(
   Schema310.Struct({
@@ -75671,7 +76192,7 @@ var SigningPayload = Schema310.StructWithRest(
       Schema310.isLessThanOrEqualTo(9007199254740991)
     )
   }),
-  [Schema310.Record(Schema310.String, Data8)]
+  [Schema310.Record(Schema310.String, Data9)]
 );
 var concatenate = (...parts2) => {
   const result = new Uint8Array(
@@ -75709,7 +76230,7 @@ var canonicalDecode = Effect41.fn("Envelope.canonicalDecode")(
       try: () => decode11(bytes22)
     });
     const parsed = yield* Schema510.decodeUnknownEffect(
-      Schema510.toType(Data8)
+      Schema510.toType(Data9)
     )(value).pipe(
       Effect41.mapError(
         () => new EnvelopeFailure({ reason: "Invalid data model" })
@@ -76024,7 +76545,7 @@ var open = Effect52.fn("Envelope.open")(function* open2(request2) {
 var Params = Schema82.Undefined;
 var Input = Schema82.StructWithRest(
   Schema82.Struct({ document: DidDocument }),
-  [Schema82.Record(Schema82.String, Data8)]
+  [Schema82.Record(Schema82.String, Data9)]
 );
 var Output = Schema82.StructWithRest(
   Schema82.Struct({
@@ -76032,7 +76553,7 @@ var Output = Schema82.StructWithRest(
       Schema82.brand("Lexicon:did")
     )
   }),
-  [Schema82.Record(Schema82.String, Data8)]
+  [Schema82.Record(Schema82.String, Data9)]
 );
 var ErrorBody = XrpcErrorBody;
 var Method = {
@@ -76052,7 +76573,7 @@ var Name = lexString2({
   minLength: 1,
   type: "string"
 }).check(Schema92.isPattern(/^[a-z][a-z0-9_-]*(?:\/[a-z][a-z0-9_-]*)*$/u));
-var Digest3 = Schema92.StructWithRest(
+var Digest8 = Schema92.StructWithRest(
   Schema92.Struct({
     minutes: Schema92.Int.check(
       Schema92.isGreaterThanOrEqualTo(1),
@@ -76060,7 +76581,7 @@ var Digest3 = Schema92.StructWithRest(
     ),
     name: Name
   }),
-  [Schema92.Record(Schema92.String, Data8)]
+  [Schema92.Record(Schema92.String, Data9)]
 ).check(
   Schema92.makeFilter(
     (value) => Object.keys(value).every((key) => ["minutes", "name"].includes(key)),
@@ -76071,7 +76592,7 @@ var Group = Schema92.StructWithRest(
   Schema92.Struct({
     group: lexString2({ maxLength: 256, minLength: 1, type: "string" })
   }),
-  [Schema92.Record(Schema92.String, Data8)]
+  [Schema92.Record(Schema92.String, Data9)]
 ).check(
   Schema92.makeFilter(
     (value) => Object.keys(value).every((key) => ["group"].includes(key)),
@@ -76094,7 +76615,7 @@ var Jev = Schema92.StructWithRest(
       Schema92.isLessThanOrEqualTo(1e4)
     )
   }),
-  [Schema92.Record(Schema92.String, Data8)]
+  [Schema92.Record(Schema92.String, Data9)]
 ).check(
   Schema92.makeFilter(
     (value) => Object.keys(value).every(
@@ -76126,7 +76647,7 @@ var Model = Schema92.StructWithRest(
       Schema92.isLessThanOrEqualTo(6e5)
     )
   }),
-  [Schema92.Record(Schema92.String, Data8)]
+  [Schema92.Record(Schema92.String, Data9)]
 ).check(
   Schema92.makeFilter(
     (value) => Object.keys(value).every(
@@ -76158,7 +76679,7 @@ var Match5 = Schema92.StructWithRest(
       lexString2({ maxLength: 256, minLength: 1, type: "string" })
     )
   }),
-  [Schema92.Record(Schema92.String, Data8)]
+  [Schema92.Record(Schema92.String, Data9)]
 ).check(
   Schema92.makeFilter(
     (value) => Object.keys(value).every(
@@ -76196,7 +76717,7 @@ var Rule = Schema92.StructWithRest(
       )
     )
   }),
-  [Schema92.Record(Schema92.String, Data8)]
+  [Schema92.Record(Schema92.String, Data9)]
 ).check(
   Schema92.makeFilter(
     (value) => Object.keys(value).every(
@@ -76222,7 +76743,7 @@ var Main2 = Schema92.StructWithRest(
       Schema92.isMaxLength(256)
     ),
     digest: Schema92.optionalKey(
-      Schema92.Array(Digest3).check(Schema92.isMinLength(0), Schema92.isMaxLength(256))
+      Schema92.Array(Digest8).check(Schema92.isMinLength(0), Schema92.isMaxLength(256))
     ),
     forward: Schema92.Array(Name).check(
       Schema92.isMinLength(0),
@@ -76241,7 +76762,7 @@ var Main2 = Schema92.StructWithRest(
               type: "string"
             })
           }),
-          [Schema92.Record(Schema92.String, Data8)]
+          [Schema92.Record(Schema92.String, Data9)]
         ).check(
           Schema92.makeFilter(
             (value) => Object.keys(value).every(
@@ -76259,7 +76780,7 @@ var Main2 = Schema92.StructWithRest(
               type: "string"
             })
           }),
-          [Schema92.Record(Schema92.String, Data8)]
+          [Schema92.Record(Schema92.String, Data9)]
         ).check(
           Schema92.makeFilter(
             (value) => Object.keys(value).every(
@@ -76281,7 +76802,7 @@ var Main2 = Schema92.StructWithRest(
       Schema92.decodeTo(Schema92.Literal("0.1"))
     )
   }),
-  [Schema92.Record(Schema92.String, Data8)]
+  [Schema92.Record(Schema92.String, Data9)]
 ).check(
   Schema92.makeFilter(
     (value) => Object.keys(value).every(
@@ -76306,7 +76827,7 @@ var Thread = Schema92.StructWithRest(
   Schema92.Struct({
     thread: lexString2({ maxLength: 256, minLength: 1, type: "string" })
   }),
-  [Schema92.Record(Schema92.String, Data8)]
+  [Schema92.Record(Schema92.String, Data9)]
 ).check(
   Schema92.makeFilter(
     (value) => Object.keys(value).every((key) => ["thread"].includes(key)),
@@ -76349,16 +76870,16 @@ var Params3 = Schema112.StructWithRest(
       Schema112.brand("Lexicon:did")
     )
   }),
-  [Schema112.Record(Schema112.String, Data8)]
+  [Schema112.Record(Schema112.String, Data9)]
 );
 var Input2 = Schema112.Undefined;
 var Output2 = Schema112.StructWithRest(
   Schema112.Struct({ prefs: Main2 }),
-  [Schema112.Record(Schema112.String, Data8)]
+  [Schema112.Record(Schema112.String, Data9)]
 );
 var ParamsFromQuery = Schema112.StructWithRest(
   Schema112.Struct({ did: Schema112.String }),
-  [Schema112.Record(Schema112.String, Data8)]
+  [Schema112.Record(Schema112.String, Data9)]
 ).pipe(Schema112.decodeTo(Params3));
 var encodeParams = Effect62.fn("lexicon.encodeParams")(
   function* encodeParams2(params2) {
@@ -76424,7 +76945,7 @@ var Main3 = Schema122.StructWithRest(
       Schema122.decodeTo(Schema122.Literal("0.1"))
     )
   }),
-  [Schema122.Record(Schema122.String, Data8)]
+  [Schema122.Record(Schema122.String, Data9)]
 );
 var Params4 = Schema132.StructWithRest(
   Schema132.Struct({
@@ -76432,16 +76953,16 @@ var Params4 = Schema132.StructWithRest(
       Schema132.brand("Lexicon:did")
     )
   }),
-  [Schema132.Record(Schema132.String, Data8)]
+  [Schema132.Record(Schema132.String, Data9)]
 );
 var Input3 = Schema132.Undefined;
 var Output3 = Schema132.StructWithRest(
   Schema132.Struct({ status: Main3 }),
-  [Schema132.Record(Schema132.String, Data8)]
+  [Schema132.Record(Schema132.String, Data9)]
 );
 var ParamsFromQuery2 = Schema132.StructWithRest(
   Schema132.Struct({ did: Schema132.String }),
-  [Schema132.Record(Schema132.String, Data8)]
+  [Schema132.Record(Schema132.String, Data9)]
 ).pipe(Schema132.decodeTo(Params4));
 var encodeParams3 = Effect72.fn("lexicon.encodeParams")(
   function* encodeParams4(params2) {
@@ -76487,11 +77008,11 @@ var Input4 = Schema142.StructWithRest(
       )
     )
   }),
-  [Schema142.Record(Schema142.String, Data8)]
+  [Schema142.Record(Schema142.String, Data9)]
 );
 var Output4 = Schema142.StructWithRest(
   Schema142.Struct({ prefs: Main2 }),
-  [Schema142.Record(Schema142.String, Data8)]
+  [Schema142.Record(Schema142.String, Data9)]
 );
 var ErrorBody4 = XrpcErrorBody;
 var Method4 = {
@@ -76521,11 +77042,11 @@ var Input5 = Schema152.StructWithRest(
     ),
     status: Main3
   }),
-  [Schema152.Record(Schema152.String, Data8)]
+  [Schema152.Record(Schema152.String, Data9)]
 );
 var Output5 = Schema152.StructWithRest(
   Schema152.Struct({ status: Main3 }),
-  [Schema152.Record(Schema152.String, Data8)]
+  [Schema152.Record(Schema152.String, Data9)]
 );
 var ErrorBody5 = XrpcErrorBody;
 var Method5 = {
@@ -76555,11 +77076,11 @@ var Input6 = Schema162.StructWithRest(
       Schema162.brand("Lexicon:did")
     )
   }),
-  [Schema162.Record(Schema162.String, Data8)]
+  [Schema162.Record(Schema162.String, Data9)]
 );
 var Output6 = Schema162.StructWithRest(
   Schema162.Struct({ receipt: Receipt }),
-  [Schema162.Record(Schema162.String, Data8)]
+  [Schema162.Record(Schema162.String, Data9)]
 );
 var ErrorBody6 = XrpcErrorBody;
 var Method6 = {
@@ -76589,11 +77110,11 @@ var Input7 = Schema172.StructWithRest(
       Schema172.brand("Lexicon:did")
     )
   }),
-  [Schema172.Record(Schema172.String, Data8)]
+  [Schema172.Record(Schema172.String, Data9)]
 );
 var Output7 = Schema172.StructWithRest(
   Schema172.Struct({ receipt: Receipt }),
-  [Schema172.Record(Schema172.String, Data8)]
+  [Schema172.Record(Schema172.String, Data9)]
 );
 var ErrorBody7 = XrpcErrorBody;
 var Method7 = {
@@ -76632,7 +77153,7 @@ var Params9 = Schema182.StructWithRest(
       Schema182.brand("Lexicon:did")
     )
   }),
-  [Schema182.Record(Schema182.String, Data8)]
+  [Schema182.Record(Schema182.String, Data9)]
 );
 var Input8 = Schema182.Undefined;
 var Output8 = Schema182.StructWithRest(
@@ -76655,7 +77176,7 @@ var Output8 = Schema182.StructWithRest(
               Schema182.isLessThanOrEqualTo(9007199254740991)
             )
           }),
-          [Schema182.Record(Schema182.String, Data8)]
+          [Schema182.Record(Schema182.String, Data9)]
         ),
         Schema182.StructWithRest(
           Schema182.Struct({
@@ -76666,7 +77187,7 @@ var Output8 = Schema182.StructWithRest(
               Schema182.isLessThanOrEqualTo(9007199254740991)
             )
           }),
-          [Schema182.Record(Schema182.String, Data8)]
+          [Schema182.Record(Schema182.String, Data9)]
         ),
         Schema182.StructWithRest(
           Schema182.Struct({
@@ -76682,7 +77203,7 @@ var Output8 = Schema182.StructWithRest(
               Schema182.isLessThanOrEqualTo(9007199254740991)
             )
           }),
-          [Schema182.Record(Schema182.String, Data8)]
+          [Schema182.Record(Schema182.String, Data9)]
         ),
         TaggedMap.check(
           Schema182.makeFilter(
@@ -76701,7 +77222,7 @@ var Output8 = Schema182.StructWithRest(
       Schema182.isLessThanOrEqualTo(9007199254740991)
     )
   }),
-  [Schema182.Record(Schema182.String, Data8)]
+  [Schema182.Record(Schema182.String, Data9)]
 );
 var ParamsFromQuery3 = Schema182.StructWithRest(
   Schema182.Struct({
@@ -76710,7 +77231,7 @@ var ParamsFromQuery3 = Schema182.StructWithRest(
     limit: Schema182.optionalKey(Schema182.FiniteFromString),
     recipientDid: Schema182.String
   }),
-  [Schema182.Record(Schema182.String, Data8)]
+  [Schema182.Record(Schema182.String, Data9)]
 ).pipe(Schema182.decodeTo(Params9));
 var encodeParams5 = Effect82.fn("lexicon.encodeParams")(
   function* encodeParams6(params2) {
@@ -76769,11 +77290,11 @@ var Input9 = Schema192.StructWithRest(
     ),
     woke: Schema192.optionalKey(Schema192.Boolean)
   }),
-  [Schema192.Record(Schema192.String, Data8)]
+  [Schema192.Record(Schema192.String, Data9)]
 );
 var Output9 = Schema192.StructWithRest(
   Schema192.Struct({ receipt: Receipt }),
-  [Schema192.Record(Schema192.String, Data8)]
+  [Schema192.Record(Schema192.String, Data9)]
 );
 var ErrorBody9 = XrpcErrorBody;
 var Method9 = {
@@ -76809,7 +77330,7 @@ var Claude = Schema202.StructWithRest(
       })
     )
   }),
-  [Schema202.Record(Schema202.String, Data8)]
+  [Schema202.Record(Schema202.String, Data9)]
 );
 var Codex = Schema202.StructWithRest(
   Schema202.Struct({
@@ -76832,7 +77353,7 @@ var Codex = Schema202.StructWithRest(
       })
     )
   }),
-  [Schema202.Record(Schema202.String, Data8)]
+  [Schema202.Record(Schema202.String, Data9)]
 );
 var Main4 = Schema202.StructWithRest(
   Schema202.Struct({
@@ -76869,7 +77390,7 @@ var Main4 = Schema202.StructWithRest(
             })
           )
         }),
-        [Schema202.Record(Schema202.String, Data8)]
+        [Schema202.Record(Schema202.String, Data9)]
       ),
       Schema202.StructWithRest(
         Schema202.Struct({
@@ -76893,7 +77414,7 @@ var Main4 = Schema202.StructWithRest(
             })
           )
         }),
-        [Schema202.Record(Schema202.String, Data8)]
+        [Schema202.Record(Schema202.String, Data9)]
       ),
       Schema202.StructWithRest(
         Schema202.Struct({
@@ -76917,7 +77438,7 @@ var Main4 = Schema202.StructWithRest(
             })
           )
         }),
-        [Schema202.Record(Schema202.String, Data8)]
+        [Schema202.Record(Schema202.String, Data9)]
       ),
       Schema202.StructWithRest(
         Schema202.Struct({
@@ -76941,7 +77462,7 @@ var Main4 = Schema202.StructWithRest(
             })
           )
         }),
-        [Schema202.Record(Schema202.String, Data8)]
+        [Schema202.Record(Schema202.String, Data9)]
       ),
       Schema202.StructWithRest(
         Schema202.Struct({
@@ -76969,7 +77490,7 @@ var Main4 = Schema202.StructWithRest(
             })
           )
         }),
-        [Schema202.Record(Schema202.String, Data8)]
+        [Schema202.Record(Schema202.String, Data9)]
       ),
       TaggedMap.check(
         Schema202.makeFilter(
@@ -76999,7 +77520,7 @@ var Main4 = Schema202.StructWithRest(
       )
     )
   }),
-  [Schema202.Record(Schema202.String, Data8)]
+  [Schema202.Record(Schema202.String, Data9)]
 );
 var Opencode = Schema202.StructWithRest(
   Schema202.Struct({
@@ -77022,7 +77543,7 @@ var Opencode = Schema202.StructWithRest(
       })
     )
   }),
-  [Schema202.Record(Schema202.String, Data8)]
+  [Schema202.Record(Schema202.String, Data9)]
 );
 var Other = Schema202.StructWithRest(
   Schema202.Struct({
@@ -77049,7 +77570,7 @@ var Other = Schema202.StructWithRest(
       })
     )
   }),
-  [Schema202.Record(Schema202.String, Data8)]
+  [Schema202.Record(Schema202.String, Data9)]
 );
 var Pi = Schema202.StructWithRest(
   Schema202.Struct({
@@ -77072,7 +77593,7 @@ var Pi = Schema202.StructWithRest(
       })
     )
   }),
-  [Schema202.Record(Schema202.String, Data8)]
+  [Schema202.Record(Schema202.String, Data9)]
 );
 var Params11 = Schema212.Undefined;
 var Input10 = Schema212.StructWithRest(
@@ -77112,7 +77633,7 @@ var Input10 = Schema212.StructWithRest(
             })
           )
         }),
-        [Schema212.Record(Schema212.String, Data8)]
+        [Schema212.Record(Schema212.String, Data9)]
       ),
       Schema212.StructWithRest(
         Schema212.Struct({
@@ -77136,7 +77657,7 @@ var Input10 = Schema212.StructWithRest(
             })
           )
         }),
-        [Schema212.Record(Schema212.String, Data8)]
+        [Schema212.Record(Schema212.String, Data9)]
       ),
       Schema212.StructWithRest(
         Schema212.Struct({
@@ -77160,7 +77681,7 @@ var Input10 = Schema212.StructWithRest(
             })
           )
         }),
-        [Schema212.Record(Schema212.String, Data8)]
+        [Schema212.Record(Schema212.String, Data9)]
       ),
       Schema212.StructWithRest(
         Schema212.Struct({
@@ -77184,7 +77705,7 @@ var Input10 = Schema212.StructWithRest(
             })
           )
         }),
-        [Schema212.Record(Schema212.String, Data8)]
+        [Schema212.Record(Schema212.String, Data9)]
       ),
       Schema212.StructWithRest(
         Schema212.Struct({
@@ -77212,7 +77733,7 @@ var Input10 = Schema212.StructWithRest(
             })
           )
         }),
-        [Schema212.Record(Schema212.String, Data8)]
+        [Schema212.Record(Schema212.String, Data9)]
       ),
       TaggedMap.check(
         Schema212.makeFilter(
@@ -77239,11 +77760,11 @@ var Input10 = Schema212.StructWithRest(
       )
     )
   }),
-  [Schema212.Record(Schema212.String, Data8)]
+  [Schema212.Record(Schema212.String, Data9)]
 );
 var Output10 = Schema212.StructWithRest(
   Schema212.Struct({ lease: Main4 }),
-  [Schema212.Record(Schema212.String, Data8)]
+  [Schema212.Record(Schema212.String, Data9)]
 );
 var ErrorBody10 = XrpcErrorBody;
 var Method10 = {
@@ -77272,7 +77793,7 @@ var Input11 = Schema222.StructWithRest(
       Schema222.brand("Lexicon:tid")
     )
   }),
-  [Schema222.Record(Schema222.String, Data8)]
+  [Schema222.Record(Schema222.String, Data9)]
 );
 var Output11 = Schema222.Undefined;
 var ErrorBody11 = XrpcErrorBody;
@@ -77311,11 +77832,11 @@ var Input12 = Schema232.StructWithRest(
       )
     )
   }),
-  [Schema232.Record(Schema232.String, Data8)]
+  [Schema232.Record(Schema232.String, Data9)]
 );
 var Output12 = Schema232.StructWithRest(
   Schema232.Struct({ lease: Main4 }),
-  [Schema232.Record(Schema232.String, Data8)]
+  [Schema232.Record(Schema232.String, Data9)]
 );
 var ErrorBody12 = XrpcErrorBody;
 var Method12 = {
@@ -77336,16 +77857,16 @@ var Params14 = Schema242.StructWithRest(
       Schema242.brand("Lexicon:did")
     )
   }),
-  [Schema242.Record(Schema242.String, Data8)]
+  [Schema242.Record(Schema242.String, Data9)]
 );
 var Input13 = Schema242.Undefined;
 var Output13 = Schema242.StructWithRest(
   Schema242.Struct({ lease: Main4 }),
-  [Schema242.Record(Schema242.String, Data8)]
+  [Schema242.Record(Schema242.String, Data9)]
 );
 var ParamsFromQuery4 = Schema242.StructWithRest(
   Schema242.Struct({ did: Schema242.String }),
-  [Schema242.Record(Schema242.String, Data8)]
+  [Schema242.Record(Schema242.String, Data9)]
 ).pipe(Schema242.decodeTo(Params14));
 var encodeParams7 = Effect92.fn("lexicon.encodeParams")(
   function* encodeParams8(params2) {
@@ -77779,7 +78300,7 @@ var Main5 = Schema282.StructWithRest(
       type: "string"
     })
   }),
-  [Schema282.Record(Schema282.String, Data8)]
+  [Schema282.Record(Schema282.String, Data9)]
 );
 var Signatures = class extends Context52.Service()("ratking/Signatures") {
 };
@@ -77802,7 +78323,7 @@ var PublicKey = Schema292.StructWithRest(
       type: "string"
     }).check(Schema292.isPattern(/^[A-Za-z0-9_-]{43}$/u))
   }),
-  [Schema292.Record(Schema292.String, Data8)]
+  [Schema292.Record(Schema292.String, Data9)]
 );
 var Main6 = Schema292.StructWithRest(
   Schema292.Struct({
@@ -77828,7 +78349,7 @@ var Main6 = Schema292.StructWithRest(
       Schema292.brand("Lexicon:did")
     )
   }),
-  [Schema292.Record(Schema292.String, Data8)]
+  [Schema292.Record(Schema292.String, Data9)]
 );
 var Main7 = Schema302.StructWithRest(
   Schema302.Struct({
@@ -77864,7 +78385,7 @@ var Main7 = Schema302.StructWithRest(
       type: "string"
     }).check(Schema302.isPattern(/^[a-f0-9]{64}$/u))
   }),
-  [Schema302.Record(Schema302.String, Data8)]
+  [Schema302.Record(Schema302.String, Data9)]
 );
 var Main8 = Schema312.StructWithRest(
   Schema312.Struct({
@@ -77881,7 +78402,7 @@ var Main8 = Schema312.StructWithRest(
       Schema312.brand("Lexicon:did")
     )
   }),
-  [Schema312.Record(Schema312.String, Data8)]
+  [Schema312.Record(Schema312.String, Data9)]
 );
 var TrustAuthority = class extends Context62.Service()("ratking/TrustAuthority") {
 };
@@ -78654,7 +79175,7 @@ var Params15 = Schema412.StructWithRest(
       Schema412.brand("Lexicon:did")
     )
   }),
-  [Schema412.Record(Schema412.String, Data8)]
+  [Schema412.Record(Schema412.String, Data9)]
 );
 var Input14 = Schema412.Undefined;
 var Output14 = Schema412.StructWithRest(
@@ -78675,11 +79196,11 @@ var Output14 = Schema412.StructWithRest(
       )
     )
   }),
-  [Schema412.Record(Schema412.String, Data8)]
+  [Schema412.Record(Schema412.String, Data9)]
 );
 var ParamsFromQuery5 = Schema412.StructWithRest(
   Schema412.Struct({ did: Schema412.String }),
-  [Schema412.Record(Schema412.String, Data8)]
+  [Schema412.Record(Schema412.String, Data9)]
 ).pipe(Schema412.decodeTo(Params15));
 var encodeParams9 = Effect222.fn("lexicon.encodeParams")(
   function* encodeParams10(params2) {
@@ -78801,7 +79322,7 @@ var transportLayer = (endpoint, audience, identity) => Layer42.effect(
           const response = yield* http3.execute(outgoing);
           const body = yield* response.text;
           const json22 = yield* Schema442.decodeUnknownEffect(
-            Schema442.fromJsonString(Schema442.toEncoded(Data8))
+            Schema442.fromJsonString(Schema442.toEncoded(Data9))
           )(body).pipe(Effect242.result);
           if (Result32.isFailure(json22)) {
             return { body, kind: "text", status: response.status };
@@ -78824,7 +79345,7 @@ var transportLayer = (endpoint, audience, identity) => Layer42.effect(
 );
 var Auth = Schema452.StructWithRest(
   Schema452.Struct({ token: lexString2({ type: "string" }) }),
-  [Schema452.Record(Schema452.String, Data8)]
+  [Schema452.Record(Schema452.String, Data9)]
 );
 var Params16 = Schema452.StructWithRest(
   Schema452.Struct({
@@ -78839,7 +79360,7 @@ var Params16 = Schema452.StructWithRest(
       Schema452.brand("Lexicon:did")
     )
   }),
-  [Schema452.Record(Schema452.String, Data8)]
+  [Schema452.Record(Schema452.String, Data9)]
 );
 var Message = Schema452.Union([
   Schema452.StructWithRest(
@@ -78850,7 +79371,7 @@ var Message = Schema452.Union([
         Schema452.isLessThanOrEqualTo(9007199254740991)
       )
     }),
-    [Schema452.Record(Schema452.String, Data8)]
+    [Schema452.Record(Schema452.String, Data9)]
   ),
   TaggedMap.check(
     Schema452.makeFilter(
@@ -78865,7 +79386,7 @@ var ParamsFromQuery6 = Schema452.StructWithRest(
     leaseId: Schema452.String,
     recipientDid: Schema452.String
   }),
-  [Schema452.Record(Schema452.String, Data8)]
+  [Schema452.Record(Schema452.String, Data9)]
 ).pipe(Schema452.decodeTo(Params16));
 var encodeParams11 = Effect252.fn("lexicon.encodeParams")(
   function* encodeParams12(params2) {
@@ -78895,7 +79416,7 @@ var Notice = Schema452.StructWithRest(
       Schema452.isLessThanOrEqualTo(9007199254740991)
     )
   }),
-  [Schema452.Record(Schema452.String, Data8)]
+  [Schema452.Record(Schema452.String, Data9)]
 );
 var WebSocketPort = class extends Context92.Service()("@rat-king/mailbox-client/WebSocketPort") {
 };
@@ -78952,7 +79473,7 @@ var watch = (config, poll, afterSeq, fence) => Stream3.suspend(() => {
                 kind: "Unknown"
               })
             }),
-            try: () => Option23.isSome(port) ? port.value.connect(url.href) : new globalThis.WebSocket(url.href)
+            try: () => Option24.isSome(port) ? port.value.connect(url.href) : new globalThis.WebSocket(url.href)
           }),
           (ws) => Effect262.sync(() => {
             ws.close(1e3);
@@ -79280,7 +79801,7 @@ var layer = (config, resolverLayer = staticResolver(config.documents)) => Layer5
           Effect272.mapError(clientError)
         )
       ),
-      send: Effect272.fn("RatKingMailbox.send")(function* send2(to, body, opts) {
+      send: Effect272.fn("RatKingMailbox.send")(function* send3(to, body, opts) {
         if (opts?.recordType !== void 0) {
           const presence = yield* lookupPresence(to).pipe(
             Effect272.provideService(Transport, transport),
@@ -79373,16 +79894,16 @@ var Params17 = Schema482.StructWithRest(
       Schema482.brand("Lexicon:did")
     )
   }),
-  [Schema482.Record(Schema482.String, Data8)]
+  [Schema482.Record(Schema482.String, Data9)]
 );
 var Input15 = Schema482.Undefined;
 var Output15 = Schema482.StructWithRest(
   Schema482.Struct({ document: DidDocument }),
-  [Schema482.Record(Schema482.String, Data8)]
+  [Schema482.Record(Schema482.String, Data9)]
 );
 var ParamsFromQuery7 = Schema482.StructWithRest(
   Schema482.Struct({ did: Schema482.String }),
-  [Schema482.Record(Schema482.String, Data8)]
+  [Schema482.Record(Schema482.String, Data9)]
 ).pipe(Schema482.decodeTo(Params17));
 var encodeParams13 = Effect282.fn("lexicon.encodeParams")(
   function* encodeParams14(params2) {
@@ -79425,7 +79946,7 @@ var Main9 = Schema492.StructWithRest(
       Schema492.isLessThanOrEqualTo(9007199254740991)
     )
   }),
-  [Schema492.Record(Schema492.String, Data8)]
+  [Schema492.Record(Schema492.String, Data9)]
 );
 var consumerMachine = (0, import_xstate_cjs.createMachine)({
   context: {},
@@ -79790,7 +80311,7 @@ var Lease2 = Schema512.StructWithRest(
     holder: lexString2({ type: "string" }),
     pane: Schema512.optionalKey(lexString2({ type: "string" }))
   }),
-  [Schema512.Record(Schema512.String, Data8)]
+  [Schema512.Record(Schema512.String, Data9)]
 );
 var Wake = Schema512.StructWithRest(
   Schema512.Struct({
@@ -79805,7 +80326,7 @@ var Wake = Schema512.StructWithRest(
     ),
     woke: Schema512.Boolean
   }),
-  [Schema512.Record(Schema512.String, Data8)]
+  [Schema512.Record(Schema512.String, Data9)]
 );
 var Params18 = Schema512.StructWithRest(
   Schema512.Struct({
@@ -79814,7 +80335,7 @@ var Params18 = Schema512.StructWithRest(
       Schema512.brand("Lexicon:did")
     )
   }),
-  [Schema512.Record(Schema512.String, Data8)]
+  [Schema512.Record(Schema512.String, Data9)]
 );
 var Input16 = Schema512.Undefined;
 var Output16 = Schema512.StructWithRest(
@@ -79832,11 +80353,11 @@ var Output16 = Schema512.StructWithRest(
       Schema512.isLessThanOrEqualTo(9007199254740991)
     )
   }),
-  [Schema512.Record(Schema512.String, Data8)]
+  [Schema512.Record(Schema512.String, Data9)]
 );
 var ParamsFromQuery8 = Schema512.StructWithRest(
   Schema512.Struct({ name: Schema512.String, recipientDid: Schema512.String }),
-  [Schema512.Record(Schema512.String, Data8)]
+  [Schema512.Record(Schema512.String, Data9)]
 ).pipe(Schema512.decodeTo(Params18));
 var encodeParams15 = Effect302.fn("lexicon.encodeParams")(
   function* encodeParams16(params2) {
@@ -79935,7 +80456,7 @@ var CriticalCount = Schema532.StructWithRest(
       Schema532.brand("Lexicon:did")
     )
   }),
-  [Schema532.Record(Schema532.String, Data8)]
+  [Schema532.Record(Schema532.String, Data9)]
 );
 var Via2 = Schema532.StructWithRest(
   Schema532.Struct({
@@ -79945,7 +80466,7 @@ var Via2 = Schema532.StructWithRest(
     ),
     run: PassRun
   }),
-  [Schema532.Record(Schema532.String, Data8)]
+  [Schema532.Record(Schema532.String, Data9)]
 );
 var Entry = Schema532.StructWithRest(
   Schema532.Struct({
@@ -79992,7 +80513,7 @@ var Entry = Schema532.StructWithRest(
     ),
     via: Schema532.optionalKey(Via2)
   }),
-  [Schema532.Record(Schema532.String, Data8)]
+  [Schema532.Record(Schema532.String, Data9)]
 );
 var Params19 = Schema532.StructWithRest(
   Schema532.Struct({
@@ -80004,7 +80525,7 @@ var Params19 = Schema532.StructWithRest(
       )
     )
   }),
-  [Schema532.Record(Schema532.String, Data8)]
+  [Schema532.Record(Schema532.String, Data9)]
 );
 var Input17 = Schema532.Undefined;
 var Output17 = Schema532.StructWithRest(
@@ -80021,14 +80542,14 @@ var Output17 = Schema532.StructWithRest(
       Schema532.isMaxLength(100)
     )
   }),
-  [Schema532.Record(Schema532.String, Data8)]
+  [Schema532.Record(Schema532.String, Data9)]
 );
 var ParamsFromQuery9 = Schema532.StructWithRest(
   Schema532.Struct({
     cursor: Schema532.optionalKey(Schema532.String),
     limit: Schema532.optionalKey(Schema532.FiniteFromString)
   }),
-  [Schema532.Record(Schema532.String, Data8)]
+  [Schema532.Record(Schema532.String, Data9)]
 ).pipe(Schema532.decodeTo(Params19));
 var encodeParams17 = Effect322.fn("lexicon.encodeParams")(
   function* encodeParams18(params2) {
@@ -80107,7 +80628,7 @@ var Main10 = Schema542.StructWithRest(
       Schema542.decodeTo(Schema542.Literals(["0.1"]))
     )
   }),
-  [Schema542.Record(Schema542.String, Data8)]
+  [Schema542.Record(Schema542.String, Data9)]
 ).check(
   Schema542.makeFilter(
     (value) => Object.keys(value).every(
@@ -80345,7 +80866,7 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
     const error = result.failure;
     return error.status !== void 0 && error.status >= 400 && error.status < 500 ? SendOutcomes.Rejected({ error }) : SendOutcomes.Uncertain({ error });
   });
-  const send2 = Effect342.fn("Mailbox.send")(function* send22(envelope, opts) {
+  const send3 = Effect342.fn("Mailbox.send")(function* send22(envelope, opts) {
     if (!peers.has(envelope.aad.recipientDid)) {
       return SendOutcomes.NotAttempted({ reason: "Unknown primary peer" });
     }
@@ -80500,14 +81021,14 @@ var prepare2 = Effect342.fn("Mailbox.prepare")(function* prepare22(options2) {
     resolveLease: mailbox.lease.resolve,
     seal: sealEnvelopeForPeer,
     sealPayload,
-    send: send2,
+    send: send3,
     sendSealed: submit,
     turnHealth: (did2, name, session) => readTurnHealth(transport, did2, name, session)
   };
 });
 
 // src/fleet-names.ts
-import { Option as Option24, Schema as Schema63 } from "effect";
+import { Option as Option25, Schema as Schema63 } from "effect";
 var FLEET_TEMPLATE = "did:web:{agent}.pi.ratking-fleet.invalid";
 var RESERVED = {
   "claude-bridge-owner": {
@@ -80542,30 +81063,30 @@ var isName = Schema63.is(AgentName);
 var canonicalName = (name) => reserved.find(([, entry3]) => entry3.aliases?.includes(name) === true)?.[0] ?? name;
 var didFor = (name) => {
   if (!isName(name)) {
-    return Option24.none();
+    return Option25.none();
   }
-  return Option24.some(
+  return Option25.some(
     reserved.find(([key]) => key === canonicalName(name))?.[1].did ?? FLEET_TEMPLATE.replace("{agent}", name.replace("/", "."))
   );
 };
 var nameFor = (did2) => {
   const fixed = reserved.find(([, entry3]) => entry3.did === did2);
   if (fixed !== void 0) {
-    return Option24.some(fixed[0]);
+    return Option25.some(fixed[0]);
   }
   const [prefix = "", suffix = ""] = FLEET_TEMPLATE.split("{agent}");
   if (!did2.startsWith(prefix) || !did2.endsWith(suffix) || did2.length <= prefix.length + suffix.length) {
-    return Option24.none();
+    return Option25.none();
   }
   const name = did2.slice(prefix.length, did2.length - suffix.length).replace(".", "/");
-  return Option24.filter(
-    Option24.some(name),
-    (candidate) => Option24.contains(didFor(candidate), did2)
+  return Option25.filter(
+    Option25.some(name),
+    (candidate) => Option25.contains(didFor(candidate), did2)
   );
 };
 
 // ../../packages/plan-run/dist/sql-store.js
-import { Effect as Effect43, Option as Option25, Schema as Schema64 } from "effect";
+import { Effect as Effect43, Option as Option26, Schema as Schema64 } from "effect";
 var SCHEMA = `
 CREATE TABLE IF NOT EXISTS mischief_runs (run_id TEXT PRIMARY KEY, state TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS mischief_plans (run_id TEXT NOT NULL, version INTEGER NOT NULL, plan TEXT NOT NULL, PRIMARY KEY (run_id, version));
@@ -80639,67 +81160,57 @@ var encodedFor = (runId2, changes) => Effect43.all([
   ...groups.flat(),
   ...plainStatements(runId2, changes)
 ]));
-var runBackendSql = (storage) => Effect43.gen(function* openSqlStore() {
+var runBackendSql = (storage) => {
   const rows = (query, ...bindings) => storage.sql.exec(query, ...bindings).toArray();
-  const column = (query, name, ...bindings) => Effect43.sync(() => Option25.fromUndefinedOr(rows(query, ...bindings)[0]).pipe(Option25.map((row2) => textOf(row2[name]))));
-  yield* Effect43.sync(() => storage.sql.exec(SCHEMA));
+  const column = (query, name, ...bindings) => Effect43.sync(() => Option26.fromUndefinedOr(rows(query, ...bindings)[0]).pipe(Option26.map((row2) => textOf(row2[name]))));
   const docsOf = (runId2) => Effect43.sync(() => rows("SELECT name, doc FROM mischief_docs WHERE run_id = ?", runId2)).pipe(Effect43.flatMap((found) => entriesOf(found, "name", "doc", JsonText)), Effect43.map((entries2) => Object.fromEntries(entries2)));
-  return {
-    apply: (runId2, changes) => encodedFor(runId2, changes).pipe(Effect43.flatMap((statements) => Effect43.sync(() => {
-      storage.transactionSync(() => {
-        for (const [query, ...bindings] of statements) {
-          rows(query, ...bindings);
-        }
-      });
-    }))),
-    readDocs: docsOf,
-    readFingerprints: (runId2) => Effect43.sync(() => rows("SELECT key, print FROM mischief_fingerprints WHERE run_id = ?", runId2)).pipe(Effect43.flatMap((found) => entriesOf(found, "key", "print", PrintText)), Effect43.map((entries2) => new Map(entries2))),
-    readJournal: (runId2) => Effect43.sync(() => rows("SELECT key, entry FROM mischief_journal WHERE run_id = ? ORDER BY seq", runId2)).pipe(Effect43.flatMap((found) => entriesOf(found, "key", "entry", JsonText)), Effect43.map((entries2) => new Map(entries2))),
-    readMessage: (messageId) => column("SELECT run_id FROM mischief_messages WHERE message_id = ?", "run_id", messageId),
-    readPaused: (runId2) => Effect43.sync(() => rows("SELECT paused FROM mischief_paused WHERE run_id = ? AND paused = 1", runId2).length > 0),
-    readPlan: (runId2, version) => column("SELECT plan FROM mischief_plans WHERE run_id = ? AND version = ?", "plan", runId2, version).pipe(Effect43.flatMap((text) => Option25.isSome(text) ? read4(PlanText, text.value).pipe(Effect43.asSome) : Effect43.succeedNone)),
-    readRun: (runId2) => column("SELECT state FROM mischief_runs WHERE run_id = ?", "state", runId2).pipe(Effect43.flatMap((text) => Option25.isSome(text) ? read4(StateText, text.value).pipe(Effect43.asSome) : Effect43.succeedNone))
-  };
-});
+  return Effect43.gen(function* openSqlStore() {
+    yield* Effect43.sync(() => storage.sql.exec(SCHEMA));
+    return {
+      apply: (runId2, changes) => encodedFor(runId2, changes).pipe(Effect43.flatMap((statements) => Effect43.sync(() => {
+        storage.transactionSync(() => {
+          for (const [query, ...bindings] of statements) {
+            rows(query, ...bindings);
+          }
+        });
+      }))),
+      readDocs: docsOf,
+      readFingerprints: (runId2) => Effect43.sync(() => rows("SELECT key, print FROM mischief_fingerprints WHERE run_id = ?", runId2)).pipe(Effect43.flatMap((found) => entriesOf(found, "key", "print", PrintText)), Effect43.map((entries2) => new Map(entries2))),
+      readJournal: (runId2) => Effect43.sync(() => rows("SELECT key, entry FROM mischief_journal WHERE run_id = ? ORDER BY seq", runId2)).pipe(Effect43.flatMap((found) => entriesOf(found, "key", "entry", JsonText)), Effect43.map((entries2) => new Map(entries2))),
+      readMessage: (messageId) => column("SELECT run_id FROM mischief_messages WHERE message_id = ?", "run_id", messageId),
+      readPaused: (runId2) => Effect43.sync(() => rows("SELECT paused FROM mischief_paused WHERE run_id = ? AND paused = 1", runId2).length > 0),
+      readPlan: (runId2, version) => column("SELECT plan FROM mischief_plans WHERE run_id = ? AND version = ?", "plan", runId2, version).pipe(Effect43.flatMap((text) => Option26.isSome(text) ? read4(PlanText, text.value).pipe(Effect43.asSome) : Effect43.succeedNone)),
+      readRun: (runId2) => column("SELECT state FROM mischief_runs WHERE run_id = ?", "state", runId2).pipe(Effect43.flatMap((text) => Option26.isSome(text) ? read4(StateText, text.value).pipe(Effect43.asSome) : Effect43.succeedNone))
+    };
+  });
+};
 var runStoreSql = (storage) => runBackendSql(storage).pipe(Effect43.map(bufferedRunStore));
 
 // ../../packages/plan-run/dist/web-crypto.js
-import { Crypto as Crypto3, Effect as Effect44, Layer as Layer19, PlatformError } from "effect";
-var digest = (algorithm, data) => Effect44.tryPromise({
-  catch: (cause) => PlatformError.systemError({
-    // oxlint-disable-next-line anti-slop-effect/no-manual-tagged-construction -- systemError takes the SystemError kind as a field named _tag; this is Effect's constructor, not a literal union member.
-    _tag: "Unknown",
-    cause,
-    description: "Could not compute digest",
-    method: "digest",
-    module: "Crypto"
-  }),
-  try: async () => await crypto.subtle.digest(algorithm, new Uint8Array(data))
-}).pipe(Effect44.map((buffer2) => new Uint8Array(buffer2)));
-var webCrypto = Layer19.succeed(Crypto3.Crypto, Crypto3.make({
-  digest,
-  randomBytes: (size) => crypto.getRandomValues(new Uint8Array(size))
-}));
+import { Layer as Layer19 } from "effect";
+import * as Digest9 from "effect/crypto/Digest";
+import * as SecureRandom from "effect/crypto/SecureRandom";
+var webCrypto = Layer19.merge(Digest9.layerWebCrypto, SecureRandom.layerWebCrypto);
 
 // ../../packages/plan-run/dist/outbox.js
-import { Effect as Effect45, Layer as Layer20, Schema as Schema65 } from "effect";
+import { Effect as Effect44, Layer as Layer20, Schema as Schema65 } from "effect";
 var OUTBOX = `CREATE TABLE IF NOT EXISTS mischief_outbox (message_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, envelope TEXT NOT NULL)`;
 var EnvelopeText = Schema65.fromJsonString(Schema65.Struct({ message: Schema65.String, to: Schema65.String }));
-var mailOutboxSql = (storage) => Layer20.effect(Mail, Effect45.sync(() => {
+var mailOutboxSql = (storage) => Layer20.effect(Mail, Effect44.sync(() => {
   storage.sql.exec(OUTBOX);
   return Mail.of({
-    seal: ({ key, message, runId: runId2, to, visit }) => Schema65.encodeEffect(EnvelopeText)({ message, to }).pipe(Effect45.map((envelope) => ({
+    seal: ({ key, message, runId: runId2, to, visit }) => Schema65.encodeEffect(EnvelopeText)({ message, to }).pipe(Effect44.map((envelope) => ({
       envelope,
       messageId: `${runId2}/${key}#${visit}`
-    })), Effect45.mapError(() => new StepFailed({ key, reason: "envelope did not encode" }))),
-    send: ({ runId: runId2 }, { envelope, messageId }) => Effect45.sync(() => {
+    })), Effect44.mapError(() => new StepFailed({ key, reason: "envelope did not encode" }))),
+    send: ({ runId: runId2 }, { envelope, messageId }) => Effect44.sync(() => {
       storage.sql.exec("INSERT INTO mischief_outbox (message_id, run_id, envelope) VALUES (?, ?, ?) ON CONFLICT (message_id) DO NOTHING", messageId, runId2, envelope);
     })
   });
 }));
 
 // ../../packages/capability/dist/to-http-api.js
-import { Data as Data9, Effect as Effect46, Layer as Layer21, Predicate as Predicate7, Schema as Schema66, SchemaAST } from "effect";
+import { Data as Data10, Effect as Effect45, Layer as Layer21, Predicate as Predicate7, Schema as Schema66, SchemaAST } from "effect";
 import { HttpServerRequest } from "effect/http";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, OpenApi } from "effect/http-api";
 
@@ -80730,11 +81241,11 @@ var membersOf = (failure5) => {
   }
   return failure5.members.filter((member) => Schema66.isSchema(member));
 };
-var UndeclaredFailure = class extends Data9.TaggedError("UndeclaredFailure") {
+var UndeclaredFailure = class extends Data10.TaggedError("UndeclaredFailure") {
 };
 var declaredFailuresOnly = (contract) => {
   const isDeclared = Schema66.is(failureSchemaOf(contract));
-  return (handled) => Effect46.catchIf(handled, (failure5) => !isDeclared(failure5), (failure5) => Effect46.die(new UndeclaredFailure({ cause: failure5, contract: contract.name })));
+  return (handled) => Effect45.catchIf(handled, (failure5) => !isDeclared(failure5), (failure5) => Effect45.die(new UndeclaredFailure({ cause: failure5, contract: contract.name })));
 };
 var httpFailure = (contract) => [
   ...membersOf(contract.failure).map(withFailureStatus),
@@ -80761,11 +81272,11 @@ var routedEndpoint = (contract, http3, error) => {
 };
 var inputOf = (contract, request2) => {
   if (contract.http === void 0) {
-    return Effect46.succeed(request2.payload);
+    return Effect45.succeed(request2.payload);
   }
   const parts2 = BODY_METHODS.has(contract.http.method) ? request2.payload : request2.query;
   if (pathParamNames(contract.http.path).length === 0) {
-    return Effect46.succeed(parts2);
+    return Effect45.succeed(parts2);
   }
   return HttpApiError.HttpApiSchemaError.wrap("Params", Schema66.decodeEffect(Schema66.toType(contract.input))({
     ...request2.params,
@@ -80775,13 +81286,13 @@ var inputOf = (contract, request2) => {
 var REQUEST_REFUSALS = /* @__PURE__ */ new Set(["Headers", "Params", "Payload", "Query"]);
 var provideMiddleware = (id, hook, index3) => {
   const key = HttpApiMiddleware.Service()(`@mischief/capability/${id}/provide/${String(index3)}`, { error: hook.failure });
-  const provideFromRequest = (httpEffect) => HttpServerRequest.HttpServerRequest.pipe(Effect46.flatMap(hook.from), Effect46.flatMap((service2) => Effect46.provideService(httpEffect, hook.tag, service2)));
+  const provideFromRequest = (httpEffect) => HttpServerRequest.HttpServerRequest.pipe(Effect45.flatMap(hook.from), Effect45.flatMap((service2) => Effect45.provideService(httpEffect, hook.tag, service2)));
   const layer2 = Layer21.succeed(key, provideFromRequest);
   return { key, layer: layer2 };
 };
 var refusalMiddleware = (id, render) => {
   const key = HttpApiMiddleware.Service()(`@mischief/capability/${id}/decode-refusal`);
-  const layer2 = HttpApiMiddleware.layerSchemaErrorTransform(key, (refusal3) => REQUEST_REFUSALS.has(refusal3.kind) ? render(refusal3) : Effect46.fail(refusal3));
+  const layer2 = HttpApiMiddleware.layerSchemaErrorTransform(key, (refusal3) => REQUEST_REFUSALS.has(refusal3.kind) ? render(refusal3) : Effect45.fail(refusal3));
   return { key, layer: layer2 };
 };
 var withMiddleware = (group, middleware) => {
@@ -80826,7 +81337,7 @@ var toHttpApi = (id, capabilities2, options2) => {
   for (const capability of capabilities2) {
     const run2 = capability.handler;
     const failureGuard = capability.contract.http === void 0 ? (handled) => handled : declaredFailuresOnly(capability.contract);
-    implementations[capability.contract.name] = (request2) => Effect46.flatMap(inputOf(capability.contract, request2), (input) => failureGuard(run2(input)));
+    implementations[capability.contract.name] = (request2) => Effect45.flatMap(inputOf(capability.contract, request2), (input) => failureGuard(run2(input)));
   }
   const built = HttpApiBuilder.group(projectedApi, GROUP, (handlers) => (
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
@@ -80872,7 +81383,8 @@ var toHttpApi = (id, capabilities2, options2) => {
 };
 
 // ../../packages/plan-run/dist/plan-run.js
-import { Clock as Clock8, Crypto as Crypto4, Effect as Effect47, Layer as Layer23, ManagedRuntime, Option as Option27, Schema as Schema69, Schedule as Schedule3, Semaphore as Semaphore3 } from "effect";
+import { Clock as Clock8, Effect as Effect46, Layer as Layer23, ManagedRuntime, Option as Option28, Schema as Schema69, Schedule as Schedule3, Semaphore as Semaphore3 } from "effect";
+import * as SecureRandom2 from "effect/crypto/SecureRandom";
 import { constVoid as constVoid3 } from "effect/Function";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder2 } from "effect/http-api";
@@ -80886,7 +81398,7 @@ var DriveLeaseLost = class extends Schema67.TaggedError()("DriveLeaseLost", {
 };
 
 // ../../packages/plan-run/dist/drive-lease.js
-import { Option as Option26, Schema as Schema68 } from "effect";
+import { Option as Option27, Schema as Schema68 } from "effect";
 var decode13 = Schema68.decodeUnknownSync(DriveLeaseSchema);
 var driveLease = (storage) => {
   storage.sql.exec("CREATE TABLE IF NOT EXISTS mischief_drive_lease (id INTEGER PRIMARY KEY CHECK (id = 1), epoch INTEGER NOT NULL, holder TEXT, lease_until INTEGER NOT NULL)");
@@ -80894,7 +81406,7 @@ var driveLease = (storage) => {
   const peek = () => decode13(storage.sql.exec("SELECT epoch, holder, lease_until AS leaseUntil FROM mischief_drive_lease WHERE id = 1").toArray()[0]);
   const take2 = (holder, now, ttl) => storage.transactionSync(() => {
     const rows = storage.sql.exec("UPDATE mischief_drive_lease SET epoch = epoch + 1, holder = ?, lease_until = ? WHERE id = 1 AND (holder IS NULL OR lease_until <= ?) RETURNING epoch, holder, lease_until AS leaseUntil", holder, now + ttl, now).toArray();
-    return rows.length === 0 ? Option26.none() : Option26.some(decode13(rows[0]));
+    return rows.length === 0 ? Option27.none() : Option27.some(decode13(rows[0]));
   });
   const renew = (lease, now, ttl) => storage.sql.exec("UPDATE mischief_drive_lease SET lease_until = ? WHERE id = 1 AND epoch = ? AND holder = ? AND lease_until > ? RETURNING epoch", now + ttl, lease.epoch, lease.holder, now).toArray().length === 1;
   const release = (lease) => {
@@ -80921,7 +81433,7 @@ var isText5 = Schema69.is(Schema69.String);
 var decodeState = Schema69.decodeUnknownOption(Schema69.fromJsonString(RunStateSchema));
 var runsOf = (storage) => storage.sql.exec("SELECT run_id, state FROM mischief_runs WHERE run_id NOT IN (SELECT run_id FROM mischief_paused WHERE paused = 1) OR run_id IN (SELECT run_id FROM mischief_journal WHERE key = 'abort-reason' AND run_id NOT IN (SELECT run_id FROM mischief_journal WHERE key = 'done:abort-notices')) ORDER BY run_id").toArray().flatMap((row2) => {
   const state3 = decodeState(row2.state);
-  return isText5(row2.run_id) && Option27.isSome(state3) ? [{ runId: row2.run_id, state: state3.value }] : [];
+  return isText5(row2.run_id) && Option28.isSome(state3) ? [{ runId: row2.run_id, state: state3.value }] : [];
 });
 var decodeSubmit2 = Schema69.decodeUnknownOption(Schema69.Struct({ runId: Schema69.String }));
 var stored = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_runs WHERE run_id = ?", runId2).toArray().length > 0;
@@ -80949,14 +81461,14 @@ var wakeAt = (storage, now, guardMs, attempts, runningAt) => {
 };
 var makePlanRun = ({ alarms, guardMs, services, storage }) => {
   const lease = driveLease(storage);
-  const wake2 = Clock8.currentTimeMillis.pipe(Effect47.flatMap((now) => Effect47.promise(async () => {
+  const wake2 = Clock8.currentTimeMillis.pipe(Effect46.flatMap((now) => Effect46.promise(async () => {
     await alarms.set(now);
   })));
-  const host = Layer23.effect(RunHost, Effect47.gen(function* readHost() {
+  const host = Layer23.effect(RunHost, Effect46.gen(function* readHost() {
     const reads = yield* RunHost.make;
     return {
       ...reads,
-      inspect: (runId2) => reads.inspect(runId2).pipe(Effect47.map((report2) => ({ ...report2, driveLease: lease.peek() })))
+      inspect: (runId2) => reads.inspect(runId2).pipe(Effect46.map((report2) => ({ ...report2, driveLease: lease.peek() })))
     };
   })).pipe(Layer23.provideMerge(Layer23.effect(RunStore, runStoreSql(storage))), Layer23.provideMerge(Layer23.mergeAll(services, webCrypto, Drive.scheduled(wake2))));
   const memoMap = Layer23.makeMemoMapUnsafe();
@@ -80964,17 +81476,17 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
   const requests = Semaphore3.makeUnsafe(1);
   let driving;
   const interval = Math.max(1, Math.floor(guardMs / 3));
-  const writerHost = (token) => Effect47.promise(async () => await runtime.runPromise(RunHost.make.pipe(Effect47.provideServiceEffect(RunStore, runStoreSql(lease.fenced(token))))));
-  const armGuard = Clock8.currentTimeMillis.pipe(Effect47.flatMap((now) => Effect47.promise(async () => {
+  const writerHost = (token) => Effect46.promise(async () => await runtime.runPromise(RunHost.make.pipe(Effect46.provideServiceEffect(RunStore, runStoreSql(lease.fenced(token))))));
+  const armGuard = Clock8.currentTimeMillis.pipe(Effect46.flatMap((now) => Effect46.promise(async () => {
     const pending = await alarms.get();
     if (pending === null || pending <= now || pending > now + guardMs) {
       await alarms.set(now + guardMs);
     }
   })));
-  const reconcile = (immediate) => Effect47.gen(function* nextAlarm() {
+  const reconcile = (immediate) => Effect46.gen(function* nextAlarm() {
     const now = yield* Clock8.currentTimeMillis;
     const policy = yield* ProviderResume;
-    yield* Effect47.promise(async () => {
+    yield* Effect46.promise(async () => {
       const pending = await alarms.get();
       const holder = lease.peek();
       const next = holder.holder !== null && holder.leaseUntil > now ? holder.leaseUntil : wakeAt(storage, now, guardMs, policy.attempts, immediate ? now : now + guardMs);
@@ -80985,33 +81497,33 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
       }
     });
   });
-  const exclusive = (effect, wait2, acquired = constVoid3) => Effect47.gen(function* leasedWrite() {
+  const exclusive = (effect, wait2, acquired = constVoid3) => Effect46.gen(function* leasedWrite() {
     yield* armGuard;
-    const holder = yield* Crypto4.Crypto.use((crypto2) => crypto2.randomUUIDv4()).pipe(Effect47.provide(webCrypto), Effect47.orDie);
-    const take2 = Clock8.currentTimeMillis.pipe(Effect47.map((now) => lease.take(holder, now, guardMs)));
-    const held = yield* wait2 ? take2.pipe(Effect47.repeat({
+    const holder = yield* SecureRandom2.SecureRandom.use((crypto2) => crypto2.uuidV4()).pipe(Effect46.provide(webCrypto), Effect46.orDie);
+    const take2 = Clock8.currentTimeMillis.pipe(Effect46.map((now) => lease.take(holder, now, guardMs)));
+    const held = yield* wait2 ? take2.pipe(Effect46.repeat({
       schedule: Schedule3.spaced(interval),
-      while: Option27.isNone
+      while: Option28.isNone
     })) : take2;
-    if (Option27.isNone(held)) {
-      return Option27.none();
+    if (Option28.isNone(held)) {
+      return Option28.none();
     }
-    return yield* Effect47.acquireUseRelease(Effect47.succeed(held.value), (token) => Effect47.gen(function* holdingLease() {
+    return yield* Effect46.acquireUseRelease(Effect46.succeed(held.value), (token) => Effect46.gen(function* holdingLease() {
       acquired();
-      const keepAlive = Effect47.sleep(interval).pipe(Effect47.andThen(Clock8.currentTimeMillis), Effect47.flatMap((now) => Effect47.sync(() => lease.renew(token, now, guardMs))), Effect47.flatMap((renewed) => renewed ? Effect47.void : Effect47.die(new DriveLeaseLost({
+      const keepAlive = Effect46.sleep(interval).pipe(Effect46.andThen(Clock8.currentTimeMillis), Effect46.flatMap((now) => Effect46.sync(() => lease.renew(token, now, guardMs))), Effect46.flatMap((renewed) => renewed ? Effect46.void : Effect46.die(new DriveLeaseLost({
         owner: holder,
         reason: `Drive epoch ${token.epoch} expired or was replaced. Work stopped; the alarm's next holder continues from the committed checkpoint. Poll inspectRun to see driveLease and progress.`
-      }))), Effect47.forever);
-      return yield* Effect47.raceFirst(effect.pipe(Effect47.provideServiceEffect(RunHost, writerHost(token))), keepAlive).pipe(Effect47.asSome);
-    }), (token) => Effect47.sync(() => {
+      }))), Effect46.forever);
+      return yield* Effect46.raceFirst(effect.pipe(Effect46.provideServiceEffect(RunHost, writerHost(token))), keepAlive).pipe(Effect46.asSome);
+    }), (token) => Effect46.sync(() => {
       lease.release(token);
     }));
   });
-  const mutate = (effect) => exclusive(effect, true).pipe(Effect47.flatMap(Option27.match({
-    onNone: () => Effect47.die(new Error("The writer wait ended without a lease; retry the capability and inspectRun.")),
-    onSome: Effect47.succeed
-  })), requests.withPermits(1), Effect47.ensuring(reconcile(true)));
-  const http3 = toHttpApi("Mischief", aroundHandlers(runCapabilities, (contract, input, effect) => contract.annotations.readOnly || contract.name === "submitPlan" && Option27.exists(decodeSubmit2(input), ({ runId: runId2 }) => stored(storage, runId2)) ? effect : mutate(effect)));
+  const mutate = (effect) => exclusive(effect, true).pipe(Effect46.flatMap(Option28.match({
+    onNone: () => Effect46.die(new Error("The writer wait ended without a lease; retry the capability and inspectRun.")),
+    onSome: Effect46.succeed
+  })), requests.withPermits(1), Effect46.ensuring(reconcile(true)));
+  const http3 = toHttpApi("Mischief", aroundHandlers(runCapabilities, (contract, input, effect) => contract.annotations.readOnly || contract.name === "submitPlan" && Option28.exists(decodeSubmit2(input), ({ runId: runId2 }) => stored(storage, runId2)) ? effect : mutate(effect)));
   const { handler } = HttpRouter.toWebHandler(HttpApiBuilder2.layer(http3.api).pipe(Layer23.provide(http3.layer), Layer23.provide(Layer23.merge(host, HttpServer.layerServices))), { disableLogger: true, memoMap });
   return {
     alarm: async (signal) => {
@@ -81024,14 +81536,14 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
         controller.abort();
       }
       try {
-        await runtime.runPromise(exclusive(RunHost.use((runs) => Effect47.gen(function* wakeRuns2() {
+        await runtime.runPromise(exclusive(RunHost.use((runs) => Effect46.gen(function* wakeRuns2() {
           const now = yield* Clock8.currentTimeMillis;
           const policy = yield* ProviderResume;
-          yield* Effect47.forEach(runsOf(storage).filter(({ runId: runId2, state: state3 }) => state3.status === "running" || state3.status === "aborted" && abortNoticePending(storage, runId2) || state3.status === "waiting-for-provider" && (state3.held.some((held) => (held.provider === "caller-share" || state3.resumeAttempts < policy.attempts) && held.resumeAfter !== null && held.resumeAfter <= now) || state3.resumeAttempts >= policy.attempts && state3.held.some((held) => held.provider !== "caller-share" && overloadHeld(held)) && alarmPending(storage, runId2))), ({ runId: runId2 }) => runs.advance(runId2).pipe(Effect47.ignore), { discard: true });
+          yield* Effect46.forEach(runsOf(storage).filter(({ runId: runId2, state: state3 }) => state3.status === "running" || state3.status === "aborted" && abortNoticePending(storage, runId2) || state3.status === "waiting-for-provider" && (state3.held.some((held) => (held.provider === "caller-share" || state3.resumeAttempts < policy.attempts) && held.resumeAfter !== null && held.resumeAfter <= now) || state3.resumeAttempts >= policy.attempts && state3.held.some((held) => held.provider !== "caller-share" && overloadHeld(held)) && alarmPending(storage, runId2))), ({ runId: runId2 }) => runs.advance(runId2).pipe(Effect46.ignore), { discard: true });
         })), false, () => {
           driving?.abort();
           driving = controller;
-        }).pipe(Effect47.ensuring(reconcile(false)), Effect47.asVoid), { signal: controller.signal });
+        }).pipe(Effect46.ensuring(reconcile(false)), Effect46.asVoid), { signal: controller.signal });
       } finally {
         signal?.removeEventListener("abort", abort);
         if (driving === controller) {
@@ -81044,12 +81556,12 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
 };
 
 // ../../packages/plan-run/dist/schedule.js
-import { Clock as Clock9, Effect as Effect49, Layer as Layer24, ManagedRuntime as ManagedRuntime2, Semaphore as Semaphore4 } from "effect";
+import { Clock as Clock9, Effect as Effect48, Layer as Layer24, ManagedRuntime as ManagedRuntime2, Semaphore as Semaphore4 } from "effect";
 import { HttpRouter as HttpRouter2, HttpServer as HttpServer2 } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder3, OpenApi as OpenApi2 } from "effect/http-api";
 
 // ../../packages/plan-run/dist/schedule-store.js
-import { Effect as Effect48, Option as Option28, Schema as Schema70 } from "effect";
+import { Effect as Effect47, Option as Option29, Schema as Schema70 } from "effect";
 var SCHEMA2 = "CREATE TABLE IF NOT EXISTS mischief_schedule (id INTEGER PRIMARY KEY CHECK (id = 1), state TEXT NOT NULL)";
 var StateText2 = Schema70.fromJsonString(ScheduleStateSchema);
 var StateRow = Schema70.Struct({ state: Schema70.String });
@@ -81059,11 +81571,11 @@ var scheduleStoreSql = (storage) => {
     return storage.sql.exec(query, ...bindings).toArray();
   };
   return ScheduleStore.of({
-    load: Effect48.suspend(() => Option28.match(Schema70.decodeUnknownOption(StateRow)(rows("SELECT state FROM mischief_schedule WHERE id = 1")[0]), {
-      onNone: () => Effect48.succeedNone,
-      onSome: ({ state: state3 }) => Schema70.decodeUnknownEffect(StateText2)(state3).pipe(Effect48.map(Option28.some), Effect48.orDie)
+    load: Effect47.suspend(() => Option29.match(Schema70.decodeUnknownOption(StateRow)(rows("SELECT state FROM mischief_schedule WHERE id = 1")[0]), {
+      onNone: () => Effect47.succeedNone,
+      onSome: ({ state: state3 }) => Schema70.decodeUnknownEffect(StateText2)(state3).pipe(Effect47.map(Option29.some), Effect47.orDie)
     })),
-    save: (state3) => Schema70.encodeEffect(StateText2)(state3).pipe(Effect48.orDie, Effect48.flatMap((text) => Effect48.sync(() => {
+    save: (state3) => Schema70.encodeEffect(StateText2)(state3).pipe(Effect47.orDie, Effect47.flatMap((text) => Effect47.sync(() => {
       rows("INSERT INTO mischief_schedule (id, state) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET state = excluded.state", text);
     })))
   });
@@ -81078,11 +81590,11 @@ var mischiefApiSpec = () => OpenApi2.fromApi(toHttpApi("Mischief", [
 ]).api);
 var makeSchedule = ({ alarms, guardMs, notices, runs, storage }) => {
   const services = Layer24.mergeAll(Layer24.succeed(ScheduleStore, scheduleStoreSql(storage)), Layer24.succeed(WakeRuns, runs), Layer24.succeed(ScheduleNotices, notices), Layer24.succeed(ScheduleAlarm, ScheduleAlarm.of({
-    set: (at) => Effect49.promise(async () => {
+    set: (at) => Effect48.promise(async () => {
       await (at === null ? alarms.clear() : alarms.set(at));
     })
   })));
-  const armGuard = Clock9.currentTimeMillis.pipe(Effect49.flatMap((now) => Effect49.promise(async () => {
+  const armGuard = Clock9.currentTimeMillis.pipe(Effect48.flatMap((now) => Effect48.promise(async () => {
     const pending = await alarms.get();
     if (pending === null || pending <= now) {
       await alarms.set(now + guardMs);
@@ -81098,7 +81610,7 @@ var makeSchedule = ({ alarms, guardMs, notices, runs, storage }) => {
   });
   return {
     alarm: async () => {
-      await runtime.runPromise(lock.withPermits(1)(armGuard.pipe(Effect49.andThen(wakeSchedule()))));
+      await runtime.runPromise(lock.withPermits(1)(armGuard.pipe(Effect48.andThen(wakeSchedule()))));
     },
     fetch: async (request2) => await handler(request2)
   };
@@ -81106,11 +81618,11 @@ var makeSchedule = ({ alarms, guardMs, notices, runs, storage }) => {
 
 // src/postbox-object.ts
 import { DurableObject } from "cloudflare:workers";
-import { Effect as Effect59, Exit as Exit6, Layer as Layer26, Option as Option41, Schema as Schema84, Scope as Scope2 } from "effect";
+import { Effect as Effect58, Exit as Exit6, Layer as Layer26, Option as Option44, Schema as Schema84, Scope as Scope2 } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 // src/decode-delivery.ts
-import { Effect as Effect50, Option as Option29, Predicate as Predicate8, Schema as Schema74 } from "effect";
+import { Effect as Effect49, Option as Option30, Predicate as Predicate8, Schema as Schema74 } from "effect";
 
 // src/postbox-failed.ts
 import { Schema as Schema71 } from "effect";
@@ -81136,15 +81648,15 @@ var Outcome = Schema74.fromJsonString(
 );
 var decodeDelivery = (objectName, status, body) => {
   if (status === 200) {
-    return Effect50.succeed(Delivered.cases.Journaled.make({}));
+    return Effect49.succeed(Delivered.cases.Journaled.make({}));
   }
-  return Option29.match(Schema74.decodeUnknownOption(Outcome)(body), {
-    onNone: () => Effect50.fail(
+  return Option30.match(Schema74.decodeUnknownOption(Outcome)(body), {
+    onNone: () => Effect49.fail(
       new PostboxFailed({
         reason: `run ${objectName} answered HTTP ${status}`
       })
     ),
-    onSome: (outcome) => Effect50.succeed(
+    onSome: (outcome) => Effect49.succeed(
       Predicate8.isTagged(outcome, "AlreadyJournaled") ? Delivered.cases.AlreadyJournaled.make({}) : Delivered.cases.Refused.make({ reason: outcome.reason })
     )
   });
@@ -81165,24 +81677,24 @@ var Mailroom = class extends Context31.Service()("@mischief/worker/Mailroom") {
 import {
   Clock as Clock10,
   DateTime as DateTime3,
-  Effect as Effect54,
+  Effect as Effect53,
   Layer as Layer25,
-  Option as Option34,
+  Option as Option35,
   Predicate as Predicate9,
   Schema as Schema78,
   Stream as Stream4
 } from "effect";
 
 // src/postbox.ts
-import { Duration as Duration5, Effect as Effect53, Option as Option33, Schedule as Schedule4, Schema as Schema77 } from "effect";
+import { Duration as Duration5, Effect as Effect51, Option as Option34, Schedule as Schedule4, Schema as Schema77 } from "effect";
 
 // src/mail-attribution.ts
-import { Option as Option30 } from "effect";
+import { Option as Option31 } from "effect";
 var attributeMail = (objectName, body) => {
   const split2 = objectName.lastIndexOf("/");
   const did2 = split2 === -1 ? objectName : objectName.slice(0, split2);
   const runId2 = objectName.slice(split2 + 1);
-  const caller = Option30.getOrElse(callerName(did2), () => did2);
+  const caller = Option31.getOrElse(callerName(did2), () => did2);
   const text = body.replaceAll(/^Mischief caller: .*; run: .*\n?/gmu, "").trimEnd();
   return `${text}
 
@@ -81190,7 +81702,7 @@ Mischief caller: ${caller}; run: ${runId2}`;
 };
 
 // src/postbox-aborts.ts
-import { Effect as Effect51, Option as Option31, Schema as Schema76, Semaphore as Semaphore5 } from "effect";
+import { Effect as Effect50, Option as Option33, Schema as Schema76, Semaphore as Semaphore5 } from "effect";
 var Column = Schema76.Struct({ name: Schema76.String });
 var Pending = Schema76.Struct({
   envelope: Schema76.NullOr(Schema76.String),
@@ -81200,10 +81712,10 @@ var Pending = Schema76.Struct({
   sender: Schema76.String
 });
 var abortReplyText = (runId2, messageId, reason) => `Your reply ${messageId} reached Mischief run ${runId2}. The run was aborted before it finished: ${reason}. Nothing your reply fed carried forward. Resend it as a reply to the next wake's ask, or contact the run's owner. SR \u{1F400}`;
-var postboxAborts = (storage, send2) => {
+var postboxAborts = (storage, send3) => {
   const columns = new Set(
     storage.sql.exec("PRAGMA table_info(postbox_delivered)").toArray().flatMap(
-      (row2) => Option31.toArray(Schema76.decodeUnknownOption(Column)(row2)).map(
+      (row2) => Option33.toArray(Schema76.decodeUnknownOption(Column)(row2)).map(
         ({ name }) => name
       )
     )
@@ -81227,7 +81739,7 @@ var postboxAborts = (storage, send2) => {
     "CREATE TABLE IF NOT EXISTS postbox_aborted (run_id TEXT PRIMARY KEY, reason TEXT NOT NULL)"
   );
   const sending = Semaphore5.makeUnsafe(1);
-  const flush = Effect51.gen(function* flushAbortNotices() {
+  const flush = Effect50.gen(function* flushAbortNotices() {
     let after = "";
     while (true) {
       const [raw] = storage.sql.exec(
@@ -81238,7 +81750,7 @@ var postboxAborts = (storage, send2) => {
         break;
       }
       const row2 = yield* Schema76.decodeUnknownEffect(Pending)(raw).pipe(
-        Effect51.orDie
+        Effect50.orDie
       );
       after = row2.message_id;
       let { envelope } = row2;
@@ -81260,7 +81772,7 @@ var postboxAborts = (storage, send2) => {
           row2.run_id
         );
       }
-      yield* send2(envelope);
+      yield* send3(envelope);
       storage.sql.exec(
         "UPDATE postbox_delivered SET notified = 1 WHERE message_id = ? AND run_id = ?",
         row2.message_id,
@@ -81275,9 +81787,9 @@ var postboxAborts = (storage, send2) => {
       reason
     );
   };
-  const abort = (runId2, reason) => Effect51.sync(() => {
+  const abort = (runId2, reason) => Effect50.sync(() => {
     markAborted(runId2, reason);
-  }).pipe(Effect51.andThen(flush));
+  }).pipe(Effect50.andThen(flush));
   return { abort, flush, markAborted };
 };
 
@@ -81294,19 +81806,19 @@ var DESK = "pi-durable/desk";
 var RunRow = Schema77.Struct({ run_id: Schema77.String });
 var SeqRow = Schema77.Struct({ seq: Schema77.Number });
 var Addressed = Schema77.fromJsonString(Schema77.Struct({ to: Schema77.String }));
-var addressedElsewhere = (body) => Option33.exists(
+var addressedElsewhere = (body) => Option34.exists(
   Schema77.decodeUnknownOption(Addressed)(body),
   ({ to }) => to !== OWN_NAME
 );
 var settle3 = (verdict) => SendVerdict.match(verdict, {
-  Accepted: () => Effect53.void,
-  Conflict: () => Effect53.void,
-  Refused: ({ reason }) => Effect53.fail(
+  Accepted: () => Effect51.void,
+  Conflict: () => Effect51.void,
+  Refused: ({ reason }) => Effect51.fail(
     new PostboxFailed({
       reason: `the mailbox refused the message: ${reason}`
     })
   ),
-  Uncertain: ({ reason }) => Effect53.fail(
+  Uncertain: ({ reason }) => Effect51.fail(
     new PostboxFailed({
       reason: `the mailbox did not confirm the message: ${reason}`
     })
@@ -81315,9 +81827,16 @@ var settle3 = (verdict) => SendVerdict.match(verdict, {
 var UNCONFIRMED_WINDOW = "2 minutes";
 var UNCONFIRMED_RETRY = Schedule4.exponential("1 second").pipe(
   Schedule4.modifyDelay(
-    ({ duration }) => Effect53.succeed(Duration5.min(duration, Duration5.seconds(10)))
+    ({ duration }) => Effect51.succeed(Duration5.min(duration, Duration5.seconds(10)))
   ),
   Schedule4.upTo({ duration: UNCONFIRMED_WINDOW })
+);
+var send2 = (envelope) => Mailroom.use((mailroom) => mailroom.send(envelope)).pipe(
+  Effect51.flatMap(settle3),
+  Effect51.retry({
+    schedule: UNCONFIRMED_RETRY,
+    while: ({ reason }) => reason.startsWith("the mailbox did not confirm")
+  })
 );
 var postbox = (storage) => {
   storage.sql.exec(THREADS);
@@ -81329,16 +81848,16 @@ var postbox = (storage) => {
     "SELECT message_id FROM postbox_delivered WHERE message_id = ?",
     messageId
   ).toArray().length > 0;
-  const runOf = (messageId) => Option33.fromNullishOr(
+  const runOf = (messageId) => Option34.fromNullishOr(
     storage.sql.exec(
       "SELECT run_id FROM postbox_threads WHERE message_id = ?",
       messageId
     ).toArray()[0]
   ).pipe(
-    Option33.flatMap(Schema77.decodeUnknownOption(RunRow)),
-    Option33.map(({ run_id }) => run_id)
+    Option34.flatMap(Schema77.decodeUnknownOption(RunRow)),
+    Option34.map(({ run_id }) => run_id)
   );
-  const park = (message, sender, reason, quiet = false) => Effect53.gen(function* parkMessage() {
+  const park = (message, sender, reason, quiet = false) => Effect51.gen(function* parkMessage() {
     const fresh = storage.sql.exec(
       "INSERT INTO postbox_parked (message_id, sender, reason, body) VALUES (?, ?, ?, ?) ON CONFLICT (message_id) DO NOTHING RETURNING message_id",
       message.messageId,
@@ -81357,8 +81876,8 @@ ${message.body}`
       );
     }
   });
-  const prompt = (message, sender) => Effect53.gen(function* promptSender() {
-    const asks = [...new Set(message.body.match(MENTIONED_IDS))].filter((id) => id !== message.messageId && Option33.isSome(runOf(id))).slice(0, PROMPTS_PER_MESSAGE);
+  const prompt = (message, sender) => Effect51.gen(function* promptSender() {
+    const asks = [...new Set(message.body.match(MENTIONED_IDS))].filter((id) => id !== message.messageId && Option34.isSome(runOf(id))).slice(0, PROMPTS_PER_MESSAGE);
     const fresh = asks.filter(
       (askId) => storage.sql.exec(
         "INSERT INTO postbox_prompted (ask_id, sender) VALUES (?, ?) ON CONFLICT DO NOTHING RETURNING ask_id",
@@ -81366,7 +81885,7 @@ ${message.body}`
         sender
       ).toArray().length > 0
     );
-    yield* Effect53.forEach(
+    yield* Effect51.forEach(
       fresh,
       (askId) => Mailroom.use(
         (mailroom) => mailroom.tell(
@@ -81386,8 +81905,8 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
   const seal5 = (runId2, to, body) => Mailroom.use(
     (mailroom) => mailroom.seal(to, attributeMail(runId2, body))
   ).pipe(
-    Effect53.tap(
-      ({ messageId }) => Effect53.sync(() => {
+    Effect51.tap(
+      ({ messageId }) => Effect51.sync(() => {
         storage.sql.exec(
           "INSERT INTO postbox_threads (message_id, run_id) VALUES (?, ?) ON CONFLICT (message_id) DO NOTHING",
           messageId,
@@ -81396,30 +81915,23 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
       })
     )
   );
-  const send2 = (envelope) => Mailroom.use((mailroom) => mailroom.send(envelope)).pipe(
-    Effect53.flatMap(settle3),
-    Effect53.retry({
-      schedule: UNCONFIRMED_RETRY,
-      while: ({ reason }) => reason.startsWith("the mailbox did not confirm")
-    })
-  );
   const aborts = postboxAborts(storage, send2);
-  const receive = (message) => Effect53.gen(function* receiveMessage() {
+  const receive = (message) => Effect51.gen(function* receiveMessage() {
     const named2 = yield* Mailroom.use(
       (mailroom) => mailroom.nameOf(message.senderDid)
     );
-    const sender = Option33.getOrElse(named2, () => message.senderDid);
-    const runId2 = message.replyTo.pipe(Option33.flatMap(runOf));
+    const sender = Option34.getOrElse(named2, () => message.senderDid);
+    const runId2 = message.replyTo.pipe(Option34.flatMap(runOf));
     if (delivered(message.messageId)) {
       return;
     }
-    if (Option33.isNone(runId2)) {
-      const prompted = Option33.isSome(named2) ? yield* prompt(message, named2.value) : [];
+    if (Option34.isNone(runId2)) {
+      const prompted = Option34.isSome(named2) ? yield* prompt(message, named2.value) : [];
       const told = prompted.length === 0 ? "" : `; ${sender} was told how to reply to ${prompted.join(", ")}`;
       yield* park(
         message,
         sender,
-        Option33.match(message.replyTo, {
+        Option34.match(message.replyTo, {
           onNone: () => `it is not a reply to anything Mischief sent${told}`,
           onSome: (replyTo) => `it replies to ${replyTo}, which no Mischief run sent${told}`
         }),
@@ -81431,7 +81943,7 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
           body: message.body,
           from: sender,
           messageId: message.messageId,
-          replyTo: Option33.getOrElse(message.replyTo, () => "")
+          replyTo: Option34.getOrElse(message.replyTo, () => "")
         })
       );
       if (Delivered.guards.Refused(outcome)) {
@@ -81456,11 +81968,11 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
       seq
     );
   };
-  const cursor = () => Option33.fromNullishOr(
+  const cursor = () => Option34.fromNullishOr(
     storage.sql.exec("SELECT seq FROM postbox_cursor WHERE id = 1").toArray()[0]
   ).pipe(
-    Option33.flatMap(Schema77.decodeUnknownOption(SeqRow)),
-    Option33.match({ onNone: () => 0, onSome: ({ seq }) => seq })
+    Option34.flatMap(Schema77.decodeUnknownOption(SeqRow)),
+    Option34.match({ onNone: () => 0, onSome: ({ seq }) => seq })
   );
   return {
     abort: aborts.abort,
@@ -81496,9 +82008,9 @@ var expiredRefusal2 = ({ error, reason }) => error === "InvalidTransition" && re
 var settledRefusal2 = ({ error }) => error === "InvalidTransition";
 var skipOf = (state3) => {
   if (state3 === "expired") {
-    return Option34.some("expired");
+    return Option35.some("expired");
   }
-  return state3 === "acked" ? Option34.some("settled") : Option34.none();
+  return state3 === "acked" ? Option35.some("settled") : Option35.none();
 };
 var StoredEnvelope = Schema78.fromJsonString(
   Schema78.StructWithRest(
@@ -81512,7 +82024,7 @@ var encodeEnvelope = (envelope) => JSON.stringify({
   enc: base64url22(envelope.enc)
 });
 var decodeEnvelope = (text) => Schema78.decodeUnknownEffect(StoredEnvelope)(text).pipe(
-  Effect54.map((stored2) => {
+  Effect53.map((stored2) => {
     const restored = {
       ...stored2,
       ciphertext: unbase64url(stored2.ciphertext),
@@ -81520,7 +82032,7 @@ var decodeEnvelope = (text) => Schema78.decodeUnknownEffect(StoredEnvelope)(text
     };
     return restored;
   }),
-  Effect54.mapError(() => failed2("the stored envelope did not decode"))
+  Effect53.mapError(() => failed2("the stored envelope did not decode"))
 );
 var verdictOf3 = (outcome) => {
   if (Predicate9.isTagged(outcome, "Accepted")) {
@@ -81541,20 +82053,20 @@ var verdictOf3 = (outcome) => {
 var inboundOf = (message) => ({
   body: message.body,
   messageId: message.tid,
-  replyTo: Option34.fromNullishOr(message.replyTo?.messageId),
+  replyTo: Option35.fromNullishOr(message.replyTo?.messageId),
   senderDid: message.senderDid
 });
-var openMailroom = (config) => Effect54.gen(function* openMailroomFor() {
-  const context = yield* Effect54.context();
+var openMailroom = (config) => Effect53.gen(function* openMailroomFor() {
+  const context = yield* Effect53.context();
   const own = yield* ownIdentity(config.identity).pipe(
-    Effect54.mapError((error) => failed2(error.reason))
+    Effect53.mapError((error) => failed2(error.reason))
   );
   const names3 = {};
   const known = /* @__PURE__ */ new Set();
   const fence = Clock10.currentTimeMillis.pipe(
-    Effect54.map(
-      (now) => Option34.getOrUndefined(
-        Option34.map(
+    Effect53.map(
+      (now) => Option35.getOrUndefined(
+        Option35.map(
           config.leases.held(now),
           ({ did: did2, generation, leaseId }) => ({
             did: did2,
@@ -81572,66 +82084,66 @@ var openMailroom = (config) => Effect54.gen(function* openMailroomFor() {
     peers: [],
     serviceDid: config.serviceDid
   }).pipe(
-    Effect54.mapError((error) => failed2(error.reason)),
-    Effect54.provideContext(context)
+    Effect53.mapError((error) => failed2(error.reason)),
+    Effect53.provideContext(context)
   );
-  const peer = (to, did2) => known.has(did2) ? Effect54.void : prepared.refresh(did2).pipe(
-    Effect54.mapError(
+  const peer = (to, did2) => known.has(did2) ? Effect53.void : prepared.refresh(did2).pipe(
+    Effect53.mapError(
       (failure5) => failed2(
         failure5.status === 404 ? `${to} has no Rat King mailbox: no document is published for ${did2}. Use a registered desk name, such as pi-durable/desk` : `${to}'s document could not be fetched (${failure5.reason})`
       )
     ),
-    Effect54.tap(() => Effect54.sync(() => known.add(did2))),
-    Effect54.asVoid
+    Effect53.tap(() => Effect53.sync(() => known.add(did2))),
+    Effect53.asVoid
   );
-  const seal5 = (to, body) => Effect54.gen(function* sealFor() {
+  const seal5 = (to, body) => Effect53.gen(function* sealFor() {
     const name = canonicalName(to);
-    const did2 = yield* Option34.match(didFor(name), {
-      onNone: () => Effect54.fail(
+    const did2 = yield* Option35.match(didFor(name), {
+      onNone: () => Effect53.fail(
         failed2(
           `${to} is not a Rat King name. Names look like project/desk, such as pi-durable/desk`
         )
       ),
-      onSome: Effect54.succeed
+      onSome: Effect53.succeed
     });
     yield* peer(name, did2);
     names3[did2] = name;
-    const sealed = yield* prepared.sealPayload(did2, body).pipe(Effect54.mapError((error) => failed2(error.reason)));
+    const sealed = yield* prepared.sealPayload(did2, body).pipe(Effect53.mapError((error) => failed2(error.reason)));
     return {
       envelope: encodeEnvelope(sealed.envelope),
       messageId: sealed.messageId
     };
   });
-  const send2 = (envelope) => decodeEnvelope(envelope).pipe(
-    Effect54.matchEffect({
-      onFailure: ({ reason }) => Effect54.succeed(SendVerdict.cases.Refused.make({ reason })),
+  const send3 = (envelope) => decodeEnvelope(envelope).pipe(
+    Effect53.matchEffect({
+      onFailure: ({ reason }) => Effect53.succeed(SendVerdict.cases.Refused.make({ reason })),
       onSuccess: (decoded) => fence.pipe(
-        Effect54.flatMap((held) => prepared.sendSealed(decoded, held)),
-        Effect54.map(verdictOf3)
+        Effect53.flatMap((held) => prepared.sendSealed(decoded, held)),
+        Effect53.map(verdictOf3)
       )
     })
   );
   const tell = (to, summary, body) => seal5(to, `${summary}
 
 ${body}`).pipe(
-    Effect54.flatMap(({ envelope }) => send2(envelope)),
-    Effect54.tap(
-      (verdict) => SendVerdict.guards.Accepted(verdict) ? Effect54.void : Effect54.logWarning(`Postbox could not reach ${to}: ${summary}`)
+    Effect53.flatMap(({ envelope }) => send3(envelope)),
+    Effect53.tap(
+      (verdict) => SendVerdict.guards.Accepted(verdict) ? Effect53.void : Effect53.logWarning(`Postbox could not reach ${to}: ${summary}`)
     ),
-    Effect54.catchTag(
+    Effect53.catchTag(
       "PostboxFailed",
-      ({ reason }) => Effect54.logWarning(
+      ({ reason }) => Effect53.logWarning(
         `Postbox could not reach ${to} (${reason}): ${summary}`
       )
     ),
-    Effect54.asVoid
+    Effect53.asVoid
   );
   const layer2 = Layer25.succeed(
     Mailroom,
     Mailroom.of({
-      nameOf: (did2) => Effect54.succeed(nameFor(did2)),
+      nameOf: (did2) => Effect53.succeed(nameFor(did2)),
       seal: seal5,
-      send: send2,
+      send: send3,
       surface: (summary, body) => tell(DESK, summary, body),
       tell
     })
@@ -81646,42 +82158,42 @@ ${body}`).pipe(
     const { senderDid } = event.envelope.aad;
     return {
       ack: event.receipt.delegatedTo === void 0 ? mailbox.ack(input).pipe(
-        Effect54.catchIf(settledRefusal2, () => Effect54.void),
-        Effect54.asVoid,
-        Effect54.mapError(clientFailed("ack"))
-      ) : Effect54.void,
+        Effect53.catchIf(settledRefusal2, () => Effect53.void),
+        Effect53.asVoid,
+        Effect53.mapError(clientFailed("ack"))
+      ) : Effect53.void,
       deliver: mailbox.deliver(input).pipe(
-        Effect54.map(({ receipt }) => skipOf(receipt.state)),
-        Effect54.catchIf(
+        Effect53.map(({ receipt }) => skipOf(receipt.state)),
+        Effect53.catchIf(
           expiredRefusal2,
-          () => Effect54.succeedSome("expired")
+          () => Effect53.succeedSome("expired")
         ),
-        Effect54.catchIf(
+        Effect53.catchIf(
           settledRefusal2,
-          () => Effect54.succeedSome("settled")
+          () => Effect53.succeedSome("settled")
         ),
-        Effect54.mapError(clientFailed("deliver"))
+        Effect53.mapError(clientFailed("deliver"))
       ),
       open: mailbox.open(event.envelope, event.receipt).pipe(
-        Effect54.catchTag(
+        Effect53.catchTag(
           "MailboxClientError",
           () => prepared.refresh(senderDid).pipe(
-            Effect54.tap(() => Effect54.sync(() => known.add(senderDid))),
-            Effect54.flatMap(() => prepared.open(event.envelope))
+            Effect53.tap(() => Effect53.sync(() => known.add(senderDid))),
+            Effect53.flatMap(() => prepared.open(event.envelope))
           )
         ),
-        Effect54.matchEffect({
-          onFailure: (failure5) => Effect54.logWarning(
+        Effect53.matchEffect({
+          onFailure: (failure5) => Effect53.logWarning(
             `Postbox could not open message ${event.seq} from ${senderDid}: ${failure5.reason}`
-          ).pipe(Effect54.as(Option34.none())),
-          onSuccess: (opened) => Effect54.succeedSome(inboundOf(opened))
+          ).pipe(Effect53.as(Option35.none())),
+          onSuccess: (opened) => Effect53.succeedSome(inboundOf(opened))
         })
       )
     };
   };
   const inbox = {
     acquire: (resume, expiresAt) => mailbox.lease.acquire(
-      Option34.match(resume, {
+      Option35.match(resume, {
         onNone: () => ({
           did: config.identity.did,
           expiresAt: DateTime3.formatIso(DateTime3.makeUnsafe(expiresAt)),
@@ -81696,44 +82208,44 @@ ${body}`).pipe(
         })
       })
     ).pipe(
-      Effect54.timeoutOrElse({
+      Effect53.timeoutOrElse({
         duration: ATTEMPT_MS2,
-        orElse: () => Effect54.fail(failed2(`acquire: no answer in ${ATTEMPT_MS2} ms`))
+        orElse: () => Effect53.fail(failed2(`acquire: no answer in ${ATTEMPT_MS2} ms`))
       }),
-      Effect54.map((lease) => ({
+      Effect53.map((lease) => ({
         did: config.identity.did,
         expiresAt: Date.parse(lease.expiresAt),
         generation: lease.generation,
         leaseId: lease.leaseId
       })),
-      Effect54.mapError(
+      Effect53.mapError(
         (failure5) => Schema78.is(PostboxFailed)(failure5) ? failure5 : clientFailed("acquire")(failure5)
       )
     ),
     page: (held, afterSeq, limit2) => mailbox.list({ afterSeq, limit: limit2 }).pipe(
-      Effect54.map(
+      Effect53.map(
         ({ events }) => events.flatMap(
-          (event) => isMessage(event) ? [{ letter: Option34.some(letter(event, held)), seq: event.seq }] : Option34.match(seqOf(event), {
+          (event) => isMessage(event) ? [{ letter: Option35.some(letter(event, held)), seq: event.seq }] : Option35.match(seqOf(event), {
             onNone: () => [],
-            onSome: ({ seq }) => [{ letter: Option34.none(), seq }]
+            onSome: ({ seq }) => [{ letter: Option35.none(), seq }]
           })
         )
       ),
-      Effect54.mapError(clientFailed("list"))
+      Effect53.mapError(clientFailed("list"))
     ),
     wait: (held, afterSeq, within) => mailbox.watch(afterSeq, fenceOf(held)).pipe(
       Stream4.runHead,
-      Effect54.timeoutOption(within),
-      Effect54.map((woken) => Option34.isSome(Option34.flatten(woken))),
-      Effect54.mapError(clientFailed("watch"))
+      Effect53.timeoutOption(within),
+      Effect53.map((woken) => Option35.isSome(Option35.flatten(woken))),
+      Effect53.mapError(clientFailed("watch"))
     )
   };
   const head = prepared.head.pipe(
-    Effect54.timeoutOrElse({
+    Effect53.timeoutOrElse({
       duration: ATTEMPT_MS2,
-      orElse: () => Effect54.fail(failed2(`head: no answer in ${ATTEMPT_MS2} ms`))
+      orElse: () => Effect53.fail(failed2(`head: no answer in ${ATTEMPT_MS2} ms`))
     }),
-    Effect54.mapError(
+    Effect53.mapError(
       (failure5) => Schema78.is(PostboxFailed)(failure5) ? failure5 : clientFailed("head")(failure5)
     )
   );
@@ -81741,39 +82253,39 @@ ${body}`).pipe(
 });
 
 // src/postbox-inbox.ts
-import { Clock as Clock11, Effect as Effect55, Option as Option35 } from "effect";
+import { Clock as Clock11, Effect as Effect54, Option as Option36 } from "effect";
 var LEASE_TTL_MS = 3e5;
 var LONG_POLL_MS = 2e4;
 var PAGE_LIMIT = 10;
-var leaseFor = Effect55.fn("postboxLease")(function* postboxLease(inbox, leases) {
+var leaseFor = Effect54.fn("postboxLease")(function* postboxLease(inbox, leases) {
   const now = yield* Clock11.currentTimeMillis;
   const lease = yield* inbox.acquire(leases.held(now), now + LEASE_TTL_MS);
   leases.save(lease);
   return lease;
 });
-var skipped = (seq, reason) => Effect55.logWarning(`Postbox skipped message ${seq}: ${reason}`);
-var take = (event, inlet) => Option35.match(event.letter, {
-  onNone: () => Effect55.void,
-  onSome: (letter) => Effect55.gen(function* takeLetter() {
+var skipped = (seq, reason) => Effect54.logWarning(`Postbox skipped message ${seq}: ${reason}`);
+var take = (event, inlet) => Option36.match(event.letter, {
+  onNone: () => Effect54.void,
+  onSome: (letter) => Effect54.gen(function* takeLetter() {
     const opened = yield* letter.open;
-    if (Option35.isNone(opened)) {
+    if (Option36.isNone(opened)) {
       return yield* skipped(event.seq, "unopenable");
     }
     const settled2 = yield* letter.deliver;
-    if (Option35.isSome(settled2)) {
+    if (Option36.isSome(settled2)) {
       return yield* skipped(event.seq, settled2.value);
     }
     yield* inlet.receive(opened.value);
     return yield* letter.ack;
   })
 }).pipe(
-  Effect55.andThen(
-    Effect55.sync(() => {
+  Effect54.andThen(
+    Effect54.sync(() => {
       inlet.advance(event.seq);
     })
   )
 );
-var readBatch = Effect55.fn("readPostboxBatch")(function* readBatch2(inbox, inlet, window2) {
+var readBatch = Effect54.fn("readPostboxBatch")(function* readBatch2(inbox, inlet, window2) {
   const lease = yield* leaseFor(inbox, inlet.leases);
   const afterSeq = inlet.cursor();
   const events = yield* inbox.page(lease, afterSeq, PAGE_LIMIT);
@@ -81782,7 +82294,7 @@ var readBatch = Effect55.fn("readPostboxBatch")(function* readBatch2(inbox, inle
     const outcome2 = woken ? "more" : "idle";
     return outcome2;
   }
-  yield* Effect55.forEach(events, (event) => take(event, inlet), {
+  yield* Effect54.forEach(events, (event) => take(event, inlet), {
     discard: true
   });
   const outcome = "more";
@@ -81790,7 +82302,7 @@ var readBatch = Effect55.fn("readPostboxBatch")(function* readBatch2(inbox, inle
 });
 
 // src/postbox-lease.ts
-import { Option as Option36, Schema as Schema79 } from "effect";
+import { Option as Option37, Schema as Schema79 } from "effect";
 var LEASE = "CREATE TABLE IF NOT EXISTS postbox_lease (id INTEGER PRIMARY KEY CHECK (id = 1), did TEXT NOT NULL, lease_id TEXT NOT NULL, generation INTEGER NOT NULL, expires_at INTEGER NOT NULL)";
 var Row = Schema79.Struct({
   did: Schema79.String,
@@ -81801,18 +82313,18 @@ var Row = Schema79.Struct({
 var leaseBook = (storage) => {
   storage.sql.exec(LEASE);
   return {
-    held: (now) => Option36.filter(
-      Option36.map(
-        Option36.fromNullishOr(
+    held: (now) => Option37.filter(
+      Option37.map(
+        Option37.fromNullishOr(
           storage.sql.exec(
             "SELECT did, lease_id, generation, expires_at FROM postbox_lease WHERE id = 1"
           ).toArray()[0]
         ),
         (row2) => Schema79.decodeUnknownOption(Row)(row2)
-      ).pipe(Option36.flatten),
+      ).pipe(Option37.flatten),
       (row2) => row2.expires_at > now
     ).pipe(
-      Option36.map((row2) => ({
+      Option37.map((row2) => ({
         did: row2.did,
         expiresAt: row2.expires_at,
         generation: row2.generation,
@@ -81832,7 +82344,7 @@ var leaseBook = (storage) => {
 };
 
 // src/postbox-reader-failed.ts
-import { Cause as Cause5, Option as Option37, Schema as Schema80 } from "effect";
+import { Cause as Cause6, Option as Option38, Schema as Schema80 } from "effect";
 var PostboxReaderFailed = class _PostboxReaderFailed extends Schema80.TaggedError()(
   "PostboxReaderFailed",
   {
@@ -81841,9 +82353,9 @@ var PostboxReaderFailed = class _PostboxReaderFailed extends Schema80.TaggedErro
   }
 ) {
   static fromCause(cause) {
-    const reason = Option37.match(Cause5.findErrorOption(cause), {
-      onNone: () => Cause5.pretty(cause),
-      onSome: (error) => Schema80.is(PostboxFailed)(error) ? error.reason : Cause5.pretty(cause)
+    const reason = Option38.match(Cause6.findErrorOption(cause), {
+      onNone: () => Cause6.pretty(cause),
+      onSome: (error) => Schema80.is(PostboxFailed)(error) ? error.reason : Cause6.pretty(cause)
     });
     return new _PostboxReaderFailed({
       kind: reason.includes("no db for Postbox:") ? "DatabaseMissing" : "Unavailable",
@@ -81853,10 +82365,10 @@ var PostboxReaderFailed = class _PostboxReaderFailed extends Schema80.TaggedErro
 };
 
 // src/postbox-reader-host.ts
-import { Clock as Clock12, DateTime as DateTime4, Effect as Effect57, Option as Option38 } from "effect";
+import { Clock as Clock12, DateTime as DateTime4, Effect as Effect56, Option as Option40 } from "effect";
 
 // src/postbox-reader.ts
-import { Context as Context33, Effect as Effect56 } from "effect";
+import { Cause as Cause7, Context as Context33, Effect as Effect55, Option as Option39 } from "effect";
 var deadlineFor = (window2) => 2 * window2 + 5e3;
 var READ_DEADLINE_MS = deadlineFor(LONG_POLL_MS);
 var PostboxReader = class extends Context33.Service()("@mischief/worker/PostboxReader") {
@@ -81906,7 +82418,12 @@ var postboxReaderMachine = setupEffect({
               target: "#postboxReader.read"
             }),
             onError: ({ event }) => ({
-              context: { failure: event.error },
+              context: {
+                failure: Option39.getOrElse(
+                  Cause7.findErrorOption(event.error.cause),
+                  () => PostboxReaderFailed.fromCause(event.error.cause)
+                )
+              },
               target: "#postboxReader.failed"
             }),
             src: "read"
@@ -81919,7 +82436,12 @@ var postboxReaderMachine = setupEffect({
               target: "reading"
             }),
             onError: ({ event }) => ({
-              context: { failure: event.error },
+              context: {
+                failure: Option39.getOrElse(
+                  Cause7.findErrorOption(event.error.cause),
+                  () => PostboxReaderFailed.fromCause(event.error.cause)
+                )
+              },
               target: "#postboxReader.failed"
             }),
             src: "wire"
@@ -81937,7 +82459,7 @@ var endingOf = (snapshot) => {
   return snapshot.matches("stalled") ? "stalled" : "failed";
 };
 var stalled = (window2) => `the Postbox reader made no progress in ${deadlineFor(window2) / 1e3} s (twice the ${window2 / 1e3} s long-poll plus margin), so this alarm stopped it; the next alarm wires a fresh client. Next check: if this repeats, look in the celld journal for a lease acquire-attempt with no answer, then probe MISCHIEF_MAILBOX_URL from the celld host`;
-var readerTurn = Effect56.fn("postboxReaderTurn")(
+var readerTurn = Effect55.fn("postboxReaderTurn")(
   function* postboxReaderTurn(window2) {
     const actor = yield* createEffectActor(postboxReaderMachine, {
       input: { window: window2 }
@@ -81951,17 +82473,17 @@ var readerTurn = Effect56.fn("postboxReaderTurn")(
     const ending = endingOf(ended);
     if (ending === "stalled") {
       const problem = stalled(window2);
-      yield* Effect56.logWarning(problem);
+      yield* Effect55.logWarning(problem);
       return { ending, problem };
     }
     if (ending === "failed") {
       const problem = `the Postbox reader stopped (${context.failure?.kind ?? "Unavailable"}: ${context.failure?.reason ?? "no reason"}); the next alarm wires a fresh client`;
-      yield* Effect56.logWarning(problem);
+      yield* Effect55.logWarning(problem);
       return { ending, problem };
     }
     return { ending, problem: "" };
   },
-  Effect56.scoped
+  Effect55.scoped
 );
 
 // src/postbox-reader-host.ts
@@ -81984,24 +82506,24 @@ The reader keeps retrying on its alarm; this is the one notice for this outage, 
   };
 };
 var readerHost = (alarms, store, lookout, reader) => {
-  const turn = (window2) => Effect57.scopedWith(
+  const turn = (window2) => Effect56.scopedWith(
     (scope) => readerTurn(window2).pipe(
-      Effect57.provideService(PostboxReader, reader(scope))
+      Effect56.provideService(PostboxReader, reader(scope))
     )
   );
-  const noticeBehind = (marks, ended, problem) => marks.noticed || ended - marks.lastReadAt <= BEHIND_MS ? Effect57.succeed(marks.noticed) : lookout.head.pipe(
-    Effect57.tapError(
-      ({ reason }) => Effect57.logWarning(
+  const noticeBehind = (marks, ended, problem) => marks.noticed || ended - marks.lastReadAt <= BEHIND_MS ? Effect56.succeed(marks.noticed) : lookout.head.pipe(
+    Effect56.tapError(
+      ({ reason }) => Effect56.logWarning(
         `the Postbox reader could not probe the mailbox head (${reason}), so it sent no fallen-behind notice this turn`
       )
     ),
-    Effect57.option,
-    Effect57.flatMap(
-      Option38.match({
-        onNone: () => Effect57.succeed(false),
+    Effect56.option,
+    Effect56.flatMap(
+      Option40.match({
+        onNone: () => Effect56.succeed(false),
         onSome: (probed) => {
           if (probed.head <= probed.cursor) {
-            return Effect57.succeed(false);
+            return Effect56.succeed(false);
           }
           const { body, summary } = behindNotice(
             marks,
@@ -82015,9 +82537,9 @@ var readerHost = (alarms, store, lookout, reader) => {
     )
   );
   return {
-    alarm: Effect57.gen(function* postboxAlarm() {
+    alarm: Effect56.gen(function* postboxAlarm() {
       const started = yield* Clock12.currentTimeMillis;
-      const marks = Option38.getOrElse(
+      const marks = Option40.getOrElse(
         yield* store.get,
         () => freshMarks(started)
       );
@@ -82040,13 +82562,13 @@ var readerHost = (alarms, store, lookout, reader) => {
       yield* store.set({ ...marks, emptyTurns: 0, noticed });
       return ending;
     }),
-    start: Effect57.gen(function* ensureReaderAlarm() {
+    start: Effect56.gen(function* ensureReaderAlarm() {
       const now = yield* Clock12.currentTimeMillis;
-      if (Option38.isNone(yield* store.get)) {
+      if (Option40.isNone(yield* store.get)) {
         yield* store.set(freshMarks(now));
       }
       const armed = yield* alarms.get;
-      if (Option38.isNone(armed)) {
+      if (Option40.isNone(armed)) {
         yield* alarms.set(now);
       }
     })
@@ -82054,7 +82576,7 @@ var readerHost = (alarms, store, lookout, reader) => {
 };
 
 // src/postbox-reader-marks.ts
-import { Effect as Effect58, Option as Option39, Schema as Schema81 } from "effect";
+import { Effect as Effect57, Option as Option41, Schema as Schema81 } from "effect";
 var MARKS = "CREATE TABLE IF NOT EXISTS postbox_reader_marks (id INTEGER PRIMARY KEY CHECK (id = 1), last_read_at INTEGER NOT NULL, empty_turns INTEGER NOT NULL, noticed INTEGER NOT NULL)";
 var Row2 = Schema81.Struct({
   empty_turns: Schema81.Finite,
@@ -82064,21 +82586,21 @@ var Row2 = Schema81.Struct({
 var readerMarks = (storage) => {
   storage.sql.exec(MARKS);
   return {
-    get: Effect58.sync(
-      () => Option39.fromNullishOr(
+    get: Effect57.sync(
+      () => Option41.fromNullishOr(
         storage.sql.exec(
           "SELECT last_read_at, empty_turns, noticed FROM postbox_reader_marks WHERE id = 1"
         ).toArray()[0]
       ).pipe(
-        Option39.flatMap((row2) => Schema81.decodeUnknownOption(Row2)(row2)),
-        Option39.map((row2) => ({
+        Option41.flatMap((row2) => Schema81.decodeUnknownOption(Row2)(row2)),
+        Option41.map((row2) => ({
           emptyTurns: row2.empty_turns,
           lastReadAt: row2.last_read_at,
           noticed: row2.noticed !== 0
         }))
       )
     ),
-    set: ({ emptyTurns, lastReadAt, noticed }) => Effect58.sync(() => {
+    set: ({ emptyTurns, lastReadAt, noticed }) => Effect57.sync(() => {
       storage.sql.exec(
         "INSERT INTO postbox_reader_marks (id, last_read_at, empty_turns, noticed) VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_read_at = excluded.last_read_at, empty_turns = excluded.empty_turns, noticed = excluded.noticed",
         lastReadAt,
@@ -82090,7 +82612,7 @@ var readerMarks = (storage) => {
 };
 
 // src/think-tally.ts
-import { DateTime as DateTime5, Option as Option40, Schema as Schema83 } from "effect";
+import { DateTime as DateTime5, Option as Option43, Schema as Schema83 } from "effect";
 var DAY_WARN_FLOOR_TOKENS = 15e5;
 var DAY_WARN_HISTORY_DAYS = 7;
 var DAY_WARN_MEDIAN_MULTIPLE = 2;
@@ -82101,9 +82623,9 @@ var RUNS = "CREATE TABLE IF NOT EXISTS mischief_think_runs (run_id TEXT PRIMARY 
 var STEPS = "CREATE TABLE IF NOT EXISTS mischief_think_steps (run_id TEXT NOT NULL, key TEXT NOT NULL, calls INTEGER NOT NULL, PRIMARY KEY (run_id, key))";
 var BIG_CALLS = "CREATE TABLE IF NOT EXISTS mischief_think_big_calls (run_id TEXT PRIMARY KEY)";
 var Totals = Schema83.Struct({ calls: Schema83.Finite, tokens: Schema83.Finite });
-var totalsOf = (rows) => Option40.getOrElse(
-  Option40.fromNullishOr(rows[0]).pipe(
-    Option40.flatMap(Schema83.decodeUnknownOption(Totals))
+var totalsOf = (rows) => Option43.getOrElse(
+  Option43.fromNullishOr(rows[0]).pipe(
+    Option43.flatMap(Schema83.decodeUnknownOption(Totals))
   ),
   () => ({ calls: 0, tokens: 0 })
 );
@@ -82252,11 +82774,11 @@ var warnText = (crossing, runId2, key, {
 var POSTBOX_NAME = "mischief/worker";
 var NOT_WIRED = "Rat King mail is not wired on this host: set MISCHIEF_IDENTITY (the mischief/worker identity, from the host's 0600 bindings file), MISCHIEF_MAILBOX_URL and MISCHIEF_MAILBOX_DID, then redeploy";
 var posted2 = async (effect) => {
-  const exit = await Effect59.runPromiseExit(effect);
+  const exit = await Effect58.runPromiseExit(effect);
   return Exit6.match(exit, {
     onFailure: () => ({
       ok: false,
-      reason: Option41.match(Exit6.findErrorOption(exit), {
+      reason: Option44.match(Exit6.findErrorOption(exit), {
         onNone: () => "the Postbox failed unexpectedly; see the celld journal",
         onSome: ({ reason }) => reason
       })
@@ -82269,7 +82791,7 @@ var Postbox = class extends DurableObject {
   leases;
   host;
   mailWired;
-  scope = Effect59.runSync(Scope2.make());
+  scope = Effect58.runSync(Scope2.make());
   opened;
   constructor(ctx, env) {
     super(ctx, env);
@@ -82278,10 +82800,10 @@ var Postbox = class extends DurableObject {
     this.mailWired = env.MISCHIEF_IDENTITY !== void 0 && env.MISCHIEF_IDENTITY !== "";
     this.host = readerHost(
       {
-        get: Effect59.promise(async () => await ctx.storage.getAlarm()).pipe(
-          Effect59.map(Option41.fromNullishOr)
+        get: Effect58.promise(async () => await ctx.storage.getAlarm()).pipe(
+          Effect58.map(Option44.fromNullishOr)
         ),
-        set: (at) => Effect59.promise(async () => {
+        set: (at) => Effect58.promise(async () => {
           await ctx.storage.setAlarm(at);
         })
       },
@@ -82294,44 +82816,44 @@ var Postbox = class extends DurableObject {
     });
   }
   sender() {
-    return Effect59.suspend(
+    return Effect58.suspend(
       () => this.opened === void 0 ? this.open().pipe(
         Scope2.provide(this.scope),
-        Effect59.tap(
-          (opened) => Effect59.sync(() => {
+        Effect58.tap(
+          (opened) => Effect58.sync(() => {
             this.opened = opened;
           })
         )
-      ) : Effect59.succeed(this.opened)
+      ) : Effect58.succeed(this.opened)
     );
   }
   lookout() {
     return {
       head: this.sender().pipe(
-        Effect59.flatMap(({ head }) => head),
-        Effect59.map((head) => ({ cursor: this.box.cursor(), head }))
+        Effect58.flatMap(({ head }) => head),
+        Effect58.map((head) => ({ cursor: this.box.cursor(), head }))
       ),
       notice: (summary, body) => this.sender().pipe(
-        Effect59.flatMap(
+        Effect58.flatMap(
           ({ layer: layer2 }) => Mailroom.use(
             (mailroom) => mailroom.seal(DESK, `${summary}
 
-${body}`).pipe(Effect59.flatMap(({ envelope }) => mailroom.send(envelope)))
-          ).pipe(Effect59.provide(layer2))
+${body}`).pipe(Effect58.flatMap(({ envelope }) => mailroom.send(envelope)))
+          ).pipe(Effect58.provide(layer2))
         ),
-        Effect59.map((verdict) => !SendVerdict.guards.Refused(verdict)),
-        Effect59.catchTag(
+        Effect58.map((verdict) => !SendVerdict.guards.Refused(verdict)),
+        Effect58.catchTag(
           "PostboxFailed",
-          ({ reason }) => Effect59.logWarning(
+          ({ reason }) => Effect58.logWarning(
             `the Postbox reader could not send its fallen-behind notice to ${DESK} (${reason}); the next failed turn tries again`
-          ).pipe(Effect59.as(false))
+          ).pipe(Effect58.as(false))
         )
       )
     };
   }
   readerIn(scope) {
     return PostboxReader.of({
-      read: ({ inbox, layer: layer2 }, window2) => Effect59.suspend(
+      read: ({ inbox, layer: layer2 }, window2) => Effect58.suspend(
         () => readBatch(
           inbox,
           {
@@ -82340,19 +82862,19 @@ ${body}`).pipe(Effect59.flatMap(({ envelope }) => mailroom.send(envelope)))
             },
             cursor: () => this.box.cursor(),
             leases: this.leases,
-            receive: (message) => this.box.receive(message).pipe(Effect59.provide(Layer26.merge(layer2, this.runs)))
+            receive: (message) => this.box.receive(message).pipe(Effect58.provide(Layer26.merge(layer2, this.runs)))
           },
           window2
         )
       ).pipe(
-        Effect59.catchCause(
-          (cause) => Effect59.fail(PostboxReaderFailed.fromCause(cause))
+        Effect58.catchCause(
+          (cause) => Effect58.fail(PostboxReaderFailed.fromCause(cause))
         )
       ),
-      wire: Effect59.suspend(() => this.open()).pipe(
+      wire: Effect58.suspend(() => this.open()).pipe(
         Scope2.provide(scope),
-        Effect59.catchCause(
-          (cause) => Effect59.fail(PostboxReaderFailed.fromCause(cause))
+        Effect58.catchCause(
+          (cause) => Effect58.fail(PostboxReaderFailed.fromCause(cause))
         )
       )
     });
@@ -82363,20 +82885,20 @@ ${body}`).pipe(Effect59.flatMap(({ envelope }) => mailroom.send(envelope)))
     )(this.env.MISCHIEF_IDENTITY ?? "");
     const endpoint = this.env.MISCHIEF_MAILBOX_URL ?? "";
     const serviceDid = this.env.MISCHIEF_MAILBOX_DID ?? "";
-    if (Option41.isNone(identity) || endpoint === "" || serviceDid === "") {
-      return Effect59.fail(new PostboxFailed({ reason: NOT_WIRED }));
+    if (Option44.isNone(identity) || endpoint === "" || serviceDid === "") {
+      return Effect58.fail(new PostboxFailed({ reason: NOT_WIRED }));
     }
     return openMailroom({
       endpoint,
       identity: identity.value,
       leases: this.leases,
       serviceDid
-    }).pipe(Effect59.provide(Layer26.merge(FetchHttpClient.layer, webCrypto)));
+    }).pipe(Effect58.provide(Layer26.merge(FetchHttpClient.layer, webCrypto)));
   }
   runs = Layer26.succeed(
     Runs3,
     Runs3.of({
-      deliver: (objectName, line) => Effect59.tryPromise({
+      deliver: (objectName, line) => Effect58.tryPromise({
         catch: () => new PostboxFailed({ reason: `run ${objectName} did not answer` }),
         try: async () => {
           const run2 = this.env.PLAN_RUN.get(
@@ -82393,13 +82915,13 @@ ${body}`).pipe(Effect59.flatMap(({ envelope }) => mailroom.send(envelope)))
         }
       }).pipe(
         withDeadline("PlanRun.deliverReply"),
-        Effect59.catchTag(
+        Effect58.catchTag(
           "ObjectCallTimedOut",
-          ({ message }) => Effect59.fail(
+          ({ message }) => Effect58.fail(
             new PostboxFailed({ reason: `run ${objectName}: ${message}` })
           )
         ),
-        Effect59.flatMap(
+        Effect58.flatMap(
           ({ body, status }) => decodeDelivery(objectName, status, body)
         )
       )
@@ -82409,8 +82931,8 @@ ${body}`).pipe(Effect59.flatMap(({ envelope }) => mailroom.send(envelope)))
     await this.start();
     return await posted2(
       this.sender().pipe(
-        Effect59.flatMap(
-          ({ layer: layer2 }) => this.box.seal(objectName, to, body).pipe(Effect59.provide(layer2))
+        Effect58.flatMap(
+          ({ layer: layer2 }) => this.box.seal(objectName, to, body).pipe(Effect58.provide(layer2))
         )
       )
     );
@@ -82419,13 +82941,13 @@ ${body}`).pipe(Effect59.flatMap(({ envelope }) => mailroom.send(envelope)))
     this.box.markAborted(objectName, reason);
     await this.start();
     this.ctx.waitUntil(
-      Effect59.runPromise(
+      Effect58.runPromise(
         this.sender().pipe(
-          Effect59.flatMap(
-            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect59.provide(layer2))
+          Effect58.flatMap(
+            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect58.provide(layer2))
           ),
-          Effect59.catchCause(
-            (cause) => Effect59.logWarning("abort reply notices remain pending", cause)
+          Effect58.catchCause(
+            (cause) => Effect58.logWarning("abort reply notices remain pending", cause)
           )
         )
       )
@@ -82435,8 +82957,8 @@ ${body}`).pipe(Effect59.flatMap(({ envelope }) => mailroom.send(envelope)))
   async send(envelope) {
     return await posted2(
       this.sender().pipe(
-        Effect59.flatMap(
-          ({ layer: layer2 }) => this.box.send(envelope).pipe(Effect59.provide(layer2), Effect59.as({}))
+        Effect58.flatMap(
+          ({ layer: layer2 }) => this.box.send(envelope).pipe(Effect58.provide(layer2), Effect58.as({}))
         )
       )
     );
@@ -82454,7 +82976,7 @@ ${body}`).pipe(Effect59.flatMap(({ envelope }) => mailroom.send(envelope)))
   }
   async start() {
     if (this.mailWired) {
-      await Effect59.runPromise(this.host.start);
+      await Effect58.runPromise(this.host.start);
     }
   }
   async alarm() {
@@ -82462,18 +82984,18 @@ ${body}`).pipe(Effect59.flatMap(({ envelope }) => mailroom.send(envelope)))
       return;
     }
     this.ctx.waitUntil(
-      Effect59.runPromise(
+      Effect58.runPromise(
         this.sender().pipe(
-          Effect59.flatMap(
-            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect59.provide(layer2))
+          Effect58.flatMap(
+            ({ layer: layer2 }) => this.box.flushAbortNotices.pipe(Effect58.provide(layer2))
           ),
-          Effect59.catchCause(
-            (cause) => Effect59.logWarning("abort reply notices remain pending", cause)
+          Effect58.catchCause(
+            (cause) => Effect58.logWarning("abort reply notices remain pending", cause)
           )
         )
       )
     );
-    await Effect59.runPromise(this.host.alarm);
+    await Effect58.runPromise(this.host.alarm);
   }
 };
 
@@ -82490,19 +83012,19 @@ var CallerThinks = class extends DurableObject2 {
     this.ledger = callerThinkLedger(ctx.storage);
     const postbox2 = () => env.POSTBOX.getByName(POSTBOX_NAME);
     this.host = callerThinkHost({
-      arm: (at) => Effect60.promise(async () => {
+      arm: (at) => Effect59.promise(async () => {
         const pending = await ctx.storage.getAlarm();
         if (pending === null || pending > at) {
           await ctx.storage.setAlarm(at);
         }
       }),
-      clear: Effect60.promise(async () => {
+      clear: Effect59.promise(async () => {
         await ctx.storage.deleteAlarm();
       }),
       ledger: this.ledger,
       send: (notice) => mailConfirmed(
         {
-          objectName: () => Option43.some(notice.object_name),
+          objectName: () => Option45.some(notice.object_name),
           postbox: postbox2,
           storage: ctx.storage
         },
@@ -82516,13 +83038,13 @@ var CallerThinks = class extends DurableObject2 {
     });
   }
   async acquire(caller, id, objectName, key) {
-    return await Effect60.runPromise(
+    return await Effect59.runPromise(
       this.host.acquire({
         caller,
         id,
         key,
         objectName,
-        to: [...Option43.toArray(nameFor(caller)), "pi-durable/desk"]
+        to: [...Option45.toArray(nameFor(caller)), "pi-durable/desk"]
       })
     );
   }
@@ -82530,10 +83052,10 @@ var CallerThinks = class extends DurableObject2 {
     this.ledger.release(id);
   }
   async alarm() {
-    await Effect60.runPromise(
+    await Effect59.runPromise(
       this.host.alarm().pipe(
-        Effect60.catch(
-          (error) => Effect60.logWarning(
+        Effect59.catch(
+          (error) => Effect59.logWarning(
             `caller-share notice is still pending; the next alarm retries: ${error}`
           )
         )
@@ -83548,14 +84070,14 @@ function openDurableObjectSqliteStorage(storage, options2 = {}) {
 
 // src/plan-run-object.ts
 import { DurableObject as DurableObject3 } from "cloudflare:workers";
-import { Clock as Clock13, Effect as Effect67, Layer as Layer30, Option as Option48, Redacted as Redacted3, Schema as Schema88 } from "effect";
+import { Clock as Clock13, Effect as Effect66, Layer as Layer30, Option as Option50, Redacted as Redacted3, Schema as Schema88 } from "effect";
 import { FetchHttpClient as FetchHttpClient2 } from "effect/http";
 
 // src/abort-notices.ts
-import { Effect as Effect63, Option as Option45 } from "effect";
+import { Effect as Effect61, Option as Option47 } from "effect";
 
 // src/postbox-mail.ts
-import { Effect as Effect61, Layer as Layer27, Option as Option44, Schema as Schema85 } from "effect";
+import { Effect as Effect60, Layer as Layer27, Option as Option46, Schema as Schema85 } from "effect";
 var OBJECT = "CREATE TABLE IF NOT EXISTS mischief_object (id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL)";
 var OBJECT_HEADER = "x-mischief-object";
 var rememberObject = (storage, name) => {
@@ -83570,14 +84092,14 @@ var rememberObject = (storage, name) => {
 var ObjectRow = Schema85.Struct({ name: Schema85.String });
 var objectOf = (storage) => {
   storage.sql.exec(OBJECT);
-  return Option44.fromNullishOr(
+  return Option46.fromNullishOr(
     storage.sql.exec("SELECT name FROM mischief_object WHERE id = 1").toArray()[0]
   ).pipe(
-    Option44.flatMap(Schema85.decodeUnknownOption(ObjectRow)),
-    Option44.map(({ name }) => name)
+    Option46.flatMap(Schema85.decodeUnknownOption(ObjectRow)),
+    Option46.map(({ name }) => name)
   );
 };
-var settled = (key, name, call) => Effect61.tryPromise({
+var settled = (key, name, call) => Effect60.tryPromise({
   catch: () => new StepFailed({
     key,
     reason: "the Postbox did not answer. Resume the run; if it fails again, check the mischief-celld journal for the Postbox"
@@ -83585,9 +84107,9 @@ var settled = (key, name, call) => Effect61.tryPromise({
   try: call
 }).pipe(
   withDeadline(name),
-  Effect61.catchTag(
+  Effect60.catchTag(
     "ObjectCallTimedOut",
-    (timedOut) => Effect61.fail(
+    (timedOut) => Effect60.fail(
       new ProviderUnavailable({
         cause: "timeout",
         error: timedOut.message,
@@ -83597,17 +84119,17 @@ var settled = (key, name, call) => Effect61.tryPromise({
       })
     )
   ),
-  Effect61.flatMap(
-    (result) => result.ok ? Effect61.succeed(result) : Effect61.fail(new StepFailed({ key, reason: result.reason }))
+  Effect60.flatMap(
+    (result) => result.ok ? Effect60.succeed(result) : Effect60.fail(new StepFailed({ key, reason: result.reason }))
   )
 );
 var OutboxEnvelope = Schema85.fromJsonString(
   Schema85.Struct({ message: Schema85.String, to: Schema85.String })
 );
-var recordOnly = (envelope) => Option44.isSome(Schema85.decodeUnknownOption(OutboxEnvelope)(envelope));
+var recordOnly = (envelope) => Option46.isSome(Schema85.decodeUnknownOption(OutboxEnvelope)(envelope));
 var postboxMail = (storage, postbox2) => Layer27.effect(
   Mail,
-  Effect61.gen(function* routedMail() {
+  Effect60.gen(function* routedMail() {
     const outbox = yield* Mail;
     return Mail.of({
       seal: (call) => {
@@ -83615,8 +84137,8 @@ var postboxMail = (storage, postbox2) => Layer27.effect(
         if (to.startsWith(SHADOW_PREFIX)) {
           return outbox.seal(call);
         }
-        return Option44.match(objectOf(storage), {
-          onNone: () => Effect61.fail(
+        return Option46.match(objectOf(storage), {
+          onNone: () => Effect60.fail(
             new StepFailed({
               key,
               reason: "this run does not know its object name, so replies could not find it. Resubmit the run through the Worker"
@@ -83627,7 +84149,7 @@ var postboxMail = (storage, postbox2) => Layer27.effect(
             "Postbox.seal",
             async () => await postbox2().seal(name, to, message)
           ).pipe(
-            Effect61.map(({ envelope, messageId }) => ({
+            Effect60.map(({ envelope, messageId }) => ({
               envelope,
               messageId
             }))
@@ -83638,21 +84160,21 @@ var postboxMail = (storage, postbox2) => Layer27.effect(
         call.key,
         "Postbox.send",
         async () => await postbox2().send(sealed.envelope)
-      ).pipe(Effect61.asVoid)
+      ).pipe(Effect60.asVoid)
     });
   })
 ).pipe(Layer27.provide(mailOutboxSql(storage)));
 
 // src/abort-notices.ts
-var abortNotices = (storage, postbox2) => (runId2, reason) => Option45.match(objectOf(storage), {
-  onNone: () => Effect63.die(
+var abortNotices = (storage, postbox2) => (runId2, reason) => Option47.match(objectOf(storage), {
+  onNone: () => Effect61.die(
     `${runId2} cannot announce aborted replies without its object name`
   ),
-  onSome: (name) => Effect63.promise(async () => await postbox2().aborted(name, reason)).pipe(
+  onSome: (name) => Effect61.promise(async () => await postbox2().aborted(name, reason)).pipe(
     withDeadline("Postbox.aborted"),
-    Effect63.orDie,
-    Effect63.flatMap(
-      (result) => result.ok ? Effect63.void : Effect63.die(
+    Effect61.orDie,
+    Effect61.flatMap(
+      (result) => result.ok ? Effect61.void : Effect61.die(
         `${runId2} abort reply notices remain pending: ${result.reason}`
       )
     )
@@ -83660,9 +84182,9 @@ var abortNotices = (storage, postbox2) => (runId2, reason) => Option45.match(obj
 });
 
 // src/caller-think-permit.ts
-import { Effect as Effect64 } from "effect";
+import { Effect as Effect63 } from "effect";
 var callerThinkPermit = (ports) => CallerThinkShare.of({
-  acquire: Effect64.fn("callerThinkPermit.acquire")(
+  acquire: Effect63.fn("callerThinkPermit.acquire")(
     function* acquireCallerThink(call, id) {
       const result = yield* ports.acquire(call, id);
       if (!result.acquired) {
@@ -83680,7 +84202,7 @@ var callerThinkPermit = (ports) => CallerThinkShare.of({
 });
 
 // src/judge-choice.ts
-import { Effect as Effect65, Layer as Layer28, Option as Option46, Schema as Schema86 } from "effect";
+import { Effect as Effect64, Layer as Layer28, Option as Option48, Schema as Schema86 } from "effect";
 var CHOICE = "CREATE TABLE IF NOT EXISTS mischief_judge (id INTEGER PRIMARY KEY CHECK (id = 1), mode TEXT NOT NULL)";
 var HOST_DEFAULT2 = "default";
 var SubmitJudge = Schema86.Struct({
@@ -83694,8 +84216,8 @@ var decodeMode = Schema86.decodeUnknownOption(JudgeModeSchema);
 var fixJudgeAtFirstSubmit = (storage, body) => {
   storage.sql.exec(CHOICE);
   const mode = decodeSubmit3(body).pipe(
-    Option46.flatMap(({ judge }) => Option46.fromNullishOr(judge)),
-    Option46.getOrElse(() => HOST_DEFAULT2)
+    Option48.flatMap(({ judge }) => Option48.fromNullishOr(judge)),
+    Option48.getOrElse(() => HOST_DEFAULT2)
   );
   const inserted = storage.transactionSync(() => {
     const fixed = storage.sql.exec("SELECT mode FROM mischief_judge WHERE id = 1").toArray().length > 0;
@@ -83715,17 +84237,17 @@ var fixJudgeAtFirstSubmit = (storage, body) => {
 };
 var judgeModeOf = (storage) => {
   storage.sql.exec(CHOICE);
-  return Option46.fromNullishOr(
+  return Option48.fromNullishOr(
     storage.sql.exec("SELECT mode FROM mischief_judge WHERE id = 1").toArray()[0]
   ).pipe(
-    Option46.flatMap(Schema86.decodeUnknownOption(ChoiceRow)),
-    Option46.flatMap(({ mode }) => decodeMode(mode))
+    Option48.flatMap(Schema86.decodeUnknownOption(ChoiceRow)),
+    Option48.flatMap(({ mode }) => decodeMode(mode))
   );
 };
 var noJevKey = Layer28.succeed(
   Judge,
   Judge.of({
-    choose: ({ key }) => Effect65.fail(
+    choose: ({ key }) => Effect64.fail(
       new StepFailed({
         key,
         reason: 'this run was submitted with judge "jev", and this host has no MISCHIEF_JEV_KEY. Accepted: judge "shadow", or no judge for the host default. Fix: submit a new run with judge "shadow", or ask the host owner to pipe the Jev key into the bindings and redeploy, then resume'
@@ -83733,8 +84255,8 @@ var noJevKey = Layer28.succeed(
     )
   })
 );
-var serviceOf = (layer2) => Effect65.provide(
-  Effect65.gen(function* readJudge() {
+var serviceOf = (layer2) => Effect64.provide(
+  Effect64.gen(function* readJudge() {
     return yield* Judge;
   }),
   layer2
@@ -83745,9 +84267,9 @@ var judgeChosenPerCall = ({
   storage
 }) => Layer28.effect(
   Judge,
-  Effect65.gen(function* makeChosenJudge() {
+  Effect64.gen(function* makeChosenJudge() {
     const shadow = yield* serviceOf(shadowJudge);
-    const asked = yield* serviceOf(Option46.getOrElse(jev, () => noJevKey));
+    const asked = yield* serviceOf(Option48.getOrElse(jev, () => noJevKey));
     const unwired4 = yield* serviceOf(Judge.unwired);
     const pick = (mode) => {
       if (mode === "shadow") {
@@ -83755,7 +84277,7 @@ var judgeChosenPerCall = ({
       }
       return mode === "jev" ? asked : unwired4;
     };
-    const chosen = () => pick(Option46.getOrElse(judgeModeOf(storage), () => fallback));
+    const chosen = () => pick(Option48.getOrElse(judgeModeOf(storage), () => fallback));
     return Judge.of({
       admits: (plan) => chosen().admits?.(plan) ?? [],
       choose: (call) => chosen().choose(call)
@@ -83774,62 +84296,61 @@ var forgetUnlessStored = (storage, ...forgets) => {
 };
 
 // src/mail-reach.ts
-import { Effect as Effect66, Layer as Layer29, Option as Option47, Schema as Schema87 } from "effect";
+import { Effect as Effect65, Layer as Layer29, Option as Option49, Schema as Schema87 } from "effect";
 var Recipient = Schema87.fromJsonString(
   Schema87.Union([
     Schema87.Struct({ to: Schema87.String }),
     Schema87.Struct({ aad: Schema87.Struct({ recipientDid: Schema87.String }) })
   ])
 );
-var reachableMail = (objectName, config) => Layer29.effect(
-  Mail,
-  Effect66.gen(function* checkedMail() {
-    const mail = yield* Mail;
-    const identity = (key) => Option47.match(objectName(), {
-      onNone: () => Effect66.fail(
-        new StepFailed({
-          key,
-          reason: "this run has no submitting caller identity. Resubmit it through the Worker so mail reach can be checked"
-        })
-      ),
-      onSome: Effect66.succeed
-    });
-    const check = (key, recipient) => identity(key).pipe(
-      Effect66.flatMap((name) => {
-        const did2 = name.slice(0, name.lastIndexOf("/"));
-        const reach = callerReach(did2, config());
-        const to = "to" in recipient ? recipient.to : reach.names.find(
-          (candidate) => Option47.contains(
-            didFor(candidate),
-            recipient.aad.recipientDid
-          )
-        ) ?? Option47.getOrElse(
-          nameFor(recipient.aad.recipientDid),
-          () => recipient.aad.recipientDid
-        );
-        const reason = mailReachReason(did2, key, to, config());
-        return reason === void 0 ? Effect66.succeed(name) : Effect66.fail(new StepFailed({ key, reason }));
+var reachableMail = (objectName, config) => {
+  const identity = (key) => Option49.match(objectName(), {
+    onNone: () => Effect65.fail(
+      new StepFailed({
+        key,
+        reason: "this run has no submitting caller identity. Resubmit it through the Worker so mail reach can be checked"
       })
-    );
-    return Mail.of({
-      seal: (call) => identity(call.key).pipe(
-        Effect66.flatMap(
-          (name) => mail.seal({ ...call, message: attributeMail(name, call.message) })
-        )
-      ),
-      send: (call, sealed) => Schema87.decodeEffect(Recipient)(sealed.envelope).pipe(
-        Effect66.mapError(
-          () => new StepFailed({
-            key: call.key,
-            reason: "the stored mail has no readable recipient, so caller reach cannot be checked. Ask the Mischief desk (pi-durable/desk) to inspect this run's sealed envelope"
-          })
+    ),
+    onSome: Effect65.succeed
+  });
+  const check = (key, recipient) => identity(key).pipe(
+    Effect65.flatMap((name) => {
+      const did2 = name.slice(0, name.lastIndexOf("/"));
+      const reach = callerReach(did2, config());
+      const to = "to" in recipient ? recipient.to : reach.names.find(
+        (candidate) => Option49.contains(didFor(candidate), recipient.aad.recipientDid)
+      ) ?? Option49.getOrElse(
+        nameFor(recipient.aad.recipientDid),
+        () => recipient.aad.recipientDid
+      );
+      const reason = mailReachReason(did2, key, to, config());
+      return reason === void 0 ? Effect65.succeed(name) : Effect65.fail(new StepFailed({ key, reason }));
+    })
+  );
+  return Layer29.effect(
+    Mail,
+    Effect65.gen(function* checkedMail() {
+      const mail = yield* Mail;
+      return Mail.of({
+        seal: (call) => identity(call.key).pipe(
+          Effect65.flatMap(
+            (name) => mail.seal({ ...call, message: attributeMail(name, call.message) })
+          )
         ),
-        Effect66.flatMap((recipient) => check(call.key, recipient)),
-        Effect66.andThen(mail.send(call, sealed))
-      )
-    });
-  })
-);
+        send: (call, sealed) => Schema87.decodeEffect(Recipient)(sealed.envelope).pipe(
+          Effect65.mapError(
+            () => new StepFailed({
+              key: call.key,
+              reason: "the stored mail has no readable recipient, so caller reach cannot be checked. Ask the Mischief desk (pi-durable/desk) to inspect this run's sealed envelope"
+            })
+          ),
+          Effect65.flatMap((recipient) => check(call.key, recipient)),
+          Effect65.andThen(mail.send(call, sealed))
+        )
+      });
+    })
+  );
+};
 
 // src/plan-run-object.ts
 var TELEMETRY_DESK = "pi-durable/desk";
@@ -83858,8 +84379,8 @@ var thinkerFor = (env, storageFor) => {
 var judgeFor = (env, storage) => {
   const key = env.MISCHIEF_JEV_KEY ?? "";
   return judgeChosenPerCall({
-    fallback: Option48.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
-    jev: key === "" ? Option48.none() : Option48.some(
+    fallback: Option50.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
+    jev: key === "" ? Option50.none() : Option50.some(
       jevJudge({ apiKey: Redacted3.make(key) }).pipe(
         Layer30.provide(FetchHttpClient2.layer)
       )
@@ -83872,7 +84393,7 @@ var PlanRun = class extends DurableObject3 {
   constructor(ctx, env, callables = /* @__PURE__ */ new Map()) {
     super(ctx, env);
     let opened;
-    const storageFor = () => Effect67.tryPromise({
+    const storageFor = () => Effect66.tryPromise({
       catch: (cause) => new StepFailed({
         key: "__thinking",
         reason: `could not open the thinking store in this run's Durable Object: ${String(cause)}. Resume the run; if it fails again, check the object's SQLite storage is enabled`
@@ -83884,7 +84405,7 @@ var PlanRun = class extends DurableObject3 {
     });
     const thinker = thinkerFor(env, storageFor);
     const shareObject = () => objectOf(ctx.storage).pipe(
-      Option48.map((name) => {
+      Option50.map((name) => {
         const caller = name.slice(0, name.lastIndexOf("/"));
         return { caller, name, share: env.CALLER_THINKS.getByName(caller) };
       })
@@ -83892,8 +84413,7 @@ var PlanRun = class extends DurableObject3 {
     const callerShare = Layer30.succeed(
       CallerThinkShare,
       callerThinkPermit({
-        acquire: (call, id) => Effect67.gen(function* acquireShare() {
-          const object2 = shareObject();
+        acquire: (call, id) => {
           const held = (error) => new ProviderUnavailable({
             cause: "busy",
             error,
@@ -83901,34 +84421,37 @@ var PlanRun = class extends DurableObject3 {
             provider: "caller-share",
             status: 429
           });
-          if (Option48.isNone(object2)) {
-            return yield* held(
-              "the run has no caller identity; resubmit it through the Worker so caller sharing can be enforced"
-            );
-          }
-          const { caller, name, share } = object2.value;
-          return yield* Effect67.tryPromise(
-            async () => await share.acquire(caller, id, name, call.key)
-          ).pipe(
-            withDeadline("CallerThinks.acquire"),
-            Effect67.mapError(
-              (error) => held(
-                `caller think sharing did not answer: ${String(error)}. The run's alarm retries; inspectRun shows this hold`
+          return Effect66.gen(function* acquireShare() {
+            const object2 = shareObject();
+            if (Option50.isNone(object2)) {
+              return yield* held(
+                "the run has no caller identity; resubmit it through the Worker so caller sharing can be enforced"
+              );
+            }
+            const { caller, name, share } = object2.value;
+            return yield* Effect66.tryPromise(
+              async () => await share.acquire(caller, id, name, call.key)
+            ).pipe(
+              withDeadline("CallerThinks.acquire"),
+              Effect66.mapError(
+                (error) => held(
+                  `caller think sharing did not answer: ${String(error)}. The run's alarm retries; inspectRun shows this hold`
+                )
               )
-            )
-          );
-        }),
+            );
+          });
+        },
         durationMs: THINK_STREAM_TIMEOUT_MS,
-        release: (id) => Option48.match(shareObject(), {
-          onNone: () => Effect67.logWarning(
+        release: (id) => Option50.match(shareObject(), {
+          onNone: () => Effect66.logWarning(
             `caller think lease ${id} has no caller object and will expire`
           ),
-          onSome: ({ share }) => Effect67.tryPromise(async () => {
+          onSome: ({ share }) => Effect66.tryPromise(async () => {
             await share.release(id);
           }).pipe(
             withDeadline("CallerThinks.release"),
-            Effect67.catchCause(
-              (cause) => Effect67.logWarning(
+            Effect66.catchCause(
+              (cause) => Effect66.logWarning(
                 `caller think lease ${id} could not be returned and will expire: ${String(cause)}`
               )
             )
@@ -83944,14 +84467,14 @@ var PlanRun = class extends DurableObject3 {
       storage: ctx.storage
     };
     const mailWired = env.MISCHIEF_IDENTITY !== void 0 && env.MISCHIEF_IDENTITY !== "";
-    const mailEscalation = mailWired ? escalate(mailPorts) : () => Effect67.void;
-    const mailDesk = mailWired ? mailOnce(mailPorts) : () => Effect67.void;
-    const thought2 = (runId2, key, receipt) => Effect67.gen(function* tallied() {
+    const mailEscalation = mailWired ? escalate(mailPorts) : () => Effect66.void;
+    const mailDesk = mailWired ? mailOnce(mailPorts) : () => Effect66.void;
+    const thought2 = (runId2, key, receipt) => Effect66.gen(function* tallied() {
       const today = utcDay(yield* Clock13.currentTimeMillis);
-      const totals = yield* Effect67.tryPromise(
+      const totals = yield* Effect66.tryPromise(
         async () => await postbox2().tallyThink(today, runId2, key, receipt.tokens.total)
       ).pipe(withDeadline("Postbox.tallyThink"));
-      yield* Effect67.forEach(
+      yield* Effect66.forEach(
         totals.crossed,
         (crossing) => mailDesk(
           runId2,
@@ -83962,8 +84485,8 @@ var PlanRun = class extends DurableObject3 {
         { discard: true }
       );
     }).pipe(
-      Effect67.catchCause(
-        (cause) => Effect67.logWarning(
+      Effect66.catchCause(
+        (cause) => Effect66.logWarning(
           `${runId2} think telemetry for ${key} was not tallied: ${String(cause)}`
         )
       )
@@ -83972,26 +84495,26 @@ var PlanRun = class extends DurableObject3 {
     const operator = Layer30.succeed(
       Operator,
       Operator.of({
-        aborted: mailWired ? abortNotices(ctx.storage, postbox2) : () => Effect67.void,
-        failed: (runId2, failures, notice) => Effect67.logWarning(
+        aborted: mailWired ? abortNotices(ctx.storage, postbox2) : () => Effect66.void,
+        failed: (runId2, failures, notice) => Effect66.logWarning(
           `${runId2} failed at ${failures.map(({ key }) => key).join(", ")}`
         ).pipe(
-          Effect67.andThen(
+          Effect66.andThen(
             mailEscalation(runId2, notice, failedText(runId2, failures))
           )
         ),
-        held: (runId2, held, notice) => Effect67.logWarning(
+        held: (runId2, held, notice) => Effect66.logWarning(
           `${runId2} is held at ${held.key}: ${held.provider} ${held.cause}`
         ).pipe(
-          Effect67.andThen(
-            held.provider === "caller-share" ? Effect67.void : mailEscalation(runId2, notice, heldText(runId2, held))
+          Effect66.andThen(
+            held.provider === "caller-share" ? Effect66.void : mailEscalation(runId2, notice, heldText(runId2, held))
           )
         ),
-        holdAlarm: mailWired ? alarmOnHolds(mailPorts, alarmTargets) : () => Effect67.void,
-        notify: (runId2, question, notice) => Effect67.logInfo(
+        holdAlarm: mailWired ? alarmOnHolds(mailPorts, alarmTargets) : () => Effect66.void,
+        notify: (runId2, question, notice) => Effect66.logInfo(
           `${runId2} waits on ${question.key}: ${question.question}`
         ).pipe(
-          Effect67.andThen(
+          Effect66.andThen(
             mailEscalation(runId2, notice, escalationText(runId2, question))
           )
         ),
@@ -84050,7 +84573,7 @@ var PlanRun = class extends DurableObject3 {
     }
     const body = await request2.clone().text();
     const object2 = objectOf(this.ctx.storage);
-    const reason = Option48.match(object2, {
+    const reason = Option50.match(object2, {
       onNone: () => "this run has no submitting caller identity. Resubmit it through the Worker so mail reach can be checked",
       onSome: (name) => submitMailReachReason(
         name.slice(0, name.lastIndexOf("/")),
@@ -84107,27 +84630,27 @@ var registeredCallables = (entries2) => {
 
 // src/schedule-object.ts
 import { DurableObject as DurableObject4 } from "cloudflare:workers";
-import { Effect as Effect70, Option as Option51 } from "effect";
+import { Effect as Effect69, Option as Option54 } from "effect";
 
 // src/schedule-notices.ts
-import { Effect as Effect68, Option as Option49 } from "effect";
+import { Effect as Effect67, Option as Option51 } from "effect";
 var callerOf = (objectName) => nameFor(objectName.slice(0, objectName.lastIndexOf("/")));
 var scheduleNotices = (ports) => ScheduleNotices.of({
   ended: ({ escalateTo, key, scheduleId: scheduleId2, text }) => {
-    const to = Option49.fromNullishOr(escalateTo).pipe(
-      Option49.orElse(() => Option49.flatMap(ports.objectName(), callerOf))
+    const to = Option51.fromNullishOr(escalateTo).pipe(
+      Option51.orElse(() => Option51.flatMap(ports.objectName(), callerOf))
     );
-    return Option49.match(to, {
-      onNone: () => Effect68.logWarning(
+    return Option51.match(to, {
+      onNone: () => Effect67.logWarning(
         `schedule ${scheduleId2} ended but has no mailbox to tell: it has no escalateTo and its caller's DID names no Rat King mailbox. inspectSchedule {"scheduleId": "${scheduleId2}"} shows why it ended; create it with escalateTo to be told next time`
       ),
       onSome: (target) => callerMailOnce(ports)(scheduleId2, target, key, text)
     }).pipe(
-      Effect68.andThen(
+      Effect67.andThen(
         mailOnce(ports)(
           scheduleId2,
           "pi-durable/desk",
-          Option49.contains(to, "pi-durable/desk") ? key : `${key}:desk`,
+          Option51.contains(to, "pi-durable/desk") ? key : `${key}:desk`,
           text
         )
       )
@@ -84136,7 +84659,7 @@ var scheduleNotices = (ports) => ScheduleNotices.of({
 });
 
 // src/wake-runs.ts
-import { Effect as Effect69, Option as Option50, Schema as Schema90 } from "effect";
+import { Effect as Effect68, Option as Option53, Schema as Schema90 } from "effect";
 var SUBMIT_WAIT_MS = 5e3;
 var decodeReport = Schema90.decodeUnknownOption(RunReportSchema);
 var decodeRefused = Schema90.decodeUnknownOption(PlanRefused);
@@ -84148,7 +84671,7 @@ var bodyOf = async (response) => {
     return null;
   }
 };
-var answered = (scheduleId2, runId2, step, pending) => Effect69.tryPromise({
+var answered = (scheduleId2, runId2, step, pending) => Effect68.tryPromise({
   catch: (cause) => new WakeUnanswered({
     reason: `did not answer: ${String(cause)}`,
     runId: runId2,
@@ -84159,23 +84682,23 @@ var answered = (scheduleId2, runId2, step, pending) => Effect69.tryPromise({
 });
 var answeredBy = (scheduleId2, runId2, step, pending) => answered(scheduleId2, runId2, step, pending).pipe(
   withDeadline(`PlanRun.${step}`),
-  Effect69.catchTag(
+  Effect68.catchTag(
     "ObjectCallTimedOut",
-    ({ message }) => Effect69.fail(
+    ({ message }) => Effect68.fail(
       new WakeUnanswered({ reason: message, runId: runId2, scheduleId: scheduleId2, step })
     )
   )
 );
-var unanswered = (scheduleId2, runId2, step, reason) => Effect69.fail(new WakeUnanswered({ reason, runId: runId2, scheduleId: scheduleId2, step }));
+var unanswered = (scheduleId2, runId2, step, reason) => Effect68.fail(new WakeUnanswered({ reason, runId: runId2, scheduleId: scheduleId2, step }));
 var wakeRuns = (objects, storage, keepAlive) => {
-  const scheduleFor = Effect69.suspend(
-    () => Option50.match(objectOf(storage), {
-      onNone: () => Effect69.die(
+  const scheduleFor = Effect68.suspend(
+    () => Option53.match(objectOf(storage), {
+      onNone: () => Effect68.die(
         "this schedule never learned its owner's DID; create it again through the Mischief worker"
       ),
       onSome: (name) => {
         const owner = name.slice(0, name.lastIndexOf("/"));
-        return Effect69.succeed({
+        return Effect68.succeed({
           owner,
           scheduleId: name.slice(owner.length + 1)
         });
@@ -84197,7 +84720,7 @@ var wakeRuns = (objects, storage, keepAlive) => {
   };
   return {
     abort: (runId2, reason) => scheduleFor.pipe(
-      Effect69.flatMap(
+      Effect68.flatMap(
         ({ owner, scheduleId: scheduleId2 }) => answeredBy(
           scheduleId2,
           runId2,
@@ -84209,8 +84732,8 @@ var wakeRuns = (objects, storage, keepAlive) => {
             reason === void 0 ? { runId: runId2 } : { reason, runId: runId2 }
           )
         ).pipe(
-          Effect69.flatMap(
-            ({ body, status }) => status === 200 || Option50.isSome(decodeUnknown(body)) ? Effect69.void : unanswered(
+          Effect68.flatMap(
+            ({ body, status }) => status === 200 || Option53.isSome(decodeUnknown(body)) ? Effect68.void : unanswered(
               scheduleId2,
               runId2,
               "abortRun",
@@ -84221,26 +84744,26 @@ var wakeRuns = (objects, storage, keepAlive) => {
       )
     ),
     inspect: (runId2) => scheduleFor.pipe(
-      Effect69.flatMap(
+      Effect68.flatMap(
         ({ owner, scheduleId: scheduleId2 }) => answeredBy(
           scheduleId2,
           runId2,
           "inspectRun",
           async () => await call(owner, runId2, "inspectRun", { runId: runId2 })
         ).pipe(
-          Effect69.flatMap(({ body, status }) => {
+          Effect68.flatMap(({ body, status }) => {
             if (status === 200) {
-              return Option50.match(decodeReport(body), {
+              return Option53.match(decodeReport(body), {
                 onNone: () => unanswered(
                   scheduleId2,
                   runId2,
                   "inspectRun",
                   "answered 200 with no run report"
                 ),
-                onSome: Effect69.succeedSome
+                onSome: Effect68.succeedSome
               });
             }
-            return Option50.isSome(decodeUnknown(body)) ? Effect69.succeedNone : unanswered(
+            return Option53.isSome(decodeUnknown(body)) ? Effect68.succeedNone : unanswered(
               scheduleId2,
               runId2,
               "inspectRun",
@@ -84251,7 +84774,7 @@ var wakeRuns = (objects, storage, keepAlive) => {
       )
     ),
     submit: (runId2, plan, docs, { escalateTo, judge }) => scheduleFor.pipe(
-      Effect69.flatMap(({ owner, scheduleId: scheduleId2 }) => {
+      Effect68.flatMap(({ owner, scheduleId: scheduleId2 }) => {
         const input = Object.fromEntries(
           Object.entries({ docs, escalateTo, judge, plan, runId: runId2 }).filter(
             ([, value]) => value !== null
@@ -84265,25 +84788,25 @@ var wakeRuns = (objects, storage, keepAlive) => {
           "submitPlan",
           async () => await pending
         ).pipe(
-          Effect69.timeoutOption(SUBMIT_WAIT_MS),
-          Effect69.flatMap(
-            Option50.match({
-              onNone: () => Effect69.void,
+          Effect68.timeoutOption(SUBMIT_WAIT_MS),
+          Effect68.flatMap(
+            Option53.match({
+              onNone: () => Effect68.void,
               onSome: ({
                 body,
                 status
               }) => {
                 if (status === 200) {
-                  return Effect69.void;
+                  return Effect68.void;
                 }
-                return Option50.match(decodeRefused(body), {
+                return Option53.match(decodeRefused(body), {
                   onNone: () => unanswered(
                     scheduleId2,
                     runId2,
                     "submitPlan",
                     `answered ${String(status)}`
                   ),
-                  onSome: Effect69.fail
+                  onSome: Effect68.fail
                 });
               }
             })
@@ -84316,7 +84839,7 @@ var Schedule5 = class extends DurableObject4 {
         objectName: () => objectOf(ctx.storage),
         postbox: () => env.POSTBOX.get(env.POSTBOX.idFromName(POSTBOX_NAME)),
         storage: ctx.storage
-      }) : { ended: () => Effect70.void },
+      }) : { ended: () => Effect69.void },
       runs: wakeRuns(env.PLAN_RUN, ctx.storage, (pending) => {
         ctx.waitUntil(pending);
       }),
@@ -84327,7 +84850,7 @@ var Schedule5 = class extends DurableObject4 {
     rememberObject(this.ctx.storage, request2.headers.get(OBJECT_HEADER));
     if (new URL(request2.url).pathname === "/createSchedule") {
       const body = await request2.clone().text();
-      const reason = Option51.match(objectOf(this.ctx.storage), {
+      const reason = Option54.match(objectOf(this.ctx.storage), {
         onNone: () => "this schedule has no submitting caller identity. Create it through the Worker so mail reach can be checked",
         onSome: (name) => submitMailReachReason(
           name.slice(0, name.lastIndexOf("/")),
@@ -84394,7 +84917,7 @@ var ServiceTokenLedger = class extends DurableObject5 {
 // ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+9dbd61b5_48910ba0880a1f0e1711a026bc6eafdf/node_modules/@rat-king/mailbox-client/auth.js
 import { Effect as Effect211 } from "effect";
 import { Schema as Schema91 } from "effect";
-import { Effect as Effect71 } from "effect";
+import { Effect as Effect70 } from "effect";
 import { Context as Context210, Effect as Effect311, Layer as Layer31, Schema as Schema311 } from "effect";
 import { Schema as Schema211 } from "effect";
 import { Context as Context34 } from "effect";
@@ -84414,7 +84937,7 @@ var EnvelopeFailure2 = class extends Schema91.TaggedError()(
   { reason: Schema91.String }
 ) {
 };
-var cryptoOperation2 = (operation) => Effect71.tryPromise({
+var cryptoOperation2 = (operation) => Effect70.tryPromise({
   catch: () => new EnvelopeFailure2({ reason: "Cryptographic operation rejected" }),
   try: operation
 });
@@ -84619,13 +85142,13 @@ var serviceToken3 = Effect311.fn("ServiceAuth.sign")(
 );
 
 // src/worker-handler.ts
-import { Effect as Effect76, Layer as Layer35, Option as Option55, Result as Result12, Schema as Schema96 } from "effect";
+import { Effect as Effect75, Layer as Layer35, Option as Option57, Result as Result12, Schema as Schema96 } from "effect";
 
 // src/replay-ledger.ts
-import { Effect as Effect74, Layer as Layer33 } from "effect";
+import { Effect as Effect73, Layer as Layer33 } from "effect";
 
 // src/service-auth.ts
-import { Clock as Clock14, Effect as Effect73 } from "effect";
+import { Clock as Clock14, Effect as Effect71 } from "effect";
 
 // src/auth-refused.ts
 import { Schema as Schema93 } from "effect";
@@ -84639,7 +85162,7 @@ var AuthRefused = class extends Schema93.TaggedError()(
 var NSID_PREFIX = "sh.mschf.mischief.";
 var SKEW_SECONDS = 5;
 var MINT = `Mint a fresh Rat King service token with serviceToken from @rat-king/mailbox-client/auth (ES256, signed with your DID's #atproto key): iss your DID, aud the host's audience, lxm ${NSID_PREFIX}<capability>, a unique jti of at least 16 characters, iat now and exp at most 60 seconds later. Send it as Authorization: Bearer <token>. A caller missing from the host's allowlist asks the Mischief desk (pi-durable/desk) to add its DID document`;
-var authenticate = Effect73.fn("Mischief.authenticate")(
+var authenticate = Effect71.fn("Mischief.authenticate")(
   function* authenticate2(request2) {
     const now = yield* Clock14.currentTimeMillis;
     const claims = yield* authenticateClaims3({
@@ -84649,9 +85172,9 @@ var authenticate = Effect73.fn("Mischief.authenticate")(
       nsid: request2.lxm,
       skewSeconds: SKEW_SECONDS
     }).pipe(
-      Effect73.catchTag(
+      Effect71.catchTag(
         "XrpcFailure",
-        (failure5) => Effect73.fail(
+        (failure5) => Effect71.fail(
           new AuthRefused({
             reason: `${failure5.message ?? failure5.error} (this request calls ${request2.lxm} on ${request2.audience}). ${MINT}`
           })
@@ -84674,7 +85197,7 @@ var READ_ONLY = new Set(
 var replayLedger = (ledgerFor, readOnly) => Layer33.succeed(
   ReplayAuthority2,
   ReplayAuthority2.of({
-    consume: (claims, now) => Effect74.tryPromise({
+    consume: (claims, now) => Effect73.tryPromise({
       catch: () => new ServiceAuthFailure2({
         error: "ReplayUnavailable",
         message: "the host could not record this token's jti, so it refuses it. Send a fresh token again shortly",
@@ -84688,8 +85211,8 @@ var replayLedger = (ledgerFor, readOnly) => Layer33.succeed(
         !readOnly.has(claims.lxm)
       )
     }).pipe(
-      Effect74.flatMap(
-        (fresh) => fresh ? Effect74.void : Effect74.fail(
+      Effect73.flatMap(
+        (fresh) => fresh ? Effect73.void : Effect73.fail(
           new ServiceAuthFailure2({
             error: "AuthRequired",
             message: `this token (jti ${claims.jti}) was already used. Every request needs a fresh jti`,
@@ -84703,7 +85226,7 @@ var replayLedger = (ledgerFor, readOnly) => Layer33.succeed(
 );
 
 // src/run-address.ts
-import { Option as Option53, Schema as Schema94 } from "effect";
+import { Option as Option55, Schema as Schema94 } from "effect";
 var decodeAddress = Schema94.decodeUnknownOption(
   Schema94.fromJsonString(
     Schema94.Struct({
@@ -84713,20 +85236,20 @@ var decodeAddress = Schema94.decodeUnknownOption(
   )
 );
 var runIdOf = (body) => decodeAddress(body).pipe(
-  Option53.flatMap(
-    ({ replyTo, runId: runId2 }) => Option53.orElse(
-      Option53.fromUndefinedOr(runId2),
-      () => Option53.fromUndefinedOr(
+  Option55.flatMap(
+    ({ replyTo, runId: runId2 }) => Option55.orElse(
+      Option55.fromUndefinedOr(runId2),
+      () => Option55.fromUndefinedOr(
         replyTo?.includes("/") === true ? replyTo.split("/")[0] : void 0
       )
     )
   ),
-  Option53.filter((runId2) => runId2 !== "")
+  Option55.filter((runId2) => runId2 !== "")
 );
 var NO_RUN_ID = "this request names no run. Every run capability takes a JSON body with runId. deliverReply can find its run from replyTo only when replyTo is <runId>/<step>#<visit>; a Rat King message id (an ask sent as real mail, like 3mxoabjvtfwka) has no run in it, so add the run's runId (inspectRun shows the ask under awaiting). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 // src/schedule-address.ts
-import { Option as Option54, Schema as Schema95 } from "effect";
+import { Option as Option56, Schema as Schema95 } from "effect";
 var SCHEDULE_CAPABILITIES = /* @__PURE__ */ new Set([
   "createSchedule",
   "inspectSchedule",
@@ -84738,8 +85261,8 @@ var decodeAddress2 = Schema95.decodeUnknownOption(
   )
 );
 var scheduleIdOf = (body) => decodeAddress2(body).pipe(
-  Option54.flatMap(({ scheduleId: scheduleId2 }) => Option54.fromUndefinedOr(scheduleId2)),
-  Option54.filter((scheduleId2) => scheduleId2 !== "")
+  Option56.flatMap(({ scheduleId: scheduleId2 }) => Option56.fromUndefinedOr(scheduleId2)),
+  Option56.filter((scheduleId2) => scheduleId2 !== "")
 );
 var NO_SCHEDULE_ID = "this request names no schedule. createSchedule, inspectSchedule and completeSchedule each take a JSON body with scheduleId; add it and send the request again. GET /openapi.json lists every capability";
 
@@ -84762,14 +85285,14 @@ var thinkStatusHttp = (telemetry) => HttpRouter3.toWebHandler(
 );
 
 // src/think-telemetry.ts
-import { Clock as Clock15, Effect as Effect75 } from "effect";
+import { Clock as Clock15, Effect as Effect74 } from "effect";
 var thinkTelemetry = ({
   cliproxyKey,
   cliproxyUrl,
   model: model2,
   readDay
 }) => ThinkTelemetry.of({
-  read: Effect75.gen(function* readThinkTelemetry() {
+  read: Effect74.gen(function* readThinkTelemetry() {
     const day = utcDay(yield* Clock15.currentTimeMillis);
     const today = yield* readDay(day);
     return {
@@ -84815,17 +85338,17 @@ var worker_handler_default = {
     const callers = Schema96.decodeUnknownOption(CallersFromJson)(
       env.MISCHIEF_CALLERS ?? ""
     );
-    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option55.isNone(callers)) {
+    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option57.isNone(callers)) {
       return Response.json({ error: NOT_CONFIGURED }, { status: 503 });
     }
     const { pathname } = new URL(request2.url);
     const capability = pathname === "/openapi.json" ? "openApi" : pathname.slice(1);
-    const caller = await Effect76.runPromise(
+    const caller = await Effect75.runPromise(
       authenticate({
         audience: `${env.MISCHIEF_DID}#mischief`,
         authorization: request2.headers.get("authorization"),
         lxm: `${NSID_PREFIX}${capability}`
-      }).pipe(Effect76.result, Effect76.provide(servicesFor(env, callers.value)))
+      }).pipe(Effect75.result, Effect75.provide(servicesFor(env, callers.value)))
     );
     if (Result12.isFailure(caller)) {
       return refused2(caller.failure);
@@ -84839,7 +85362,7 @@ var worker_handler_default = {
           cliproxyKey: env.MISCHIEF_CLIPROXY_KEY,
           cliproxyUrl: env.MISCHIEF_CLIPROXY_URL,
           model: env.MISCHIEF_MODEL,
-          readDay: (day) => Effect76.promise(
+          readDay: (day) => Effect75.promise(
             async () => await env.POSTBOX.get(
               env.POSTBOX.idFromName(POSTBOX_NAME)
             ).thinkDay(day)
@@ -84871,7 +85394,7 @@ var worker_handler_default = {
     }
     if (SCHEDULE_CAPABILITIES.has(capability)) {
       const scheduleId2 = scheduleIdOf(body);
-      if (Option55.isNone(scheduleId2)) {
+      if (Option57.isNone(scheduleId2)) {
         return Response.json({ error: NO_SCHEDULE_ID }, { status: 400 });
       }
       const name = `${caller.success.iss}/${scheduleId2.value}`;
@@ -84887,7 +85410,7 @@ var worker_handler_default = {
       );
     }
     const runId2 = runIdOf(body);
-    if (Option55.isNone(runId2)) {
+    if (Option57.isNone(runId2)) {
       return Response.json({ error: NO_RUN_ID }, { status: 400 });
     }
     const run2 = env.PLAN_RUN.get(

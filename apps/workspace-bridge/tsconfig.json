@@ -9,6 +9,7 @@
           "@effect/platform-node/NodeHttpServer",
           "@effect/platform-node/NodeHttpClient",
           "@effect/platform-node/NodeCrypto",
+          "@effect/platform-node-shared/NodeCrypto",
           "@effect/platform-node/NodeRuntime",
           "@effect/platform-node/NodeServices",
           "@effect/vitest",
@@ -25,7 +26,8 @@
           "effect/process/ChildProcess",
           "effect/process/ChildProcessSpawner",
           "effect/PlatformError",
-          "effect/Crypto",
+          "effect/crypto/Digest",
+          "effect/crypto/SecureRandom",
           "effect/http/FetchHttpClient",
           "effect/http/HttpClientRequest",
           "effect/http/HttpClientResponse"

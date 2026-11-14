@@ -10,8 +10,8 @@ export const DONE_DOC = "done";
 export const CONFIRM_MS = 60_000;
 
 export type Previous = Data.TaggedEnum<{
-  None: Record<never, never>;
-  Missing: Record<never, never>;
+  None: object;
+  Missing: object;
   Reported: { readonly report: RunReport };
 }>;
 

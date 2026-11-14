@@ -11,7 +11,6 @@ import {
 import { makePlanRun } from "@mischief/plan-run";
 import { nodeSqlStorage } from "@mischief/plan-run/node";
 import { Clock, Deferred, Effect, Fiber, Layer, Queue, Schema } from "effect";
-import { flow, identity } from "effect/Function";
 import { TestClock } from "effect/testing";
 
 import { callerThinkPermit } from "../src/caller-think-permit.js";
@@ -141,22 +140,18 @@ const ownershipWorld = Effect.fnUntraced(function* ownershipWorld(options: {
   const host = () =>
     makePlanRun({
       alarms: {
-        clear: Effect.fnUntraced(function* clearAlarm() {
-          yield* Effect.sync(() => {
-            alarms.pending = null;
-          });
-        }, Effect.runPromise),
-        get: Effect.fnUntraced(function* getAlarm() {
-          return yield* Effect.sync(() => alarms.pending);
-        }, Effect.runPromise),
-        set: Effect.fnUntraced(
-          function* setAlarm(at: number) {
-            yield* Effect.sync(() => {
-              alarms.pending = at;
-            });
-          },
-          flow(identity<Effect.Effect<void>>, Effect.runPromise)
-        ),
+        // @effect-diagnostics-next-line asyncFunction:off -- The alarm port requires a Promise callback; it only mutates this fixture's local log.
+        clear: async () => {
+          alarms.pending = null;
+          await Promise.resolve();
+        },
+        // @effect-diagnostics-next-line asyncFunction:off -- The alarm port requires a Promise callback; it only reads this fixture's local log.
+        get: async () => await Promise.resolve(alarms.pending),
+        // @effect-diagnostics-next-line asyncFunction:off -- The alarm port requires a Promise callback; it only mutates this fixture's local log.
+        set: async (at: number) => {
+          alarms.pending = at;
+          await Promise.resolve();
+        },
       },
       guardMs: 30,
       services,

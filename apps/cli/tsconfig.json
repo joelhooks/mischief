@@ -6,6 +6,8 @@
         "name": "@effect/language-service",
         "allowedUnstableApis": [
           "@effect/platform-node/NodeCrypto",
+          "@effect/platform-node-shared/NodeCrypto",
+          "effect/crypto/Digest",
           "@effect/platform-node/NodeHttpServer",
           "@effect/platform-node/NodeRuntime",
           "@effect/platform-node/NodeServices",

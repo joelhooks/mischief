@@ -20,7 +20,6 @@ import type {
 } from "@mischief/core";
 import {
   Clock,
-  Crypto,
   Effect,
   Layer,
   ManagedRuntime,
@@ -29,6 +28,7 @@ import {
   Schedule,
   Semaphore,
 } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { constVoid } from "effect/Function";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
@@ -252,8 +252,8 @@ export const makePlanRun = ({
     Effect.gen(function* leasedWrite() {
       yield* armGuard;
 
-      const holder = yield* Crypto.Crypto.use((crypto) =>
-        crypto.randomUUIDv4()
+      const holder = yield* SecureRandom.SecureRandom.use((crypto) =>
+        crypto.uuidV4()
       ).pipe(Effect.provide(webCrypto), Effect.orDie);
 
       const take = Clock.currentTimeMillis.pipe(

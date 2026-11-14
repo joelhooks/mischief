@@ -194,18 +194,18 @@ export class PlanRun extends DurableObject<Env> {
     const callerShare = Layer.succeed(
       CallerThinkShare,
       callerThinkPermit({
-        acquire: (call, id) =>
-          Effect.gen(function* acquireShare() {
-            const object = shareObject();
+        acquire: (call, id) => {
+          const held = (error: string) =>
+            new ProviderUnavailable({
+              cause: "busy",
+              error,
+              key: call.key,
+              provider: "caller-share",
+              status: 429,
+            });
 
-            const held = (error: string) =>
-              new ProviderUnavailable({
-                cause: "busy",
-                error,
-                key: call.key,
-                provider: "caller-share",
-                status: 429,
-              });
+          return Effect.gen(function* acquireShare() {
+            const object = shareObject();
 
             if (Option.isNone(object)) {
               return yield* held(
@@ -225,7 +225,8 @@ export class PlanRun extends DurableObject<Env> {
                 )
               )
             );
-          }),
+          });
+        },
         durationMs: THINK_STREAM_TIMEOUT_MS,
         release: (id) =>
           Option.match(shareObject(), {

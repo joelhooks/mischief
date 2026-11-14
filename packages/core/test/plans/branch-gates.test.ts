@@ -178,19 +178,19 @@ it.effect.prop(
       Schema.Struct({ a: ScriptSchema, b: ScriptSchema })
     ),
   },
-  ({ scripts }) =>
-    Effect.gen(function* property() {
+  ({ scripts }) => {
+    const verdictAt = (branch: "a" | "b", index: number) =>
+      scripts[branch][index] ?? "pass";
+
+    const settledAt = (branch: "a" | "b") => {
+      const at = scripts[branch].findIndex((verdict) => verdict !== "fail");
+
+      return at === -1 ? scripts[branch].length : at;
+    };
+
+    return Effect.gen(function* property() {
       const builds = { a: 0, b: 0 };
       const verdicts = { a: 0, b: 0 };
-
-      const verdictAt = (branch: "a" | "b", index: number) =>
-        scripts[branch][index] ?? "pass";
-
-      const settledAt = (branch: "a" | "b") => {
-        const at = scripts[branch].findIndex((verdict) => verdict !== "fail");
-
-        return at === -1 ? scripts[branch].length : at;
-      };
 
       const host = yield* RunHost.make.pipe(
         Effect.provide(NodeCrypto.layer),
@@ -261,7 +261,8 @@ it.effect.prop(
 
       expect(report.status).toBe("done");
       expect(builds).toEqual({ a: settledAt("a") + 1, b: settledAt("b") + 1 });
-    }).pipe(Effect.provide(RunStore.memory)),
+    }).pipe(Effect.provide(RunStore.memory));
+  },
   { arbitrary: { runs: 60 } }
 );
 

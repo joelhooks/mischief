@@ -4,7 +4,6 @@ import type { Completion } from "@mischief/model-bridge/protocol";
 import {
   Clock,
   Context,
-  Crypto,
   Deferred,
   Effect,
   FileSystem,
@@ -15,6 +14,7 @@ import {
   Schedule,
   Schema,
 } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 
 import { Exports, safePath } from "./exports.js";
 import { workspaceCompletion } from "./pi-output.js";
@@ -153,7 +153,7 @@ export class Sandbox extends Context.Service<
         const runner = yield* Runner;
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const crypto = yield* Crypto.Crypto;
+        const crypto = yield* SecureRandom.SecureRandom;
         const exports = yield* Exports;
         const active = yield* Ref.make(new Set<string>());
         const primed = yield* Deferred.make<boolean>();
@@ -274,7 +274,7 @@ export class Sandbox extends Context.Service<
             : Effect.addFinalizer(() => Deferred.succeed(primed, true));
 
           const name = yield* Schema.decodeUnknownEffect(ContainerName)(
-            `mischief-peon-${yield* crypto.randomUUIDv4().pipe(Effect.orDie)}`
+            `mischief-peon-${yield* crypto.uuidV4()}`
           ).pipe(Effect.orDie);
 
           const start = yield* Clock.currentTimeMillis;

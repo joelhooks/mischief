@@ -32,12 +32,12 @@ it.effect.prop(
     failing: Schema.Literals(["inspectRun", "submitPlan"]),
     reason: Schema.Literals(["answered 500", "did not answer: reset"]),
   },
-  ({ failing, reason }) =>
-    Effect.gen(function* unansweredWake() {
-      const stored = { state: Option.none<ScheduleState>() };
+  ({ failing, reason }) => {
+    const unanswered = (runId: string, step: WakeUnanswered["step"]) =>
+      new WakeUnanswered({ reason, runId, scheduleId: "climb", step });
 
-      const unanswered = (runId: string, step: WakeUnanswered["step"]) =>
-        new WakeUnanswered({ reason, runId, scheduleId: "climb", step });
+    return Effect.gen(function* unansweredWake() {
+      const stored = { state: Option.none<ScheduleState>() };
 
       const layer = Layer.mergeAll(
         Layer.succeed(
@@ -94,5 +94,6 @@ it.effect.prop(
       expect(stored.state.pipe(Option.map(({ ended }) => ended))).toStrictEqual(
         Option.some(null)
       );
-    })
+    });
+  }
 );

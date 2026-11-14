@@ -10,6 +10,7 @@ import {
   Schema,
 } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import * as Digest from "effect/crypto/Digest";
 
 import { nextState } from "../src/box/machine.js";
 import { Boxes } from "../src/box/manager.js";
@@ -325,7 +326,11 @@ it.effect(
     }).pipe(
       Effect.scoped,
       Effect.provide(
-        boxRunnerLayer().pipe(Layer.provideMerge(NodeServices.layer))
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
       )
     )
 );
@@ -368,7 +373,11 @@ it.effect("a changed snapshot fails its sha check before restoration", () =>
   }).pipe(
     Effect.scoped,
     Effect.provide(
-      boxRunnerLayer().pipe(Layer.provideMerge(NodeServices.layer))
+      boxRunnerLayer().pipe(
+        Layer.provideMerge(
+          Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+        )
+      )
     )
   )
 );
@@ -442,7 +451,11 @@ it.effect(
     }).pipe(
       Effect.scoped,
       Effect.provide(
-        boxRunnerLayer().pipe(Layer.provideMerge(NodeServices.layer))
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
       )
     )
 );
@@ -588,7 +601,11 @@ it.effect(
     }).pipe(
       Effect.scoped,
       Effect.provide(
-        boxRunnerLayer().pipe(Layer.provideMerge(NodeServices.layer))
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
       )
     )
 );

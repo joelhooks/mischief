@@ -1,14 +1,15 @@
-import { Crypto, Effect } from "effect";
+import { Effect } from "effect";
+import * as Digest from "effect/crypto/Digest";
 
 import { refusal } from "../protocol.js";
 
 export const receiptKey = Effect.fn("Box.receiptKey")(function* receiptKey(
   requestId: string
 ) {
-  const crypto = yield* Crypto.Crypto;
+  const crypto = yield* Digest.Digest;
 
   const bytes = yield* crypto
-    .digest("SHA-256", new TextEncoder().encode(requestId))
+    .digest(Digest.sha256, new TextEncoder().encode(requestId))
     .pipe(
       Effect.mapError(() =>
         refusal(

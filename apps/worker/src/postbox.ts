@@ -72,6 +72,15 @@ export const UNCONFIRMED_RETRY = Schedule.exponential("1 second").pipe(
   Schedule.upTo({ duration: UNCONFIRMED_WINDOW })
 );
 
+const send = (envelope: string) =>
+  Mailroom.use((mailroom) => mailroom.send(envelope)).pipe(
+    Effect.flatMap(settle),
+    Effect.retry({
+      schedule: UNCONFIRMED_RETRY,
+      while: ({ reason }) => reason.startsWith("the mailbox did not confirm"),
+    })
+  );
+
 export const postbox = (storage: SqlStorage) => {
   storage.sql.exec(THREADS);
   storage.sql.exec(PARKED);
@@ -174,15 +183,6 @@ export const postbox = (storage: SqlStorage) => {
           );
         })
       )
-    );
-
-  const send = (envelope: string) =>
-    Mailroom.use((mailroom) => mailroom.send(envelope)).pipe(
-      Effect.flatMap(settle),
-      Effect.retry({
-        schedule: UNCONFIRMED_RETRY,
-        while: ({ reason }) => reason.startsWith("the mailbox did not confirm"),
-      })
     );
 
   const aborts = postboxAborts(storage, send);

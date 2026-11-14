@@ -152,6 +152,33 @@ interface ImportIdentity {
   readonly name: string | null;
 }
 
+const importBindingIdentity = (
+  definition: Definition
+): ImportIdentity | null => {
+  const { parent } = definition.node;
+
+  if (
+    definition.type !== "ImportBinding" ||
+    parent?.type !== "ImportDeclaration"
+  ) {
+    return null;
+  }
+
+  const module = stringValue(parent.source);
+
+  if (module === null) {
+    return null;
+  }
+
+  return {
+    module,
+    name:
+      definition.node.type === "ImportSpecifier"
+        ? importedName(definition.node)
+        : null,
+  };
+};
+
 const importIdentity = (
   expression: ESTree.Expression,
   scope: Scope | null,
@@ -275,33 +302,6 @@ const importIdentity = (
     const module = stringValue(argument);
 
     return module === null ? null : { module, name: null };
-  };
-
-  const importBindingIdentity = (
-    definition: Definition
-  ): ImportIdentity | null => {
-    const { parent } = definition.node;
-
-    if (
-      definition.type !== "ImportBinding" ||
-      parent?.type !== "ImportDeclaration"
-    ) {
-      return null;
-    }
-
-    const module = stringValue(parent.source);
-
-    if (module === null) {
-      return null;
-    }
-
-    return {
-      module,
-      name:
-        definition.node.type === "ImportSpecifier"
-          ? importedName(definition.node)
-          : null,
-    };
   };
 
   const importIdentityForPattern = (

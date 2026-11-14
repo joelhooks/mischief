@@ -1,7 +1,8 @@
 import { NodeCrypto } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Crypto, Effect, Option, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import * as Digest from "effect/crypto/Digest";
 
 import { compilePlan } from "../../src/plans/compile.js";
 import { decodePlan } from "../../src/plans/schema.js";
@@ -60,7 +61,7 @@ it.layer(MigrationCorpus.layer)("XState migration", (test) => {
     () =>
       Effect.gen(function* fingerprintsUnchanged() {
         const corpus = yield* MigrationCorpus;
-        const crypto = yield* Crypto.Crypto;
+        const crypto = yield* Digest.Digest;
 
         for (const fixture of corpus.fixtures) {
           const plan = yield* decodePlan(fixture.plan);

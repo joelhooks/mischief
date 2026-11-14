@@ -10,7 +10,7 @@
           "@effect/vitest",
           "effect/crypto/SecureRandom",
           "effect/Arbitrary",
-          "effect/Crypto",
+          "effect/crypto/Digest",
           "effect/FileSystem",
           "effect/Path",
           "effect/http-api/HttpApiBuilder",

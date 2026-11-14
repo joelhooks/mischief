@@ -1,4 +1,8 @@
-import { callerReach, MailReachSchema, peonCapabilityNames } from "@mischief/core";
+import {
+  callerReach,
+  MailReachSchema,
+  peonCapabilityNames,
+} from "@mischief/core";
 import { Documents } from "@rat-king/mailbox-client/auth";
 import { Schema } from "effect";
 
@@ -9,7 +13,16 @@ const Grants = Schema.fromJsonString(
       mischief: Schema.optionalKey(
         Schema.Struct({
           mayMail: Schema.optionalKey(Schema.Array(Schema.String)),
-          peonCapabilities: Schema.optionalKey(Schema.Array(Schema.String.check(Schema.makeFilter((name) => peonCapabilityNames.has(name), { message: "mischief.peonCapabilities must name supported Peon capabilities; use spawnPeon, promptPeon, suspendPeon, resumePeon, hibernatePeon, clonePeon, destroyPeon, inspectPeon, listPeonTemplates, savePeonTemplate or listPeons" })))),
+          peonCapabilities: Schema.optionalKey(
+            Schema.Array(
+              Schema.String.check(
+                Schema.makeFilter((name) => peonCapabilityNames.has(name), {
+                  message:
+                    "mischief.peonCapabilities must name supported Peon capabilities; use spawnPeon, promptPeon, suspendPeon, resumePeon, hibernatePeon, clonePeon, destroyPeon, inspectPeon, listPeonTemplates, savePeonTemplate or listPeons",
+                })
+              )
+            )
+          ),
         })
       ),
     })
@@ -47,7 +60,15 @@ const parseCallerConfig = (text: string) => {
     }
   }
 
-  const peonGrants = JSON.stringify(Object.fromEntries(grants.flatMap(({ id, mischief }) => mischief?.peonCapabilities === undefined ? [] : [[id, mischief.peonCapabilities]])));
+  const peonGrants = JSON.stringify(
+    Object.fromEntries(
+      grants.flatMap(({ id, mischief }) =>
+        mischief?.peonCapabilities === undefined
+          ? []
+          : [[id, mischief.peonCapabilities]]
+      )
+    )
+  );
 
   return { callers: JSON.stringify(callers), mailReach, peonGrants };
 };

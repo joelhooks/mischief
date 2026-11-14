@@ -12,6 +12,7 @@ const RequestBody = Schema.Struct({
         cpus: Schema.Int,
         memory: Schema.String,
         pids: Schema.Int,
+        tmp: Schema.String,
       }),
       model: Schema.String,
       system: Schema.optionalKey(Schema.String),

@@ -6,6 +6,86 @@ import { Runner } from "../src/runner.js";
 import { dockerArguments } from "../src/sandbox.js";
 import { image, name, sha } from "./fixtures.js";
 
+it.effect(
+  "the full image links and checks the native Claude binary for each supported architecture and names a missing binary",
+  () =>
+    Effect.gen(function* nativeClaude() {
+      const fs = yield* FileSystem.FileSystem;
+      const runner = yield* Runner;
+      const recipe = yield* fs.readFileString("image/full/Dockerfile");
+
+      const instruction = recipe
+        .split("\n")
+        .find((line) =>
+          line.startsWith("RUN set -eu; test -s /opt/claude-bridge/COMMIT")
+        );
+
+      expect(instruction).toBeDefined();
+
+      if (instruction === undefined) {
+        return;
+      }
+
+      for (const [machine, arch] of [
+        ["x86_64", "x64"],
+        ["aarch64", "arm64"],
+        ["arm64", "arm64"],
+      ]) {
+        const root = yield* fs.makeTempDirectoryScoped({
+          directory: process.cwd(),
+          prefix: ".native-claude-test-",
+        });
+
+        const bridge = `${root}/bridge`;
+        const bin = `${root}/bin`;
+        const cli = `${bridge}/node_modules/@anthropic-ai/claude-agent-sdk-linux-${arch}/claude`;
+        yield* fs.makeDirectory(cli.slice(0, cli.lastIndexOf("/")), {
+          recursive: true,
+        });
+        yield* fs.makeDirectory(bin);
+        yield* fs.writeFileString(`${bridge}/COMMIT`, `${sha}\n`);
+        yield* fs.writeFileString(
+          `${bin}/uname`,
+          `#!/bin/sh\nprintf '%s\\n' '${machine}'\n`,
+          { mode: 0o700 }
+        );
+        yield* fs.writeFileString(
+          cli,
+          "#!/bin/sh\ntest \"$1\" = --version && printf 'native-cli-proof\\n'\n",
+          { mode: 0o700 }
+        );
+
+        const command = instruction
+          .slice(4)
+          .replaceAll("/opt/claude-bridge", bridge)
+          .replaceAll("/usr/local/bin", bin);
+
+        const execute = runner.run({
+          executable: "/usr/bin/env",
+          args: [
+            `PATH=${bin}:/usr/bin:/bin`,
+            "/bin/sh",
+            "-c",
+            `exec 2>&1; ${command}`,
+          ],
+        });
+
+        const built = yield* execute;
+        expect(built).toEqual({ exit: 0, stdout: "native-cli-proof\n" });
+        expect(yield* fs.realPath(`${bin}/claude`)).toBe(cli);
+        yield* fs.remove(cli);
+        const missing = yield* execute;
+        expect(missing.exit).not.toBe(0);
+        expect(missing.stdout).toContain(
+          `Missing executable Claude Code binary: ${cli}`
+        );
+      }
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Runner.layer.pipe(Layer.provideMerge(NodeServices.layer)))
+    )
+);
+
 const Probe = Schema.Struct({
   agent: Schema.String,
   bakedModelsMode: Schema.Int,

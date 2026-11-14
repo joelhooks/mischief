@@ -41,7 +41,7 @@ export const peonCatalog = Schema.decodeUnknownSync(PeonCatalog)(catalog);
 
 export const fullPeonTemplate: typeof PeonTemplate.Type = {
   hibernateAfter: 86_400_000,
-  limits: { cpus: 2, memory: "4g", pids: 512 },
+  limits: { cpus: 2, memory: "4g", pids: 512, tmp: "1g" },
   model: "opus",
   suspendAfter: 60_000,
   thinking: "medium",
@@ -67,7 +67,7 @@ export const mergePeonTemplate = (
       () =>
         new PeonRefused({
           reason:
-            "Template overrides do not resolve to a valid template. Supply a complete owner/repo and 40-hex SHA workspace, positive limits and millisecond timers; retry savePeonTemplate or spawnPeon.",
+            "Template overrides do not resolve to a valid template. Supply a complete owner/repo and 40-hex SHA workspace, positive limits (limits.memory and limits.tmp use positive integer sizes with b, k, m or g units) and millisecond timers; retry savePeonTemplate or spawnPeon.",
         })
     ),
     Effect.filterOrFail(

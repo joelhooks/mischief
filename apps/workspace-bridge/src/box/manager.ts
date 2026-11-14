@@ -25,6 +25,7 @@ export interface BoxConfig {
   readonly root: string;
   readonly snapshots: string;
   readonly metadata: string;
+  readonly mount: string;
   readonly image: string;
   readonly mirrors: Readonly<Record<string, string>>;
   readonly gid: number;
@@ -109,6 +110,23 @@ export class Boxes extends Context.Service<
         const roots = [config.root, config.snapshots, config.metadata];
 
         if (
+          !path.isAbsolute(config.mount) ||
+          config.mount === "/" ||
+          path.normalize(config.mount) !== config.mount ||
+          roots.some((directory) => !directory.startsWith(`${config.mount}/`))
+        ) {
+          return yield* refusal(
+            "Box storage roots must sit beneath MISCHIEF_BOX_MOUNT, an absolute canonical dedicated volume path. Writes outside the capped volume could fill the shared disk and stop other services. Set MISCHIEF_BOX_MOUNT and all three storage roots to that volume, then restart."
+          );
+        }
+
+        if ((yield* fs.realPath(config.mount)) !== config.mount) {
+          return yield* refusal(
+            "MISCHIEF_BOX_MOUNT resolves through a symlink; box writes could escape the capped volume and fill the shared disk. Set it to the real mounted volume path, then restart."
+          );
+        }
+
+        if (
           roots.some((directory, index) =>
             roots.some(
               (other, otherIndex) =>
@@ -133,6 +151,20 @@ export class Boxes extends Context.Service<
             );
           }
 
+          let ancestor = directory;
+
+          while (!(yield* fs.exists(ancestor))) {
+            ancestor = path.dirname(ancestor);
+          }
+
+          if ((yield* fs.realPath(ancestor)) !== ancestor) {
+            return yield* refusal(
+              "Box storage root or ancestor is a symlink; writes could escape the capped volume and fill the shared disk. Configure real directories beneath MISCHIEF_BOX_MOUNT, then restart."
+            );
+          }
+        }
+
+        for (const directory of roots) {
           yield* fs.makeDirectory(directory, { mode: 0o700, recursive: true });
 
           if ((yield* fs.realPath(directory)) !== directory) {
@@ -251,6 +283,9 @@ export class Boxes extends Context.Service<
             "mischief-peon-boxes",
             "--cgroup-parent",
             "mischief-peon-boxes.slice",
+            "--read-only",
+            "--tmpfs",
+            `/tmp:rw,nosuid,nodev,size=${box.template.limits.tmp}`,
             ...DNS_WITHOUT_LAN_ROUTER_FORWARDING,
             "--cap-drop",
             "ALL",
@@ -270,6 +305,22 @@ export class Boxes extends Context.Service<
             "/work",
             "--env",
             "HOME=/home/peon",
+            ...[
+              "TMPDIR=/tmp",
+              "XDG_CACHE_HOME=/home/peon/.cache",
+              "XDG_CONFIG_HOME=/home/peon/.config",
+              "XDG_DATA_HOME=/home/peon/.local/share",
+              "XDG_STATE_HOME=/home/peon/.local/state",
+              "npm_config_cache=/home/peon/.cache/npm",
+              "npm_config_prefix=/home/peon/.local",
+              "PNPM_HOME=/home/peon/.local/share/pnpm",
+              "npm_config_store_dir=/home/peon/.local/share/pnpm/store",
+              "PIP_CACHE_DIR=/home/peon/.cache/pip",
+              "PYTHONUSERBASE=/home/peon/.local",
+              "COREPACK_HOME=/home/peon/.cache/corepack",
+              "CLAUDE_CONFIG_DIR=/home/peon/.claude",
+              "DISABLE_AUTOUPDATER=1",
+            ].flatMap((value) => ["--env", value]),
             "--env",
             "PI_CODING_AGENT_DIR=/home/peon/.pi/agent",
             "--env",

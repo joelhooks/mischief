@@ -508,8 +508,8 @@ exports[`an empty workspace URL preserves the existing plan byte for byte, even 
     "fqn": "mischief-deployment-stage-worker",
     "props": {
       "content": {
-        "length": 5100842,
-        "sha256": "75737d46b751a793ec1b2bea76c939aa1a3b5d6cbda6a2a41385468b34588499",
+        "length": 5101174,
+        "sha256": "4a0f53a98fb1fb531edd85705f3c3daa0a474ef83867739f6ea1368ca08cff43",
       },
       "mode": 384,
       "path": "<output>",
@@ -539,4 +539,91 @@ exports[`an empty workspace URL preserves the existing plan byte for byte, even 
     "type": "Celld.Deployment",
   },
 ]
+`;
+
+exports[`box planning carries the mount condition into the manager unit and refuses an absent mount 1`] = `
+{
+  "name": "mischief-peon-boxes.service",
+  "sections": [
+    {
+      "lines": [
+        [
+          "Description",
+          "Mischief full peon box manager",
+        ],
+        [
+          "ConditionPathIsMountPoint",
+          "/srv/peon-volume",
+        ],
+      ],
+      "name": "Unit",
+    },
+    {
+      "lines": [
+        [
+          "EnvironmentFile",
+          "/home/planner/.config/mischief/peon-boxes.env",
+        ],
+        [
+          "ExecStart",
+          "/usr/local/bin/node "/opt/mischief/box-main.js"",
+        ],
+        [
+          "KillMode",
+          "control-group",
+        ],
+        [
+          "MemoryHigh",
+          "3.5G",
+        ],
+        [
+          "MemoryMax",
+          "4G",
+        ],
+        [
+          "MemorySwapMax",
+          "0",
+        ],
+        [
+          "NoNewPrivileges",
+          "true",
+        ],
+        [
+          "Restart",
+          "on-failure",
+        ],
+        [
+          "RestartSec",
+          "10",
+        ],
+        [
+          "SuccessExitStatus",
+          "130",
+        ],
+        [
+          "TimeoutStopSec",
+          "10",
+        ],
+        [
+          "Type",
+          "simple",
+        ],
+        [
+          "UMask",
+          "0077",
+        ],
+      ],
+      "name": "Service",
+    },
+    {
+      "lines": [
+        [
+          "WantedBy",
+          "default.target",
+        ],
+      ],
+      "name": "Install",
+    },
+  ],
+}
 `;

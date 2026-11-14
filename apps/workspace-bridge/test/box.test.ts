@@ -22,7 +22,7 @@ import { checked, Runner } from "../src/runner.js";
 import { image, piOutput, sha } from "./fixtures.js";
 
 const template: BoxTemplate = {
-  limits: { cpus: 2, memory: "4g", pids: 512 },
+  limits: { cpus: 2, memory: "4g", pids: 512, tmp: "384m" },
   model: "sol",
   system: "Warm system",
   thinking: "medium",
@@ -117,6 +117,7 @@ esac
       gid: 1000,
       image,
       metadata: `${root}/metadata`,
+      mount: root,
       mirrors: { "example/review": source },
       root: `${root}/boxes`,
       snapshots: `${root}/snapshots`,
@@ -305,6 +306,37 @@ it.effect(
         });
         expect(yield* fs.exists(`${fixture.root}/snapshots/source`)).toBe(true);
         const commands = yield* fs.readFileString(`${fixture.root}/commands`);
+
+        const creates = commands
+          .split("\n")
+          .filter((line) => line.startsWith("create "));
+
+        expect(creates.length).toBeGreaterThan(0);
+
+        for (const command of creates) {
+          expect(command).toContain(
+            "--read-only --tmpfs /tmp:rw,nosuid,nodev,size=384m"
+          );
+
+          for (const value of [
+            "TMPDIR=/tmp",
+            "XDG_CACHE_HOME=/home/peon/.cache",
+            "XDG_CONFIG_HOME=/home/peon/.config",
+            "XDG_DATA_HOME=/home/peon/.local/share",
+            "XDG_STATE_HOME=/home/peon/.local/state",
+            "npm_config_cache=/home/peon/.cache/npm",
+            "npm_config_prefix=/home/peon/.local",
+            "PNPM_HOME=/home/peon/.local/share/pnpm",
+            "npm_config_store_dir=/home/peon/.local/share/pnpm/store",
+            "PIP_CACHE_DIR=/home/peon/.cache/pip",
+            "PYTHONUSERBASE=/home/peon/.local",
+            "COREPACK_HOME=/home/peon/.cache/corepack",
+            "CLAUDE_CONFIG_DIR=/home/peon/.claude",
+          ]) {
+            expect(command).toContain(`--env ${value}`);
+          }
+        }
+
         expect(commands).toContain(
           "--cap-drop ALL --security-opt no-new-privileges --user 65534"
         );
@@ -315,7 +347,7 @@ it.effect(
             .map((line) => line.replaceAll(fixture.root, "/fixture"))
         ).toMatchSnapshot();
         expect(commands).toContain(
-          "--cgroup-parent mischief-peon-boxes.slice --dns 1.1.1.1 --dns 9.9.9.9"
+          "--cgroup-parent mischief-peon-boxes.slice --read-only --tmpfs /tmp:rw,nosuid,nodev,size=384m --dns 1.1.1.1 --dns 9.9.9.9"
         );
         expect(commands).not.toContain("--no-");
         expect(commands).not.toContain("write then test");

@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 export const PeonId = Schema.String.check(
   Schema.isPattern(/^[a-z0-9][a-z0-9-]{0,39}$/u)
@@ -14,6 +14,9 @@ export const Template = Schema.Struct({
     cpus: Schema.Finite.check(Schema.isGreaterThan(0)),
     memory: Schema.String.check(Schema.isPattern(/^[1-9][0-9]*[bkmg]$/u)),
     pids: Schema.Int.check(Schema.isGreaterThan(0)),
+    tmp: Schema.String.check(Schema.isPattern(/^[1-9][0-9]*[bkmg]$/u)).pipe(
+      Schema.withDecodingDefaultKey(Effect.succeed("1g"))
+    ),
   }),
   model: Schema.Literals(["opus", "sol"]),
   system: Schema.optionalKey(Schema.String),

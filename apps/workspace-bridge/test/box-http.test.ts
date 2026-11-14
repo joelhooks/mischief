@@ -19,7 +19,12 @@ it.effect(
             Effect.as({ state: "idle" })
           ),
         create: (input) =>
-          Ref.update(calls, (values) => [...values, "create"]).pipe(
+          Effect.sync(() => {
+            expect(input.template.limits.tmp).toBe("1g");
+          }).pipe(
+            Effect.andThen(
+              Ref.update(calls, (values) => [...values, "create"])
+            ),
             Effect.as({ peonId: input.peonId, state: "idle" })
           ),
         inspect: () =>
@@ -34,7 +39,7 @@ it.effect(
       }).pipe(Layer.provide(Layer.succeed(Boxes, boxes)), Layer.build);
 
       const template = {
-        limits: { cpus: 2, memory: "4g", pids: 512 },
+        limits: { cpus: 2, memory: "4g", pids: 512, tmp: "1g" },
         model: "opus",
         thinking: "medium",
         tools: "all",
@@ -67,6 +72,10 @@ it.effect(
           ...body,
           template: { ...template, limits: { ...template.limits, cpus: 0 } },
         },
+        ...["0g", "-1g", "1g,exec", "1gb", "1.5g"].map((tmp) => ({
+          ...body,
+          template: { ...template, limits: { ...template.limits, tmp } },
+        })),
         {
           ...body,
           template: {
@@ -92,6 +101,18 @@ it.effect(
         })).status
       ).toBe(200);
       expect(
+        (yield* HttpClient.post("/v1/boxes", {
+          body: HttpBody.jsonUnsafe({
+            ...body,
+            template: {
+              ...template,
+              limits: { cpus: 2, memory: "4g", pids: 512 },
+            },
+          }),
+          headers,
+        })).status
+      ).toBe(200);
+      expect(
         (yield* HttpClient.get("/v1/boxes/peon", { headers })).status
       ).toBe(200);
       expect(
@@ -107,6 +128,7 @@ it.effect(
         })).status
       ).toBe(200);
       expect(yield* Ref.get(calls)).toEqual([
+        "create",
         "create",
         "inspect",
         "prompt",

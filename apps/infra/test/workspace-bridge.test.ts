@@ -132,6 +132,41 @@ const plannedWorkspace = Effect.fn("plannedWorkspace")(
   }
 );
 
+it.effect(
+  "box planning carries the mount condition into the manager unit and refuses an absent mount",
+  () =>
+    Effect.gen(function* boxMountPlan() {
+      const configuration = {
+        MISCHIEF_BOX_URL: "http://127.0.0.1:28014",
+        MISCHIEF_BOX_ENTRY: "/opt/mischief/box-main.js",
+        MISCHIEF_PEON_BOXES: "on",
+        MISCHIEF_PEON_FULL_PROXY_ENTRY: "/opt/mischief/full-proxy-main.js",
+      };
+
+      const refused = yield* plannedWorkspace(configuration).pipe(Effect.exit);
+      expect(Exit.isFailure(refused)).toBe(true);
+
+      if (Exit.isFailure(refused)) {
+        expect(Cause.pretty(refused.cause)).toContain("MISCHIEF_BOX_MOUNT");
+      }
+
+      const rows = yield* plannedWorkspace({
+        ...configuration,
+        MISCHIEF_BOX_MOUNT: "/srv/peon-volume",
+      });
+
+      const unit = yield* Schema.decodeUnknownEffect(Unit)(
+        rows.find(({ fqn }) => fqn === "mischief-peon-boxes.service")?.props
+      );
+
+      expect(
+        unit.sections.find(({ name }) => name === "Unit")?.lines
+      ).toContainEqual(["ConditionPathIsMountPoint", "/srv/peon-volume"]);
+      expect(unit).toMatchSnapshot();
+    }).pipe(Effect.provide(NodeServices.layer)),
+  120_000
+);
+
 const ConfigurationFile = Schema.Struct({ content: Schema.String });
 
 const WorkerConfiguration = Schema.fromJsonString(
@@ -204,6 +239,7 @@ it.effect(
         expect(sections.Service).toMatchObject({
           EnvironmentFile: `/home/planner/.config/mischief/${fqn}.env`,
           ExecStart: `/usr/local/bin/node "/opt/workspace-bridge/dist/${entry}"`,
+          SuccessExitStatus: "130",
         });
       }
 

@@ -37,7 +37,7 @@ Plain tsrs skips Effect diagnostics: a floating `Effect.log()` passes tsrs but f
 | Effect           | `4.1.4`                                               |
 | XState           | `6.0.0-beta.1` (`xstate/durable` runs the plan graph) |
 | `@xstate/effect` | `1.0.0-beta.0`                                        |
-| Alchemy          | `2.0.0-beta.83`                                       |
+| Alchemy          | `2.0.0-beta.87`                                       |
 | TypeScript       | `7.0.2`, patched by `@effect/tsgo`                    |
 | Vitest           | `5.1.0` with `@effect/vitest` `4.1.4`                 |
 

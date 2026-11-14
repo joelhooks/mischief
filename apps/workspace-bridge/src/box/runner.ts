@@ -31,7 +31,7 @@ export const boxRunnerLayer = (searchPath?: string) =>
             })
           );
 
-          const [bytes, , exit] = yield* Effect.all(
+          const [bytes, stderr, exit] = yield* Effect.all(
             [
               collectBytes(child.stdout, 16 * 1024 * 1024),
               collectBytes(child.stderr, 64 * 1024),
@@ -42,6 +42,7 @@ export const boxRunnerLayer = (searchPath?: string) =>
 
           return {
             exit: Number(exit),
+            stderr: new TextDecoder().decode(stderr),
             stdout: new TextDecoder().decode(bytes),
           };
         },

@@ -50,7 +50,21 @@ set -eu
 printf '%s\\n' "$*" >> '${root}/commands'
 command="$1"; shift
 case "$command" in
-run) exit 0;;
+run)
+  if [ -f '${root}/helper-error' ]; then cat '${root}/helper-error' >&2; exit 1; fi
+  previous=''
+  box=''
+  for arg in "$@"; do
+    if [ "$previous" = --user ]; then test "$arg" = 0:1000; fi
+    case "$arg" in type=bind,source=*,target=/box) box="\${arg#type=bind,source=}"; box="\${box%,target=/box}";; esac
+    previous="$arg"
+  done
+  test -n "$box"
+  if find "$box" -type d ! -perm 0770 | grep -q .; then
+    printf 'group cannot traverse box directories\\n' >&2
+    exit 1
+  fi
+  exit 0;;
 create)
   test "$1" = --name
   name="$2"
@@ -66,12 +80,10 @@ top) printf 'PID\\n123\\n';;
 exec)
   while [ "\${1#mischief-peon-box-}" = "$1" ]; do shift; done
   id="\${1#mischief-peon-box-}"; shift
-  if [ "$1" = pi ]; then
-    input="$(cat)"
-    printf '%s\\n' "$input" >> '${root}/boxes/'"$id"'/home/session.jsonl'
-    printf 'changed by tool\\n' > '${root}/boxes/'"$id"'/work/result.txt'
-    printf '%s\\n' '${piOutput}'
+  if [ "$1" = /bin/sh ]; then
+    PEON_TEST_ID="$id" "$@"
   else
+    umask 0007
     mkdir -p '${root}/boxes/'"$id"'/home/.box/requests'
     for arg in "$@"; do case "$arg" in /home/peon/.box/requests/*) file="\${arg##*/}";; esac; done
     cat > '${root}/boxes/'"$id"'/home/.box/requests/'"$file"
@@ -81,6 +93,19 @@ esac
 `;
 
   yield* fs.writeFileString(`${root}/bin/docker`, script, { mode: 0o700 });
+  yield* fs.writeFileString(
+    `${root}/bin/pi`,
+    `#!/bin/sh
+set -eu
+id="$PEON_TEST_ID"
+input="$(cat)"
+printf '%s\\n' "$input" >> '${root}/boxes/'"$id"'/home/session.jsonl'
+mkdir -p '${root}/boxes/'"$id"'/home/tool/nested'
+printf 'changed by tool\\n' > '${root}/boxes/'"$id"'/work/result.txt'
+printf '%s\\n' '${piOutput}'
+`,
+    { mode: 0o700 }
+  );
   const source = `${root}/source`;
   yield* checked({ args: ["init", source], executable: "git" });
   yield* fs.writeFileString(`${source}/proof.txt`, "pinned contents\n");
@@ -135,6 +160,10 @@ it.effect(
   "a fake Docker executable preserves workspace and memory across sleep, clone from each sleeping state, snapshot restore and deletion",
   () =>
     Effect.gen(function* lifecycle() {
+      yield* Effect.acquireRelease(
+        Effect.sync(() => process.umask(0o0077)),
+        (mask) => Effect.sync(() => process.umask(mask))
+      );
       const fs = yield* FileSystem.FileSystem;
       const fixture = yield* harness;
       yield* Effect.gen(function* operations() {
@@ -194,6 +223,32 @@ it.effect(
         );
 
         expect(session).toBe("write then test\n");
+
+        for (const directory of [
+          "",
+          "work",
+          "home",
+          "home/.pi",
+          "home/.pi/agent",
+          "home/warm",
+          "home/warm/docs",
+          "home/tool",
+          "home/tool/nested",
+        ]) {
+          const info = yield* fs.stat(
+            `${fixture.root}/boxes/source/${directory}`
+          );
+
+          expect(info.mode % 0o1000).toBe(0o770);
+        }
+
+        for (const file of ["home/session.jsonl", "work/result.txt"]) {
+          expect(
+            (yield* fs.stat(`${fixture.root}/boxes/source/${file}`)).mode %
+              0o1000
+          ).toBe(0o660);
+        }
+
         expect(
           yield* Schema.decodeUnknownEffect(
             Schema.fromJsonString(
@@ -313,6 +368,22 @@ it.effect(
 
         expect(creates.length).toBeGreaterThan(0);
 
+        const helpers = commands
+          .split("\n")
+          .filter((line) => line.startsWith("run "));
+
+        expect(helpers.length).toBeGreaterThan(0);
+
+        for (const command of helpers) {
+          expect(command).toContain(
+            "--network none --read-only --cap-drop ALL --cap-add CHOWN"
+          );
+          expect(command).toContain(
+            "--security-opt no-new-privileges --user 0:1000"
+          );
+          expect(command).not.toMatch(/DAC_OVERRIDE|FOWNER/u);
+        }
+
         for (const command of creates) {
           expect(command).toContain(
             "--read-only --tmpfs /tmp:rw,nosuid,nodev,size=384m"
@@ -338,7 +409,7 @@ it.effect(
         }
 
         expect(commands).toContain(
-          "--cap-drop ALL --security-opt no-new-privileges --user 65534"
+          "--cap-drop ALL --security-opt no-new-privileges --user 65534:1000"
         );
         expect(
           commands
@@ -365,6 +436,50 @@ it.effect(
         )
       )
     )
+);
+
+it.effect("ownership failures retain capped, redacted helper stderr", () =>
+  Effect.gen(function* helperFailure() {
+    const fs = yield* FileSystem.FileSystem;
+    const fixture = yield* harness;
+    yield* fs.writeFileString(
+      `${fixture.root}/helper-error`,
+      `cannot read directory '/box': Permission denied\nBearer fake-bearer token=fake-token password=fake-password https://user:fake-password@example.invalid ${"x".repeat(1024)}`
+    );
+    yield* Effect.gen(function* operation() {
+      const boxes = yield* Boxes;
+
+      const failure = yield* Effect.flip(
+        boxes.create({
+          peonId: "source",
+          requestId: "create",
+          template: fixture.template,
+        })
+      );
+
+      expect(failure.status).toBe(503);
+      expect(failure.message).toContain(
+        "cannot read directory '/box': Permission denied"
+      );
+      expect(failure.message).toContain("[redacted]");
+      expect(failure.message).not.toMatch(
+        /fake-bearer|fake-token|fake-password|example\.invalid/u
+      );
+      expect(failure.message.length).toBeLessThan(800);
+    }).pipe(
+      Effect.provide(Boxes.layer(fixture.config)),
+      Effect.provideService(Runner, fixture.runner)
+    );
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(
+      boxRunnerLayer().pipe(
+        Layer.provideMerge(
+          Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+        )
+      )
+    )
+  )
 );
 
 it.effect("a changed snapshot fails its sha check before restoration", () =>

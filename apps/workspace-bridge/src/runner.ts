@@ -14,6 +14,7 @@ export interface Command {
 }
 
 export interface ProcessOutput {
+  readonly stderr?: string;
   readonly exit: number;
   readonly stdout: string;
 }

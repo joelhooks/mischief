@@ -22,6 +22,7 @@ it.effect(
         "MISCHIEF_BOX_ROOT",
         "MISCHIEF_BOX_SNAPSHOTS",
         "MISCHIEF_BOX_METADATA",
+        "MISCHIEF_BOX_MOUNT",
       ]) {
         expect(missing.message).toContain(name);
       }
@@ -29,6 +30,7 @@ it.effect(
       expect(missing.message).toContain("unintended host directory");
 
       const configured = {
+        MISCHIEF_BOX_MOUNT: "/srv/example",
         MISCHIEF_BOX_METADATA: "/srv/example/metadata",
         MISCHIEF_BOX_ROOT: "/srv/example/boxes",
         MISCHIEF_BOX_SNAPSHOTS: "/srv/example/snapshots",
@@ -42,6 +44,7 @@ it.effect(
         )
       ).toEqual({
         metadata: "/srv/example/metadata",
+        mount: "/srv/example",
         root: "/srv/example/boxes",
         snapshots: "/srv/example/snapshots",
       });
@@ -85,6 +88,7 @@ it.effect(
                 gid: 1000,
                 image,
                 metadata,
+                mount: temporary,
                 mirrors: {},
                 root,
                 snapshots: `${temporary}/snapshots`,

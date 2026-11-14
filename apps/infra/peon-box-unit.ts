@@ -4,7 +4,11 @@ import { opusBridgeUnit } from "./opus-bridge-unit.js";
 
 export const peonBoxUnits = (
   host: { readonly home: string },
-  config: { readonly boxEntry: string; readonly proxyEntry: string }
+  config: {
+    readonly boxEntry: string;
+    readonly mount: string;
+    readonly proxyEntry: string;
+  }
 ): readonly UnitProps[] =>
   [
     {
@@ -24,7 +28,18 @@ export const peonBoxUnits = (
     name,
     scope: "user",
     sections: [
-      { lines: [["Description", description]], name: "Unit" },
+      {
+        lines: [
+          ["Description", description],
+          ...(name === "mischief-peon-boxes.service" ? [config.mount] : []).map(
+            (mount): readonly [string, string] => [
+              "ConditionPathIsMountPoint",
+              mount,
+            ]
+          ),
+        ],
+        name: "Unit",
+      },
       {
         lines: opusBridgeUnit(host, entry)
           .sections.flatMap((section) =>

@@ -23,6 +23,7 @@ export const opusBridgeUnit = (
         ["NoNewPrivileges", "true"],
         ["Restart", "on-failure"],
         ["RestartSec", "10"],
+        ["SuccessExitStatus", "130"],
         ["TimeoutStopSec", "10"],
         ["Type", "simple"],
         ["UMask", "0077"],

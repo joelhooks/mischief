@@ -7,7 +7,7 @@ import {
   peonIdleAlarm,
   peonTransition,
 } from "../src/peons/machine.js";
-import { PeonState } from "../src/peons/schema.js";
+import { PeonState, PeonTemplate } from "../src/peons/schema.js";
 import {
   builtinPeonTemplates,
   fullPeonTemplate,
@@ -118,8 +118,19 @@ it.effect.prop(
     contract: Schema.String,
     cpus: Schema.Finite.check(Schema.isBetween({ maximum: 32, minimum: 0.25 })),
     sha: Schema.String.check(Schema.isPattern(/^[a-f0-9]{40}$/u)),
+    tmp: Schema.String.check(Schema.isPattern(/^[1-9][0-9]*[bkmg]$/u)),
+    malformed: Schema.Literals([
+      "",
+      "0g",
+      "-1g",
+      "1",
+      "1gb",
+      "1.5g",
+      "1g,exec",
+      "1g\n",
+    ]),
   },
-  ({ contract, cpus, sha }) =>
+  ({ contract, cpus, sha, tmp, malformed }) =>
     Effect.gen(function* merge() {
       const base = {
         ...fullPeonTemplate,
@@ -132,8 +143,16 @@ it.effect.prop(
 
       const before = structuredClone(base);
 
-      const resolved = yield* mergePeonTemplate(base, {
-        limits: { cpus },
+      const defaulted = yield* Schema.decodeUnknownEffect(PeonTemplate)({
+        ...base,
+        limits: { cpus, memory: "4g", pids: 512 },
+      });
+
+      expect(defaulted.limits.tmp).toBe("1g");
+      expect(fullPeonTemplate.limits.tmp).toBe("1g");
+
+      const resolved = yield* mergePeonTemplate(defaulted, {
+        limits: { cpus, tmp },
         warm: { contract },
         workspace: { sha },
       });
@@ -142,7 +161,22 @@ it.effect.prop(
         cpus,
         memory: "4g",
         pids: 512,
+        tmp,
       });
+
+      const inherited = yield* mergePeonTemplate(resolved, {
+        limits: { cpus },
+      });
+
+      expect(inherited.limits.tmp).toBe(tmp);
+
+      const refused = yield* mergePeonTemplate(base, {
+        limits: { tmp: malformed },
+      }).pipe(Effect.flip);
+
+      expect(refused.reason).toContain("limits.tmp");
+      expect(refused.reason).toContain("b, k, m or g");
+      expect(refused.reason).toContain("savePeonTemplate");
       expect(resolved.workspace).toStrictEqual({
         repo: "example/project",
         sha,

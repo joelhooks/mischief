@@ -141,7 +141,7 @@ it.live(
       });
 
       expect(saved.body).toMatchObject({
-        template: { limits: { cpus: 4, memory: "4g", pids: 512 } },
+        template: { limits: { cpus: 4, memory: "4g", pids: 512, tmp: "1g" } },
         version: 1,
       });
 

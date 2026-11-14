@@ -1,0 +1,174 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`box units stay absent by default and use separate private host environment files only when enabled 1`] = `
+[
+  {
+    "home": "/home/fixture",
+    "name": "mischief-peon-boxes.service",
+    "scope": "user",
+    "sections": [
+      {
+        "lines": [
+          [
+            "Description",
+            "Mischief full peon box manager",
+          ],
+          [
+            "ConditionPathIsMountPoint",
+            "/srv/peon-volume",
+          ],
+        ],
+        "name": "Unit",
+      },
+      {
+        "lines": [
+          [
+            "EnvironmentFile",
+            "/home/fixture/.config/mischief/peon-boxes.env",
+          ],
+          [
+            "ExecStart",
+            "/usr/local/bin/node "/opt/mischief/box-main.js"",
+          ],
+          [
+            "KillMode",
+            "control-group",
+          ],
+          [
+            "MemoryHigh",
+            "3.5G",
+          ],
+          [
+            "MemoryMax",
+            "4G",
+          ],
+          [
+            "MemorySwapMax",
+            "0",
+          ],
+          [
+            "NoNewPrivileges",
+            "true",
+          ],
+          [
+            "Restart",
+            "on-failure",
+          ],
+          [
+            "RestartSec",
+            "10",
+          ],
+          [
+            "SuccessExitStatus",
+            "130",
+          ],
+          [
+            "TimeoutStopSec",
+            "10",
+          ],
+          [
+            "Type",
+            "simple",
+          ],
+          [
+            "UMask",
+            "0077",
+          ],
+        ],
+        "name": "Service",
+      },
+      {
+        "lines": [
+          [
+            "WantedBy",
+            "default.target",
+          ],
+        ],
+        "name": "Install",
+      },
+    ],
+  },
+  {
+    "home": "/home/fixture",
+    "name": "mischief-peon-full-proxy.service",
+    "scope": "user",
+    "sections": [
+      {
+        "lines": [
+          [
+            "Description",
+            "Mischief full peon model proxy",
+          ],
+        ],
+        "name": "Unit",
+      },
+      {
+        "lines": [
+          [
+            "EnvironmentFile",
+            "/home/fixture/.config/mischief/peon-full-proxy.env",
+          ],
+          [
+            "ExecStart",
+            "/usr/local/bin/node "/opt/mischief/full-proxy-main.js"",
+          ],
+          [
+            "KillMode",
+            "control-group",
+          ],
+          [
+            "MemoryHigh",
+            "3.5G",
+          ],
+          [
+            "MemoryMax",
+            "4G",
+          ],
+          [
+            "MemorySwapMax",
+            "0",
+          ],
+          [
+            "NoNewPrivileges",
+            "true",
+          ],
+          [
+            "Restart",
+            "on-failure",
+          ],
+          [
+            "RestartSec",
+            "10",
+          ],
+          [
+            "SuccessExitStatus",
+            "130",
+          ],
+          [
+            "TimeoutStopSec",
+            "10",
+          ],
+          [
+            "Type",
+            "simple",
+          ],
+          [
+            "UMask",
+            "0077",
+          ],
+        ],
+        "name": "Service",
+      },
+      {
+        "lines": [
+          [
+            "WantedBy",
+            "default.target",
+          ],
+        ],
+        "name": "Install",
+      },
+    ],
+  },
+]
+`;

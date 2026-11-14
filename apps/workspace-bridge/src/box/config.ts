@@ -5,6 +5,9 @@ import { refusal } from "../protocol.js";
 export const boxStorageFromConfig = Effect.gen(
   function* boxStorageFromConfig() {
     const paths = {
+      MISCHIEF_BOX_MOUNT: yield* Config.String("MISCHIEF_BOX_MOUNT").pipe(
+        Config.withDefault("")
+      ),
       MISCHIEF_BOX_METADATA: yield* Config.String("MISCHIEF_BOX_METADATA").pipe(
         Config.withDefault("")
       ),
@@ -28,6 +31,7 @@ export const boxStorageFromConfig = Effect.gen(
 
     return {
       metadata: paths.MISCHIEF_BOX_METADATA,
+      mount: paths.MISCHIEF_BOX_MOUNT,
       root: paths.MISCHIEF_BOX_ROOT,
       snapshots: paths.MISCHIEF_BOX_SNAPSHOTS,
     };

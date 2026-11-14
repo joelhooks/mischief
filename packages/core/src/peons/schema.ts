@@ -169,6 +169,7 @@ export const PeonTombstone = Schema.Struct({
 });
 
 export const PeonReport = Schema.Struct({
+  processes: Schema.optionalKey(Schema.Finite),
   pending: Schema.optionalKey(
     Schema.NullOr(
       Schema.Struct({ kind: Schema.String, requestId: Schema.String })

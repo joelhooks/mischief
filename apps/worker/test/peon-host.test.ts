@@ -41,6 +41,7 @@ const fixture = () => {
   let alarm: number | null = null;
   let crashOnCompletion = false;
   let failNext = false;
+  let boxState = "idle";
   const results = new Map<string, typeof PeonCompleted.Type>();
   const boxResults = new Map<string, unknown>();
 
@@ -78,10 +79,7 @@ const fixture = () => {
         if (operation !== "inspect") {
           const pending = stored?.pending;
 
-          const expectedRequestId =
-            operation === "resume" && pending?.kind === "prompt"
-              ? pending.resumeRequestId
-              : pending?.boxRequestId;
+          const expectedRequestId = pending?.boxRequestId;
 
           expect(pending).not.toBeNull();
           expect(body?.requestId).toBe(expectedRequestId);
@@ -100,11 +98,12 @@ const fixture = () => {
         }
 
         const key = `${operation}/${body?.requestId}`;
-        let value = boxResults.get(key);
+        let value = operation === "inspect" ? undefined : boxResults.get(key);
 
         if (value === undefined) {
           if (operation === "prompt") {
-            value = turn;
+            value = { ...turn, resumeMs: boxState === "idle" ? 0 : 25 };
+            boxState = "idle";
           } else if (operation === "spawn") {
             value = {
               image: "example/image@sha256:abc",
@@ -114,14 +113,20 @@ const fixture = () => {
             };
           } else if (operation === "inspect") {
             value = {
-              bytes: { home: 20, snapshot: 0, work: 10 },
+              bytes: {
+                home: boxState === "hibernated" ? 0 : 20,
+                snapshot: boxState === "hibernated" ? 30 : 0,
+                work: boxState === "hibernated" ? 0 : 10,
+              },
               container: "box",
               lastPromptAt: null,
-              state: "idle",
+              processes: boxState === "idle" ? 1 : 0,
+              state: boxState,
             };
           } else {
+            boxState = resultStates[operation];
             value = {
-              state: resultStates[operation],
+              state: boxState,
             };
           }
 
@@ -245,16 +250,30 @@ it.effect(
       const idleAt = yield* Clock.currentTimeMillis;
 
       expect(initial.state).toBe("idle");
+      expect(initial.bytes).toEqual({ home: 20, snapshot: 0, work: 10 });
+      expect(initial.processes).toBe(1);
       expect(world.alarm()).toBe(idleAt + 60_000);
 
       yield* TestClock.adjust("60 seconds");
       yield* world.host().idle();
       expect(world.read()?.report.state).toBe("suspended");
+      expect(world.read()?.report.bytes).toEqual({
+        home: 20,
+        snapshot: 0,
+        work: 10,
+      });
+      expect(world.read()?.report.processes).toBe(0);
       expect(world.alarm()).toBe(idleAt + 86_400_000);
 
       yield* TestClock.adjust("24 hours");
       yield* world.host().idle();
       expect(world.read()?.report.state).toBe("hibernated");
+      expect(world.read()?.report.bytes).toEqual({
+        home: 0,
+        snapshot: 30,
+        work: 0,
+      });
+      expect(world.read()?.report.processes).toBe(0);
       expect(world.alarm()).toBeNull();
 
       yield* world.host().command("prompt", "mail-1", "PROMPT", {
@@ -269,6 +288,13 @@ it.effect(
       yield* world.host().idle();
       expect(world.read()?.report.state).toBe("idle");
       expect(world.replies).toStrictEqual(["mail-1"]);
+      expect(world.read()?.report.lastTurn?.resumeMs).toBe(25);
+      expect(world.read()?.report.bytes).toEqual({
+        home: 20,
+        snapshot: 0,
+        work: 10,
+      });
+      expect(world.read()?.report.processes).toBe(1);
     })
 );
 

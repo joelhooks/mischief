@@ -56861,6 +56861,7 @@ var PeonTombstone = Schema4.Struct({
   updatedAt: Schema4.Finite
 });
 var PeonReport = Schema4.Struct({
+  processes: Schema4.optionalKey(Schema4.Finite),
   pending: Schema4.optionalKey(Schema4.NullOr(Schema4.Struct({ kind: Schema4.String, requestId: Schema4.String }))),
   ...PeonIndexEntry.fields,
   bytes: Schema4.NullOr(Schema4.Struct({
@@ -83137,6 +83138,7 @@ var PeonCompleted = Schema86.Struct({
   report: PeonReport
 });
 var PeonBoxState = Schema86.Struct({
+  processes: PeonReport.fields.processes,
   bytes: PeonReport.fields.bytes,
   container: Schema86.NullOr(Schema86.String),
   lastPromptAt: Schema86.NullOr(Schema86.Union([Schema86.String, Schema86.Finite])),
@@ -84172,8 +84174,16 @@ var reportWithPending = (stored2) => ({
   ...stored2.report,
   pending: stored2.pending === null ? null : { kind: stored2.pending.kind, requestId: stored2.pending.requestId }
 });
+var reportWithMeasurements = (report2, measured) => {
+  const measuredReport = { ...report2, bytes: measured.bytes };
+  if (measured.processes === void 0) {
+    delete measuredReport.processes;
+  } else {
+    measuredReport.processes = measured.processes;
+  }
+  return measuredReport;
+};
 var indexOf = Schema95.decodeUnknownSync(PeonIndexEntry);
-var BoxAcknowledgement = Schema95.Struct({ state: Schema95.Literal("idle") });
 var acknowledgedStates = {
   destroy: "destroyed",
   hibernate: "hibernated",
@@ -84274,12 +84284,6 @@ var peonHost = ({
         yield* commit(stored2);
       }
       yield* publish2(indexOf(stored2.report));
-      yield* box.call(
-        stored2.report.peonId,
-        "resume",
-        { requestId: pending.resumeRequestId },
-        BoxAcknowledgement
-      );
       stored2 = yield* move(stored2, "TURN_DONE");
       stored2 = yield* move(stored2, "PROMPT");
       yield* commit(stored2);
@@ -84386,6 +84390,11 @@ var peonHost = ({
         );
       }
     }
+    const measured = yield* box.call(id, "inspect", void 0, PeonBoxState);
+    next = {
+      ...next,
+      report: reportWithMeasurements(next.report, measured)
+    };
     return { clonedReport, stored: next, turn };
   });
   const drive = Effect66.fn("Peon.drive")(function* drive2() {
@@ -84562,7 +84571,17 @@ var peonHost = ({
         }
       };
       if (cloned) {
-        const suspended = yield* move(initial, "CLONE");
+        const state3 = yield* move(initial, "CLONE");
+        const measured = yield* box.call(
+          entry3.peonId,
+          "inspect",
+          void 0,
+          PeonBoxState
+        );
+        const suspended = {
+          ...state3,
+          report: reportWithMeasurements(state3.report, measured)
+        };
         yield* commit(suspended);
         yield* publish2(indexOf(suspended.report));
         return suspended.report;
@@ -84586,7 +84605,9 @@ var peonHost = ({
     inspect: requirePeon.pipe(
       Effect66.flatMap(
         (stored2) => box.call(stored2.report.peonId, "inspect", void 0, PeonBoxState).pipe(
-          Effect66.map(({ bytes: bytes3 }) => ({ ...reportWithPending(stored2), bytes: bytes3 })),
+          Effect66.map(
+            (measured) => reportWithMeasurements(reportWithPending(stored2), measured)
+          ),
           Effect66.catchTag(
             "PeonRefused",
             () => Effect66.succeed(reportWithPending(stored2))

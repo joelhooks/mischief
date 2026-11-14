@@ -54,6 +54,9 @@ it.effect.prop(
                 : states[operation];
 
             const response = {
+              bytes: { home: 20, snapshot: 0, work: 10 },
+              container: "box",
+              lastPromptAt: null,
               image: "example/box",
               peonId: "worker-a",
               state,

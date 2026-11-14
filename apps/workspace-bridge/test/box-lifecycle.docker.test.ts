@@ -50,7 +50,7 @@ const checked = (
 describe.skipIf(process.env.MISCHIEF_REAL_DOCKER_SCRATCH === undefined)(
   "real Docker peon lifecycle",
   () => {
-    it.effect(
+    it.live(
       "recovers permissions and preserves conversations across box lifecycles",
       () =>
         Effect.suspend(() => {

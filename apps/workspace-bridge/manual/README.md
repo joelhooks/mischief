@@ -10,7 +10,7 @@ Lifecycle reports used to keep their initial null byte count. The worker now rea
 
 ## Run the check
 
-This opt-in Vitest check is skipped unless `MISCHIEF_REAL_DOCKER_SCRATCH` is set. It imports source directly, so lint does not depend on generated workspace-bridge output. It runs the real box manager against Docker, with a fake Pi that writes mode-700 directories as uid 65534. It never calls a model. The fake cache-read counter proves that the copied session is present, not that a provider accepted a cache entry.
+This opt-in Vitest check is skipped unless `MISCHIEF_REAL_DOCKER_SCRATCH` is set. It imports source directly, so lint does not depend on generated workspace-bridge output. It uses live Effect services so Docker wake timings use the real clock, not TestClock. It runs the real box manager against Docker, with a fake Pi that writes mode-700 directories as uid 65534. It never calls a model. The fake cache-read counter proves that the copied session is present, not that a provider accepted a cache entry.
 
 From the checkout root, with workspace dependencies installed:
 

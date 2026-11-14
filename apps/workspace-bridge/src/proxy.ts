@@ -65,6 +65,7 @@ const MESSAGE_FIELDS = new Set([
 const ProxyInput = Schema.Struct({
   beta: Schema.String,
   body: MessageBody,
+  query: Schema.optional(Schema.Literal("?beta=true")),
   version: Schema.String,
 });
 
@@ -223,7 +224,9 @@ export class Proxy extends Context.Service<
 
             const response = yield* client
               .execute(
-                HttpClientRequest.post(upstream).pipe(
+                HttpClientRequest.post(
+                  `${upstream}${request.query ?? ""}`
+                ).pipe(
                   HttpClientRequest.setHeaders({
                     "anthropic-version": request.version,
                     authorization: `Bearer ${Redacted.value(config.key)}`,
@@ -320,9 +323,12 @@ const proxyMessages = implement(
 export const proxyRoute = Effect.gen(function* proxyResponse() {
   const incoming = yield* HttpServerRequest.HttpServerRequest;
 
-  if (incoming.url !== "/v1/messages") {
+  if (
+    incoming.url !== "/v1/messages" &&
+    incoming.url !== "/v1/messages?beta=true"
+  ) {
     return yield* refusal(
-      "Only POST /v1/messages without a query string is supported. Use that exact Messages endpoint."
+      "Only POST /v1/messages and POST /v1/messages?beta=true are supported. Use one of those exact Messages targets."
     );
   }
 
@@ -341,6 +347,7 @@ export const proxyRoute = Effect.gen(function* proxyResponse() {
   const output = yield* proxyMessages.handler({
     beta: incoming.headers["anthropic-beta"] ?? "",
     body,
+    query: incoming.url === "/v1/messages?beta=true" ? "?beta=true" : undefined,
     version: incoming.headers["anthropic-version"] ?? "2023-06-01",
   });
 

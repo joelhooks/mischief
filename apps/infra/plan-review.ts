@@ -1,6 +1,7 @@
 import { isOutput } from "alchemy/Output";
 import * as Plan from "alchemy/Plan";
-import { Crypto, Effect, Redacted, Schema } from "effect";
+import { Effect, Redacted, Schema } from "effect";
+import * as Digest from "effect/crypto/Digest";
 import { encode } from "effect/encoding/Hex";
 
 const BIG = 4096;
@@ -18,13 +19,13 @@ export interface ReviewRow {
   readonly type: string;
 }
 
-const digestOf = (crypto: Crypto.Crypto, text: string) =>
+const digestOf = (crypto: Digest.Digest["Service"], text: string) =>
   crypto
-    .digest("SHA-256", new TextEncoder().encode(text))
+    .digest(Digest.sha256, new TextEncoder().encode(text))
     .pipe(Effect.map(encode), Effect.orDie);
 
 const shown = (
-  crypto: Crypto.Crypto,
+  crypto: Digest.Digest["Service"],
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- a plan review renders whatever props each provider declared; there is no single schema to parse them with.
   value: unknown
 ): Effect.Effect<unknown> => {
@@ -59,7 +60,7 @@ const shown = (
 
 export const reviewRows = (plan: Plan.Plan) =>
   Effect.gen(function* rows() {
-    const crypto = yield* Crypto.Crypto;
+    const crypto = yield* Digest.Digest;
 
     return yield* Effect.all(
       Plan.describePlan(plan).resources.map((row) => {

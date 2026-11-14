@@ -5,11 +5,13 @@ import {
   Effect,
   Fiber,
   FileSystem,
+  Layer,
   Ref,
   Result,
   Schema,
 } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { TestClock } from "effect/testing";
 
 import { runCall, DEADLINE_MS } from "../src/call-machine.js";
@@ -133,7 +135,12 @@ it.effect.prop(
       ).toBe(true);
 
       return yield* Effect.void;
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.merge(NodeServices.layer, SecureRandom.layerWebCrypto)
+      )
+    )
 );
 
 it.effect(
@@ -198,7 +205,12 @@ it.effect(
         Effect.provideService(Exports, context.exports),
         Effect.provideService(Runner, runner)
       );
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.merge(NodeServices.layer, SecureRandom.layerWebCrypto)
+      )
+    )
 );
 
 it.effect(
@@ -250,7 +262,12 @@ it.effect(
       expect(removed?.args[2]).toBe(
         call?.args[call.args.indexOf("--name") + 1]
       );
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.merge(NodeServices.layer, SecureRandom.layerWebCrypto)
+      )
+    )
 );
 
 it.effect(
@@ -326,5 +343,10 @@ it.effect(
         Effect.provideService(Exports, context.exports),
         Effect.provideService(Runner, runner)
       );
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.merge(NodeServices.layer, SecureRandom.layerWebCrypto)
+      )
+    )
 );

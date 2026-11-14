@@ -1,6 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { EffectActor } from "@xstate/effect";
-import { createEffectActor, send, waitFor } from "@xstate/effect";
+import {
+  createEffectActor,
+  EffectFailure,
+  send,
+  waitFor,
+} from "@xstate/effect";
 import { Cause, Deferred, Effect, Layer, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import { TestClock } from "effect/testing";
@@ -149,19 +154,19 @@ const invocation = (state: "wiring" | "reading") => {
 const events = () => ({
   dbReadFailed: {
     actorId: invocation("reading"),
-    error: dbMissing,
+    error: new EffectFailure(Cause.fail(dbMissing)),
     type: "xstate.error.actor",
   },
   dbWireFailed: {
     actorId: invocation("wiring"),
-    error: dbMissing,
+    error: new EffectFailure(Cause.fail(dbMissing)),
     type: "xstate.error.actor",
   },
   deadline: { stateId: "postboxReader.turn", type: "xstate.timeout.state" },
   probe: { type: "UNHANDLED" },
   readFailed: {
     actorId: invocation("reading"),
-    error: unavailable,
+    error: new EffectFailure(Cause.fail(unavailable)),
     type: "xstate.error.actor",
   },
   readIdle: {
@@ -176,7 +181,7 @@ const events = () => ({
   },
   wireFailed: {
     actorId: invocation("wiring"),
-    error: unavailable,
+    error: new EffectFailure(Cause.fail(unavailable)),
     type: "xstate.error.actor",
   },
   wired: {
@@ -284,6 +289,15 @@ const replayActor = Effect.fn("replayPostboxReader")(
     let wiring = 0;
     let reading = 0;
 
+    const started = (state: State) =>
+      Effect.yieldNow.pipe(
+        Effect.repeat({
+          until: () =>
+            wiring === (state === "wiring" ? 1 : 0) &&
+            reading === (state === "reading" ? 1 : 0),
+        })
+      );
+
     yield* Effect.scoped(
       Effect.gen(function* turn() {
         const actor = yield* createEffectActor(postboxReaderMachine, {
@@ -338,15 +352,6 @@ const replayActor = Effect.fn("replayPostboxReader")(
             })
           )
         );
-
-        const started = (state: State) =>
-          Effect.yieldNow.pipe(
-            Effect.repeat({
-              until: () =>
-                wiring === (state === "wiring" ? 1 : 0) &&
-                reading === (state === "reading" ? 1 : 0),
-            })
-          );
 
         let model = initialModel;
 

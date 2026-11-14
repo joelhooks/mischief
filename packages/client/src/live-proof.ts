@@ -1,5 +1,6 @@
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Console, Crypto, Effect, Layer, Schema } from "effect";
+import { Console, Effect, Layer, Schema } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { FetchHttpClient } from "effect/http";
 
 import { ClientError } from "./client-error.js";
@@ -22,8 +23,8 @@ const proof = Effect.gen(function* liveProof() {
   );
 
   const client = yield* projectClient(process.cwd(), host);
-  const cryptography = yield* Crypto.Crypto;
-  const runId = `client-proof-${yield* cryptography.randomUUIDv4()}`;
+  const cryptography = yield* SecureRandom.SecureRandom;
+  const runId = `client-proof-${yield* cryptography.uuidV4()}`;
 
   yield* Effect.acquireUseRelease(
     client.submitPlan({ plan: firstPlan, runId }),
@@ -49,6 +50,12 @@ const proof = Effect.gen(function* liveProof() {
 
 NodeRuntime.runMain(
   proof.pipe(
-    Effect.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer))
+    Effect.provide(
+      Layer.mergeAll(
+        NodeServices.layer,
+        FetchHttpClient.layer,
+        SecureRandom.layerWebCrypto
+      )
+    )
   )
 );

@@ -5,7 +5,7 @@ import {
   join,
   setupEffect,
 } from "@xstate/effect";
-import { Data, Effect, Schema } from "effect";
+import { Cause, Data, Effect, Option, Schema } from "effect";
 import { types } from "xstate";
 
 import { FileInspector } from "./file-inspector.js";
@@ -52,7 +52,14 @@ export const inspectMachine = setupEffect({
         },
         onError: {
           context: ({ event }) => ({
-            outcome: inspectOutcome.Unreadable({ error: event.error }),
+            outcome: inspectOutcome.Unreadable({
+              error: Option.getOrElse(
+                Cause.findErrorOption(event.error.cause),
+                () => {
+                  throw event.error;
+                }
+              ),
+            }),
           }),
           target: "unreadable",
         },

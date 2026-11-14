@@ -3,6 +3,7 @@ import { expect, it } from "@effect/vitest";
 import { makeClient } from "@mischief/client";
 import { Identity, PrivateJwk } from "@rat-king/mailbox-client";
 import { Effect, Layer, Schema } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { FetchHttpClient } from "effect/http";
 
 import { AUDIENCE, prepare, start } from "./workerd.js";
@@ -118,7 +119,13 @@ it.live(
       ).toBe("aborted");
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer))
+      Effect.provide(
+        Layer.mergeAll(
+          NodeServices.layer,
+          FetchHttpClient.layer,
+          SecureRandom.layerWebCrypto
+        )
+      )
     ),
   60_000
 );

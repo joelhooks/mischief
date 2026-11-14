@@ -13,7 +13,8 @@ import {
 import { importSigning } from "@rat-king/mailbox-client";
 import type { IdentityValue } from "@rat-king/mailbox-client";
 import { serviceToken } from "@rat-king/mailbox-client/auth";
-import { Clock, Context, Crypto, Effect, Layer, Option, Schema } from "effect";
+import { Clock, Context, Effect, Layer, Option, Schema } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { ClientError } from "./client-error.js";
@@ -69,7 +70,7 @@ export const makeClient = Effect.fn("MischiefClient.make")(function* makeClient(
 ): Effect.fn.Return<
   MischiefClient,
   ClientError,
-  HttpClient.HttpClient | Crypto.Crypto
+  HttpClient.HttpClient | SecureRandom.SecureRandom
 > {
   const config = yield* Schema.decodeUnknownEffect(Host)(host).pipe(
     Effect.mapError(
@@ -96,7 +97,7 @@ export const makeClient = Effect.fn("MischiefClient.make")(function* makeClient(
   );
 
   const http = yield* HttpClient.HttpClient;
-  const cryptography = yield* Crypto.Crypto;
+  const cryptography = yield* SecureRandom.SecureRandom;
 
   const method = <
     I extends InputSchema,
@@ -131,7 +132,7 @@ export const makeClient = Effect.fn("MischiefClient.make")(function* makeClient(
           exp: now + 60,
           iat: now,
           iss: identity.did,
-          jti: yield* cryptography.randomUUIDv4(),
+          jti: yield* cryptography.uuidV4(),
           lxm: `sh.mschf.mischief.${contract.name}`,
         },
         key

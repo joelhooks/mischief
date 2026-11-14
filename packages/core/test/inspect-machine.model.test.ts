@@ -1,6 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
-import { createEffectActor, join, send, waitFor } from "@xstate/effect";
-import { Deferred, Effect, Schema } from "effect";
+import {
+  createEffectActor,
+  EffectFailure,
+  join,
+  send,
+  waitFor,
+} from "@xstate/effect";
+import { Cause, Deferred, Effect, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import type { SnapshotFrom } from "xstate";
 import { getPathsFromEvents, getShortestPaths } from "xstate/graph";
@@ -47,7 +53,7 @@ const eventsFor = (scenario: InspectionScenario) => {
   return {
     fail: {
       actorId: invocation.id,
-      error: failure.error,
+      error: new EffectFailure(Cause.fail(failure.error)),
       type: "xstate.error.actor",
     },
     probe: { type: "UNHANDLED" },

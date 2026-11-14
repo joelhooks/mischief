@@ -8,6 +8,7 @@
         "allowedUnstableApis": [
           "@effect/platform-node/NodeServices",
           "@effect/vitest",
+          "effect/crypto/SecureRandom",
           "effect/Arbitrary",
           "effect/FileSystem",
           "effect/Path",

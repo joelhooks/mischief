@@ -5,6 +5,7 @@ import {
 } from "@effect/platform-node";
 import { createServer } from "@mischief/model-bridge/server";
 import { Config, Effect, Layer, Redacted, Schema } from "effect";
+import * as Digest from "effect/crypto/Digest";
 import { HttpRouter } from "effect/http";
 
 import { boxStorageFromConfig } from "./box/config.js";
@@ -58,7 +59,7 @@ const program = Effect.gen(function* serveBoxes() {
       Layer.provide(
         NodeHttpServer.layer(createServer, { host: "127.0.0.1", port: 28_014 })
       ),
-      Layer.provide(NodeServices.layer)
+      Layer.provide(Layer.merge(NodeServices.layer, Digest.layerWebCrypto))
     )
   );
 });

@@ -1,8 +1,9 @@
 import { authorized } from "@mischief/model-bridge/auth";
 import type { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import { sseOf } from "@mischief/model-bridge/protocol";
-import { ByteSize, Crypto, Effect, Layer } from "effect";
+import { ByteSize, Effect, Layer } from "effect";
 import type { Redacted } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import {
   HttpIncomingMessage,
   HttpRouter,
@@ -61,7 +62,7 @@ export const responses = (key: Redacted.Redacted) =>
     const completion = yield* completeWorkspace.handler(input);
 
     return HttpServerResponse.text(
-      sseOf(completion, yield* (yield* Crypto.Crypto).randomUUIDv4()),
+      sseOf(completion, yield* (yield* SecureRandom.SecureRandom).uuidV4()),
       {
         contentType: "text/event-stream",
         headers: { "cache-control": "no-cache", "x-accel-buffering": "no" },

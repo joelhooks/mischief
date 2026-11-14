@@ -1,6 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { ConfigProvider, Effect, FileSystem } from "effect";
+import { ConfigProvider, Effect, FileSystem, Layer } from "effect";
+import * as Digest from "effect/crypto/Digest";
 
 import { boxStorageFromConfig } from "../src/box/config.js";
 import { Boxes } from "../src/box/manager.js";
@@ -104,5 +105,8 @@ it.effect(
         expect(failure.message).toContain("storage roots overlap");
         expect(yield* fs.exists(root)).toBe(false);
       }
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NodeServices.layer, Digest.layerWebCrypto))
+    )
 );

@@ -1,7 +1,8 @@
 import { NodeCrypto } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Crypto, Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import * as Digest from "effect/crypto/Digest";
 
 import { fingerprintOf } from "../../src/runs/fingerprint.js";
 import { RunStore } from "../../src/runs/run-store.js";
@@ -165,7 +166,7 @@ it.effect.prop(
   ({ left, right }) =>
     Effect.gen(function* property() {
       const reordered = Object.fromEntries(Object.entries(left).toReversed());
-      const crypto = yield* Crypto.Crypto;
+      const crypto = yield* Digest.Digest;
       const print = yield* fingerprintOf(crypto, left);
 
       expect(yield* fingerprintOf(crypto, reordered)).toBe(print);

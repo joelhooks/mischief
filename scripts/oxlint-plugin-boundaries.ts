@@ -326,6 +326,33 @@ interface ImportIdentity {
   readonly name: string | null;
 }
 
+const importBindingIdentity = (
+  definition: Definition
+): ImportIdentity | null => {
+  const { parent } = definition.node;
+
+  if (
+    definition.type !== "ImportBinding" ||
+    parent?.type !== "ImportDeclaration"
+  ) {
+    return null;
+  }
+
+  const module = isStringModule(parent.source);
+
+  if (module === null) {
+    return null;
+  }
+
+  return {
+    module,
+    name:
+      definition.node.type === "ImportSpecifier"
+        ? importedName(definition.node)
+        : null,
+  };
+};
+
 const importIdentity = (
   expression: ESTree.Expression,
   scope: Scope | null,
@@ -449,33 +476,6 @@ const importIdentity = (
     const module = isStringModule(argument);
 
     return module === null ? null : { module, name: null };
-  };
-
-  const importBindingIdentity = (
-    definition: Definition
-  ): ImportIdentity | null => {
-    const { parent } = definition.node;
-
-    if (
-      definition.type !== "ImportBinding" ||
-      parent?.type !== "ImportDeclaration"
-    ) {
-      return null;
-    }
-
-    const module = isStringModule(parent.source);
-
-    if (module === null) {
-      return null;
-    }
-
-    return {
-      module,
-      name:
-        definition.node.type === "ImportSpecifier"
-          ? importedName(definition.node)
-          : null,
-    };
   };
 
   const importIdentityForPattern = (
@@ -987,6 +987,11 @@ const noBrowserServerImports = defineRule({
   },
 });
 
+const isGlobalFetch = (node: ESTree.Node, scope: Scope | null) =>
+  node.type === "Identifier" &&
+  node.name === "fetch" &&
+  !isDeclaredLocally("fetch", scope);
+
 const noFeatureTransport = defineRule({
   create(context) {
     const filename = workspacePath(context.filename);
@@ -998,11 +1003,6 @@ const noFeatureTransport = defineRule({
     const report = (node: ESTree.Node) => {
       context.report({ messageId: "featureTransport", node });
     };
-
-    const isGlobalFetch = (node: ESTree.Node, scope: Scope | null) =>
-      node.type === "Identifier" &&
-      node.name === "fetch" &&
-      !isDeclaredLocally("fetch", scope);
 
     return {
       CallExpression(node) {

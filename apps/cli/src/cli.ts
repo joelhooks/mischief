@@ -4,6 +4,7 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Approval } from "@mischief/capability";
 import { FileInspector, ThinkTelemetry } from "@mischief/core";
 import { Console, Effect, Layer } from "effect";
+import * as Digest from "effect/crypto/Digest";
 
 import { runCommand } from "./command.js";
 import { localRunLayer } from "./run-layer.js";
@@ -16,7 +17,9 @@ const program = runCommand(process.argv.slice(2)).pipe(
   Effect.provide(
     Layer.mergeAll(
       Layer.provideMerge(FileInspector.layer, NodeServices.layer),
-      localRunLayer.pipe(Layer.provide(NodeServices.layer)),
+      localRunLayer.pipe(
+        Layer.provide(Layer.merge(NodeServices.layer, Digest.layerWebCrypto))
+      ),
       Approval.denyAll,
       ThinkTelemetry.unavailable
     )

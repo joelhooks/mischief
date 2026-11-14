@@ -4,6 +4,7 @@ import { RunReportSchema, validatePlan } from "@mischief/core";
 import type { RunReport } from "@mischief/core";
 import { Effect, Layer, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { HttpClient, HttpClientResponse } from "effect/http";
 
 import { makeClient } from "../src/client.js";
@@ -13,7 +14,7 @@ import { freshIdentity } from "./identity-fixture.js";
 
 const reportLayer = (report: RunReport) =>
   Layer.merge(
-    NodeServices.layer,
+    Layer.merge(NodeServices.layer, SecureRandom.layerWebCrypto),
     Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make((request) =>

@@ -5,14 +5,14 @@ import {
   setupEffect,
   waitFor,
 } from "@xstate/effect";
-import { Context, Effect } from "effect";
+import { Cause, Context, Effect, Option } from "effect";
 import { types } from "xstate";
 import type { SnapshotFrom } from "xstate";
 
 import type { openMailroom } from "./mailroom.js";
 import { LONG_POLL_MS } from "./postbox-inbox.js";
 import type { BatchOutcome } from "./postbox-inbox.js";
-import type { PostboxReaderFailed } from "./postbox-reader-failed.js";
+import { PostboxReaderFailed } from "./postbox-reader-failed.js";
 
 export type OpenMailroom = Effect.Success<ReturnType<typeof openMailroom>>;
 
@@ -92,7 +92,12 @@ export const postboxReaderMachine = setupEffect({
               target: "#postboxReader.read",
             }),
             onError: ({ event }) => ({
-              context: { failure: event.error },
+              context: {
+                failure: Option.getOrElse(
+                  Cause.findErrorOption(event.error.cause),
+                  () => PostboxReaderFailed.fromCause(event.error.cause)
+                ),
+              },
               target: "#postboxReader.failed",
             }),
             src: "read",
@@ -105,7 +110,12 @@ export const postboxReaderMachine = setupEffect({
               target: "reading",
             }),
             onError: ({ event }) => ({
-              context: { failure: event.error },
+              context: {
+                failure: Option.getOrElse(
+                  Cause.findErrorOption(event.error.cause),
+                  () => PostboxReaderFailed.fromCause(event.error.cause)
+                ),
+              },
               target: "#postboxReader.failed",
             }),
             src: "wire",

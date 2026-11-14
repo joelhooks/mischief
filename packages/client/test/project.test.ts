@@ -10,6 +10,7 @@ import {
   Ref,
   Schema,
 } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { FetchHttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -75,7 +76,11 @@ const fixture = Effect.gen(function* projectFixture() {
   return { argvFile, configure, cwd, executable, fs, invocations, spawner };
 });
 
-const services = Layer.merge(NodeServices.layer, FetchHttpClient.layer);
+const services = Layer.mergeAll(
+  NodeServices.layer,
+  FetchHttpClient.layer,
+  SecureRandom.layerWebCrypto
+);
 
 it.effect(
   "repo policy cannot impersonate a desk or lease its identity from a worker session",

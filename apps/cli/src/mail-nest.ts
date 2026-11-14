@@ -33,6 +33,15 @@ interface NestRun {
 const text = (stream: Stream.Stream<Uint8Array, PlatformError>) =>
   stream.pipe(Stream.decodeText(), Stream.mkString);
 
+const refused = (call: StepCall, verb: string, run: NestRun) =>
+  new StepFailed({
+    key: call.key,
+    reason:
+      run.code === NEST_EXIT.conflict
+        ? `Rat King refused the send as a conflict: different bytes under an admitted message id. Mischief resends only the journaled seal, so this is a bug; report it with the run id. nest said: ${run.stderr.trim()}`
+        : `nest ${verb} exited ${run.code}: ${run.stderr.trim() || "no reason given"}. Fix the name or identity, then resume the run`,
+  });
+
 export const mailNest = ({
   as,
   backoff = Schedule.exponential("200 millis"),
@@ -73,15 +82,6 @@ export const mailNest = ({
               })
           )
         );
-
-      const refused = (call: StepCall, verb: string, run: NestRun) =>
-        new StepFailed({
-          key: call.key,
-          reason:
-            run.code === NEST_EXIT.conflict
-              ? `Rat King refused the send as a conflict: different bytes under an admitted message id. Mischief resends only the journaled seal, so this is a bug; report it with the run id. nest said: ${run.stderr.trim()}`
-              : `nest ${verb} exited ${run.code}: ${run.stderr.trim() || "no reason given"}. Fix the name or identity, then resume the run`,
-        });
 
       return Mail.of({
         seal: (call) =>

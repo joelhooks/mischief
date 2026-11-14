@@ -1,5 +1,4 @@
-import { callerReach, MailReachSchema } from "@mischief/core";
-import { Documents } from "@rat-king/mailbox-client/auth";
+import { parsePhaseOneCallerConfig } from "@mischief/client";
 import { Config, Effect, FileSystem, Schema } from "effect";
 
 const MischiefDid = Schema.String.check(
@@ -40,60 +39,9 @@ export const callersFromConfig = Effect.gen(function* callersFromConfig() {
     );
   }
 
-  const callers = yield* Schema.decodeUnknownEffect(
-    Schema.fromJsonString(Documents)
-  )(text).pipe(
-    Effect.catchCause(() =>
-      Effect.die(
-        new Error(
-          "MISCHIEF_CALLERS_FILE must hold a JSON array of Rat King DID documents (id, authentication, keyAgreement, verificationMethod with a P-256 publicKeyJwk), one per caller allowed to drive runs"
-        )
-      )
-    )
+  const callers = yield* Effect.try(() => parsePhaseOneCallerConfig(text)).pipe(
+    Effect.orDie
   );
 
-  if (callers.length === 0) {
-    return yield* Effect.die(
-      new Error(
-        "MISCHIEF_CALLERS_FILE lists no callers, so the host would serve nobody. Add the shadow driver's DID document"
-      )
-    );
-  }
-
-  const grants = yield* Schema.decodeUnknownEffect(
-    Schema.fromJsonString(
-      Schema.Array(
-        Schema.Struct({
-          id: Schema.String,
-          mischief: Schema.optionalKey(
-            Schema.Struct({
-              mayMail: Schema.optionalKey(Schema.Array(Schema.String)),
-            })
-          ),
-        })
-      )
-    )
-  )(text);
-
-  const mailReach = JSON.stringify(
-    Object.fromEntries(
-      grants.flatMap(({ id, mischief }) =>
-        mischief?.mayMail === undefined ? [] : [[id, mischief.mayMail]]
-      )
-    )
-  );
-
-  yield* Schema.decodeUnknownEffect(Schema.fromJsonString(MailReachSchema))(
-    mailReach
-  );
-
-  for (const { id } of callers) {
-    const reach = callerReach(id, mailReach);
-
-    if (reach.reason !== undefined) {
-      return yield* Effect.die(new Error(reach.reason));
-    }
-  }
-
-  return { callers: JSON.stringify(callers), did, mailReach };
+  return { ...callers, did };
 });

@@ -3,6 +3,7 @@ import { expect, it } from "@effect/vitest";
 import { UnknownRun } from "@mischief/core";
 import { Effect, Layer, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { HttpClient, HttpClientResponse } from "effect/http";
 
 import { ClientError, makeClient } from "../src/index.js";
@@ -15,7 +16,7 @@ const host = {
 
 const respond = (status: number, body: Schema.Json) =>
   Layer.merge(
-    NodeServices.layer,
+    Layer.merge(NodeServices.layer, SecureRandom.layerWebCrypto),
     Layer.succeed(
       HttpClient.HttpClient,
       HttpClient.make((request) =>

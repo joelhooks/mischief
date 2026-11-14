@@ -1,8 +1,9 @@
 import { gzipSync } from "node:zlib";
 
 import { NodeServices } from "@effect/platform-node";
-import { Crypto, Effect, FileSystem, Option, Schema } from "effect";
+import { Effect, FileSystem, Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import * as Digest from "effect/crypto/Digest";
 
 import { compilePlan } from "../../../../src/plans/compile.js";
 import { decodePlan } from "../../../../src/plans/schema.js";
@@ -97,7 +98,7 @@ export const captureAlpha65 = Effect.gen(function* captureOld() {
       return yield* Effect.die("old-engine fixture did not finish");
     }
 
-    const crypto = yield* Crypto.Crypto;
+    const crypto = yield* Digest.Digest;
     const plan = Option.getOrThrow(yield* base.readPlan(MIGRATION_RUN, 1));
     fixtures.push({
       body: raw,

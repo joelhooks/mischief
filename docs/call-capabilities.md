@@ -48,6 +48,7 @@ Capabilities execute inside **workerd**, not Node.js. Use pure TypeScript and wo
 
 ```ts
 import { planRunWorker } from "@mischief/worker";
+
 import { callables } from "./capabilities.js";
 
 const worker = planRunWorker({ callables });

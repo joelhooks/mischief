@@ -9,7 +9,7 @@
           "@effect/vitest",
           "effect/http",
           "effect/process",
-          "effect/Crypto",
+          "effect/crypto/SecureRandom",
           "effect/Arbitrary",
           "effect/FileSystem",
           "effect/Path",

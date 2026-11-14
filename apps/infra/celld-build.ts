@@ -36,6 +36,13 @@ export interface BuildInput {
   readonly opusBridgeUrl?: string | undefined;
   readonly thinker: Thinker;
   readonly version: string;
+  readonly workspace?:
+    | {
+        readonly mode: "off" | "on";
+        readonly repos: string;
+        readonly url: string;
+      }
+    | undefined;
 }
 
 export type Thinker =
@@ -58,6 +65,7 @@ export const buildWorker = ({
   opusBridgeUrl,
   thinker,
   version,
+  workspace,
 }: BuildInput) =>
   Effect.gen(function* buildMischiefWorker() {
     const path = yield* Path.Path;
@@ -76,6 +84,16 @@ export const buildWorker = ({
       ...thinkerVars(thinker),
     };
 
+    const workspaceVars =
+      workspace === undefined
+        ? vars
+        : {
+            ...vars,
+            MISCHIEF_WORKSPACE: workspace.mode,
+            MISCHIEF_WORKSPACE_BRIDGE_URL: workspace.url,
+            MISCHIEF_WORKSPACE_REPOS: workspace.repos,
+          };
+
     return yield* prepareDeployment(
       entry ?? path.resolve(import.meta.dirname, "../worker/src/worker.ts"),
       declaration,
@@ -83,8 +101,8 @@ export const buildWorker = ({
         commit,
         vars:
           opusBridgeUrl === undefined || opusBridgeUrl.trim() === ""
-            ? vars
-            : { ...vars, MISCHIEF_OPUS_BRIDGE_URL: opusBridgeUrl },
+            ? workspaceVars
+            : { ...workspaceVars, MISCHIEF_OPUS_BRIDGE_URL: opusBridgeUrl },
         version,
       }
     );

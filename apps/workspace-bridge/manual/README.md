@@ -10,18 +10,18 @@ Lifecycle reports used to keep their initial null byte count. The worker now rea
 
 ## Run the check
 
-This manual check stays outside the default test gate. It runs the real box manager against Docker, with a fake Pi that writes mode-700 directories as uid 65534. It never calls a model. The fake cache-read counter proves that the copied session is present, not that a provider accepted a cache entry.
+This opt-in Vitest check is skipped unless `MISCHIEF_REAL_DOCKER_SCRATCH` is set. It imports source directly, so lint does not depend on generated workspace-bridge output. It runs the real box manager against Docker, with a fake Pi that writes mode-700 directories as uid 65534. It never calls a model. The fake cache-read counter proves that the copied session is present, not that a provider accepted a cache entry.
 
-Build the workspace bridge and its dependencies first. From the checkout root:
+From the checkout root, with workspace dependencies installed:
 
 ```sh
 mkdir -p /data/joel/scratch/peonlife
-node apps/workspace-bridge/manual/box-lifecycle.ts \
-  /data/joel/scratch/peonlife/proof-1 \
-  mischief-peon-full:ab95d63 \
-  mpt-peonlife-proof-1-
+MISCHIEF_REAL_DOCKER_SCRATCH=/data/joel/scratch/peonlife/proof-1 \
+MISCHIEF_REAL_DOCKER_IMAGE=mischief-peon-full:ab95d63 \
+MISCHIEF_REAL_DOCKER_PREFIX=mpt-peonlife-proof-1- \
+pnpm --filter @mischief/workspace-bridge exec vitest run test/box-lifecycle.docker.test.ts
 ```
 
-The scratch path must be absolute, new, and beneath this checkout or `/data/joel/scratch/peonlife/`. Its parent must exist and be canonical. Prefer the scratch mount so failed runs never dirty the checkout. The prefix must start with `mpt-`. Choose a fresh prefix for each concurrent run. The runner resolves the approved local image to its immutable image ID before starting anything. It translates manager container names to the supplied prefix, disables networking, omits the production cgroup, and replaces only Pi execution with the fake executable. Ownership helpers keep their production users, capabilities, mounts, and commands.
+The test timeout is three minutes. The scratch path must be absolute, new, and beneath this checkout or `/data/joel/scratch/peonlife/`. Its parent must exist and be canonical. Prefer the scratch mount so failed runs never dirty the checkout. The prefix must start with `mpt-`. Choose a fresh prefix for each concurrent run. The runner resolves the approved local image to its immutable image ID before starting anything. It translates manager container names to the supplied prefix, disables networking, omits the production cgroup, and replaces only Pi execution with the fake executable. Ownership helpers keep their production users, capabilities, mounts, and commands.
 
 The check covers spawn, owner-only writes, idle and suspended clones, stopped-state inspection, prompt wake timing, snapshot, hibernate, restore, byte measurements, and deletion. It deliberately runs the old helper until it fails and asserts partial root ownership before proving clone, snapshot, and deletion recover. It also plants all-manager-owned mode-700 trees and repeats clone, snapshot, and deletion. After recovery, a capability-free root:gid container walks the full tree and requires that no root-owned or manager-owned entry remains. It prints a primary failure with its step and stack before cleanup. Cleanup removes only container names created by the run. One capability-free container as uid 65534 empties the scratch's box directories. The manager removes its remaining scratch entries and leaves the empty root, printing its path. Cleanup failures print warnings and retain the path; they never replace a primary failure. The manager's chmod pass excludes symlinks so it cannot change a target outside the box.

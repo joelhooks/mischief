@@ -110,6 +110,12 @@ const Inspection = Schema.Struct({
   state: Schema.String,
 });
 
+const ProcessOutput = Schema.Struct({
+  exit: Schema.Int,
+  stderr: Schema.optionalKey(Schema.String),
+  stdout: Schema.String,
+});
+
 const DockerState = Schema.Struct({
   Running: Schema.Boolean,
   Pid: Schema.Finite,
@@ -232,7 +238,7 @@ try {
         function* failOldHelper(id: string) {
           step = `${id} plant old failing helper`;
 
-          const failed = yield* runner.run({
+          const result = yield* runner.run({
             executable: "docker",
             args: [
               "run",
@@ -258,6 +264,9 @@ try {
             ],
           });
 
+          const failed =
+            yield* Schema.decodeUnknownEffect(ProcessOutput)(result);
+
           assert.notEqual(failed.exit, 0);
           assert.match(failed.stderr ?? "", /Permission denied/u);
           assert.equal(fs.statSync(`${scratch}/boxes/${id}`).uid, 0);
@@ -271,7 +280,7 @@ try {
         function* assertRecovered(id: string) {
           step = `${id} verify recovered ownership`;
 
-          const found = yield* runner.run({
+          const result = yield* runner.run({
             executable: "docker",
             args: [
               "run",
@@ -303,6 +312,9 @@ try {
             ],
           });
 
+          const found =
+            yield* Schema.decodeUnknownEffect(ProcessOutput)(result);
+
           assert.equal(found.exit, 0, found.stderr);
           assert.equal(found.stdout.trim(), "", found.stdout);
           yield* Effect.log(
@@ -315,7 +327,7 @@ try {
         function* makeManagerOwned(id: string) {
           step = `${id} plant manager-owned tree`;
 
-          const transferred = yield* runner.run({
+          const result = yield* runner.run({
             executable: "docker",
             args: [
               "run",
@@ -341,6 +353,9 @@ try {
               "/box",
             ],
           });
+
+          const transferred =
+            yield* Schema.decodeUnknownEffect(ProcessOutput)(result);
 
           assert.equal(transferred.exit, 0, transferred.stderr);
           checked("chmod", ["-R", "700", `${scratch}/boxes/${id}`]);

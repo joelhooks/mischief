@@ -75,7 +75,11 @@ it.effect(
       });
 
       const result = yield* Sandbox.use(({ run }) =>
-        run({ ...request, reasoning: { effort: "max" } })
+        run({
+          ...request,
+          max_output_tokens: 32_000,
+          reasoning: { effort: "max" },
+        })
       ).pipe(
         Effect.provide(Sandbox.layer(image)),
         Effect.provideService(Exports, context.exports),
@@ -93,7 +97,7 @@ it.effect(
 
       const generated = call.args[call.args.indexOf("--name") + 1];
       expect(generated).toMatch(/^mischief-peon-[0-9a-f-]{36}$/u);
-      expect(call.args[call.args.indexOf("--thinking") + 1]).toBe("high");
+      expect(call.args[call.args.indexOf("--thinking") + 1]).toBe("max");
       expect(call.args).not.toContain("private review prompt");
       expect(call.input).toContain("private review prompt");
       expect(
@@ -107,7 +111,7 @@ it.effect(
 );
 
 it.effect(
-  "symlink exports, tool subsets, smaller token caps and oversized stdin are refused before Docker starts",
+  "symlink exports, tool subsets, unavailable models and oversized stdin are refused before Docker starts",
   () =>
     Effect.gen(function* refusals() {
       const context = yield* fixture;
@@ -139,11 +143,11 @@ it.effect(
 
         expect(badTools.status).toBe(400);
 
-        const badCap = yield* Effect.flip(
-          sandbox.run({ ...request, max_output_tokens: 16 })
+        const badModel = yield* Effect.flip(
+          sandbox.run({ ...request, model: "claude-opus-5-5" })
         );
 
-        expect(badCap.message).toContain("128000");
+        expect(badModel.message).toContain("extra-usage");
         const badLink = yield* Effect.flip(sandbox.run(request));
         expect(badLink.message).toContain("symlink");
         expect(yield* Ref.get(starts)).toBe(0);

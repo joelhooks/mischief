@@ -30,15 +30,13 @@ it.effect(
       const failure = yield* Effect.flip(
         Proxy.use(({ forward }) =>
           forward({
-            beta: "",
-            body: { model: "claude-opus-5-5" },
-            version: "2023-06-01",
+            body: { model: "gpt-6.1-sol" },
           })
         ).pipe(
           Effect.provide(
             Proxy.layer({
               key: Redacted.make("host-key"),
-              models: ["claude-opus-5-5"],
+              models: ["gpt-6.1-sol"],
               upstream: "https://provider.test",
             })
           ),
@@ -62,11 +60,14 @@ it.effect(
 
       for (const config of [
         {
-          models: ["claude-opus-5-5"],
+          models: ["gpt-6.1-sol"],
           upstream: "https://user:must-not-log@provider.test",
         },
-        { models: ["claude-opus-5-5"], upstream: "not a URL" },
-        { models: ["gpt-6.1-sol"], upstream: "https://provider.test" },
+        { models: ["gpt-6.1-sol"], upstream: "not a URL" },
+        {
+          models: ["gpt-6.1-sol", "claude-opus-5-5"],
+          upstream: "https://provider.test",
+        },
       ]) {
         const failure = yield* Effect.flip(
           Proxy.use(() => Effect.void).pipe(

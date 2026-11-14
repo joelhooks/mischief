@@ -12,7 +12,7 @@ export const name = "mischief-peon-01234567-89ab-4cde-8fab-0123456789ab";
 
 export const request: WorkspaceRequest = {
   input: [{ content: "private review prompt", role: "user" }],
-  model: "claude-opus-5-5",
+  model: "gpt-6.1-sol",
   reasoning: { effort: "medium" },
   stream: true,
   tools: ["read", "grep", "find", "ls", "bash"],

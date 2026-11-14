@@ -28,45 +28,114 @@ const MessageBody = Schema.Record(Schema.String, Schema.Unknown);
 
 const ClientTools = Schema.Array(
   Schema.Struct({
-    input_schema: Schema.Record(Schema.String, Schema.Unknown),
+    description: Schema.optionalKey(Schema.String),
     name: Schema.Literals(["read", "grep", "find", "ls", "bash"]),
-    type: Schema.optionalKey(Schema.Literal("custom")),
+    parameters: Schema.Record(Schema.String, Schema.Unknown),
+    strict: Schema.optionalKey(Schema.Boolean),
+    type: Schema.Literal("function"),
   })
 );
 
-const PI_API_KEY_BETAS = new Set([
-  "fine-grained-tool-streaming-2025-05-14",
-  "interleaved-thinking-2025-05-14",
-  "server-side-fallback-2026-07-01",
-  "mid-conversation-output-config-2026-07-01",
-  "thinking-binding-controls-2026-08-01",
-  "inline-tools-2026-09-15",
-]);
-
-const MESSAGE_FIELDS = new Set([
-  "cache_control",
-  "max_tokens",
-  "messages",
-  "metadata",
+const RESPONSE_FIELDS = new Set([
   "model",
-  "output_config",
-  "service_tier",
-  "stop_sequences",
+  "input",
   "stream",
-  "system",
+  "store",
+  "max_output_tokens",
   "temperature",
-  "thinking",
+  "service_tier",
+  "prompt_cache_key",
+  "prompt_cache_retention",
+  "reasoning",
+  "include",
   "tool_choice",
   "tools",
-  "top_k",
-  "top_p",
 ]);
 
+const PI_HEADERS = new Set([
+  "accept",
+  "accept-encoding",
+  "accept-language",
+  "sec-fetch-mode",
+  "authorization",
+  "connection",
+  "content-length",
+  "content-type",
+  "host",
+  "user-agent",
+  "session_id",
+  "x-client-request-id",
+  "x-stainless-lang",
+  "x-stainless-package-version",
+  "x-stainless-os",
+  "x-stainless-arch",
+  "x-stainless-runtime",
+  "x-stainless-runtime-version",
+  "x-stainless-retry-count",
+  "x-stainless-timeout",
+]);
+
+const ToolChoice = Schema.Union([
+  Schema.Literals(["auto", "none", "required"]),
+  Schema.Struct({
+    name: Schema.Literals(["read", "grep", "find", "ls", "bash"]),
+    type: Schema.Literal("function"),
+  }),
+]);
+
+const ResponseOptions = Schema.Struct({
+  include: Schema.optionalKey(
+    Schema.Tuple([Schema.Literal("reasoning.encrypted_content")])
+  ),
+  input: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.optionalKey(
+          Schema.Literals(["read", "grep", "find", "ls", "bash"])
+        ),
+        role: Schema.optionalKey(
+          Schema.Literals(["system", "developer", "user", "assistant"])
+        ),
+        type: Schema.optionalKey(
+          Schema.Literals([
+            "message",
+            "function_call",
+            "function_call_output",
+            "reasoning",
+          ])
+        ),
+      })
+    )
+  ),
+  prompt_cache_key: Schema.optionalKey(Schema.String),
+  prompt_cache_retention: Schema.optionalKey(Schema.Literal("24h")),
+  reasoning: Schema.optionalKey(
+    Schema.Struct({
+      effort: Schema.optionalKey(
+        Schema.Literals([
+          "none",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+        ])
+      ),
+      summary: Schema.optionalKey(Schema.Literal("auto")),
+    })
+  ),
+  service_tier: Schema.optionalKey(
+    Schema.Literals(["auto", "default", "flex", "priority"])
+  ),
+  store: Schema.optionalKey(Schema.Literal(false)),
+  stream: Schema.optionalKey(Schema.Literal(true)),
+  temperature: Schema.optionalKey(Schema.Finite),
+});
+
 const ProxyInput = Schema.Struct({
-  beta: Schema.String,
   body: MessageBody,
-  query: Schema.optional(Schema.Literal("?beta=true")),
-  version: Schema.String,
+  headers: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
 });
 
 const ProxyOutput = Schema.Struct({
@@ -104,14 +173,14 @@ export class Proxy extends Context.Service<
         const count = yield* Ref.make(0);
 
         const models = yield* Schema.decodeUnknownEffect(
-          Schema.Array(Schema.Literal("claude-opus-5-5")).check(
+          Schema.Array(Schema.Literal("gpt-6.1-sol")).check(
             Schema.isMinLength(1),
             Schema.isMaxLength(1)
           )
         )(config.models).pipe(
           Effect.mapError(() =>
             refusal(
-              'MISCHIEF_PEON_MODELS must be ["claude-opus-5-5"]. Peons are Opus-only; correct the allowlist and restart the proxy.'
+              'MISCHIEF_PEON_MODELS must be ["gpt-6.1-sol"]. Peons use the Codex pool; correct the allowlist and restart the proxy.'
             )
           )
         );
@@ -132,66 +201,94 @@ export class Proxy extends Context.Service<
           endpoint.hash !== ""
         ) {
           return yield* refusal(
-            "MISCHIEF_PEON_CLIPROXY_URL is not a credential-free HTTP base URL. Configure the dedicated peon Messages provider before starting."
+            "MISCHIEF_PEON_CLIPROXY_URL is not a credential-free HTTP base URL. Configure the dedicated peon Responses provider before starting."
           );
         }
 
-        const upstream = `${config.upstream.replace(/\/$/u, "")}/v1/messages`;
+        const upstream = `${config.upstream.replace(/\/$/u, "")}/v1/responses`;
 
         const forward = Effect.fn("PeonProxy.forward")(function* forward(
           request: typeof ProxyInput.Type
         ) {
           if (
-            !Schema.is(Schema.Literal("claude-opus-5-5"))(request.body.model) ||
+            !Schema.is(Schema.Literal("gpt-6.1-sol"))(request.body.model) ||
             !models.includes(request.body.model)
           ) {
             return yield* refusal(
-              `This proxy permits only ${models.join(", ")}. Select peon/claude-opus-5-5 and retry.`,
+              `This proxy permits only ${models.join(", ")}. Select peon/gpt-6.1-sol and retry.`,
               403
             );
           }
 
           if (
-            Object.keys(request.body).some((key) => !MESSAGE_FIELDS.has(key))
+            Object.keys(request.body).some((key) => !RESPONSE_FIELDS.has(key))
           ) {
             return yield* refusal(
-              "Unsupported Messages field. Provider-side connectors and containers are not permitted; send only ordinary Pi Messages fields and client tools."
+              "Unsupported Responses field. Hosted tools, previous_response_id and background are not permitted; send only Pi's stateless Responses fields and function tools."
             );
           }
 
-          const betas =
-            request.beta.trim() === ""
-              ? []
-              : request.beta.split(",").map((value) => value.trim());
-
-          if (betas.some((value) => !PI_API_KEY_BETAS.has(value))) {
+          if (
+            Object.keys(request.headers ?? {}).some(
+              (key) => !PI_HEADERS.has(key)
+            )
+          ) {
             return yield* refusal(
-              `Unsupported anthropic-beta value. Provider feature switches are restricted to Pi's API-key path: ${[...PI_API_KEY_BETAS].join(", ")}. Remove other beta values and retry.`,
+              `Unsupported Responses headers: ${Object.keys(
+                request.headers ?? {}
+              )
+                .filter((key) => !PI_HEADERS.has(key))
+                .join(
+                  ", "
+                )}. Provider feature switches are not permitted; remove custom headers and use Pi's openai-responses provider.`,
               403
             );
           }
 
-          if (request.body.max_tokens !== undefined) {
-            yield* Schema.decodeUnknownEffect(
-              Schema.Int.check(
-                Schema.isBetween({ maximum: 128_000, minimum: 1 })
+          yield* Schema.decodeUnknownEffect(ResponseOptions)(request.body).pipe(
+            Effect.mapError(() =>
+              refusal(
+                "Unsupported Pi Responses options or transcript item. Send stateless message, reasoning and Pi function-call history with store=false and stream=true; remove hosted tool history and retry.",
+                403
               )
-            )(request.body.max_tokens).pipe(
+            )
+          );
+
+          if (request.body.tool_choice !== undefined) {
+            yield* Schema.decodeUnknownEffect(ToolChoice)(
+              request.body.tool_choice,
+              { onExcessProperty: "error" }
+            ).pipe(
               Effect.mapError(() =>
                 refusal(
-                  "The peon proxy permits max_tokens from 1 through 128000. Reduce that per-response ceiling and retry."
+                  "Only auto, none, required or a named Pi function tool_choice is permitted. Remove hosted tool selection and retry.",
+                  403
+                )
+              )
+            );
+          }
+
+          if (request.body.max_output_tokens !== undefined) {
+            yield* Schema.decodeUnknownEffect(
+              Schema.Int.check(
+                Schema.isBetween({ maximum: 128_000, minimum: 16 })
+              )
+            )(request.body.max_output_tokens).pipe(
+              Effect.mapError(() =>
+                refusal(
+                  "The peon proxy permits max_output_tokens from 16 through 128000. Correct that per-response ceiling and retry."
                 )
               )
             );
           }
 
           if (request.body.tools !== undefined) {
-            yield* Schema.decodeUnknownEffect(ClientTools)(
-              request.body.tools
-            ).pipe(
+            yield* Schema.decodeUnknownEffect(ClientTools)(request.body.tools, {
+              onExcessProperty: "error",
+            }).pipe(
               Effect.mapError(() =>
                 refusal(
-                  "Only client tools read, grep, find, ls, bash with input_schema are permitted. Remove provider-side tools and connectors before retrying.",
+                  "Only Pi function tools read, grep, find, ls, bash with parameters are permitted. Remove hosted tools and connectors before retrying.",
                   403
                 )
               )
@@ -224,30 +321,31 @@ export class Proxy extends Context.Service<
 
             const response = yield* client
               .execute(
-                HttpClientRequest.post(
-                  `${upstream}${request.query ?? ""}`
-                ).pipe(
+                HttpClientRequest.post(upstream).pipe(
+                  HttpClientRequest.setHeaders(
+                    Object.fromEntries(
+                      Object.entries(request.headers ?? {}).filter(
+                        ([key]) =>
+                          ![
+                            "authorization",
+                            "host",
+                            "content-length",
+                            "connection",
+                          ].includes(key)
+                      )
+                    )
+                  ),
                   HttpClientRequest.setHeaders({
-                    "anthropic-version": request.version,
                     authorization: `Bearer ${Redacted.value(config.key)}`,
-                    "x-api-key": Redacted.value(config.key),
                     "x-cliproxy-client": "mischief/peons",
                   }),
-                  HttpClientRequest.bodyJsonUnsafe(request.body),
-                  (outgoing) =>
-                    betas.length === 0
-                      ? outgoing
-                      : HttpClientRequest.setHeader(
-                          outgoing,
-                          "anthropic-beta",
-                          betas.join(",")
-                        )
+                  HttpClientRequest.bodyJsonUnsafe(request.body)
                 )
               )
               .pipe(
                 Effect.mapError(() =>
                   refusal(
-                    "The peon Messages upstream is unavailable. Check the host proxy provider and resume the think.",
+                    "The peon Responses upstream is unavailable. Check the host proxy provider and resume the think.",
                     503
                   )
                 )
@@ -261,7 +359,7 @@ export class Proxy extends Context.Service<
                 body: response.stream.pipe(
                   Stream.mapError(() =>
                     refusal(
-                      "The peon Messages stream was interrupted. Check the upstream and resume the think.",
+                      "The peon Responses stream was interrupted. Check the upstream and resume the think.",
                       503
                     )
                   )
@@ -308,11 +406,11 @@ export class Proxy extends Context.Service<
     );
 }
 
-const proxyMessages = implement(
-  defineContract("proxyMessages", {
+const proxyResponses = implement(
+  defineContract("proxyResponses", {
     annotations: { idempotent: false, readOnly: true },
     description:
-      "Forward Opus Messages and tool calls to one host provider without exposing its key",
+      "Forward Codex Responses and Pi function tools to one host provider without exposing its key",
     failure: BridgeFailure,
     input: ProxyInput,
     output: ProxyOutput,
@@ -323,12 +421,9 @@ const proxyMessages = implement(
 export const proxyRoute = Effect.gen(function* proxyResponse() {
   const incoming = yield* HttpServerRequest.HttpServerRequest;
 
-  if (
-    incoming.url !== "/v1/messages" &&
-    incoming.url !== "/v1/messages?beta=true"
-  ) {
+  if (incoming.method !== "POST" || incoming.url !== "/v1/responses") {
     return yield* refusal(
-      "Only POST /v1/messages and POST /v1/messages?beta=true are supported. Use one of those exact Messages targets."
+      "Only POST /v1/responses without a query is supported. Use that exact Responses target."
     );
   }
 
@@ -339,16 +434,14 @@ export const proxyRoute = Effect.gen(function* proxyResponse() {
   )(text).pipe(
     Effect.mapError(() =>
       refusal(
-        "Invalid Messages JSON object. Send model claude-opus-5-5, messages and tool definitions to POST /v1/messages."
+        "Invalid Responses JSON object. Send model gpt-6.1-sol, input and Pi function tools to POST /v1/responses."
       )
     )
   );
 
-  const output = yield* proxyMessages.handler({
-    beta: incoming.headers["anthropic-beta"] ?? "",
+  const output = yield* proxyResponses.handler({
     body,
-    query: incoming.url === "/v1/messages?beta=true" ? "?beta=true" : undefined,
-    version: incoming.headers["anthropic-version"] ?? "2023-06-01",
+    headers: incoming.headers,
   });
 
   return HttpServerResponse.stream(output.body, {
@@ -365,13 +458,13 @@ const refused = HttpServerResponse.jsonUnsafe(
   {
     error: {
       message:
-        "Only POST /v1/messages is supported. Use the peon Anthropic Messages provider at that exact method and path.",
+        "Only POST /v1/responses is supported. Use the peon OpenAI Responses provider at that exact method and path.",
     },
   },
   { status: 405 }
 );
 
 export const proxyRoutes = Layer.mergeAll(
-  HttpRouter.add("POST", "/v1/messages", proxyRoute),
+  HttpRouter.add("POST", "/v1/responses", proxyRoute),
   HttpRouter.add("*", "/*", Effect.succeed(refused))
 );

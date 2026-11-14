@@ -56,9 +56,9 @@ it.effect(
           workspace: { ...request.workspace, sha: "main" },
         })).status
       ).toBe(400);
-      const wrongModel = yield* post({ ...request, model: "gpt-6.1-sol" });
-      expect(wrongModel.status).toBe(400);
-      expect(yield* wrongModel.text).toContain("Opus");
+      const wrongModel = yield* post({ ...request, model: "claude-opus-5-5" });
+      expect(wrongModel.status).toBe(403);
+      expect(yield* wrongModel.text).toContain("extra-usage");
       expect(yield* Ref.get(calls)).toBe(0);
       const busy = yield* post({ ...request, instructions: "busy" });
       expect(busy.status).toBe(503);

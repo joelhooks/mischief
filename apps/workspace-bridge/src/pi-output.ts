@@ -1,6 +1,6 @@
-import { completionOf, failureOf } from "@mischief/model-bridge/pi-output";
+import { completionOf } from "@mischief/model-bridge/pi-output";
 import { CompletionSchema } from "@mischief/model-bridge/protocol";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 
 import { refusal } from "./protocol.js";
 
@@ -25,6 +25,36 @@ const Assistant = Schema.Struct({
     usage: CompletionSchema.fields.usage,
   }),
 });
+
+const CompletionStatus = Schema.Literals([
+  400, 401, 403, 404, 413, 429, 500, 502, 503, 504,
+]);
+
+export const providerFailure = (diagnostic: string) => {
+  const status =
+    /(?:\b(?:http|status|(?:api )?error(?: code)?)\s*[:=(]?\s*|^)(?<status>[45]\d{2})\b/iu.exec(
+      diagnostic
+    )?.groups?.status;
+
+  const parsed = status === undefined ? 502 : Number(status);
+  const accepted = Schema.decodeUnknownOption(CompletionStatus)(parsed);
+
+  const safe = diagnostic
+    .replaceAll(/\bBearer\s+[^\s"',;]+/giu, "Bearer [redacted]")
+    .replaceAll(/\bsk-[a-zA-Z0-9_-]+/gu, "[redacted]")
+    .replaceAll(
+      /(?<label>(?:api[-_ ]?key|authorization|token|secret|password)["']?\s*[:=]\s*["']?)[^\s"',;}]+/giu,
+      "$<label>[redacted]"
+    )
+    .replaceAll(/https?:\/\/[^\s"'<>]+/giu, "[redacted-url]")
+    .replaceAll(/[\r\n\t]/gu, " ")
+    .slice(0, 512);
+
+  return refusal(
+    `Workspace provider error (status ${status ?? "unknown"}): ${safe || "No provider diagnostic"}. Inspect provider health and credentials, then retry.`,
+    Option.getOrElse(accepted, () => 502)
+  );
+};
 
 export const workspaceCompletion = Effect.fn("WorkspaceBridge.decodePi")(
   function* workspaceCompletion(stdout: string, exit: number) {
@@ -85,7 +115,7 @@ export const workspaceCompletion = Effect.fn("WorkspaceBridge.decodePi")(
         assistant.message.stopReason === "error" ||
         assistant.message.stopReason === "aborted"
       ) {
-        return yield* failureOf(exit, assistant.message.errorMessage ?? "");
+        return yield* providerFailure(assistant.message.errorMessage ?? "");
       }
 
       for (const key of [

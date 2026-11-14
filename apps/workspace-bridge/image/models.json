@@ -1,18 +1,27 @@
 {
   "providers": {
     "peon": {
-      "api": "anthropic-messages",
+      "api": "openai-responses",
       "apiKey": "proxy",
-      "baseUrl": "http://172.30.211.1:28012",
+      "baseUrl": "http://172.30.211.1:28012/v1",
       "models": [
         {
-          "id": "claude-opus-5-5",
-          "name": "Opus Peon",
+          "id": "gpt-6.1-sol",
+          "name": "Sol Peon",
           "reasoning": true,
           "input": ["text"],
           "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-          "contextWindow": 1000000,
-          "maxTokens": 128000
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          }
         }
       ]
     }

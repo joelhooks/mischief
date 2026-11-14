@@ -12,6 +12,7 @@ import type {
   OpenedMessage,
   SealedMessage,
   SendOutcome,
+  SealOptions,
 } from "@rat-king/mailbox-client";
 import {
   Clock,
@@ -35,6 +36,15 @@ import type { HeldLease, LeaseBook } from "./postbox-lease.js";
 import { DESK, OWN_NAME } from "./postbox.js";
 
 const MESSAGE_EVENT = "sh.mschf.ratking.defs#messageEvent";
+
+const ReplyReference = Schema.Struct({
+  messageId: Schema.String.check(Schema.isPattern(/^[2-7a-z]{13}$/u)).pipe(
+    Schema.brand("Lexicon:tid")
+  ),
+  senderDid: Schema.String.check(Schema.isPattern(/^did:[a-z0-9]+:.+$/u)).pipe(
+    Schema.brand("Lexicon:did")
+  ),
+});
 
 type Listed = Batch["events"][number];
 
@@ -205,7 +215,7 @@ export const openMailroom = (config: MailroomConfig) =>
             Effect.asVoid
           );
 
-    const seal = (to: string, body: string) =>
+    const seal = (to: string, body: string, options?: SealOptions) =>
       Effect.gen(function* sealFor() {
         const name = canonicalName(to);
 
@@ -224,7 +234,7 @@ export const openMailroom = (config: MailroomConfig) =>
         names[did] = name;
 
         const sealed = yield* prepared
-          .sealPayload(did, body)
+          .sealPayload(did, body, options)
           .pipe(Effect.mapError((error) => failed(error.reason)));
 
         return {
@@ -267,6 +277,22 @@ export const openMailroom = (config: MailroomConfig) =>
       Mailroom.of({
         nameOf: (did) => Effect.succeed(nameFor(did)),
         seal,
+        sealReply: (to, messageId, thread, summary, body) =>
+          Schema.decodeUnknownEffect(ReplyReference)({
+            messageId,
+            senderDid: didFor(canonicalName(to)).pipe(
+              Option.getOrElse(() => to)
+            ),
+          }).pipe(
+            Effect.mapError(() =>
+              failed(
+                "The peon reply has an invalid sender DID or message id; refusing a broken reply thread. Inspect the inbound envelope before retrying."
+              )
+            ),
+            Effect.flatMap((replyTo) =>
+              seal(to, body, { encrypt: true, replyTo, summary, thread })
+            )
+          ),
         send,
         surface: (summary, body) => tell(DESK, summary, body),
         tell,

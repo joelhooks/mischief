@@ -10,6 +10,62 @@ export {
 
 export { AppConfig } from "./app-config.js";
 
+export {
+  PeonId,
+  PeonState,
+  PeonThinking,
+  PeonWorkspace,
+  PeonTemplate,
+  PeonOverrides,
+  PeonTemplateRef,
+  PeonTemplateSelector,
+  peonTemplateReference,
+  PeonTemplateVersion,
+  PeonUsage,
+  PeonTurn,
+  PeonPromptLog,
+  PeonIndexEntry,
+  PeonReport,
+  PeonTombstone,
+  PeonRefused,
+  emptyPeonUsage,
+  type PeonTemplateValue,
+} from "./peons/schema.js";
+
+export {
+  PeonEvent,
+  peonMachine,
+  peonTransition,
+  peonIdleAlarm,
+} from "./peons/machine.js";
+
+export {
+  PEON_CATALOG_SOURCE,
+  PeonCatalog,
+  peonCatalog,
+  builtinPeonTemplates,
+  fullPeonTemplate,
+  mergePeonTemplate,
+} from "./peons/templates.js";
+
+export {
+  spawnPeonContract,
+  promptPeonContract,
+  suspendPeonContract,
+  resumePeonContract,
+  hibernatePeonContract,
+  clonePeonContract,
+  destroyPeonContract,
+  inspectPeonContract,
+  listPeonTemplatesContract,
+  savePeonTemplateContract,
+  listPeonsContract,
+  peonContracts,
+  peonCapabilityNames,
+} from "./peons/contracts.js";
+
+export { Peons, peonCapabilities } from "./peons/capabilities.js";
+
 export { thinkStatus, thinkingCapabilities } from "./thinking/capabilities.js";
 
 export {

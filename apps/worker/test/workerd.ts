@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 
+import { peonContracts } from "@mischief/core";
 import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
 import { Effect, FileSystem, Option, Path, Schedule, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
@@ -18,6 +19,7 @@ export interface Workerd {
   readonly dir: string;
   readonly driver: Caller;
   readonly port: number;
+  readonly boxPort?: number | undefined;
 }
 
 const PortSchema = Schema.Struct({ port: Schema.Int });
@@ -97,24 +99,28 @@ const configOf = (
   callers: DocumentsValue,
   jevKey: string | undefined,
   stepKinds: string,
-  mailReach: string
+  mailReach: string,
+  boxPort: number | undefined
 ) => `using Workerd = import "/workerd/workerd.capnp";
 const config :Workerd.Config = (
   services = [
     (name = "main", worker = .worker),
     (name = "disk", disk = (path = "${dir}/do", writable = true)),
+    ${boxPort === undefined ? "" : '(name = "box", worker = .boxWorker),'}
   ],
-  sockets = [(name = "http", address = "127.0.0.1:${port}", http = (), service = "main")],
+  sockets = [(name = "http", address = "127.0.0.1:${port}", http = (), service = "main")${boxPort === undefined ? "" : `, (name = "box", address = "127.0.0.1:${boxPort}", http = (), service = "box")`}],
 );
 const worker :Workerd.Worker = (
   modules = [(name = "worker.js", esModule = embed "worker.js")],
   compatibilityDate = "2026-09-01",
+  ${boxPort === undefined ? "" : 'globalOutbound = "box",'}
   durableObjectNamespaces = [
     (className = "PlanRun", uniqueKey = "mischief-plan-run", enableSql = true),
     (className = "ServiceTokenLedger", uniqueKey = "mischief-service-tokens", enableSql = true),
     (className = "Postbox", uniqueKey = "mischief-postbox", enableSql = true),
     (className = "Schedule", uniqueKey = "mischief-schedule", enableSql = true),
     (className = "CallerThinks", uniqueKey = "mischief-caller-thinks", enableSql = true),
+    ${boxPort === undefined ? "" : '(className = "Peon", uniqueKey = "mischief-peon", enableSql = true), (className = "PeonTemplates", uniqueKey = "mischief-peon-templates", enableSql = true),'}
   ],
   durableObjectStorage = (localDisk = "disk"),
   bindings = [
@@ -123,6 +129,17 @@ const worker :Workerd.Worker = (
     (name = "POSTBOX", durableObjectNamespace = "Postbox"),
     (name = "SCHEDULE", durableObjectNamespace = "Schedule"),
     (name = "CALLER_THINKS", durableObjectNamespace = "CallerThinks"),
+    ${
+      boxPort === undefined
+        ? ""
+        : `(name = "PEON", durableObjectNamespace = "Peon"),
+    (name = "PEON_TEMPLATES", durableObjectNamespace = "PeonTemplates"),
+    (name = "MISCHIEF_PEON_BOXES", text = "on"),
+    (name = "MISCHIEF_BOX_URL", text = "http://192.0.2.1"),
+    (name = "MISCHIEF_BOX_KEY", text = "fake-box-key"),
+    (name = "MISCHIEF_PEON_GRANTS", text = ${JSON.stringify(JSON.stringify({ [callers[0]?.id ?? ""]: peonContracts.map(({ name }) => name) }))}),`
+    }
+
     (name = "MISCHIEF_DID", text = "${MISCHIEF_DID}"),
     (name = "MISCHIEF_CALLERS", text = ${JSON.stringify(JSON.stringify(callers))}),
     (name = "MISCHIEF_MAIL_REACH", text = ${JSON.stringify(mailReach)}),
@@ -131,6 +148,15 @@ const worker :Workerd.Worker = (
     (name = "MISCHIEF_STEP_KINDS", text = ${JSON.stringify(stepKinds)}),
     (name = "MISCHIEF_JUDGE", text = "shadow"),${jevKey === undefined ? "" : `\n    (name = "MISCHIEF_JEV_KEY", text = "${jevKey}"),`}
   ],
+);
+`;
+
+const boxConfig = `const boxWorker :Workerd.Worker = (
+  modules = [(name = "box.js", esModule = embed "box.js")],
+  compatibilityDate = "2026-09-01",
+  durableObjectNamespaces = [(className = "FakeBox", uniqueKey = "fake-peon-box", enableSql = true)],
+  durableObjectStorage = (localDisk = "disk"),
+  bindings = [(name = "TEST_BOX", durableObjectNamespace = "FakeBox")],
 );
 `;
 
@@ -147,6 +173,7 @@ export const prepare = (
     readonly stepKinds?: string;
     readonly mayMail?: readonly string[];
     readonly mailReach?: string;
+    readonly peons?: boolean;
   } = {}
 ) =>
   Effect.gen(function* prepareWorkerd() {
@@ -156,12 +183,21 @@ export const prepare = (
     const app = yield* appDir;
     const dir = yield* fs.makeTempDirectoryScoped();
     const port = yield* freePort;
+    const boxPort = options.peons === true ? yield* freePort : undefined;
 
     yield* fs.makeDirectory(path.join(dir, "do"));
     yield* fs.copyFile(
       options.bundle ?? path.join(app, "dist", "worker.js"),
       path.join(dir, "worker.js")
     );
+
+    if (boxPort !== undefined) {
+      yield* fs.copyFile(
+        path.join(app, "dist", "peon-box.js"),
+        path.join(dir, "box.js")
+      );
+    }
+
     yield* fs.writeFileString(
       path.join(dir, "config.capnp"),
       configOf(
@@ -176,11 +212,12 @@ export const prepare = (
             options.mayMail === undefined
               ? {}
               : { [driver.did]: options.mayMail }
-          )
-      )
+          ),
+        boxPort
+      ) + (boxPort === undefined ? "" : boxConfig)
     );
 
-    return { dir, driver, port } satisfies Workerd;
+    return { boxPort, dir, driver, port } satisfies Workerd;
   });
 
 export const postAs = (

@@ -67,12 +67,17 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
       const commit = yield* Config.String("MISCHIEF_COMMIT");
       const version = yield* Config.String("MISCHIEF_VERSION");
 
-      const { callers, did, mailReach } = yield* callersFromConfig;
+      const { callers, did, mailReach, peonGrants } = yield* callersFromConfig;
 
       const mailbox = {
         did: yield* Config.String("MISCHIEF_MAILBOX_DID"),
         url: yield* Config.String("MISCHIEF_MAILBOX_URL"),
       };
+
+      const peonBoxes = yield* Config.Literals(
+        ["off", "on"],
+        "MISCHIEF_PEON_BOXES"
+      ).pipe(Config.withDefault("off"));
 
       const bindingsFile = yield* Config.option(
         Config.String("MISCHIEF_BINDINGS_FILE")
@@ -139,6 +144,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         mailReach,
         mailbox,
         opusBridgeUrl: opusBridgeUrl === "" ? undefined : opusBridgeUrl,
+        peonGrants,
         thinker,
         version,
         workspace: Option.getOrUndefined(workspace),
@@ -209,6 +215,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
                     secretNames: [
                       "MISCHIEF_IDENTITY",
                       "MISCHIEF_JEV_KEY",
+                      ...(peonBoxes === "on" ? ["MISCHIEF_BOX_KEY"] : []),
                       ...(opusBridgeUrl === ""
                         ? []
                         : ["MISCHIEF_OPUS_BRIDGE_KEY"]),

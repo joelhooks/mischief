@@ -2,6 +2,7 @@
 import { toHttpApi } from "@mischief/capability/http-api";
 import {
   runCapabilities,
+  peonCapabilities,
   ScheduleAlarm,
   ScheduleNotices,
   ScheduleStore,
@@ -39,6 +40,7 @@ export const mischiefApiSpec = () =>
       ...runCapabilities,
       ...scheduleCapabilities,
       ...thinkingCapabilities,
+      ...peonCapabilities,
     ]).api
   );
 

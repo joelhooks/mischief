@@ -103,8 +103,11 @@ it("only reads skip the durable ledger: the read-only set names exactly the insp
     "a write marked readOnly would lose durable replay protection"
   ).toStrictEqual(
     [
+      "sh.mschf.mischief.inspectPeon",
       "sh.mschf.mischief.inspectRun",
       "sh.mschf.mischief.inspectSchedule",
+      "sh.mschf.mischief.listPeonTemplates",
+      "sh.mschf.mischief.listPeons",
       "sh.mschf.mischief.openApi",
       "sh.mschf.mischief.readRun",
     ].toSorted()

@@ -38,8 +38,15 @@ const construction = {
 
 const worker = planRunWorker({ callables: [["count-refs", countRefs]] });
 
-export const { PlanRun, Postbox, Schedule, ServiceTokenLedger, CallerThinks } =
-  worker;
+export const {
+  PlanRun,
+  Postbox,
+  Schedule,
+  ServiceTokenLedger,
+  CallerThinks,
+  Peon,
+  PeonTemplates,
+} = worker;
 
 export default {
   async fetch(...args: Parameters<typeof worker.default.fetch>) {

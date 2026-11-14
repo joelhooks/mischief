@@ -1,10 +1,11 @@
 // @effect-diagnostics asyncFunction:off -- the Worker's fetch handler is a Promise API.
-import { submitMailReachReason } from "@mischief/core";
+import { peonCapabilityNames, submitMailReachReason } from "@mischief/core";
 import { mischiefApiSpec } from "@mischief/plan-run";
 import { Documents, staticResolver } from "@rat-king/mailbox-client/auth";
 import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
 import { Effect, Layer, Option, Result, Schema } from "effect";
 
+import { servePeon } from "./peon-http.js";
 import type { Env } from "./plan-run-object.js";
 import { OBJECT_HEADER } from "./postbox-mail.js";
 import { POSTBOX_NAME } from "./postbox-object.js";
@@ -83,6 +84,10 @@ export default {
 
     if (request.method === "GET" && pathname === "/openapi.json") {
       return Response.json(mischiefApiSpec());
+    }
+
+    if (peonCapabilityNames.has(capability)) {
+      return await servePeon(request, env, caller.success.iss, capability);
     }
 
     if (capability === "thinkStatus") {

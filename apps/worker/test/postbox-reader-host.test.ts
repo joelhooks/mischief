@@ -26,7 +26,14 @@ const IDLE_WINDOW_MS = 60_000;
 
 const BEHIND_MS = 15 * 60_000;
 
-const Turn = Schema.Literals(["more", "idle", "fail", "dbMissing", "hang"]);
+const Turn = Schema.Literals([
+  "more",
+  "idle",
+  "ended",
+  "fail",
+  "dbMissing",
+  "hang",
+]);
 
 type TurnKind = typeof Turn.Type;
 
@@ -56,6 +63,7 @@ const histories = Arbitrary.array(Arbitrary.schema(Step), { maxLength: 64 });
 
 const expected: Record<TurnKind, ReaderEnding> = {
   dbMissing: "failed",
+  ended: "ended",
   fail: "failed",
   hang: "stalled",
   idle: "idle",
@@ -133,6 +141,7 @@ const modelTurn = (
       ...marks,
       emptyTurns: 0,
       noticed: marks.noticed || (sends && desk === "accepts"),
+      retryAttempts: Math.min((marks.retryAttempts ?? 0) + 1, 7),
     },
     notices: sends ? [desk === "accepts"] : [],
   };
@@ -350,9 +359,22 @@ const simulateCell = Effect.fn("simulatePostboxCell")(function* simulateCell(
     expect(reads.at(-1)?.window, "the read long-polls for the window").toBe(
       window
     );
-    expect(Option.getOrUndefined(alarm), "the next alarm is armed").toBe(
-      ending === "more" ? ended : started + window
-    );
+    const armed = Option.getOrElse(alarm, () => -1);
+
+    if (ending === "more" || ending === "idle") {
+      expect(armed, "the next healthy alarm is armed").toBe(
+        ending === "more" ? ended : started + window
+      );
+    } else {
+      const ceiling = Math.min(
+        window,
+        60_000,
+        1000 * 2 ** (model.retryAttempts ?? 0)
+      );
+
+      expect(armed - ended).toBeGreaterThanOrEqual(ceiling * 0.8);
+      expect(armed - ended).toBeLessThanOrEqual(ceiling);
+    }
 
     const next = modelTurn(model, ending, ended, probe, desk);
     model = next.marks;

@@ -82893,7 +82893,7 @@ var makeSchedule = ({ alarms, guardMs, notices, runs, storage }) => {
 
 // src/postbox-object.ts
 import { DurableObject } from "cloudflare:workers";
-import { Effect as Effect61, Exit as Exit6, Layer as Layer26, Option as Option47, Schema as Schema93, Scope as Scope2 } from "effect";
+import { Effect as Effect61, Exit as Exit6, Layer as Layer26, Option as Option47, Schema as Schema94, Scope as Scope2 } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 // src/decode-delivery.ts
@@ -82952,6 +82952,7 @@ var Mailroom = class extends Context33.Service()("@mischief/worker/Mailroom") {
 import {
   Clock as Clock10,
   DateTime as DateTime3,
+  Deferred as Deferred4,
   Effect as Effect55,
   Layer as Layer25,
   Option as Option35,
@@ -83339,6 +83340,26 @@ var inboundOf = (message) => ({
   replyTo: Option35.fromNullishOr(message.replyTo?.messageId),
   senderDid: message.senderDid
 });
+var waitForMail = Effect55.fn("waitForPostboxMail")(
+  function* waitForMail2(watch2, within) {
+    const disconnected = yield* Deferred4.make();
+    const woken = yield* watch2(
+      (error) => Deferred4.succeed(disconnected, error).pipe(Effect55.asVoid)
+    ).pipe(
+      Stream4.filter((batch) => batch.events.length > 0),
+      Stream4.runHead,
+      Effect55.raceFirst(
+        Deferred4.await(disconnected).pipe(Effect55.flatMap(Effect55.fail))
+      ),
+      Effect55.timeoutOption(within),
+      Effect55.mapError(clientFailed("watch"))
+    );
+    if (Option35.isNone(woken)) {
+      return false;
+    }
+    return Option35.isSome(woken.value) ? true : "ended";
+  }
+);
 var openMailroom = (config) => Effect55.gen(function* openMailroomFor() {
   const context = yield* Effect55.context();
   const own = yield* ownIdentity(config.identity).pipe(
@@ -83531,11 +83552,9 @@ ${body}`).pipe(
       ),
       Effect55.mapError(clientFailed("list"))
     ),
-    wait: (held, afterSeq, within) => mailbox.watch(afterSeq, fenceOf(held)).pipe(
-      Stream4.runHead,
-      Effect55.timeoutOption(within),
-      Effect55.map((woken) => Option35.isSome(Option35.flatten(woken))),
-      Effect55.mapError(clientFailed("watch"))
+    wait: (held, afterSeq, within) => waitForMail(
+      (onRetry) => mailbox.watch(afterSeq, fenceOf(held), onRetry),
+      within
     )
   };
   const head = prepared.head.pipe(
@@ -83751,7 +83770,7 @@ var receivePeonMail = Effect56.fn("Peon.receiveMail")(
 );
 
 // src/postbox-inbox.ts
-import { Clock as Clock11, Effect as Effect57, Option as Option39 } from "effect";
+import { Clock as Clock11, Effect as Effect57, Option as Option39, Schema as Schema88 } from "effect";
 var LEASE_TTL_MS2 = 3e5;
 var LONG_POLL_MS = 2e4;
 var PAGE_LIMIT = 10;
@@ -83783,12 +83802,15 @@ var take = (event, inlet) => Option39.match(event.letter, {
     })
   )
 );
-var readBatch = Effect57.fn("readPostboxBatch")(function* readBatch2(inbox, inlet, window2) {
+var readInboxBatch = Effect57.fn("readPostboxBatch")(function* readInboxBatch2(inbox, inlet, window2) {
   const lease = yield* leaseFor(inbox, inlet.leases);
   const afterSeq = inlet.cursor();
   const events2 = yield* inbox.page(lease, afterSeq, PAGE_LIMIT);
   if (events2.length === 0) {
     const woken = yield* inbox.wait(lease, afterSeq, window2);
+    if (woken === "ended") {
+      return "ended";
+    }
     const outcome2 = woken ? "more" : "idle";
     return outcome2;
   }
@@ -83798,15 +83820,27 @@ var readBatch = Effect57.fn("readPostboxBatch")(function* readBatch2(inbox, inle
   const outcome = "more";
   return outcome;
 });
+var readBatch = (inbox, inlet, window2) => readInboxBatch(inbox, inlet, window2).pipe(
+  Effect57.tapError(
+    (failure6) => Effect57.sync(() => {
+      if (Schema88.is(PostboxFailed)(failure6) && failure6.reason.includes("(LeaseMismatch)")) {
+        const held = inlet.leases.held(0);
+        if (Option39.isSome(held)) {
+          inlet.leases.save({ ...held.value, expiresAt: 0 });
+        }
+      }
+    })
+  )
+);
 
 // src/postbox-lease.ts
-import { Option as Option40, Schema as Schema88 } from "effect";
+import { Option as Option40, Schema as Schema89 } from "effect";
 var LEASE = "CREATE TABLE IF NOT EXISTS postbox_lease (id INTEGER PRIMARY KEY CHECK (id = 1), did TEXT NOT NULL, lease_id TEXT NOT NULL, generation INTEGER NOT NULL, expires_at INTEGER NOT NULL)";
-var Row = Schema88.Struct({
-  did: Schema88.String,
-  expires_at: Schema88.Number,
-  generation: Schema88.Number,
-  lease_id: Schema88.String
+var Row = Schema89.Struct({
+  did: Schema89.String,
+  expires_at: Schema89.Number,
+  generation: Schema89.Number,
+  lease_id: Schema89.String
 });
 var leaseBook = (storage) => {
   storage.sql.exec(LEASE);
@@ -83818,7 +83852,7 @@ var leaseBook = (storage) => {
             "SELECT did, lease_id, generation, expires_at FROM postbox_lease WHERE id = 1"
           ).toArray()[0]
         ),
-        (row2) => Schema88.decodeUnknownOption(Row)(row2)
+        (row2) => Schema89.decodeUnknownOption(Row)(row2)
       ).pipe(Option40.flatten),
       (row2) => row2.expires_at > now
     ).pipe(
@@ -83842,18 +83876,18 @@ var leaseBook = (storage) => {
 };
 
 // src/postbox-reader-failed.ts
-import { Cause as Cause7, Option as Option41, Schema as Schema89 } from "effect";
-var PostboxReaderFailed = class _PostboxReaderFailed extends Schema89.TaggedError()(
+import { Cause as Cause7, Option as Option41, Schema as Schema90 } from "effect";
+var PostboxReaderFailed = class _PostboxReaderFailed extends Schema90.TaggedError()(
   "PostboxReaderFailed",
   {
-    kind: Schema89.Literals(["DatabaseMissing", "Unavailable"]),
-    reason: Schema89.String
+    kind: Schema90.Literals(["DatabaseMissing", "Unavailable"]),
+    reason: Schema90.String
   }
 ) {
   static fromCause(cause) {
     const reason = Option41.match(Cause7.findErrorOption(cause), {
       onNone: () => Cause7.pretty(cause),
-      onSome: (error) => Schema89.is(PostboxFailed)(error) ? error.reason : Cause7.pretty(cause)
+      onSome: (error) => Schema90.is(PostboxFailed)(error) ? error.reason : Cause7.pretty(cause)
     });
     return new _PostboxReaderFailed({
       kind: reason.includes("no db for Postbox:") ? "DatabaseMissing" : "Unavailable",
@@ -83863,7 +83897,7 @@ var PostboxReaderFailed = class _PostboxReaderFailed extends Schema89.TaggedErro
 };
 
 // src/postbox-reader-host.ts
-import { Clock as Clock12, DateTime as DateTime4, Effect as Effect59, Option as Option44 } from "effect";
+import { Clock as Clock12, DateTime as DateTime4, Effect as Effect59, Option as Option44, Random as Random3 } from "effect";
 
 // src/postbox-reader.ts
 import { Cause as Cause8, Context as Context34, Effect as Effect58, Option as Option43 } from "effect";
@@ -83971,12 +84005,10 @@ var readerTurn = Effect58.fn("postboxReaderTurn")(
     const ending = endingOf(ended);
     if (ending === "stalled") {
       const problem = stalled(window2);
-      yield* Effect58.logWarning(problem);
       return { ending, problem };
     }
     if (ending === "failed") {
       const problem = `the Postbox reader stopped (${context.failure?.kind ?? "Unavailable"}: ${context.failure?.reason ?? "no reason"}); the next alarm wires a fresh client`;
-      yield* Effect58.logWarning(problem);
       return { ending, problem };
     }
     return { ending, problem: "" };
@@ -84056,8 +84088,18 @@ var readerHost = (alarms, store, lookout, reader) => {
         }
         return ending;
       }
-      const noticed = yield* noticeBehind(marks, ended, problem);
-      yield* store.set({ ...marks, emptyTurns: 0, noticed });
+      const attempts = marks.retryAttempts ?? 0;
+      const retryAttempts = Math.min(attempts + 1, 7);
+      const reason = ending === "ended" ? "the mailbox watch ended before its window without mail" : problem;
+      const delay = Math.min(6e4, window2, 1e3 * 2 ** attempts) * (yield* Random3.nextBetween(0.8, 1));
+      if (attempts === 0) {
+        yield* Effect59.logWarning(
+          `Postbox mischief/worker reader backoff started: ${reason}; retry in ${Math.round(delay)} ms, capped at ${Math.min(6e4, window2)} ms`
+        );
+      }
+      const noticed = yield* noticeBehind(marks, ended, reason);
+      yield* store.set({ ...marks, emptyTurns: 0, noticed, retryAttempts });
+      yield* alarms.set(ended + delay);
       return ending;
     }),
     start: Effect59.gen(function* ensureReaderAlarm() {
@@ -84074,43 +84116,57 @@ var readerHost = (alarms, store, lookout, reader) => {
 };
 
 // src/postbox-reader-marks.ts
-import { Effect as Effect60, Option as Option45, Schema as Schema90 } from "effect";
+import { Effect as Effect60, Option as Option45, Schema as Schema91 } from "effect";
 var MARKS = "CREATE TABLE IF NOT EXISTS postbox_reader_marks (id INTEGER PRIMARY KEY CHECK (id = 1), last_read_at INTEGER NOT NULL, empty_turns INTEGER NOT NULL, noticed INTEGER NOT NULL)";
-var Row2 = Schema90.Struct({
-  empty_turns: Schema90.Finite,
-  last_read_at: Schema90.Finite,
-  noticed: Schema90.Finite
+var Row2 = Schema91.Struct({
+  empty_turns: Schema91.Finite,
+  last_read_at: Schema91.Finite,
+  noticed: Schema91.Finite,
+  retry_attempts: Schema91.optionalKey(
+    Schema91.Int.check(Schema91.isGreaterThanOrEqualTo(0))
+  )
 });
 var readerMarks = (storage) => {
   storage.sql.exec(MARKS);
+  const columns = storage.sql.exec("PRAGMA table_info(postbox_reader_marks)").toArray();
+  if (!columns.some(({ name }) => name === "retry_attempts")) {
+    storage.sql.exec(
+      "ALTER TABLE postbox_reader_marks ADD COLUMN retry_attempts INTEGER NOT NULL DEFAULT 0"
+    );
+  }
   return {
     get: Effect60.sync(
       () => Option45.fromNullishOr(
         storage.sql.exec(
-          "SELECT last_read_at, empty_turns, noticed FROM postbox_reader_marks WHERE id = 1"
+          "SELECT last_read_at, empty_turns, noticed, retry_attempts FROM postbox_reader_marks WHERE id = 1"
         ).toArray()[0]
       ).pipe(
-        Option45.flatMap((row2) => Schema90.decodeUnknownOption(Row2)(row2)),
-        Option45.map((row2) => ({
-          emptyTurns: row2.empty_turns,
-          lastReadAt: row2.last_read_at,
-          noticed: row2.noticed !== 0
-        }))
+        Option45.flatMap((row2) => Schema91.decodeUnknownOption(Row2)(row2)),
+        Option45.map((row2) => {
+          const marks = {
+            emptyTurns: row2.empty_turns,
+            lastReadAt: row2.last_read_at,
+            noticed: row2.noticed !== 0
+          };
+          const retryAttempts = row2.retry_attempts ?? 0;
+          return retryAttempts > 0 ? { ...marks, retryAttempts } : marks;
+        })
       )
     ),
-    set: ({ emptyTurns, lastReadAt, noticed }) => Effect60.sync(() => {
+    set: ({ emptyTurns, lastReadAt, noticed, retryAttempts }) => Effect60.sync(() => {
       storage.sql.exec(
-        "INSERT INTO postbox_reader_marks (id, last_read_at, empty_turns, noticed) VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_read_at = excluded.last_read_at, empty_turns = excluded.empty_turns, noticed = excluded.noticed",
+        "INSERT INTO postbox_reader_marks (id, last_read_at, empty_turns, noticed, retry_attempts) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_read_at = excluded.last_read_at, empty_turns = excluded.empty_turns, noticed = excluded.noticed, retry_attempts = excluded.retry_attempts",
         lastReadAt,
         emptyTurns,
-        noticed ? 1 : 0
+        noticed ? 1 : 0,
+        retryAttempts ?? 0
       );
     })
   };
 };
 
 // src/think-tally.ts
-import { DateTime as DateTime5, Option as Option46, Schema as Schema91 } from "effect";
+import { DateTime as DateTime5, Option as Option46, Schema as Schema93 } from "effect";
 var DAY_WARN_FLOOR_TOKENS = 15e5;
 var DAY_WARN_HISTORY_DAYS = 7;
 var DAY_WARN_MEDIAN_MULTIPLE = 2;
@@ -84120,10 +84176,10 @@ var DAYS2 = "CREATE TABLE IF NOT EXISTS mischief_think_days (day TEXT PRIMARY KE
 var RUNS = "CREATE TABLE IF NOT EXISTS mischief_think_runs (run_id TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
 var STEPS = "CREATE TABLE IF NOT EXISTS mischief_think_steps (run_id TEXT NOT NULL, key TEXT NOT NULL, calls INTEGER NOT NULL, PRIMARY KEY (run_id, key))";
 var BIG_CALLS = "CREATE TABLE IF NOT EXISTS mischief_think_big_calls (run_id TEXT PRIMARY KEY)";
-var Totals = Schema91.Struct({ calls: Schema91.Finite, tokens: Schema91.Finite });
+var Totals = Schema93.Struct({ calls: Schema93.Finite, tokens: Schema93.Finite });
 var totalsOf = (rows) => Option46.getOrElse(
   Option46.fromNullishOr(rows[0]).pipe(
-    Option46.flatMap(Schema91.decodeUnknownOption(Totals))
+    Option46.flatMap(Schema93.decodeUnknownOption(Totals))
   ),
   () => ({ calls: 0, tokens: 0 })
 );
@@ -84134,7 +84190,7 @@ var dedupeKey = (crossing, day, runId2, key) => ({
 })[crossing];
 var dayWarning = (storage, day) => {
   storage.sql.exec(DAYS2);
-  const history = Schema91.decodeUnknownSync(Schema91.Array(Totals))(
+  const history = Schema93.decodeUnknownSync(Schema93.Array(Totals))(
     storage.sql.exec(
       "SELECT calls, tokens FROM mischief_think_days WHERE day < ? ORDER BY day DESC LIMIT ?",
       day,
@@ -84388,8 +84444,8 @@ ${body}`).pipe(Effect61.flatMap(({ envelope }) => mailroom.send(envelope)))
     });
   }
   open() {
-    const identity = Schema93.decodeUnknownOption(
-      Schema93.fromJsonString(Identity2)
+    const identity = Schema94.decodeUnknownOption(
+      Schema94.fromJsonString(Identity2)
     )(this.env.MISCHIEF_IDENTITY ?? "");
     const endpoint = this.env.MISCHIEF_MAILBOX_URL ?? "";
     const serviceDid = this.env.MISCHIEF_MAILBOX_DID ?? "";
@@ -84585,10 +84641,10 @@ var CallerThinks = class extends DurableObject2 {
 
 // src/peon-object.ts
 import { DurableObject as DurableObject3 } from "cloudflare:workers";
-import { Effect as Effect67, Option as Option49, Schema as Schema96, Semaphore as Semaphore6 } from "effect";
+import { Effect as Effect67, Option as Option49, Schema as Schema97, Semaphore as Semaphore6 } from "effect";
 
 // src/peon-box.ts
-import { Effect as Effect64, Schema as Schema94 } from "effect";
+import { Effect as Effect64, Schema as Schema95 } from "effect";
 import { FetchHttpClient as FetchHttpClient2, HttpClient as HttpClient3, HttpClientRequest as HttpClientRequest3 } from "effect/http";
 var methodOf = (operation) => {
   if (operation === "inspect") {
@@ -84631,7 +84687,7 @@ var peonBox = (url, key) => ({
         reason: `Box ${peonId} ${operation} returned HTTP ${response.status}: ${text.slice(0, 1024)}. The stored operation remains pending; inspectPeon before retrying.`
       });
     }
-    return yield* Schema94.decodeEffect(Schema94.fromJsonString(schema2))(
+    return yield* Schema95.decodeEffect(Schema95.fromJsonString(schema2))(
       text
     ).pipe(
       Effect64.mapError(
@@ -84644,7 +84700,7 @@ var peonBox = (url, key) => ({
 });
 
 // src/peon-host.ts
-import { Clock as Clock13, Effect as Effect66, Schema as Schema95 } from "effect";
+import { Clock as Clock13, Effect as Effect66, Schema as Schema96 } from "effect";
 
 // src/peon-crypto.ts
 import { Effect as Effect65 } from "effect";
@@ -84672,7 +84728,7 @@ var reportWithMeasurements = (report2, measured) => {
   }
   return measuredReport;
 };
-var indexOf = Schema95.decodeUnknownSync(PeonIndexEntry);
+var indexOf = Schema96.decodeUnknownSync(PeonIndexEntry);
 var acknowledgedStates = {
   destroy: "destroyed",
   hibernate: "hibernated",
@@ -84862,8 +84918,8 @@ var peonHost = ({
           id,
           pending.kind,
           { requestId: pending.boxRequestId },
-          Schema95.Struct({
-            state: Schema95.Literal(acknowledgedStates[pending.kind])
+          Schema96.Struct({
+            state: Schema96.Literal(acknowledgedStates[pending.kind])
           })
         );
         if (pending.kind === "resume") {
@@ -85184,7 +85240,7 @@ var Peon = class extends DurableObject3 {
           await ctx.storage.transaction(async (transaction) => {
             await transaction.put(
               "peon",
-              Schema96.decodeUnknownSync(PeonStored)(stored2)
+              Schema97.decodeUnknownSync(PeonStored)(stored2)
             );
             if (completed !== void 0) {
               await transaction.put(
@@ -85205,12 +85261,12 @@ var Peon = class extends DurableObject3 {
           async () => await ctx.storage.get(`request:${requestId2}`)
         ).pipe(
           Effect67.map(
-            (value) => value === void 0 ? void 0 : Schema96.decodeUnknownSync(PeonCompleted)(value)
+            (value) => value === void 0 ? void 0 : Schema97.decodeUnknownSync(PeonCompleted)(value)
           )
         ),
         load: Effect67.promise(async () => await ctx.storage.get("peon")).pipe(
           Effect67.map(
-            (value) => value === void 0 ? void 0 : Schema96.decodeUnknownSync(PeonStored)(value)
+            (value) => value === void 0 ? void 0 : Schema97.decodeUnknownSync(PeonStored)(value)
           )
         )
       }
@@ -85274,11 +85330,11 @@ var Peon = class extends DurableObject3 {
 
 // src/peon-registry.ts
 import { DurableObject as DurableObject4 } from "cloudflare:workers";
-import { Effect as Effect68, Option as Option50, Schema as Schema98 } from "effect";
+import { Effect as Effect68, Option as Option50, Schema as Schema99 } from "effect";
 
 // src/peon-list.ts
-import { Schema as Schema97 } from "effect";
-var StateList = Schema97.Array(PeonState);
+import { Schema as Schema98 } from "effect";
+var StateList = Schema98.Array(PeonState);
 var listedPeonStates = (state3) => {
   if (state3 === void 0) {
     return ["running", "idle"];
@@ -85286,7 +85342,7 @@ var listedPeonStates = (state3) => {
   if (state3 === "all") {
     return null;
   }
-  return Schema97.is(StateList)(state3) ? state3 : [state3];
+  return Schema98.is(StateList)(state3) ? state3 : [state3];
 };
 var peonMatches = (entry3, filter, owner) => {
   if (entry3.owner !== owner || filter.owner !== void 0 && filter.owner !== entry3.owner || filter.template !== void 0 && filter.template !== entry3.template.name) {
@@ -85295,22 +85351,22 @@ var peonMatches = (entry3, filter, owner) => {
   if (filter.state === void 0) {
     return entry3.state === "running" || entry3.state === "idle";
   }
-  if (Schema97.is(StateList)(filter.state)) {
+  if (Schema98.is(StateList)(filter.state)) {
     return filter.state.includes(entry3.state);
   }
   return filter.state === "all" || entry3.state === filter.state;
 };
 
 // src/peon-registry.ts
-var Row3 = Schema98.Struct({ value: Schema98.String });
-var decodeRow = Schema98.decodeUnknownSync(Row3);
-var decodeId = Schema98.decodeUnknownSync(PeonId);
-var decodeIndex = Schema98.decodeUnknownSync(PeonIndexEntry);
-var decodeVersion = Schema98.decodeUnknownSync(
-  Schema98.fromJsonString(PeonTemplateVersion)
+var Row3 = Schema99.Struct({ value: Schema99.String });
+var decodeRow = Schema99.decodeUnknownSync(Row3);
+var decodeId = Schema99.decodeUnknownSync(PeonId);
+var decodeIndex = Schema99.decodeUnknownSync(PeonIndexEntry);
+var decodeVersion = Schema99.decodeUnknownSync(
+  Schema99.fromJsonString(PeonTemplateVersion)
 );
-var decodeEntry = Schema98.decodeUnknownSync(
-  Schema98.fromJsonString(PeonIndexEntry)
+var decodeEntry = Schema99.decodeUnknownSync(
+  Schema99.fromJsonString(PeonIndexEntry)
 );
 var registryFailure = (reason) => new PeonRefused({ reason });
 var PeonTemplates = class extends DurableObject4 {
@@ -85342,7 +85398,7 @@ var PeonTemplates = class extends DurableObject4 {
   }
   resolveEffect(ref) {
     return Effect68.gen({ self: this }, function* resolveTemplate() {
-      const valid = yield* Schema98.decodeUnknownEffect(PeonTemplateRef)(
+      const valid = yield* Schema99.decodeUnknownEffect(PeonTemplateRef)(
         ref
       ).pipe(
         Effect68.mapError(
@@ -85391,7 +85447,7 @@ var PeonTemplates = class extends DurableObject4 {
           input.name
         ).toArray();
         const version = last === void 0 ? 1 : decodeVersion(decodeRow(last).value).version + 1;
-        const saved = yield* Schema98.decodeUnknownEffect(PeonTemplateVersion)({
+        const saved = yield* Schema99.decodeUnknownEffect(PeonTemplateVersion)({
           extends: { name: parent.name, version: parent.version },
           name: input.name,
           template,
@@ -85445,7 +85501,7 @@ var PeonTemplates = class extends DurableObject4 {
     this.writable();
     return await Effect68.runPromise(
       Effect68.gen({ self: this }, function* claimPeon() {
-        const valid = yield* Schema98.decodeUnknownEffect(PeonIndexEntry)(
+        const valid = yield* Schema99.decodeUnknownEffect(PeonIndexEntry)(
           entry3
         ).pipe(
           Effect68.mapError(
@@ -86539,14 +86595,14 @@ function openDurableObjectSqliteStorage(storage, options2 = {}) {
 
 // src/plan-run-object.ts
 import { DurableObject as DurableObject5 } from "cloudflare:workers";
-import { Clock as Clock14, Effect as Effect75, Layer as Layer30, Option as Option56, Redacted as Redacted3, Schema as Schema103 } from "effect";
+import { Clock as Clock14, Effect as Effect75, Layer as Layer30, Option as Option56, Redacted as Redacted3, Schema as Schema104 } from "effect";
 import { FetchHttpClient as FetchHttpClient3 } from "effect/http";
 
 // src/abort-notices.ts
 import { Effect as Effect70, Option as Option53 } from "effect";
 
 // src/postbox-mail.ts
-import { Effect as Effect69, Layer as Layer27, Option as Option51, Schema as Schema99 } from "effect";
+import { Effect as Effect69, Layer as Layer27, Option as Option51, Schema as Schema100 } from "effect";
 var OBJECT = "CREATE TABLE IF NOT EXISTS mischief_object (id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL)";
 var OBJECT_HEADER = "x-mischief-object";
 var rememberObject = (storage, name) => {
@@ -86558,13 +86614,13 @@ var rememberObject = (storage, name) => {
     );
   }
 };
-var ObjectRow = Schema99.Struct({ name: Schema99.String });
+var ObjectRow = Schema100.Struct({ name: Schema100.String });
 var objectOf = (storage) => {
   storage.sql.exec(OBJECT);
   return Option51.fromNullishOr(
     storage.sql.exec("SELECT name FROM mischief_object WHERE id = 1").toArray()[0]
   ).pipe(
-    Option51.flatMap(Schema99.decodeUnknownOption(ObjectRow)),
+    Option51.flatMap(Schema100.decodeUnknownOption(ObjectRow)),
     Option51.map(({ name }) => name)
   );
 };
@@ -86592,10 +86648,10 @@ var settled = (key, name, call) => Effect69.tryPromise({
     (result) => result.ok ? Effect69.succeed(result) : Effect69.fail(new StepFailed({ key, reason: result.reason }))
   )
 );
-var OutboxEnvelope = Schema99.fromJsonString(
-  Schema99.Struct({ message: Schema99.String, to: Schema99.String })
+var OutboxEnvelope = Schema100.fromJsonString(
+  Schema100.Struct({ message: Schema100.String, to: Schema100.String })
 );
-var recordOnly = (envelope) => Option51.isSome(Schema99.decodeUnknownOption(OutboxEnvelope)(envelope));
+var recordOnly = (envelope) => Option51.isSome(Schema100.decodeUnknownOption(OutboxEnvelope)(envelope));
 var postboxMail = (storage, postbox2) => Layer27.effect(
   Mail,
   Effect69.gen(function* routedMail() {
@@ -86671,17 +86727,17 @@ var callerThinkPermit = (ports) => CallerThinkShare.of({
 });
 
 // src/judge-choice.ts
-import { Effect as Effect73, Layer as Layer28, Option as Option54, Schema as Schema100 } from "effect";
+import { Effect as Effect73, Layer as Layer28, Option as Option54, Schema as Schema101 } from "effect";
 var CHOICE = "CREATE TABLE IF NOT EXISTS mischief_judge (id INTEGER PRIMARY KEY CHECK (id = 1), mode TEXT NOT NULL)";
 var HOST_DEFAULT2 = "default";
-var SubmitJudge = Schema100.Struct({
-  judge: Schema100.optionalKey(JudgeModeSchema)
+var SubmitJudge = Schema101.Struct({
+  judge: Schema101.optionalKey(JudgeModeSchema)
 });
-var decodeSubmit3 = Schema100.decodeUnknownOption(
-  Schema100.fromJsonString(SubmitJudge)
+var decodeSubmit3 = Schema101.decodeUnknownOption(
+  Schema101.fromJsonString(SubmitJudge)
 );
-var ChoiceRow = Schema100.Struct({ mode: Schema100.String });
-var decodeMode = Schema100.decodeUnknownOption(JudgeModeSchema);
+var ChoiceRow = Schema101.Struct({ mode: Schema101.String });
+var decodeMode = Schema101.decodeUnknownOption(JudgeModeSchema);
 var fixJudgeAtFirstSubmit = (storage, body) => {
   storage.sql.exec(CHOICE);
   const mode = decodeSubmit3(body).pipe(
@@ -86709,7 +86765,7 @@ var judgeModeOf = (storage) => {
   return Option54.fromNullishOr(
     storage.sql.exec("SELECT mode FROM mischief_judge WHERE id = 1").toArray()[0]
   ).pipe(
-    Option54.flatMap(Schema100.decodeUnknownOption(ChoiceRow)),
+    Option54.flatMap(Schema101.decodeUnknownOption(ChoiceRow)),
     Option54.flatMap(({ mode }) => decodeMode(mode))
   );
 };
@@ -86765,11 +86821,11 @@ var forgetUnlessStored = (storage, ...forgets) => {
 };
 
 // src/mail-reach.ts
-import { Effect as Effect74, Layer as Layer29, Option as Option55, Schema as Schema101 } from "effect";
-var Recipient = Schema101.fromJsonString(
-  Schema101.Union([
-    Schema101.Struct({ to: Schema101.String }),
-    Schema101.Struct({ aad: Schema101.Struct({ recipientDid: Schema101.String }) })
+import { Effect as Effect74, Layer as Layer29, Option as Option55, Schema as Schema103 } from "effect";
+var Recipient = Schema103.fromJsonString(
+  Schema103.Union([
+    Schema103.Struct({ to: Schema103.String }),
+    Schema103.Struct({ aad: Schema103.Struct({ recipientDid: Schema103.String }) })
   ])
 );
 var reachableMail = (objectName, config) => {
@@ -86806,7 +86862,7 @@ var reachableMail = (objectName, config) => {
             (name) => mail.seal({ ...call, message: attributeMail(name, call.message) })
           )
         ),
-        send: (call, sealed) => Schema101.decodeEffect(Recipient)(sealed.envelope).pipe(
+        send: (call, sealed) => Schema103.decodeEffect(Recipient)(sealed.envelope).pipe(
           Effect74.mapError(
             () => new StepFailed({
               key: call.key,
@@ -86823,7 +86879,7 @@ var reachableMail = (objectName, config) => {
 
 // src/plan-run-object.ts
 var TELEMETRY_DESK = "pi-durable/desk";
-var decodeHostJudge = Schema103.decodeUnknownOption(JudgeModeSchema);
+var decodeHostJudge = Schema104.decodeUnknownOption(JudgeModeSchema);
 var thinkerFor = (env, storageFor) => {
   if (env.MISCHIEF_MODEL === "faux") {
     return piThinker(fauxThinkerOptions(storageFor));
@@ -87077,8 +87133,8 @@ var planRunClass = (callables) => {
 };
 
 // src/registered-callables.ts
-import { Schema as Schema104 } from "effect";
-var validName = Schema104.is(CapabilityName);
+import { Schema as Schema105 } from "effect";
+var validName = Schema105.is(CapabilityName);
 var registeredCallables = (entries2) => {
   const registry = /* @__PURE__ */ new Map();
   for (const [name, capability] of entries2) {
@@ -87128,11 +87184,11 @@ var scheduleNotices = (ports) => ScheduleNotices.of({
 });
 
 // src/wake-runs.ts
-import { Effect as Effect77, Option as Option58, Schema as Schema105 } from "effect";
+import { Effect as Effect77, Option as Option58, Schema as Schema106 } from "effect";
 var SUBMIT_WAIT_MS = 5e3;
-var decodeReport = Schema105.decodeUnknownOption(RunReportSchema);
-var decodeRefused = Schema105.decodeUnknownOption(PlanRefused);
-var decodeUnknown = Schema105.decodeUnknownOption(UnknownRun);
+var decodeReport = Schema106.decodeUnknownOption(RunReportSchema);
+var decodeRefused = Schema106.decodeUnknownOption(PlanRefused);
+var decodeUnknown = Schema106.decodeUnknownOption(UnknownRun);
 var bodyOf = async (response) => {
   try {
     return await response.json();
@@ -87385,7 +87441,7 @@ var ServiceTokenLedger = class extends DurableObject7 {
 
 // ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+4504f544_85f3e7c871d23bf3dd1d3943f587f9f7/node_modules/@rat-king/mailbox-client/auth.js
 import { Effect as Effect211 } from "effect";
-import { Schema as Schema106 } from "effect";
+import { Schema as Schema107 } from "effect";
 import { Effect as Effect79 } from "effect";
 import { Context as Context210, Effect as Effect311, Layer as Layer31, Schema as Schema311 } from "effect";
 import { Schema as Schema211 } from "effect";
@@ -87401,9 +87457,9 @@ var concatenate2 = (...parts2) => {
   }
   return result;
 };
-var EnvelopeFailure2 = class extends Schema106.TaggedError()(
+var EnvelopeFailure2 = class extends Schema107.TaggedError()(
   "EnvelopeFailure",
-  { reason: Schema106.String }
+  { reason: Schema107.String }
 ) {
 };
 var cryptoOperation2 = (operation) => Effect79.tryPromise({
@@ -87611,10 +87667,10 @@ var serviceToken3 = Effect311.fn("ServiceAuth.sign")(
 );
 
 // src/worker-handler.ts
-import { Effect as Effect85, Layer as Layer36, Option as Option63, Result as Result12, Schema as Schema111 } from "effect";
+import { Effect as Effect85, Layer as Layer36, Option as Option63, Result as Result12, Schema as Schema113 } from "effect";
 
 // src/peon-http.ts
-import { Clock as Clock15, Effect as Effect80, Layer as Layer33, Schema as Schema107 } from "effect";
+import { Clock as Clock15, Effect as Effect80, Layer as Layer33, Schema as Schema108 } from "effect";
 import { HttpRouter as HttpRouter3, HttpServer as HttpServer3 } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder4 } from "effect/http-api";
 var peonServices = (env, owner) => {
@@ -87664,7 +87720,7 @@ var peonServices = (env, owner) => {
     destroyPeon: (input) => Effect80.gen(function* destroy() {
       const entry3 = yield* entryFor(input.peonId);
       if (entry3.state === "destroyed") {
-        return yield* Schema107.decodeUnknownEffect(PeonTombstone)(entry3).pipe(
+        return yield* Schema108.decodeUnknownEffect(PeonTombstone)(entry3).pipe(
           Effect80.orDie
         );
       }
@@ -87674,7 +87730,7 @@ var peonServices = (env, owner) => {
     inspectPeon: ({ peonId }) => Effect80.gen(function* inspect() {
       const entry3 = yield* entryFor(peonId);
       if (entry3.state === "destroyed") {
-        return yield* Schema107.decodeUnknownEffect(PeonTombstone)(entry3).pipe(
+        return yield* Schema108.decodeUnknownEffect(PeonTombstone)(entry3).pipe(
           Effect80.orDie
         );
       }
@@ -87759,10 +87815,10 @@ import { Effect as Effect83, Layer as Layer34 } from "effect";
 import { Clock as Clock16, Effect as Effect81 } from "effect";
 
 // src/auth-refused.ts
-import { Schema as Schema108 } from "effect";
-var AuthRefused = class extends Schema108.TaggedError()(
+import { Schema as Schema109 } from "effect";
+var AuthRefused = class extends Schema109.TaggedError()(
   "AuthRefused",
-  { reason: Schema108.String }
+  { reason: Schema109.String }
 ) {
 };
 
@@ -87838,12 +87894,12 @@ var replayLedger = (ledgerFor, readOnly) => Layer34.succeed(
 );
 
 // src/run-address.ts
-import { Option as Option60, Schema as Schema109 } from "effect";
-var decodeAddress = Schema109.decodeUnknownOption(
-  Schema109.fromJsonString(
-    Schema109.Struct({
-      replyTo: Schema109.optionalKey(Schema109.String),
-      runId: Schema109.optionalKey(Schema109.String)
+import { Option as Option60, Schema as Schema110 } from "effect";
+var decodeAddress = Schema110.decodeUnknownOption(
+  Schema110.fromJsonString(
+    Schema110.Struct({
+      replyTo: Schema110.optionalKey(Schema110.String),
+      runId: Schema110.optionalKey(Schema110.String)
     })
   )
 );
@@ -87861,15 +87917,15 @@ var runIdOf = (body) => decodeAddress(body).pipe(
 var NO_RUN_ID = "this request names no run. Every run capability takes a JSON body with runId. deliverReply can find its run from replyTo only when replyTo is <runId>/<step>#<visit>; a Rat King message id (an ask sent as real mail, like 3mxoabjvtfwka) has no run in it, so add the run's runId (inspectRun shows the ask under awaiting). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 // src/schedule-address.ts
-import { Option as Option61, Schema as Schema110 } from "effect";
+import { Option as Option61, Schema as Schema111 } from "effect";
 var SCHEDULE_CAPABILITIES = /* @__PURE__ */ new Set([
   "createSchedule",
   "inspectSchedule",
   "completeSchedule"
 ]);
-var decodeAddress2 = Schema110.decodeUnknownOption(
-  Schema110.fromJsonString(
-    Schema110.Struct({ scheduleId: Schema110.optionalKey(Schema110.String) })
+var decodeAddress2 = Schema111.decodeUnknownOption(
+  Schema111.fromJsonString(
+    Schema111.Struct({ scheduleId: Schema111.optionalKey(Schema111.String) })
   )
 );
 var scheduleIdOf = (body) => decodeAddress2(body).pipe(
@@ -87932,7 +87988,7 @@ var thinkTelemetry = ({
 
 // src/worker-handler.ts
 var NOT_CONFIGURED = "this Mischief host has no MISCHIEF_DID or no valid MISCHIEF_CALLERS (a JSON array of the allowed callers' DID documents), so it serves nobody. Ask the Mischief desk (pi-durable/desk) to deploy it with both";
-var CallersFromJson = Schema111.fromJsonString(Documents2);
+var CallersFromJson = Schema113.fromJsonString(Documents2);
 var servicesFor = (env, callers) => Layer36.merge(
   staticResolver2(callers),
   replayLedger((issuer) => env.SERVICE_TOKENS.getByName(issuer), READ_ONLY)
@@ -87947,7 +88003,7 @@ var worker_handler_default = {
         version: __BUNDLE_VERSION__
       });
     }
-    const callers = Schema111.decodeUnknownOption(CallersFromJson)(
+    const callers = Schema113.decodeUnknownOption(CallersFromJson)(
       env.MISCHIEF_CALLERS ?? ""
     );
     if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option63.isNone(callers)) {

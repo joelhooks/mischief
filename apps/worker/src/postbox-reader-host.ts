@@ -1,4 +1,4 @@
-import { Clock, DateTime, Effect, Option } from "effect";
+import { Clock, DateTime, Effect, Option, Random } from "effect";
 import type { Scope } from "effect";
 
 import type { PostboxFailed } from "./postbox-failed.js";
@@ -125,8 +125,27 @@ export const readerHost = (
         return ending;
       }
 
-      const noticed = yield* noticeBehind(marks, ended, problem);
-      yield* store.set({ ...marks, emptyTurns: 0, noticed });
+      const attempts = marks.retryAttempts ?? 0;
+      const retryAttempts = Math.min(attempts + 1, 7);
+
+      const reason =
+        ending === "ended"
+          ? "the mailbox watch ended before its window without mail"
+          : problem;
+
+      const delay =
+        Math.min(60_000, window, 1000 * 2 ** attempts) *
+        (yield* Random.nextBetween(0.8, 1));
+
+      if (attempts === 0) {
+        yield* Effect.logWarning(
+          `Postbox mischief/worker reader backoff started: ${reason}; retry in ${Math.round(delay)} ms, capped at ${Math.min(60_000, window)} ms`
+        );
+      }
+
+      const noticed = yield* noticeBehind(marks, ended, reason);
+      yield* store.set({ ...marks, emptyTurns: 0, noticed, retryAttempts });
+      yield* alarms.set(ended + delay);
 
       return ending;
     }),

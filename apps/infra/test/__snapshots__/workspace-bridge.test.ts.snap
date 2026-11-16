@@ -508,8 +508,8 @@ exports[`an empty workspace URL preserves the existing plan byte for byte, even 
     "fqn": "mischief-deployment-stage-worker",
     "props": {
       "content": {
-        "length": 5120451,
-        "sha256": "ffb9d720958893bb8da145900c2d7e1871b906d3f73adb41040002af74fb0f6e",
+        "length": 5122773,
+        "sha256": "cbcd9ab448fbc414e57fa83adc699ecf7e80211375cb7b2453b111ed3e123c1e",
       },
       "mode": 384,
       "path": "<output>",

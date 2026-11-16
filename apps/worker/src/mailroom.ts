@@ -17,6 +17,7 @@ import type {
 import {
   Clock,
   DateTime,
+  Deferred,
   Effect,
   Layer,
   Option,
@@ -160,6 +161,35 @@ export const inboundOf = (message: OpenedMessage): Inbound => ({
   replyTo: Option.fromNullishOr(message.replyTo?.messageId),
   senderDid: message.senderDid,
 });
+
+export const waitForMail = Effect.fn("waitForPostboxMail")(
+  function* waitForMail(
+    watch: (
+      onRetry: (error: MailboxClientError) => Effect.Effect<void>
+    ) => Stream.Stream<Batch, MailboxClientError>,
+    within: number
+  ) {
+    const disconnected = yield* Deferred.make<MailboxClientError>();
+
+    const woken = yield* watch((error) =>
+      Deferred.succeed(disconnected, error).pipe(Effect.asVoid)
+    ).pipe(
+      Stream.filter((batch) => batch.events.length > 0),
+      Stream.runHead,
+      Effect.raceFirst(
+        Deferred.await(disconnected).pipe(Effect.flatMap(Effect.fail))
+      ),
+      Effect.timeoutOption(within),
+      Effect.mapError(clientFailed("watch"))
+    );
+
+    if (Option.isNone(woken)) {
+      return false;
+    }
+
+    return Option.isSome(woken.value) ? true : "ended";
+  }
+);
 
 export const openMailroom = (config: MailroomConfig) =>
   Effect.gen(function* openMailroomFor() {
@@ -399,11 +429,9 @@ export const openMailroom = (config: MailroomConfig) =>
           Effect.mapError(clientFailed("list"))
         ),
       wait: (held, afterSeq, within) =>
-        mailbox.watch(afterSeq, fenceOf(held)).pipe(
-          Stream.runHead,
-          Effect.timeoutOption(within),
-          Effect.map((woken) => Option.isSome(Option.flatten(woken))),
-          Effect.mapError(clientFailed("watch"))
+        waitForMail(
+          (onRetry) => mailbox.watch(afterSeq, fenceOf(held), onRetry),
+          within
         ),
     };
 

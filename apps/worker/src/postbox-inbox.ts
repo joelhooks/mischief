@@ -1,7 +1,7 @@
-import { Clock, Effect, Option } from "effect";
+import { Clock, Effect, Option, Schema } from "effect";
 
 import type { Inbound } from "./mailroom-port.js";
-import type { PostboxFailed } from "./postbox-failed.js";
+import { PostboxFailed } from "./postbox-failed.js";
 import type { HeldLease, LeaseBook } from "./postbox-lease.js";
 
 export const LEASE_TTL_MS = 300_000;
@@ -37,7 +37,7 @@ export interface Inbox {
     lease: HeldLease,
     afterSeq: number,
     within: number
-  ) => Effect.Effect<boolean, PostboxFailed>;
+  ) => Effect.Effect<boolean | "ended", PostboxFailed>;
 }
 
 export interface Inlet<E, R> {
@@ -47,7 +47,7 @@ export interface Inlet<E, R> {
   readonly receive: (message: Inbound) => Effect.Effect<void, E, R>;
 }
 
-export type BatchOutcome = "more" | "idle";
+export type BatchOutcome = "more" | "idle" | "ended";
 
 const leaseFor = Effect.fn("postboxLease")(function* postboxLease(
   inbox: Inbox,
@@ -92,16 +92,25 @@ const take = <E, R>(event: InboxEvent, inlet: Inlet<E, R>) =>
     )
   );
 
-export const readBatch = Effect.fn("readPostboxBatch")(function* readBatch<
+const readInboxBatch = Effect.fn("readPostboxBatch")(function* readInboxBatch<
   E,
   R,
->(inbox: Inbox, inlet: Inlet<E, R>, window: number) {
+>(
+  inbox: Inbox,
+  inlet: Inlet<E, R>,
+  window: number
+): Effect.fn.Return<BatchOutcome, E | PostboxFailed, R> {
   const lease = yield* leaseFor(inbox, inlet.leases);
   const afterSeq = inlet.cursor();
   const events = yield* inbox.page(lease, afterSeq, PAGE_LIMIT);
 
   if (events.length === 0) {
     const woken = yield* inbox.wait(lease, afterSeq, window);
+
+    if (woken === "ended") {
+      return "ended";
+    }
+
     const outcome: BatchOutcome = woken ? "more" : "idle";
 
     return outcome;
@@ -115,3 +124,25 @@ export const readBatch = Effect.fn("readPostboxBatch")(function* readBatch<
 
   return outcome;
 });
+
+export const readBatch = <E, R>(
+  inbox: Inbox,
+  inlet: Inlet<E, R>,
+  window: number
+) =>
+  readInboxBatch(inbox, inlet, window).pipe(
+    Effect.tapError((failure) =>
+      Effect.sync(() => {
+        if (
+          Schema.is(PostboxFailed)(failure) &&
+          failure.reason.includes("(LeaseMismatch)")
+        ) {
+          const held = inlet.leases.held(0);
+
+          if (Option.isSome(held)) {
+            inlet.leases.save({ ...held.value, expiresAt: 0 });
+          }
+        }
+      })
+    )
+  );

@@ -165,14 +165,12 @@ export const readerTurn = Effect.fn("postboxReaderTurn")(
 
     if (ending === "stalled") {
       const problem = stalled(window);
-      yield* Effect.logWarning(problem);
 
       return { ending, problem } satisfies TurnReport;
     }
 
     if (ending === "failed") {
       const problem = `the Postbox reader stopped (${context.failure?.kind ?? "Unavailable"}: ${context.failure?.reason ?? "no reason"}); the next alarm wires a fresh client`;
-      yield* Effect.logWarning(problem);
 
       return { ending, problem } satisfies TurnReport;
     }

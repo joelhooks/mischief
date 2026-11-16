@@ -279,6 +279,104 @@ const runHistory = Effect.fn("runInboxHistory")(function* runInboxHistory(
 });
 
 describe("Postbox inbox batches", () => {
+  it.effect(
+    "a LeaseMismatch in acquire, page or watch discards the stale fence before the next acquire",
+    () =>
+      Effect.gen(function* reacquireAfterMismatch() {
+        for (const call of ["acquire", "page", "watch"]) {
+          const storage = nodeSqlStorage(":memory:");
+          const leases = leaseBook(storage);
+          const now = yield* Clock.currentTimeMillis;
+
+          const held = {
+            did: DID,
+            expiresAt: now + LEASE_TTL_MS,
+            generation: 1,
+            leaseId: "stale",
+          };
+
+          leases.save(held);
+          let failed = false;
+          const resumes: boolean[] = [];
+
+          const failOnce = <A>(at: string, value: A) =>
+            Effect.suspend(() => {
+              if (call === at && !failed) {
+                failed = true;
+
+                return Effect.fail(mismatch(at));
+              }
+
+              return Effect.succeed(value);
+            });
+
+          const inbox: Inbox = {
+            acquire: (resume) => {
+              resumes.push(Option.isSome(resume));
+
+              return failOnce("acquire", held);
+            },
+            page: () => failOnce("page", []),
+            wait: () => failOnce("watch", false),
+          };
+
+          const inlet = {
+            advance: () => {
+              throw new Error("no message may be advanced");
+            },
+            cursor: () => 0,
+            leases,
+            receive: () => Effect.die("no delivery"),
+          };
+
+          expect(
+            Exit.isFailure(
+              yield* Effect.exit(readBatch(inbox, inlet, LONG_POLL_MS))
+            )
+          ).toBe(true);
+          expect(Option.isNone(leases.held(now))).toBe(true);
+          expect(yield* readBatch(inbox, inlet, LONG_POLL_MS)).toBe("idle");
+          expect(resumes).toStrictEqual([true, false]);
+        }
+      })
+  );
+
+  it.effect(
+    "a transient watch failure resumes the held lease instead of asking cold and getting LeaseHeld",
+    () =>
+      Effect.gen(function* resumeAfterTransientFailure() {
+        const mailbox = fakeMailbox();
+        const storage = nodeSqlStorage(":memory:");
+        const leases = leaseBook(storage);
+
+        const inlet = {
+          advance: () => {
+            throw new Error("no message may be advanced");
+          },
+          cursor: () => 0,
+          leases,
+          receive: () => Effect.die("no delivery"),
+        };
+
+        const inbox = {
+          ...mailbox.inbox,
+          wait: () =>
+            Effect.fail(
+              new PostboxFailed({ reason: "watch: SocketDisconnected" })
+            ),
+        };
+
+        expect(
+          Exit.isFailure(
+            yield* Effect.exit(readBatch(inbox, inlet, LONG_POLL_MS))
+          )
+        ).toBe(true);
+        expect(yield* readBatch(mailbox.inbox, inlet, LONG_POLL_MS)).toBe(
+          "idle"
+        );
+        expect(mailbox.issued).toStrictEqual([1]);
+      })
+  );
   it.effect.prop(
     "a crash between journaling and ack redelivers across the turn, the journal dedupes it, and every message is acked once drained",
     { history: histories },

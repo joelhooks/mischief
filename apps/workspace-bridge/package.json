@@ -19,11 +19,13 @@
     "start": "node dist/main.js",
     "start:proxy": "node dist/proxy-main.js",
     "start:boxes": "node dist/box-main.js",
-    "start:full-proxy": "node dist/full-proxy-main.js"
+    "start:full-proxy": "node dist/full-proxy-main.js",
+    "start:desk-host": "node dist/desk-host-main.js"
   },
   "dependencies": {
     "@effect/platform-node": "4.1.4",
     "@mischief/capability": "workspace:*",
+    "@mischief/core": "workspace:*",
     "@mischief/model-bridge": "workspace:*",
     "@xstate/effect": "1.0.0-beta.0",
     "effect": "4.1.4",
@@ -33,7 +35,6 @@
     "@earendil-works/pi-ai": "1.3.1-main.73f8de8",
     "@earendil-works/pi-durable": "1.3.1-main.73f8de8",
     "@effect/vitest": "4.1.4",
-    "@mischief/core": "workspace:*",
     "@mischief/thinking": "workspace:*",
     "@types/node": "24.19.2",
     "typescript": "7.0.2",

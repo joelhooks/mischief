@@ -11,6 +11,7 @@ const Call = Schema.Struct({
   iss: Schema.Literals(["did:web:a", "did:web:b"]),
   jti: Schema.Literals(["j-0000000000000001", "j-0000000000000002"]),
   lxm: Schema.Literals([
+    "sh.mschf.mischief.inspectDeskWake",
     "sh.mschf.mischief.inspectRun",
     "sh.mschf.mischief.submitPlan",
   ]),
@@ -103,6 +104,7 @@ it("only reads skip the durable ledger: the read-only set names exactly the insp
     "a write marked readOnly would lose durable replay protection"
   ).toStrictEqual(
     [
+      "sh.mschf.mischief.inspectDeskWake",
       "sh.mschf.mischief.inspectPeon",
       "sh.mschf.mischief.inspectRun",
       "sh.mschf.mischief.inspectSchedule",

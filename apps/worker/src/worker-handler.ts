@@ -5,6 +5,7 @@ import { Documents, staticResolver } from "@rat-king/mailbox-client/auth";
 import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
 import { Effect, Layer, Option, Result, Schema } from "effect";
 
+import { serveDeskWake } from "./desk-waker-http.js";
 import { servePeon } from "./peon-http.js";
 import type { Env } from "./plan-run-object.js";
 import { OBJECT_HEADER } from "./postbox-mail.js";
@@ -84,6 +85,10 @@ export default {
 
     if (request.method === "GET" && pathname === "/openapi.json") {
       return Response.json(mischiefApiSpec());
+    }
+
+    if (capability === "inspectDeskWake") {
+      return await serveDeskWake(request, env, caller.success.iss);
     }
 
     if (peonCapabilityNames.has(capability)) {

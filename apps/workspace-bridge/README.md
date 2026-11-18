@@ -2,6 +2,16 @@
 
 A read-only checkout adapter for workspace thinks. The bridge accepts the model-bridge Responses contract plus `workspace: { repo, sha }` and `tools`, then returns the same Responses SSE events.
 
+## Desk restore host
+
+Desk wakes are off by default. The `mischief-desk-host.service` user unit runs on the same machine as the celld Worker and listens only on `127.0.0.1:28015`. It does not run the restored Pi. Its configured Muster command reaches the catalog owner, which restores the desk on the configured restore machine.
+
+With the feature enabled, `POST /v1/desks/{encoded-name}/wake` accepts `{ "messageId": "…" }`, and `GET /v1/desks/{encoded-name}/lease` runs a read-only Muster probe. Both require the same `MISCHIEF_DESK_WAKE_KEY` as the Worker. Use one URL-encoded path segment for the name, such as `example%2Fdesk`. Keep the key in the private Worker bindings and host environment file, not in argv. Set `MISCHIEF_DESK_RESTORE_CMD` to a JSON argv prefix for `muster-restore` (or its approved noninteractive SSH invocation). The host supplies the desk name, triggering message ID and `MISCHIEF_DESK_EXIT_WHEN_DRAINED`. The probe passes `--dry-run --name` without a message ID. Keep `MISCHIEF_DESK_WAKE_RECEIPTS` in a private persistent directory. Completed and lost wakes replay the local receipt. Before a first restore, the host marks the attempt so a retry can ask Muster for the same ID's result without mistaking its reader for an unrelated lease. Refusals return `result: "failed", permanent: true` and raise an alarm without retrying. Only Muster caches row-tied refusals; the host does not cache refusals. A `wake in progress` receipt retries in five minutes without spending a failure. The Worker exposes Muster's `ready` field in inspection without gating the wake on it. Muster owns the final lease check and command idempotency. The lease route returns `{ "live": true }` or `{ "live": false }` for a known lease state, or `{ "permanent": true, "reason": "…" }` for an eligibility refusal. A fresh trigger while the waker is reading schedules an immediate lease probe. If that probe is unavailable, the waker retains the latest trigger until the next lease alarm.
+
+Operators can sign `POST /inspectDeskWake` with `sh.mschf.mischief.inspectDeskWake` and the configured operator DID, then send `{ "name": "example/desk" }`. The Worker accepts only the typed `sh.mschf.ratking.desk.wake` record from `MISCHIEF_DESK_WAKE_SENDER`. The worker's local mail schema is a compatibility copy until the Rat King pin includes `packages/lexicon/src/desk.wake.ts` from Rat King `567a1c7`. The recorded sequence is diagnostic only; the Postbox cursor belongs to a different mailbox.
+
+## Workspace deployment
+
 These definitions do not create a Docker network, slice, firewall rule or unit, and the units are not registered with the infrastructure stack. Local image builds do not prove peon-network execution or live provider behavior; those proofs remain rollout work.
 
 ## Processes

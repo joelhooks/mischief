@@ -36,6 +36,7 @@ export interface BuildInput {
   readonly peonGrants?: string;
   readonly commit: string;
   readonly did: string;
+  readonly deskWakeSender?: string | undefined;
   readonly entry?: string;
   readonly judge: "jev" | "shadow";
   readonly mailbox: { readonly did: string; readonly url: string };
@@ -66,6 +67,7 @@ export const buildWorker = ({
   peonGrants = "{}",
   commit,
   did,
+  deskWakeSender,
   entry,
   judge,
   mailbox,
@@ -105,16 +107,41 @@ export const buildWorker = ({
             MISCHIEF_WORKSPACE_REPOS: workspace.repos,
           };
 
+    const deskWakeDeclaration: typeof Declaration.Type =
+      deskWakeSender === undefined
+        ? declaration
+        : {
+            ...declaration,
+            durable_objects: {
+              bindings: [
+                ...declaration.durable_objects.bindings,
+                { class_name: "DeskWaker", name: "DESK_WAKER" },
+              ],
+            },
+            migrations: [
+              ...declaration.migrations,
+              { new_sqlite_classes: ["DeskWaker"], tag: "v6-desk-waker" },
+            ],
+          };
+
+    const workerVars: typeof workspaceVars & {
+      MISCHIEF_OPUS_BRIDGE_URL?: string;
+      MISCHIEF_DESK_WAKE?: string;
+      MISCHIEF_DESK_WAKE_SENDER?: string;
+    } = { ...workspaceVars };
+
+    if (opusBridgeUrl !== undefined && opusBridgeUrl.trim() !== "") {
+      workerVars.MISCHIEF_OPUS_BRIDGE_URL = opusBridgeUrl;
+    }
+
+    if (deskWakeSender !== undefined) {
+      workerVars.MISCHIEF_DESK_WAKE = "on";
+      workerVars.MISCHIEF_DESK_WAKE_SENDER = deskWakeSender;
+    }
+
     return yield* prepareDeployment(
       entry ?? path.resolve(import.meta.dirname, "../worker/src/worker.ts"),
-      declaration,
-      {
-        commit,
-        vars:
-          opusBridgeUrl === undefined || opusBridgeUrl.trim() === ""
-            ? workspaceVars
-            : { ...workspaceVars, MISCHIEF_OPUS_BRIDGE_URL: opusBridgeUrl },
-        version,
-      }
+      deskWakeDeclaration,
+      { commit, vars: workerVars, version }
     );
   });

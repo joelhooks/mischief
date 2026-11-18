@@ -7,6 +7,8 @@ import { FetchHttpClient } from "effect/http";
 
 import { withDeadline } from "./call-deadline.js";
 import { decodeDelivery } from "./decode-delivery.js";
+import { routeDeskWake } from "./desk-wake-mail.js";
+import type { DeskWake } from "./desk-wake-mail.js";
 import { Mailroom, SendVerdict } from "./mailroom-port.js";
 import { openMailroom } from "./mailroom.js";
 import { resolvePeonAddress } from "./peon-address.js";
@@ -127,6 +129,29 @@ export class Postbox extends DurableObject<Env> {
     };
   }
 
+  private wakeDesk(wake: DeskWake) {
+    const wakers = this.env.DESK_WAKER;
+
+    if (wakers === undefined) {
+      return Effect.fail(
+        new PostboxFailed({
+          reason:
+            "MISCHIEF_DESK_WAKE=on but DESK_WAKER is not bound. Check the celld declaration before retrying wake delivery.",
+        })
+      );
+    }
+
+    return Effect.tryPromise({
+      catch: () =>
+        new PostboxFailed({
+          reason: `DeskWaker ${wake.name} did not acknowledge the trigger. Check the celld journal; the Postbox will retry.`,
+        }),
+      try: async () => {
+        await wakers.getByName(wake.name).wake(wake);
+      },
+    });
+  }
+
   private readerIn(scope: Scope.Scope) {
     return PostboxReader.of({
       read: ({ inbox, layer }, window) =>
@@ -140,19 +165,26 @@ export class Postbox extends DurableObject<Env> {
               cursor: () => this.box.cursor(),
               leases: this.leases,
               receive: (message) =>
-                Option.match(resolvePeonAddress(undefined, message.body), {
-                  onNone: () =>
-                    this.box
-                      .receive(message)
-                      .pipe(Effect.provide(Layer.merge(layer, this.runs))),
-                  onSome: (address) =>
-                    receivePeonMail(
-                      peonMailHost(this.env),
-                      message,
-                      address,
-                      this.peonReply
-                    ).pipe(Effect.provide(layer)),
-                }),
+                routeDeskWake(
+                  message,
+                  this.env.MISCHIEF_DESK_WAKE === "on",
+                  this.env.MISCHIEF_DESK_WAKE_SENDER,
+                  (wake) => this.wakeDesk(wake),
+                  () =>
+                    Option.match(resolvePeonAddress(undefined, message.body), {
+                      onNone: () =>
+                        this.box
+                          .receive(message)
+                          .pipe(Effect.provide(Layer.merge(layer, this.runs))),
+                      onSome: (address) =>
+                        receivePeonMail(
+                          peonMailHost(this.env),
+                          message,
+                          address,
+                          this.peonReply
+                        ).pipe(Effect.provide(layer)),
+                    })
+                ),
             },
             window
           )

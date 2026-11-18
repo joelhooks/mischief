@@ -18,6 +18,7 @@ import { FetchHttpClient } from "effect/http";
 import { callersFromConfig } from "./callers.ts";
 import { buildWorker, INSTANCE } from "./celld-build.ts";
 import type { Thinker } from "./celld-build.ts";
+import { deskHostUnit, deskWakeFromConfig } from "./desk-wake-config.ts";
 import { opusBridgeUnit } from "./opus-bridge-unit.ts";
 import { peonBoxesFromConfig } from "./peon-box-config.ts";
 import { peonBoxUnits } from "./peon-box-unit.ts";
@@ -83,6 +84,18 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         Config.String("MISCHIEF_BINDINGS_FILE")
       );
 
+      const deskWake = yield* deskWakeFromConfig;
+
+      if (deskWake !== null) {
+        if (Option.isNone(bindingsFile)) {
+          return yield* Effect.die(
+            "Desk wake needs a private MISCHIEF_BINDINGS_FILE containing MISCHIEF_DESK_WAKE_KEY. Configure it before enabling the host."
+          );
+        }
+
+        yield* SystemdUnit("desk-host", deskHostUnit(host, deskWake.entry));
+      }
+
       const judge = yield* Config.Literals(
         ["jev", "shadow"],
         "MISCHIEF_JUDGE"
@@ -139,6 +152,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
       const prepared = yield* buildWorker({
         callers,
         commit,
+        deskWakeSender: deskWake?.sender,
         did,
         judge,
         mailReach,
@@ -216,6 +230,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
                       "MISCHIEF_IDENTITY",
                       "MISCHIEF_JEV_KEY",
                       ...(peonBoxes === "on" ? ["MISCHIEF_BOX_KEY"] : []),
+                      ...(deskWake === null ? [] : ["MISCHIEF_DESK_WAKE_KEY"]),
                       ...(opusBridgeUrl === ""
                         ? []
                         : ["MISCHIEF_OPUS_BRIDGE_KEY"]),

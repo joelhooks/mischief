@@ -167,6 +167,68 @@ it.effect(
   120_000
 );
 
+it.effect(
+  "desk wake on adds a host user unit, SQLite binding and migration, and private bearer binding",
+  () =>
+    Effect.gen(function* enabledDeskWake() {
+      const sender = "did:web:operator.ratking-fleet.invalid";
+
+      const rows = yield* plannedWorkspace({
+        MISCHIEF_DESK_HOST_ENTRY: "/opt/mischief/desk-host-main.js",
+        MISCHIEF_DESK_WAKE: "on",
+        MISCHIEF_DESK_WAKE_SENDER: sender,
+      });
+
+      const unit = yield* Schema.decodeUnknownEffect(Unit)(
+        rows.find(({ fqn }) => fqn === "desk-host")?.props
+      );
+
+      expect(unit.name).toBe("mischief-desk-host.service");
+      expect(
+        unit.sections.find(({ name }) => name === "Service")?.lines
+      ).toEqual(
+        expect.arrayContaining([
+          ["EnvironmentFile", "/home/planner/.config/mischief/desk-host.env"],
+          [
+            "ExecStart",
+            '/usr/local/bin/node "/opt/mischief/desk-host-main.js"',
+          ],
+        ])
+      );
+
+      const file = yield* Schema.decodeUnknownEffect(ConfigurationFile)(
+        rows.find(
+          ({ fqn }) => fqn === "mischief-deployment-stage-configuration"
+        )?.props
+      );
+
+      expect(file.content).toContain(
+        '"class_name":"DeskWaker","name":"DESK_WAKER"'
+      );
+      expect(file.content).toContain(
+        '"new_sqlite_classes":["DeskWaker"],"tag":"v6-desk-waker"'
+      );
+
+      const { vars } = yield* Schema.decodeEffect(WorkerConfiguration)(
+        file.content
+      );
+
+      expect(vars).toMatchObject({
+        MISCHIEF_DESK_WAKE: "on",
+        MISCHIEF_DESK_WAKE_SENDER: sender,
+      });
+      expect(file.content).not.toContain("MISCHIEF_DESK_WAKE_KEY");
+      expect(rows.find(({ fqn }) => fqn === "planrun")?.props).toMatchObject({
+        secretNames: [
+          "MISCHIEF_IDENTITY",
+          "MISCHIEF_JEV_KEY",
+          "MISCHIEF_DESK_WAKE_KEY",
+        ],
+      });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  60_000
+);
+
 const ConfigurationFile = Schema.Struct({ content: Schema.String });
 
 const WorkerConfiguration = Schema.fromJsonString(
@@ -202,6 +264,14 @@ it.effect(
       expect(JSON.stringify(disabled)).not.toContain("MISCHIEF_WORKSPACE");
       const baseline = yield* plannedWorkspace({});
       expect(JSON.stringify(disabled)).toBe(JSON.stringify(baseline));
+
+      const deskWakeOff = yield* plannedWorkspace({
+        MISCHIEF_DESK_HOST_ENTRY: "/unused/desk-host-main.js",
+        MISCHIEF_DESK_WAKE: "off",
+        MISCHIEF_DESK_WAKE_SENDER: "did:web:unused.invalid",
+      });
+
+      expect(JSON.stringify(deskWakeOff)).toBe(JSON.stringify(baseline));
       expect(baseline).toMatchSnapshot();
     }).pipe(Effect.provide(NodeServices.layer)),
   120_000

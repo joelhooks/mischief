@@ -30,6 +30,7 @@ export const READ_ONLY: ReadonlySet<string> = new Set(
     ].flatMap(({ contract }) =>
       contract.annotations.readOnly ? [contract.name] : []
     ),
+    "inspectDeskWake",
     "openApi",
   ].map((name) => `${NSID_PREFIX}${name}`)
 );

@@ -38,6 +38,7 @@ import { abortNotices } from "./abort-notices.js";
 import { withDeadline } from "./call-deadline.js";
 import type { CallerThinks } from "./caller-think-object.js";
 import { callerThinkPermit } from "./caller-think-permit.js";
+import type { DeskWaker } from "./desk-waker-object.js";
 import {
   escalate,
   escalationText,
@@ -71,6 +72,10 @@ import { dedupeKey, utcDay, warnText } from "./think-tally.js";
 const TELEMETRY_DESK = "pi-durable/desk";
 
 export interface Env {
+  readonly DESK_WAKER?: DurableObjectNamespace<DeskWaker>;
+  readonly MISCHIEF_DESK_WAKE?: string;
+  readonly MISCHIEF_DESK_WAKE_SENDER?: string;
+  readonly MISCHIEF_DESK_WAKE_KEY?: string;
   readonly PEON: DurableObjectNamespace<Peon>;
   readonly PEON_TEMPLATES: DurableObjectNamespace<PeonTemplates>;
   readonly MISCHIEF_PEON_BOXES?: string;

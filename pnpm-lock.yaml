@@ -441,6 +441,9 @@ importers:
       '@mischief/capability':
         specifier: workspace:*
         version: link:../../packages/capability
+      '@mischief/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@mischief/model-bridge':
         specifier: workspace:*
         version: link:../model-bridge
@@ -463,9 +466,6 @@ importers:
       '@effect/vitest':
         specifier: 4.1.4
         version: 4.1.4(effect@4.1.4)(vitest@5.1.0(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))
-      '@mischief/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       '@mischief/thinking':
         specifier: workspace:*
         version: link:../../packages/thinking

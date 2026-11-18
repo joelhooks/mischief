@@ -1,6 +1,6 @@
 import type { UnitProps } from "@rat-king/alchemy-nest";
 
-const quote = (value: string) =>
+export const quoteUnitArgument = (value: string) =>
   `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%").replaceAll("$", "$$")}"`;
 
 export const opusBridgeUnit = (
@@ -15,7 +15,7 @@ export const opusBridgeUnit = (
     {
       lines: [
         ["EnvironmentFile", `${host.home}/.config/mischief/opus-bridge.env`],
-        ["ExecStart", `/usr/local/bin/node ${quote(entry)}`],
+        ["ExecStart", `/usr/local/bin/node ${quoteUnitArgument(entry)}`],
         ["KillMode", "control-group"],
         ["MemoryHigh", "3.5G"],
         ["MemoryMax", "4G"],

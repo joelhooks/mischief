@@ -193,6 +193,8 @@ it.effect(
             "ExecStart",
             '/usr/local/bin/node "/opt/mischief/desk-host-main.js"',
           ],
+          ["MemoryMax", "512M"],
+          ["TasksMax", "64"],
         ])
       );
 

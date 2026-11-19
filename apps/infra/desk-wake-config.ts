@@ -31,9 +31,11 @@ export const deskHostUnit = (
       lines: [
         ["EnvironmentFile", `${host.home}/.config/mischief/desk-host.env`],
         ["ExecStart", `/usr/local/bin/node ${quoteUnitArgument(entry)}`],
+        ["MemoryMax", "512M"],
         ["NoNewPrivileges", "true"],
         ["Restart", "on-failure"],
         ["RestartSec", "10"],
+        ["TasksMax", "64"],
         ["Type", "simple"],
         ["UMask", "0077"],
       ],

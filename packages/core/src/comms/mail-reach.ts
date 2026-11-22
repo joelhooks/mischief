@@ -16,9 +16,10 @@ export const callerName = (did: string) => {
       did
     );
 
-  const bare = /^did:web:(?<name>[a-z0-9_-]+)\.ratking-fleet\.invalid$/u.exec(
-    did
-  );
+  const bare =
+    /^did:web:(?<name>[a-z0-9_-]+)(?:\.pi)?\.ratking-fleet\.invalid$/u.exec(
+      did
+    );
 
   const name =
     scoped === null
@@ -37,7 +38,7 @@ export const callerReach = (did: string, config?: string) => {
   if (Option.isNone(own)) {
     return {
       names: [],
-      reason: `cannot derive a Rat King name from caller ${did}. Use did:web:<project>.<desk>.pi.ratking-fleet.invalid or did:web:<name>.ratking-fleet.invalid; ask the Mischief desk (pi-durable/desk) to correct the caller DID`,
+      reason: `cannot derive a Rat King name from caller ${did}. Use did:web:<project>.<desk>.pi.ratking-fleet.invalid, did:web:<name>.pi.ratking-fleet.invalid, or a legacy did:web:<name>.ratking-fleet.invalid; ask the Mischief desk (pi-durable/desk) to correct the caller DID`,
     };
   }
 

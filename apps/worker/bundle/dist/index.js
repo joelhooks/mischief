@@ -84822,7 +84822,7 @@ var custodyRefusal = Schema97.fromJsonString(
   })
 );
 var nextStep = {
-  CustodyMissing: "custody is off on this host; destroy is unavailable until custody-on",
+  CustodyMissing: "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete: "Recover the skipped session files, then retry destroyPeon.",
   DestroyInProgress: "Retry destroyPeon with the original workspace disposition.",
   ReceiptMismatch: "Ask the Mischief operator to check the protected archive before retrying destroyPeon.",
@@ -85295,15 +85295,16 @@ var peonHost = ({
     if (stored2.pending === null) {
       return yield* fault;
     }
-    const state3 = stored2.report.state === "destroyed" ? "destroyed" : peonTransition(stored2.report.state, "BOX_LOST");
-    const lost = {
+    const refused3 = fault.code !== void 0;
+    const state3 = refused3 || stored2.report.state === "destroyed" ? stored2.report.state : peonTransition(stored2.report.state, "BOX_LOST");
+    const faulted = {
       ...stored2,
-      pending: fault.code === void 0 ? stored2.pending : null,
+      pending: refused3 ? null : stored2.pending,
       report: { ...stored2.report, fault: fault.reason, state: state3 }
     };
-    yield* commit(lost);
-    if (lost.report.state !== "destroyed") {
-      yield* publish2(indexOf(lost.report));
+    yield* commit(faulted);
+    if (state3 !== "destroyed") {
+      yield* publish2(indexOf(faulted.report));
     }
     return yield* fault;
   });

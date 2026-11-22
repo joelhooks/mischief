@@ -16,6 +16,7 @@ const Calls = Schema.Array(
     path: Schema.String,
     requestId: Schema.String,
     discardWorkspace: Schema.optionalKey(Schema.Literal(true)),
+    landedHead: Schema.optionalKey(Schema.String),
   })
 );
 
@@ -229,11 +230,22 @@ it.live(
       });
       expect((yield* report(world)).state).toBe("idle");
 
-      yield* post(world, "destroyPeon", {
+      const custodyMissing = yield* post(world, "destroyPeon", {
         peonId: "worker-a",
         requestId: "destroy-1",
         discardWorkspace: true,
       });
+
+      expect(JSON.stringify(custodyMissing.body)).toContain("CustodyMissing");
+      expect((yield* report(world)).pending).toBeNull();
+
+      const destroyed = yield* post(world, "destroyPeon", {
+        peonId: "worker-a",
+        requestId: "destroy-1",
+        landedHead: workspace.sha,
+      });
+
+      expect(destroyed.status, JSON.stringify(destroyed.body)).toBe(200);
 
       const teardown = (yield* readCalls(world)).filter(
         ({ path }) =>
@@ -241,11 +253,12 @@ it.live(
       );
 
       expect(
-        teardown.map(({ path, discardWorkspace }) => [path, discardWorkspace])
+        teardown.map(({ path, landedHead }) => [path, landedHead])
       ).toEqual([
-        ["/v1/boxes/worker-a", true],
+        ["/v1/boxes/worker-a", undefined],
+        ["/v1/boxes/worker-a", workspace.sha],
         ["/v1/boxes/worker-a/export", undefined],
-        ["/v1/boxes/worker-a", true],
+        ["/v1/boxes/worker-a", workspace.sha],
       ]);
 
       const tombstone = yield* post(world, "inspectPeon", {
@@ -255,6 +268,9 @@ it.live(
       expect(
         Option.isSome(Schema.decodeUnknownOption(PeonTombstone)(tombstone.body))
       ).toBe(true);
+      expect(tombstone.body).toMatchObject({
+        exportReceipt: { id: "worker-a/archive", replicaState: "verified" },
+      });
       expect(JSON.stringify(tombstone.body)).not.toContain("Remember the task");
 
       const listed = yield* post(world, "listPeons", { state: "all" });

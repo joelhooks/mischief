@@ -31,6 +31,8 @@ import { Metadata, PeonId, Result, Tombstone } from "./protocol.js";
 import type { BoxMetadata, Action, Create } from "./protocol.js";
 import { ReceiptMismatch } from "./receipt-mismatch.js";
 import { receiptKey } from "./receipt.js";
+import { ReplicaMismatch } from "./replica-mismatch.js";
+import { ReplicaPending } from "./replica-pending.js";
 import { unlanded, verifyWorkspace } from "./workspace-proof.js";
 import type { WorkspaceUnlanded } from "./workspace-unlanded.js";
 
@@ -100,6 +102,11 @@ const needsExport = (id: string) =>
 
 type DestroyMarker = NonNullable<BoxMetadata["destroying"]>;
 
+const supersededWork = (snapshotBytes: number | undefined) =>
+  snapshotBytes === undefined
+    ? {}
+    : { snapshotWorkSuperseded: true, snapshotBytes };
+
 type SnapshotRoot = Effect.Effect<
   string,
   BridgeFailure | PlatformError.PlatformError
@@ -144,6 +151,8 @@ export class Boxes extends Context.Service<
       | CustodyIncomplete
       | DestroyInProgress
       | ReceiptMismatch
+      | ReplicaMismatch
+      | ReplicaPending
     >;
     readonly inspect: (
       id: string
@@ -357,7 +366,7 @@ export class Boxes extends Context.Service<
 
         const prepareTree = (id: string) =>
           execute({
-            args: ["-R", "u+rw,g+rwX,o-rwx", base(id)],
+            args: ["-R", "u+rwX,g+rwX,o-rwx", base(id)],
             executable: "chmod",
           });
 
@@ -423,7 +432,7 @@ export class Boxes extends Context.Service<
               "l",
               "-exec",
               "chmod",
-              "u+rw,g+rwX,o-rwx",
+              "u+rwX,g+rwX,o-rwx",
               "{}",
               "+",
             ],
@@ -493,7 +502,7 @@ export class Boxes extends Context.Service<
             "/bin/chmod",
             config.image,
             "-R",
-            "u+rw,g+rwX,o-rwx",
+            "u+rwX,g+rwX,o-rwx",
             "/box",
           ]);
 
@@ -743,7 +752,21 @@ export class Boxes extends Context.Service<
             );
           }
 
-          const updated = { ...box, state };
+          const { snapshot, ...metadata } = box;
+
+          const updated =
+            snapshot === undefined
+              ? { ...metadata, state }
+              : {
+                  ...metadata,
+                  state,
+                  snapshot: {
+                    bytes: snapshot.bytes,
+                    path: snapshot.path,
+                    sha256: snapshot.sha256,
+                  },
+                };
+
           yield* save(updated);
 
           return { box: updated, restored };
@@ -931,10 +954,16 @@ export class Boxes extends Context.Service<
               host: hostname().split(".")[0] ?? hostname(),
             };
 
+            const snapshotHome =
+              box.state !== "hibernated" && box.snapshot !== undefined
+                ? yield* extractSnapshot(box, "home", canonical)
+                : undefined;
+
             return yield* collectArchive(
               source,
               box,
-              row === undefined ? identity : { ...identity, row }
+              row === undefined ? identity : { ...identity, row },
+              snapshotHome
             ).pipe(
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
@@ -982,7 +1011,7 @@ export class Boxes extends Context.Service<
               JSON.stringify(manifest.skipped)
           ) {
             const previous = yield* custody
-              .readBack(box.archive, "check")
+              .readBack(box.archive, "primary")
               .pipe(Effect.mapError(archiveError));
 
             if (ReadBackResult.$is("Verified")(previous)) {
@@ -1001,7 +1030,7 @@ export class Boxes extends Context.Service<
           if (!ReadBackResult.$is("Verified")(proof)) {
             return yield* mismatch(
               id,
-              `Protected archive read-back did not match in both destinations: ${proof.reason}`
+              `Primary archive read-back did not match: ${proof.reason}`
             );
           }
 
@@ -1025,10 +1054,26 @@ export class Boxes extends Context.Service<
               .readBack(receipt, "check")
               .pipe(Effect.mapError(archiveError));
 
-            if (!ReadBackResult.$is("Verified")(proof)) {
+            if (ReadBackResult.$is("ReplicaPending")(proof)) {
+              return yield* new ReplicaPending({
+                archiveId: archiveId(receipt),
+                message: proof.reason,
+                status: 409,
+              });
+            }
+
+            if (ReadBackResult.$is("ReplicaMismatch")(proof)) {
+              return yield* new ReplicaMismatch({
+                archiveId: archiveId(receipt),
+                message: proof.reason,
+                status: 409,
+              });
+            }
+
+            if (ReadBackResult.$is("Mismatch")(proof)) {
               return yield* mismatch(
                 box.peonId,
-                `Cannot destroy without both custody receipts: ${proof.reason}`
+                `Cannot verify primary custody: ${proof.reason}`
               );
             }
 
@@ -1040,7 +1085,6 @@ export class Boxes extends Context.Service<
           function* authorizeWorkspace(
             box: BoxMetadata,
             input: typeof Action.Type,
-            retainSnapshot: boolean,
             canonical: SnapshotRoot
           ) {
             const { landedHead } = input;
@@ -1078,30 +1122,13 @@ export class Boxes extends Context.Service<
                 Effect.provideService(Path.Path, path)
               );
 
-            const live =
-              box.state === "hibernated"
-                ? undefined
-                : yield* verify(work(box.peonId));
-
-            const saved =
-              box.state === "hibernated" ||
-              (box.snapshot !== undefined && !retainSnapshot)
-                ? yield* Effect.scoped(
-                    extractSnapshot(box, "work", canonical).pipe(
-                      Effect.flatMap(verify)
-                    )
+            return box.state === "hibernated"
+              ? yield* Effect.scoped(
+                  extractSnapshot(box, "work", canonical).pipe(
+                    Effect.flatMap(verify)
                   )
-                : undefined;
-
-            return {
-              abandoned: [
-                ...new Set([
-                  ...(live?.abandoned ?? []),
-                  ...(saved?.abandoned ?? []),
-                ]),
-              ].toSorted(),
-              ignored: (live?.ignored ?? 0) + (saved?.ignored ?? 0),
-            };
+                )
+              : yield* verify(work(box.peonId));
           }
         );
 
@@ -1177,12 +1204,7 @@ export class Boxes extends Context.Service<
               );
             }
 
-            const workspace = yield* authorizeWorkspace(
-              box,
-              input,
-              retainSnapshot,
-              canonical
-            );
+            const workspace = yield* authorizeWorkspace(box, input, canonical);
 
             const bytesFreed =
               (yield* size(base(id))) +
@@ -1190,6 +1212,9 @@ export class Boxes extends Context.Service<
 
             const marker = {
               ...workspace,
+              ...supersededWork(
+                box.state === "hibernated" ? undefined : snapshot?.bytes
+              ),
               bytesFreed,
               disposition,
               requestId,
@@ -1295,6 +1320,7 @@ export class Boxes extends Context.Service<
             bytesFreed: marker.bytesFreed,
             exportReceipt,
             snapshotKept: marker.retainSnapshot,
+            ...supersededWork(marker.snapshotBytes),
             state: "destroyed",
           });
 
@@ -1669,6 +1695,7 @@ export class Boxes extends Context.Service<
 
                     yield* execute({
                       args: [
+                        "--hard-dereference",
                         "-cf",
                         `${file}.tmp`,
                         "-C",

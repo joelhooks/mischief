@@ -66,6 +66,130 @@ type ReadGit = (
   args: readonly string[]
 ) => Effect.Effect<string, BridgeFailure | WorkspaceUnlanded>;
 
+const ancestryScript = `
+while IFS= read -r ref; do
+  if ! /usr/bin/git merge-base --is-ancestor "$ref" "$1"; then
+    printf '%s\\n' "$ref"
+  fi
+done
+`;
+
+const reflog = Effect.fn("Box.readReflog")(function* reflog(file: string) {
+  const fs = yield* FileSystem.FileSystem;
+
+  return yield* fs.readFileString(file).pipe(
+    Effect.map((text) =>
+      text
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => line.split(" ", 2))
+    )
+  );
+});
+
+const listCheckoutHeads = Effect.fn("Box.checkoutHeads")(
+  function* listCheckoutHeads(repo: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const worktrees = path.join(repo, "worktrees");
+    const checkoutHeads = ["HEAD"];
+
+    if (yield* fs.exists(worktrees)) {
+      if ((yield* fs.lstat(worktrees)).type !== "Directory") {
+        return yield* unlanded(
+          "Git linked-worktree registrations must be directories."
+        );
+      }
+
+      for (const name of yield* fs.readDirectory(worktrees)) {
+        const relative = path.join("worktrees", name);
+
+        if ((yield* fs.lstat(path.join(repo, relative))).type !== "Directory") {
+          return yield* unlanded(
+            "Git linked-worktree registration is not a directory."
+          );
+        }
+
+        checkoutHeads.push(path.join(relative, "HEAD"));
+      }
+    }
+
+    return checkoutHeads;
+  }
+);
+
+const abandonedCommits = Effect.fn("Box.abandonedCommits")(
+  function* abandonedCommits(
+    repo: string,
+    head: string,
+    git: Git,
+    checkoutHeads: readonly string[]
+  ) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const evidence = new Set<string>();
+
+    for (const label of checkoutHeads) {
+      const file = path.join(repo, path.dirname(label), "logs", "HEAD");
+
+      if (yield* fs.exists(file)) {
+        if (
+          (yield* fs.realPath(file)) !== file ||
+          (yield* fs.lstat(file)).type !== "File"
+        ) {
+          return yield* unlanded(
+            "Git HEAD reflogs must be canonical regular files."
+          );
+        }
+
+        for (const entry of yield* reflog(file)) {
+          for (const commit of entry) {
+            if (hashPattern.test(commit) && commit !== "0".repeat(40)) {
+              evidence.add(commit);
+            }
+          }
+        }
+      }
+    }
+
+    const branchLogs = path.join(repo, "logs", "refs", "heads");
+
+    if (yield* fs.exists(branchLogs)) {
+      yield* walk(branchLogs, (name) =>
+        Effect.gen(function* recordBranchLog() {
+          for (const entry of yield* reflog(path.join(branchLogs, name))) {
+            for (const commit of entry) {
+              if (hashPattern.test(commit) && commit !== "0".repeat(40)) {
+                evidence.add(commit);
+              }
+            }
+          }
+        })
+      );
+    }
+
+    if (evidence.size === 0) {
+      return [];
+    }
+
+    const abandoned = yield* git(
+      ["rev-list", "--stdin", "--not", head, "--not"],
+      `${[...evidence].join("\n")}\n`
+    );
+
+    if (abandoned.exit !== 0) {
+      return yield* unlanded(
+        "Git could not read historical commits from a HEAD or branch reflog."
+      );
+    }
+
+    return abandoned.stdout
+      .split("\n")
+      .filter((line) => hashPattern.test(line))
+      .toSorted();
+  }
+);
+
 const checkRefs = Effect.fn("Box.checkRefs")(function* checkRefs(
   repo: string,
   head: string,
@@ -75,37 +199,66 @@ const checkRefs = Effect.fn("Box.checkRefs")(function* checkRefs(
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const refs = (yield* read([
-    "for-each-ref",
-    "--format=%(refname)",
-    "refs/heads",
-    "refs/tags",
-    "refs/remotes",
-    "refs/stash",
-  ]))
+  const refs = (yield* read(["for-each-ref", "--format=%(refname)"]))
     .split("\n")
     .filter(Boolean);
 
-  const headFile = path.join(repo, "HEAD");
+  const checks = new Map(refs.map((ref) => [ref, ref]));
 
-  if ((yield* fs.lstat(headFile)).type !== "File") {
-    return yield* unlanded("The workspace Git HEAD is not a regular file.");
-  }
+  const checkoutHeads = yield* listCheckoutHeads(repo);
 
-  const current = (yield* fs.readFileString(headFile)).trim();
+  for (const label of checkoutHeads) {
+    const file = path.join(repo, label);
 
-  if (!current.startsWith("ref: refs/heads/") && !hashPattern.test(current)) {
-    return yield* unlanded("The workspace Git HEAD is not a branch or commit.");
-  }
+    if ((yield* fs.lstat(file)).type !== "File") {
+      return yield* unlanded("A workspace Git HEAD is not a regular file.");
+    }
 
-  const candidates = hashPattern.test(current) ? [...refs, current] : refs;
-  const unmerged: string[] = [];
+    const value = (yield* fs.readFileString(file)).trim();
+    const candidate = value.startsWith("ref: ") ? value.slice(5) : value;
 
-  for (const ref of candidates) {
-    if ((yield* git(["merge-base", "--is-ancestor", ref, head])).exit !== 0) {
-      unmerged.push(ref);
+    if (!hashPattern.test(candidate) && !refs.includes(candidate)) {
+      return yield* unlanded(
+        "A workspace Git HEAD does not point to a recorded commit or ref.",
+        [],
+        [label]
+      );
+    }
+
+    if (!checks.has(candidate)) {
+      checks.set(candidate, label);
     }
   }
+
+  const stash = path.join(repo, "logs", "refs", "stash");
+
+  if (yield* fs.exists(stash)) {
+    const entries = yield* reflog(stash);
+
+    for (const [index, [, commit]] of entries.toReversed().entries()) {
+      if (commit === undefined || !hashPattern.test(commit)) {
+        return yield* unlanded("A Git stash entry has an invalid commit.");
+      }
+
+      checks.set(commit, `stash@{${index}}`);
+    }
+  }
+
+  const batch = yield* git(
+    ["/bin/sh", "-c", ancestryScript, "ancestry", head],
+    `${[...checks.keys()].join("\n")}\n`
+  );
+
+  if (batch.exit !== 0) {
+    return yield* unlanded(
+      "Git could not check ancestry of local refs, worktrees and stashes."
+    );
+  }
+
+  const unmerged = batch.stdout
+    .split("\n")
+    .filter(Boolean)
+    .map((ref) => checks.get(ref) ?? ref);
 
   if (unmerged.length > 0) {
     return yield* unlanded(
@@ -118,12 +271,7 @@ const checkRefs = Effect.fn("Box.checkRefs")(function* checkRefs(
     );
   }
 
-  const abandoned = (yield* read(["rev-list", "--reflog", "--not", head]))
-    .split("\n")
-    .filter((line) => hashPattern.test(line))
-    .toSorted();
-
-  return abandoned;
+  return yield* abandonedCommits(repo, head, git, checkoutHeads);
 });
 
 const landedEntries = Effect.fn("Box.landedEntries")(function* landedEntries(
@@ -163,7 +311,7 @@ const landedEntries = Effect.fn("Box.landedEntries")(function* landedEntries(
         )
     ) {
       return yield* unlanded(
-        "The landed tree has an unsupported path or entry type."
+        "The landed tree has a submodule or another unsupported path or entry type. Submodule custody is not supported."
       );
     }
 
@@ -273,7 +421,7 @@ const compareFiles = Effect.fn("Box.compareFiles")(function* compareFiles(
     const paths = [...dirty].toSorted();
 
     return yield* unlanded(
-      `Workspace differs from landedHead at ${paths.length} paths (${ignored} ignored): ${paths
+      `Workspace differs from landedHead at ${paths.length} paths (${ignored} ignored). Checkout filters, LFS and line-ending conversion can change bytes and are not trusted: ${paths
         .slice(0, limit)
         .map((name) => JSON.stringify(name))
         .join(", ")}.`,
@@ -395,11 +543,15 @@ export const verifyWorkspace = Effect.fn("Box.verifyWorkspace")(
         "GIT_DIR=/proof/repo",
         "GIT_WORK_TREE=/proof/ignore",
         ...(objectStore ? ["GIT_OBJECT_DIRECTORY=/objects"] : []),
-        "/usr/bin/git",
-        "--no-optional-locks",
-        "-c",
-        "core.excludesFile=/dev/null",
-        ...args,
+        ...(args[0] === "/bin/sh"
+          ? args
+          : [
+              "/usr/bin/git",
+              "--no-optional-locks",
+              "-c",
+              "core.excludesFile=/dev/null",
+              ...args,
+            ]),
       ];
 
       return runner.run(
@@ -412,7 +564,8 @@ export const verifyWorkspace = Effect.fn("Box.verifyWorkspace")(
     const read = (args: readonly string[]) =>
       git(args).pipe(
         Effect.flatMap((result) =>
-          result.exit === 0
+          result.exit === 0 &&
+          (args[0] !== "for-each-ref" || (result.stderr ?? "").trim() === "")
             ? Effect.succeed(result.stdout)
             : Effect.fail(
                 unlanded(

@@ -33,5 +33,25 @@ export const peonBoxesFromConfig = Effect.gen(function* peonBoxesFromConfig() {
     );
   }
 
-  return Option.some({ boxEntry, mount, proxyEntry });
+  const archive = yield* Config.all({
+    MISCHIEF_BOX_ARCHIVE_PRIMARY: Config.String(
+      "MISCHIEF_BOX_ARCHIVE_PRIMARY"
+    ).pipe(Config.withDefault("")),
+    MISCHIEF_BOX_ARCHIVE_REPLICA: Config.String(
+      "MISCHIEF_BOX_ARCHIVE_REPLICA"
+    ).pipe(Config.withDefault("")),
+    MISCHIEF_BOX_ARCHIVE_HOST: Config.String("MISCHIEF_BOX_ARCHIVE_HOST").pipe(
+      Config.withDefault("")
+    ),
+  });
+
+  if (
+    Object.values(archive).some((value) => !/^[A-Za-z0-9_./-]*$/u.test(value))
+  ) {
+    return yield* Effect.die(
+      "Box archive config contains characters unsafe in a systemd unit. Supply plain mount paths and a short checker hostname before retrying infra:plan."
+    );
+  }
+
+  return Option.some({ archive, boxEntry, mount, proxyEntry });
 });

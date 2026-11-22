@@ -5,7 +5,6 @@ import { Effect, FileSystem, Layer } from "effect";
 import { collectArchive } from "../src/box/archive-source.js";
 import type { BoxMetadata } from "../src/box/protocol.js";
 import { boxRunnerLayer } from "../src/box/runner.js";
-import { checked } from "../src/runner.js";
 import { image, sha } from "./fixtures.js";
 
 const piId = "ba64196f-b704-4d1a-a45b-161a1695ae9c";
@@ -67,7 +66,7 @@ it.effect(
       yield* fs.makeDirectory(claude, { recursive: true });
       yield* fs.writeFileString(
         `${claude}/${claudeId}.jsonl`,
-        `${JSON.stringify({ sessionId: claudeId })}\n`
+        `{"type":"summary"}\n${JSON.stringify({ sessionId: claudeId })}\n`
       );
       const first = yield* scan();
       expect(first.manifest).toMatchObject({
@@ -95,38 +94,21 @@ it.effect(
     }).pipe(Effect.provide(NodeServices.layer))
 );
 
-it.effect(
-  "authoritative roots refuse links outside the tree, unsafe entries and special files",
-  () =>
-    Effect.gen(function* sourceRefusals() {
-      const { fs, home, pi, scan } = yield* fixture;
-      const invalid = `${pi}/bad`;
-      yield* fs.link(`${home}/session.jsonl`, invalid);
-      expect((yield* Effect.flip(scan())).message).toContain("hard link");
-      yield* fs.remove(invalid);
-      yield* checked({ executable: "mkfifo", args: [invalid] });
-      expect((yield* Effect.flip(scan())).message).toContain("special file");
-      yield* fs.remove(invalid);
-      yield* fs.writeFileString(`${invalid} name`, "unsafe");
-      expect((yield* Effect.flip(scan())).message).toContain(
-        "outside [A-Za-z0-9._-]"
-      );
-      yield* fs.remove(`${invalid} name`);
-      yield* fs.symlink("with\ttab", invalid);
-      expect((yield* Effect.flip(scan())).message).toContain("SYMLINKS.tsv");
-      yield* fs.remove(invalid);
-      const outside = yield* fs.makeTempDirectoryScoped();
-      yield* fs.symlink(home, `${outside}/home-alias`);
-      expect(
-        (yield* Effect.flip(scan(`${outside}/home-alias`))).message
-      ).toContain("not a canonical directory");
-      yield* fs.symlink(outside, `${home}/.codex`);
-      expect((yield* Effect.flip(scan())).message).toContain(
-        "Session root is not a canonical"
-      );
-    }).pipe(
-      Effect.provide(
-        boxRunnerLayer().pipe(Layer.provideMerge(NodeServices.layer))
-      )
+it.effect("authoritative roots refuse noncanonical root components", () =>
+  Effect.gen(function* sourceRefusals() {
+    const { fs, home, scan } = yield* fixture;
+    const outside = yield* fs.makeTempDirectoryScoped();
+    yield* fs.symlink(home, `${outside}/home-alias`);
+    expect(
+      (yield* Effect.flip(scan(`${outside}/home-alias`))).message
+    ).toContain("not a canonical directory");
+    yield* fs.symlink(outside, `${home}/.codex`);
+    expect((yield* Effect.flip(scan())).message).toContain(
+      "Session root is not a canonical"
+    );
+  }).pipe(
+    Effect.provide(
+      boxRunnerLayer().pipe(Layer.provideMerge(NodeServices.layer))
     )
+  )
 );

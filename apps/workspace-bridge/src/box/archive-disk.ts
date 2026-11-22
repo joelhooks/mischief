@@ -1,6 +1,14 @@
 import { hostname } from "node:os";
 
-import { DateTime, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import {
+  DateTime,
+  Effect,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Schema,
+} from "effect";
 import type { PlatformError } from "effect";
 
 import { Runner } from "../runner.js";
@@ -29,6 +37,47 @@ import type {
 } from "./archive.js";
 import { custodyMissing } from "./custody-missing.js";
 
+const disjoint = (primary: string, replica: string) =>
+  primary !== replica &&
+  !primary.startsWith(`${replica}/`) &&
+  !replica.startsWith(`${primary}/`);
+
+const checksumPaths = Effect.fn("Archive.checksumPaths")(
+  function* checksumPaths(checksums: string, manifest: Manifest) {
+    const listed = new Set<string>();
+
+    for (const line of checksums.split("\n").slice(0, -1)) {
+      const name = line.slice(66);
+
+      if (
+        !/^[a-f0-9]{64} {2}/u.test(line) ||
+        !isArchivePath(name) ||
+        listed.has(name)
+      ) {
+        return yield* archiveFailure(
+          "Archive checksum manifest contains an invalid or duplicate session path."
+        );
+      }
+
+      listed.add(name);
+    }
+
+    const renamed = manifest.renamed ?? [];
+
+    if (
+      new Set(renamed.map(({ from }) => from)).size !== renamed.length ||
+      renamed.some(({ to }) => !listed.has(to)) ||
+      (manifest.nonData ?? []).some(({ path: name }) => listed.has(name))
+    ) {
+      return yield* archiveFailure(
+        "Archive rename or non-data inventory does not match the checksum manifest."
+      );
+    }
+
+    return listed;
+  }
+);
+
 const mountTypes = new Set(["ff534d42", "fe534d42"]);
 
 const receiptName = "RECEIPT.json";
@@ -55,7 +104,9 @@ const DiskReceipt = Schema.fromJsonString(
     manifest_sha256: Schema.String,
     manifest_json_sha256: Schema.String,
     ok: Schema.Literal(true),
+    primary_root: Schema.String,
     rc: Schema.Literal(0),
+    replica_root: Schema.String,
     sessions: Schema.Int,
     unparsed: Schema.Int,
     skipped: Schema.Int,
@@ -86,7 +137,7 @@ const onArchiveHost = Effect.fn("Archive.checkMount")(function* onArchiveHost(
 
   if (output.exit !== 0 || !mountTypes.has(output.stdout.trim())) {
     return yield* archiveFailure(
-      "Protected archive requires both CIFS mounts. Restore the archive mounts before retrying export."
+      "Protected archive root is not a CIFS mount. Restore custody storage and retry."
     );
   }
 
@@ -96,7 +147,7 @@ const onArchiveHost = Effect.fn("Archive.checkMount")(function* onArchiveHost(
 interface ArchiveRoots {
   readonly checkerHost: string;
   readonly primary: string;
-  readonly mirror: string;
+  readonly replica: string;
 }
 
 export const archiveDiskLayer = (
@@ -129,59 +180,56 @@ export const archiveDiskLayer = (
         }
       );
 
-      const prepare = Effect.fn("Archive.prepare")(function* prepare() {
-        const destinations: string[] = [];
+      const mount = Effect.fn("Archive.mount")(function* mount(root: string) {
+        const missing = () =>
+          custodyMissing(
+            root,
+            "Archive mount could not be read. Restore custody storage and retry."
+          );
 
-        for (const root of [roots.primary, roots.mirror]) {
-          if (!path.isAbsolute(root)) {
+        const canonical = yield* fs
+          .realPath(root)
+          .pipe(Effect.mapError(missing));
+
+        yield* fs.readDirectory(canonical).pipe(Effect.mapError(missing));
+        yield* checkMount(canonical, runner, roots.checkerHost).pipe(
+          Effect.mapError((error) => custodyMissing(root, error.message))
+        );
+
+        return canonical;
+      });
+
+      const prepare = Effect.gen(function* prepare() {
+        for (const root of [roots.primary, roots.replica]) {
+          if (
+            !path.isAbsolute(root) ||
+            root === "/" ||
+            path.normalize(root) !== root ||
+            root.endsWith("/") ||
+            /[\r\n]/u.test(root)
+          ) {
             return yield* archiveFailure(
-              "Both archive roots must be absolute. Correct the custody configuration."
+              "Archive roots must be absolute directories other than /. Correct the custody configuration."
             );
           }
-
-          const missing = () =>
-            custodyMissing(
-              root,
-              "An archive root could not be resolved or read. Check both configured custody directories before retrying."
-            );
-
-          const canonical = yield* fs
-            .realPath(root)
-            .pipe(Effect.mapError(missing));
-
-          yield* fs.readDirectory(canonical).pipe(Effect.mapError(missing));
-          destinations.push(canonical);
         }
 
-        if (
-          destinations.some(
-            (root) =>
-              !path.isAbsolute(root) ||
-              root === "/" ||
-              path.normalize(root) !== root ||
-              root.endsWith("/") ||
-              /[\r\n]/u.test(root)
-          ) ||
-          destinations.some((root, index) =>
-            destinations.some(
-              (other, otherIndex) =>
-                index !== otherIndex &&
-                (root === other || other.startsWith(`${root}/`))
-            )
-          )
-        ) {
+        if (!disjoint(roots.primary, roots.replica)) {
           return yield* archiveFailure(
-            "Archive roots must be disjoint absolute directories. Correct the primary and mirror configuration before retrying export."
+            "Archive roots must be disjoint. Correct the custody configuration."
           );
         }
 
-        for (const canonical of destinations) {
-          yield* checkMount(canonical, runner, roots.checkerHost).pipe(
-            Effect.mapError((error) => custodyMissing(canonical, error.message))
+        const primary = yield* mount(roots.primary);
+        const replica = yield* fs.realPath(roots.replica).pipe(Effect.option);
+
+        if (Option.isSome(replica) && !disjoint(primary, replica.value)) {
+          return yield* archiveFailure(
+            "Replica resolves to the primary custody tree. Correct the replica mount."
           );
         }
 
-        return destinations;
+        return primary;
       });
 
       const layout = (root: string, receipt: ArchiveReceipt) => ({
@@ -276,14 +324,20 @@ export const archiveDiskLayer = (
           sha256(manifestJson) !== receipt.manifestJsonSha256 ||
           manifest.manifest_sha256 !== receipt.sha256 ||
           sha256(checksums) !== receipt.sha256 ||
-          fingerprintOf(checksums, links, manifest.session_ids) !==
-            receipt.fingerprint
+          fingerprintOf(
+            checksums,
+            links,
+            manifest.session_ids,
+            manifest.renamed,
+            manifest.nonData
+          ) !== receipt.fingerprint
         ) {
           return yield* archiveFailure(
             "Archive manifest differs from the source inventory. Inspect both custody copies and retry export."
           );
         }
 
+        const listed = yield* checksumPaths(checksums, manifest);
         let bytes = 0;
         let files = 0;
         yield* walkArchive(directory, "", (name, stat) =>
@@ -295,6 +349,12 @@ export const archiveDiskLayer = (
             }
 
             if (!metadataNames.has(name)) {
+              if (!listed.has(name)) {
+                return yield* archiveFailure(
+                  "Archive contains a file not listed in the checksum manifest."
+                );
+              }
+
               bytes += Number(stat.size);
               files += 1;
             }
@@ -339,7 +399,7 @@ export const archiveDiskLayer = (
 
       const put = Effect.fn("Archive.diskPut")(
         function* put(
-          destinations: readonly string[],
+          primary: string,
           manifest: Manifest,
           files: ArchiveFiles
         ) {
@@ -354,7 +414,7 @@ export const archiveDiskLayer = (
             Effect.map(([, value]) => value)
           );
 
-          if (!files.paths.every(isArchivePath)) {
+          if (![...files.sources.keys()].every(isArchivePath)) {
             return yield* archiveFailure(
               "Archive file is outside the permitted session roots. Inspect the stopped box before retrying export."
             );
@@ -366,8 +426,8 @@ export const archiveDiskLayer = (
             );
           }
 
-          for (const root of destinations) {
-            const { final, incoming, parent } = layout(root, receipt);
+          {
+            const { final, incoming, parent } = layout(primary, receipt);
             yield* fs.makeDirectory(parent, { mode: 0o700, recursive: true });
             yield* verifyDirectory(parent);
 
@@ -379,22 +439,13 @@ export const archiveDiskLayer = (
 
             yield* fs.makeDirectory(incoming, { mode: 0o700 });
 
-            if (files.paths.length !== 0) {
-              yield* command(
-                "rsync",
-                [
-                  "-rlt",
-                  "--no-perms",
-                  "--no-owner",
-                  "--no-group",
-                  "--files-from=-",
-                  "--from0",
-                  "--",
-                  `${files.home}/`,
-                  `${incoming}/`,
-                ],
-                `${files.paths.join("\0")}\0`
-              );
+            for (const [name, source] of files.sources) {
+              const destination = path.join(incoming, name);
+              yield* fs.makeDirectory(path.dirname(destination), {
+                recursive: true,
+                mode: 0o700,
+              });
+              yield* fs.copyFile(source, destination);
             }
 
             yield* fs.writeFileString(
@@ -418,27 +469,9 @@ export const archiveDiskLayer = (
         },
         Effect.catchTag("PlatformError", () =>
           archiveFailure(
-            "Could not stage protected history in both archives. Check custody mounts and retry export with a fresh timestamp."
+            "Could not stage protected history on the primary. Check the custody mount and retry export with a fresh timestamp."
           )
         )
-      );
-
-      const checkCopies = Effect.fn("Archive.checkCopies")(
-        function* checkCopies(
-          dirs: readonly string[],
-          receipt: ArchiveReceipt
-        ) {
-          const copies = [];
-
-          for (const directory of dirs) {
-            copies.push({
-              directory,
-              manifest: yield* check(directory, receipt),
-            });
-          }
-
-          return copies;
-        }
       );
 
       const checkReceipt = Effect.fn("Archive.checkReceipt")(
@@ -450,9 +483,9 @@ export const archiveDiskLayer = (
         ) {
           yield* verifyDirectory(directory);
 
-          const proof = yield* Schema.decodeEffect(DiskReceipt)(
-            yield* readText(directory, receiptName)
-          ).pipe(
+          const text = yield* readText(directory, receiptName);
+
+          const proof = yield* Schema.decodeEffect(DiskReceipt)(text).pipe(
             Effect.mapError(() =>
               archiveFailure(
                 "Protected archive receipt is missing or invalid. Retry export before destroying."
@@ -467,6 +500,8 @@ export const archiveDiskLayer = (
             proof.unparsed !== receipt.counts?.unparsed ||
             proof.skipped !== receipt.counts?.skipped ||
             proof.checker_host !== roots.checkerHost ||
+            proof.primary_root !== roots.primary ||
+            proof.replica_root !== roots.replica ||
             JSON.stringify(proof.dirs) !== JSON.stringify(dirs) ||
             proof.bytes !== manifest.bytes ||
             proof.files !== manifest.files
@@ -476,96 +511,161 @@ export const archiveDiskLayer = (
             );
           }
 
-          return yield* Effect.void;
+          return text;
         }
       );
 
       const publish = Effect.fn("Archive.publish")(function* publish(
         receipt: ArchiveReceipt,
-        locations: readonly ReturnType<typeof layout>[]
+        location: ReturnType<typeof layout>,
+        dirs: readonly string[]
       ) {
-        const dirs = locations.map(({ final }) => final);
+        const { incoming, final } = location;
+        yield* check(incoming, receipt);
+        yield* command("mv", ["-T", "-n", "--", incoming, final]);
 
-        for (const { incoming } of locations) {
-          yield* check(incoming, receipt);
-        }
-
-        for (const { final, incoming } of locations) {
-          yield* command("mv", ["-T", "-n", "--", incoming, final]);
-
-          if (yield* fs.exists(incoming)) {
-            return yield* archiveFailure(
-              "Final archive already exists. Leave it untouched and retry export with a fresh timestamp."
-            );
-          }
-        }
-
-        const copies = yield* checkCopies(dirs, receipt);
-        const verifiedAt = DateTime.formatIso(yield* DateTime.now);
-
-        for (const { directory, manifest } of copies) {
-          const evidence = {
-            bytes: manifest.bytes,
-            checker_host: roots.checkerHost,
-            dirs,
-            files: manifest.files,
-            manifest_sha256: receipt.sha256,
-            manifest_json_sha256: receipt.manifestJsonSha256,
-            sessions: manifest.session_ids.length,
-            unparsed: manifest.unparsed.length,
-            skipped: manifest.skipped.length,
-            ok: true,
-            rc: 0,
-            verified_at: verifiedAt,
-          };
-
-          yield* fs.writeFileString(
-            path.join(directory, receiptName),
-            JSON.stringify(evidence),
-            { flag: "wx", mode: 0o600 }
+        if (yield* fs.exists(incoming)) {
+          return yield* archiveFailure(
+            "Final archive already exists. Leave it untouched and retry export."
           );
         }
 
-        return copies;
+        const manifest = yield* check(final, receipt);
+        const verifiedAt = DateTime.formatIso(yield* DateTime.now);
+
+        const evidence = {
+          bytes: manifest.bytes,
+          checker_host: roots.checkerHost,
+          dirs,
+          files: manifest.files,
+          manifest_sha256: receipt.sha256,
+          manifest_json_sha256: receipt.manifestJsonSha256,
+          sessions: manifest.session_ids.length,
+          unparsed: manifest.unparsed.length,
+          skipped: manifest.skipped.length,
+          ok: true,
+          primary_root: roots.primary,
+          rc: 0,
+          replica_root: roots.replica,
+          verified_at: verifiedAt,
+        };
+
+        yield* fs.writeFileString(
+          path.join(final, receiptName),
+          JSON.stringify(evidence),
+          { flag: "wx", mode: 0o600 }
+        );
+
+        return manifest;
       });
+
+      const checkReplica = Effect.fn("Archive.checkReplica")(
+        function* checkReplica(
+          primary: string,
+          receipt: ArchiveReceipt,
+          dirs: readonly string[],
+          primaryText: string
+        ) {
+          const replica = yield* mount(roots.replica);
+
+          if (!disjoint(primary, replica)) {
+            return yield* archiveFailure(
+              "Replica resolves to the primary custody tree. Correct the replica mount."
+            );
+          }
+
+          const { final } = layout(replica, receipt);
+
+          if (!(yield* fs.exists(path.join(final, receiptName)))) {
+            return ReadBackResult.ReplicaPending({
+              reason:
+                "The replica has not copied the completed archive. Wait for NAS replication and retry DELETE.",
+            });
+          }
+
+          const manifest = yield* check(final, receipt);
+
+          const replicaText = yield* checkReceipt(
+            final,
+            manifest,
+            dirs,
+            receipt
+          );
+
+          if (replicaText !== primaryText) {
+            return yield* archiveFailure(
+              "Replica receipt bytes differ from the primary. Repair replication and retry DELETE."
+            );
+          }
+
+          return null;
+        },
+        Effect.catchTags({
+          CustodyMissing: () =>
+            Effect.succeed(
+              ReadBackResult.ReplicaPending({
+                reason:
+                  "Replica mount is unavailable. Restore it, wait for replication, and retry DELETE.",
+              })
+            ),
+          ArchiveFailure: (error) =>
+            Effect.succeed(
+              ReadBackResult.ReplicaMismatch({ reason: error.message })
+            ),
+          PlatformError: () =>
+            Effect.succeed(
+              ReadBackResult.ReplicaMismatch({
+                reason:
+                  "Replica files could not be read. Repair replication and retry DELETE.",
+              })
+            ),
+        })
+      );
 
       const readBack = Effect.fn("Archive.diskReadBack")(
         function* readBack(
-          destinations: readonly string[],
+          primary: string,
           receipt: ArchiveReceipt,
-          purpose: "check" | "publish"
+          purpose: "check" | "publish" | "primary"
         ): Effect.fn.Return<
           ReadBack,
           ArchiveFailure | PlatformError.PlatformError
         > {
-          const locations = destinations.map((root) => layout(root, receipt));
-          const dirs = locations.map(({ final }) => final);
+          const location = layout(primary, receipt);
+          const replica = layout(roots.replica, receipt);
+          const dirs = [layout(roots.primary, receipt).final, replica.final];
 
-          const [primary, mirror] = dirs;
-
-          if (primary === undefined || mirror === undefined) {
-            return yield* archiveFailure(
-              "Both archive directories are required."
-            );
-          }
-
-          const exportReceipt = {
-            id: archiveId(receipt),
-            location: path.join(primary, receiptName),
-            mirror: path.join(mirror, receiptName),
-            sha256: receipt.sha256,
-          };
-
-          const copies =
+          const manifest =
             purpose === "publish"
-              ? yield* publish(receipt, locations)
-              : yield* checkCopies(dirs, receipt);
+              ? yield* publish(receipt, location, dirs)
+              : yield* check(location.final, receipt);
 
-          for (const { directory, manifest } of copies) {
-            yield* checkReceipt(directory, manifest, dirs, receipt);
+          const text = yield* checkReceipt(
+            location.final,
+            manifest,
+            dirs,
+            receipt
+          );
+
+          if (purpose === "check") {
+            const failure = yield* checkReplica(primary, receipt, dirs, text);
+
+            if (failure !== null) {
+              return failure;
+            }
           }
 
-          return ReadBackResult.Verified({ exportReceipt });
+          return ReadBackResult.Verified({
+            exportReceipt: {
+              id: archiveId(receipt),
+              location: path.join(dirs[0] ?? location.final, receiptName),
+              mirror: path.join(replica.final, receiptName),
+              primaryRoot: roots.primary,
+              replicaRoot: roots.replica,
+              replicaState: purpose === "check" ? "verified" : "pending",
+              sha256: receipt.sha256,
+            },
+          });
         },
         Effect.catchTags({
           ArchiveFailure: (failure) =>
@@ -583,12 +683,14 @@ export const archiveDiskLayer = (
       );
 
       return ArchivePort.of({
-        open: prepare().pipe(
-          Effect.map((destinations) => ({
+        open: prepare.pipe(
+          Effect.map((primary) => ({
             put: (manifest: Manifest, files: ArchiveFiles) =>
-              put(destinations, manifest, files),
-            readBack: (receipt: ArchiveReceipt, purpose: "check" | "publish") =>
-              readBack(destinations, receipt, purpose),
+              put(primary, manifest, files),
+            readBack: (
+              receipt: ArchiveReceipt,
+              purpose: "check" | "publish" | "primary"
+            ) => readBack(primary, receipt, purpose),
           }))
         ),
       });

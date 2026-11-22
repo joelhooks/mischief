@@ -1,6 +1,7 @@
 import {
   emptyPeonUsage,
   PeonIndexEntry,
+  PeonExportReceipt,
   PeonRefused,
   peonIdleAlarm,
   peonTransition,
@@ -358,7 +359,7 @@ export const peonHost = ({
       case "hibernate":
       case "resume":
       case "suspend": {
-        yield* box.call(
+        const result = yield* box.call(
           id,
           pending.kind,
           {
@@ -368,13 +369,25 @@ export const peonHost = ({
           },
           Schema.Struct({
             state: Schema.Literal(acknowledgedStates[pending.kind]),
+            exportReceipt: Schema.optionalKey(PeonExportReceipt),
           })
         );
 
         if (pending.kind === "resume") {
           next = yield* move(stored, "TURN_DONE");
         } else if (pending.kind === "destroy") {
-          next = yield* move(stored, "DESTROY");
+          next = yield* move(
+            result.exportReceipt === undefined
+              ? stored
+              : {
+                  ...stored,
+                  report: {
+                    ...stored.report,
+                    exportReceipt: result.exportReceipt,
+                  },
+                },
+            "DESTROY"
+          );
         }
 
         break;
@@ -487,6 +500,7 @@ export const peonHost = ({
 
     const lost = {
       ...stored,
+      pending: fault.boxCode === undefined ? stored.pending : null,
       report: { ...stored.report, fault: fault.reason, state },
     };
 

@@ -149,7 +149,26 @@ export const PeonPromptLog = Schema.Struct({
   wallMs: Schema.Finite,
 });
 
+export const PeonExportReceipt = Schema.Struct({
+  id: Schema.String,
+  location: Schema.String,
+  mirror: Schema.String,
+  sha256: Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u)),
+  primaryRoot: Schema.optionalKey(Schema.String),
+  replicaRoot: Schema.optionalKey(Schema.String),
+  replicaState: Schema.optionalKey(Schema.Literals(["pending", "verified"])),
+});
+
+export const PeonBoxRefusalCode = Schema.Literals([
+  "CustodyMissing",
+  "CustodyIncomplete",
+  "ReplicaPending",
+  "ReplicaMismatch",
+  "WorkspaceUnlanded",
+]);
+
 export const PeonIndexEntry = Schema.Struct({
+  exportReceipt: Schema.optionalKey(PeonExportReceipt),
   creationKey: Schema.optionalKey(Schema.String),
   destroyedAt: Schema.optionalKey(Schema.Finite),
   owner: Schema.String,
@@ -160,6 +179,7 @@ export const PeonIndexEntry = Schema.Struct({
 });
 
 export const PeonTombstone = Schema.Struct({
+  exportReceipt: Schema.optionalKey(PeonExportReceipt),
   destroyedAt: Schema.Finite,
   owner: Schema.String,
   peonId: PeonId,
@@ -191,7 +211,7 @@ export const PeonReport = Schema.Struct({
 
 export class PeonRefused extends Schema.TaggedError<PeonRefused>()(
   "PeonRefused",
-  { reason: Schema.String }
+  { reason: Schema.String, boxCode: Schema.optionalKey(PeonBoxRefusalCode) }
 ) {
   override get message() {
     return this.reason;

@@ -8,7 +8,9 @@ import type { CustodyMissing } from "./custody-missing.js";
 
 const Hash = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u));
 
-const Stamp = Schema.String.check(Schema.isPattern(/^\d{8}T\d{6}Z$/u));
+const Stamp = Schema.String.check(
+  Schema.isPattern(/^\d{8}T\d{6}(?:\.\d{3})?Z$/u)
+);
 
 export const ArchiveName = Schema.String.check(
   Schema.isPattern(/^(?!\.{1,2}$)[A-Za-z0-9._-]+$/u)
@@ -60,12 +62,18 @@ export const ManifestSchema = Schema.Struct({
   ),
   unparsed: Schema.Array(Schema.String),
   skipped: Schema.Array(SkippedEntry),
+  nonData: Schema.optionalKey(
+    Schema.Array(Schema.Struct({ path: Schema.String, type: Schema.String }))
+  ),
+  renamed: Schema.optionalKey(
+    Schema.Array(Schema.Struct({ from: Schema.String, to: Schema.String }))
+  ),
 });
 
 export type Manifest = typeof ManifestSchema.Type;
 
 export interface ArchiveFiles {
-  readonly home: string;
+  readonly sources: ReadonlyMap<string, string>;
   readonly paths: readonly string[];
   readonly checksums: string;
   readonly symlinks: string;
@@ -74,6 +82,8 @@ export interface ArchiveFiles {
 
 export type ReadBack = Data.TaggedEnum<{
   readonly Mismatch: { readonly reason: string };
+  readonly ReplicaPending: { readonly reason: string };
+  readonly ReplicaMismatch: { readonly reason: string };
   readonly Verified: { readonly exportReceipt: ExportReceipt };
 }>;
 
@@ -84,6 +94,9 @@ export const ExportReceiptSchema = Schema.Struct({
   sha256: Hash,
   location: Schema.String,
   mirror: Schema.String,
+  replicaState: Schema.optionalKey(Schema.Literals(["pending", "verified"])),
+  primaryRoot: Schema.optionalKey(Schema.String),
+  replicaRoot: Schema.optionalKey(Schema.String),
 });
 
 type ExportReceipt = typeof ExportReceiptSchema.Type;
@@ -91,8 +104,7 @@ type ExportReceipt = typeof ExportReceiptSchema.Type;
 export const archiveId = (receipt: ArchiveReceipt) =>
   `${receipt.peon}/${receipt.stamp}-${receipt.box}`;
 
-export const archiveStamp = (iso: string) =>
-  iso.replaceAll(/[-:]/gu, "").replace(/\.\d+Z$/u, "Z");
+export const archiveStamp = (iso: string) => iso.replaceAll(/[-:]/gu, "");
 
 export const receiptOf = (
   manifest: Manifest,
@@ -119,7 +131,7 @@ export interface OpenArchive {
   ) => Effect.Effect<ArchiveReceipt, ArchiveFailure | CustodyMissing>;
   readonly readBack: (
     receipt: ArchiveReceipt,
-    purpose: "publish" | "check"
+    purpose: "publish" | "check" | "primary"
   ) => Effect.Effect<ReadBack, ArchiveFailure>;
 }
 

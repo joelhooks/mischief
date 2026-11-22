@@ -84,6 +84,8 @@ export const Tombstone = Schema.Struct({
   bytesFreed: Schema.Finite,
   exportReceipt: Schema.optionalKey(ExportReceiptSchema),
   snapshotKept: Schema.Boolean,
+  snapshotWorkSuperseded: Schema.optionalKey(Schema.Boolean),
+  snapshotBytes: Schema.optionalKey(Schema.Finite),
   state: Schema.Literal("destroyed"),
 });
 
@@ -97,6 +99,8 @@ export const Metadata = Schema.Struct({
       requestId: RequestId,
       receiptId: Schema.String,
       retainSnapshot: Schema.Boolean,
+      snapshotWorkSuperseded: Schema.optionalKey(Schema.Boolean),
+      snapshotBytes: Schema.optionalKey(Schema.Finite),
     })
   ),
   tombstone: Schema.optionalKey(Tombstone),

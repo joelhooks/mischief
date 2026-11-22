@@ -1,4 +1,8 @@
-import { PeonRefused } from "@mischief/core";
+import {
+  PeonBoxRefusalCode,
+  PeonExportReceipt,
+  PeonRefused,
+} from "@mischief/core";
 import type { PeonTemplate } from "@mischief/core";
 import { Effect, Option, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
@@ -50,18 +54,37 @@ export interface PeonBox {
   ) => Effect.Effect<A, PeonRefused>;
 }
 
+const stopRetry = Schema.fromJsonString(
+  Schema.Struct({ error: Schema.Struct({ code: PeonBoxRefusalCode }) })
+);
+
+const exportReply = Schema.fromJsonString(
+  Schema.Struct({ exportReceipt: PeonExportReceipt })
+);
+
+const jsonObject = Schema.fromJsonString(
+  Schema.Record(Schema.String, Schema.Json)
+);
+
 const requireSuccess = (
   peonId: string,
   operation: BoxHttpOperation,
   response: { readonly status: number; readonly text: string }
 ) =>
-  response.status >= 200 && response.status < 300
-    ? Effect.succeed(response.text)
-    : Effect.fail(
-        new PeonRefused({
-          reason: `Box ${peonId} ${operation} returned HTTP ${response.status}: ${response.text.slice(0, 1024)}. The stored operation remains pending; inspectPeon before retrying.`,
-        })
-      );
+  Effect.gen(function* checkBoxResponse() {
+    if (response.status >= 200 && response.status < 300) {
+      return response.text;
+    }
+
+    const reply = Schema.decodeOption(stopRetry)(response.text);
+    const reason = `Box ${peonId} ${operation} returned HTTP ${response.status}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`;
+
+    return yield* new PeonRefused(
+      Option.isSome(reply)
+        ? { reason, boxCode: reply.value.error.code }
+        : { reason }
+    );
+  });
 
 const custody = Schema.fromJsonString(
   Schema.Struct({
@@ -139,6 +162,8 @@ export const peonBox = (url: string, key: string): PeonBox => {
           response.status === 409 &&
           Option.isSome(Schema.decodeOption(custody)(response.text));
 
+        let receipt: typeof PeonExportReceipt.Type | undefined;
+
         if (needsExport) {
           const exported = yield* send(
             peonId,
@@ -146,7 +171,21 @@ export const peonBox = (url: string, key: string): PeonBox => {
             body === undefined ? undefined : { requestId: body.requestId }
           );
 
-          yield* requireSuccess(peonId, "export", exported);
+          const exportedText = yield* requireSuccess(
+            peonId,
+            "export",
+            exported
+          );
+
+          receipt = (yield* Schema.decodeEffect(exportReply)(exportedText).pipe(
+            Effect.mapError(
+              () =>
+                new PeonRefused({
+                  reason:
+                    "Box export returned no valid custody receipt. Check the box manager version.",
+                })
+            )
+          )).exportReceipt;
         }
 
         const final = needsExport
@@ -155,8 +194,22 @@ export const peonBox = (url: string, key: string): PeonBox => {
 
         const text = yield* requireSuccess(peonId, operation, final);
 
+        const responseObject =
+          receipt === undefined
+            ? Option.none()
+            : Schema.decodeOption(jsonObject)(text);
+
+        const payload =
+          Option.isSome(responseObject) &&
+          responseObject.value.exportReceipt === undefined
+            ? JSON.stringify({
+                ...responseObject.value,
+                exportReceipt: receipt,
+              })
+            : text;
+
         return yield* Schema.decodeEffect(Schema.fromJsonString(schema))(
-          text
+          payload
         ).pipe(
           Effect.mapError(
             () =>

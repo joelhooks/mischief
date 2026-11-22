@@ -14,6 +14,8 @@ import { DestroyInProgress } from "./destroy-in-progress.js";
 import { Boxes } from "./manager.js";
 import { Action, ActionBody, Create, PeonId, Result } from "./protocol.js";
 import { ReceiptMismatch } from "./receipt-mismatch.js";
+import { ReplicaMismatch } from "./replica-mismatch.js";
+import { ReplicaPending } from "./replica-pending.js";
 import { WorkspaceUnlanded } from "./workspace-unlanded.js";
 
 const createBox = implement(
@@ -39,6 +41,8 @@ const actOnBox = implement(
       CustodyIncomplete,
       DestroyInProgress,
       ReceiptMismatch,
+      ReplicaMismatch,
+      ReplicaPending,
     ]),
     input: Action,
     output: Result,
@@ -174,6 +178,10 @@ const route = (key: Redacted.Redacted) =>
           disposition: failure.disposition,
           retained: failure.retained,
         }),
+      ReplicaPending: (failure) =>
+        taggedFailure(failure, { archiveId: failure.archiveId }),
+      ReplicaMismatch: (failure) =>
+        taggedFailure(failure, { archiveId: failure.archiveId }),
       ReceiptMismatch: (failure) =>
         taggedFailure(failure, { reason: failure.reason }),
     })

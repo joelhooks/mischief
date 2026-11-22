@@ -25,6 +25,8 @@ export {
   PeonTurn,
   PeonPromptLog,
   PeonIndexEntry,
+  PeonExportReceipt,
+  PeonBoxRefusalCode,
   PeonReport,
   PeonTombstone,
   PeonRefused,

@@ -78,13 +78,14 @@ run)
         GIT_OBJECT_DIRECTORY=/objects) objects="$storage";;
       esac
     done
-    until [ "$1" = /usr/bin/git ]; do
+    until [ "$1" = /usr/bin/git ] || [ "$1" = /bin/sh ]; do
       if [ "$1" = --user ]; then test "$2" = "$(id -u):1000"; fi
       shift
     done
     if [ -n "$objects" ]; then export GIT_OBJECT_DIRECTORY="$objects"; fi
     export GIT_DIR="$proof/repo" GIT_WORK_TREE="$proof/ignore"
     export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_NO_REPLACE_OBJECTS=1
+    if [ "$1" = /bin/sh ]; then exec "$@"; fi
     shift
     exec git -C "$proof/ignore" "$@"
   fi
@@ -114,8 +115,8 @@ run)
   if [ "$user" = 65534:1000 ]; then
     test ! -f '${root}/partial-root-owned'
     test ! -f '${root}/manager-owned'
-    test "$*" = "--rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --user 65534:1000 --mount type=bind,source=$box,target=/box --entrypoint /bin/chmod ${image} -R u+rw,g+rwX,o-rwx /box"
-    chmod -R u+rw,g+rwX,o-rwx "$box"
+    test "$*" = "--rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --user 65534:1000 --mount type=bind,source=$box,target=/box --entrypoint /bin/chmod ${image} -R u+rwX,g+rwX,o-rwx /box"
+    chmod -R u+rwX,g+rwX,o-rwx "$box"
     exit 0
   fi
   test "$user" = 0:1000
@@ -172,7 +173,7 @@ set -eu
 if [ "$1" = LC_ALL=C ] && [ "$2" = find ]; then
   shift; shift
   box="$1"
-  test "$*" = "$box -xdev -user $(id -u) ! -type l -exec chmod u+rw,g+rwX,o-rwx {} +"
+  test "$*" = "$box -xdev -user $(id -u) ! -type l -exec chmod u+rwX,g+rwX,o-rwx {} +"
   printf 'host-find %s\\n' "$*" >> '${root}/commands'
   if [ -f '${root}/manager-error' ]; then cat '${root}/manager-error' >&2; exit 1; fi
   if [ -f '${root}/manager-owned' ]; then exec /usr/bin/find "$@"; fi
@@ -277,12 +278,12 @@ const custodyFixture = Effect.gen(function* custodyFixture() {
   const fs = yield* FileSystem.FileSystem;
 
   const roots = {
-    mirror: `${fixture.root}/mirror-custody`,
+    replica: `${fixture.root}/replica-custody`,
     primary: `${fixture.root}/primary-custody`,
   };
 
   yield* fs.makeDirectory(roots.primary);
-  yield* fs.makeDirectory(roots.mirror);
+  yield* fs.makeDirectory(roots.replica);
   const alias = `${fixture.root}/primary-alias`;
   yield* fs.symlink(roots.primary, alias);
 
@@ -293,6 +294,21 @@ const custodyFixture = Effect.gen(function* custodyFixture() {
       () => Effect.void
     ).pipe(Layer.provide(Layer.succeed(Runner, fixture.runner))),
     roots,
+    replicate: (id: string) =>
+      Effect.gen(function* replicate() {
+        yield* fs.makeDirectory(`${roots.replica}/${id.split("/")[0]}`, {
+          recursive: true,
+        });
+        yield* checked({
+          executable: "cp",
+          args: [
+            "-a",
+            "--",
+            `${roots.primary}/${id}`,
+            `${roots.replica}/${id}`,
+          ],
+        });
+      }),
   };
 });
 
@@ -301,6 +317,7 @@ const Export = Schema.Struct({
     id: Schema.String,
     location: Schema.String,
     mirror: Schema.String,
+    replicaState: Schema.Literals(["pending", "verified"]),
     sha256: Schema.String,
   }),
 });
@@ -377,6 +394,11 @@ it.effect(
           `${home}/.codex/sessions/2026/rollout.jsonl`,
           '{"event":"fixture"}\n'
         );
+        yield* fs.link(managed, `${home}/.codex/sessions/raw transcript.jsonl`);
+        yield* checked({
+          executable: "mkfifo",
+          args: [`${home}/.codex/sessions/pipe`],
+        });
         const target = `${fixture.root}/not-a-session`;
         yield* fs.writeFileString(target, "must not be copied\n");
         yield* fs.symlink(target, `${home}/.codex/sessions/never-follow`);
@@ -411,6 +433,24 @@ it.effect(
           yield* fs.readDirectory(`${fixture.roots.primary}/${peonId}`)
         ).toEqual([proof.id.split("/")[1]]);
 
+        expect(proof.replicaState).toBe("pending");
+        expect(yield* fs.readDirectory(fixture.roots.replica)).toEqual([]);
+
+        const pending = yield* Effect.flip(
+          boxes.act({
+            action: "destroy",
+            peonId,
+            requestId: "pending",
+            discardWorkspace: true,
+          })
+        );
+
+        expect(pending._tag).toBe("ReplicaPending");
+        expect(
+          Predicate.isTagged(pending, "ReplicaPending") && pending.archiveId
+        ).toBe(proof.id);
+        yield* fixture.replicate(proof.id);
+
         for (const root of Object.values(fixture.roots)) {
           const dest = `${root}/${proof.id}`;
           expect(yield* fs.readFileString(`${dest}/session.jsonl`)).toBe(
@@ -444,9 +484,30 @@ it.effect(
             .map((line) => line.slice(66))
             .toSorted();
 
-          expect(listed).toEqual(
-            [...written, ".codex/sessions/2026/rollout.jsonl"].toSorted()
+          const renamed = manifest.renamed ?? [];
+          expect(renamed.map(({ from }) => from)).toEqual([
+            ".codex/sessions/raw transcript.jsonl",
+          ]);
+          expect(new Set(renamed.map(({ from }) => from)).size).toBe(
+            renamed.length
           );
+          expect(renamed.every(({ to }) => listed.includes(to))).toBe(true);
+
+          for (const { to } of renamed) {
+            expect(yield* fs.readFileString(`${dest}/${to}`)).toBe(original);
+          }
+
+          expect(manifest.nonData).toEqual([
+            { path: ".codex/sessions/pipe", type: "FIFO" },
+          ]);
+          expect(listed).toEqual(
+            [
+              ...written,
+              ".codex/sessions/2026/rollout.jsonl",
+              ...renamed.map(({ to }) => to),
+            ].toSorted()
+          );
+          expect(yield* fs.exists(`${dest}/.codex/sessions/pipe`)).toBe(false);
           let bytes = 0;
 
           for (const name of listed) {
@@ -463,7 +524,7 @@ it.effect(
             `"manifest_json_sha256":"${sha256(manifestText)}"`
           );
           expect(receiptText).toContain('"sessions":3');
-          expect(receiptText).toContain('"unparsed":1');
+          expect(receiptText).toContain('"unparsed":2');
           expect(receiptText).toContain('"skipped":0');
         }
 
@@ -489,7 +550,7 @@ it.effect(
           )).message
         ).toContain("Session inventory changed");
         yield* fs.writeFileString(managed, original);
-        const mirrorFile = `${fixture.roots.mirror}/${proof.id}/session.jsonl`;
+        const mirrorFile = `${fixture.roots.replica}/${proof.id}/session.jsonl`;
         yield* fs.writeFileString(
           mirrorFile,
           original.replace("synthetic", "different")
@@ -505,7 +566,7 @@ it.effect(
         ).toContain("sha256sum verification failed");
         expect(yield* fs.readFileString(managed)).toBe(original);
         yield* fs.writeFileString(mirrorFile, original);
-        const mirrorManifest = `${fixture.roots.mirror}/${proof.id}/manifest.json`;
+        const mirrorManifest = `${fixture.roots.replica}/${proof.id}/manifest.json`;
         const recordedManifest = yield* fs.readFileString(mirrorManifest);
         yield* fs.writeFileString(mirrorManifest, `${recordedManifest}\n`);
 
@@ -517,8 +578,19 @@ it.effect(
           })
         );
 
-        expect(badManifest._tag).toBe("ReceiptMismatch");
+        expect(badManifest._tag).toBe("ReplicaMismatch");
         yield* fs.writeFileString(mirrorManifest, recordedManifest);
+        const originalProof = yield* fs.readFileString(proof.mirror);
+        yield* fs.writeFileString(proof.mirror, `${originalProof}\n`);
+        expect(
+          (yield* Effect.flip(
+            boxes.act({
+              action: "destroy",
+              peonId,
+              requestId: "replica-receipt-drift",
+            })
+          ))._tag
+        ).toBe("ReplicaMismatch");
         yield* fs.remove(proof.mirror);
         expect(
           (yield* Effect.flip(
@@ -529,17 +601,7 @@ it.effect(
             })
           )).status
         ).toBe(409);
-        yield* TestClock.adjust(1000);
-
-        const refreshed = yield* Schema.decodeUnknownEffect(Export)(
-          yield* boxes.act({
-            action: "export",
-            peonId,
-            requestId: "repair-export",
-          })
-        );
-
-        expect(refreshed.exportReceipt.id).not.toBe(proof.id);
+        yield* fs.writeFileString(proof.mirror, originalProof);
 
         const noDisposition = yield* Effect.flip(
           boxes.act({ action: "destroy", peonId, requestId: "no-disposition" })
@@ -570,7 +632,7 @@ it.effect(
         });
 
         expect(destroyed).toMatchObject({
-          ...refreshed,
+          exportReceipt: { ...proof, replicaState: "verified" },
           snapshotKept: false,
           state: "destroyed",
         });
@@ -636,11 +698,10 @@ it.effect(
         Effect.provideService(Runner, fixture.runner)
       );
 
-      for (const root of Object.values(fixture.roots)) {
-        const incoming = `${root}/${peonId}/.incoming-mischief-peon-box-crash-19700101T000000Z`;
-        expect(yield* fs.exists(`${incoming}/manifest.json`)).toBe(true);
-        expect(yield* fs.exists(`${incoming}/RECEIPT.json`)).toBe(false);
-      }
+      const incoming = `${fixture.roots.primary}/${peonId}/.incoming-mischief-peon-box-crash-19700101T000000.000Z`;
+      expect(yield* fs.exists(`${incoming}/manifest.json`)).toBe(true);
+      expect(yield* fs.exists(`${incoming}/RECEIPT.json`)).toBe(false);
+      expect(yield* fs.readDirectory(fixture.roots.replica)).toEqual([]);
 
       yield* Effect.gen(function* recoveredExport() {
         const boxes = yield* Boxes;
@@ -658,6 +719,7 @@ it.effect(
         expect(
           yield* fs.readFileString(exported.exportReceipt.location)
         ).toContain('"sessions":0');
+        yield* fixture.replicate(exported.exportReceipt.id);
         expect(
           yield* fs.readFileString(exported.exportReceipt.mirror)
         ).toContain('"sessions":0');
@@ -752,7 +814,12 @@ it.effect(
 
         expect(busy.message).toContain("Box is busy");
         yield* Deferred.succeed(releasePut, undefined);
-        yield* Fiber.join(exporter);
+
+        const exported = yield* Schema.decodeUnknownEffect(Export)(
+          yield* Fiber.join(exporter)
+        );
+
+        yield* fixture.replicate(exported.exportReceipt.id);
 
         const deleter = yield* Effect.forkChild(
           boxes.act({
@@ -843,122 +910,90 @@ it.effect(
     )
 );
 
-it.effect(
-  "hibernated custody preserves a retained snapshot and never rolls back a promoted archive",
-  () =>
-    Effect.gen(function* hibernatedCustody() {
-      const fs = yield* FileSystem.FileSystem;
-      const fixture = yield* custodyFixture;
-      const peonId = "retained";
-      const cutMirror = yield* Ref.make(true);
-      const roots = { ...fixture.roots, checkerHost: "test-host" };
+it.effect("hibernated custody preserves a retained snapshot", () =>
+  Effect.gen(function* hibernatedCustody() {
+    const fs = yield* FileSystem.FileSystem;
+    const fixture = yield* custodyFixture;
+    const peonId = "retained";
+    yield* Effect.gen(function* exportAndRetain() {
+      const boxes = yield* Boxes;
+      yield* boxes.create({
+        peonId,
+        template: fixture.template,
+        requestId: "create",
+      });
+      yield* boxes.act({
+        action: "prompt",
+        peonId,
+        requestId: "turn",
+        text: "owned fixture",
+      });
+      yield* fs.remove(`${fixture.root}/boxes/${peonId}/work/result.txt`);
 
-      const disk = archiveDiskLayer(roots, () => Effect.void).pipe(
-        Layer.provide(
-          Layer.succeed(
-            Runner,
-            Runner.of({
-              run: (command) =>
-                Ref.get(cutMirror).pipe(
-                  Effect.flatMap((cut) =>
-                    cut &&
-                    command.executable === "mv" &&
-                    command.args.at(-1)?.startsWith(roots.mirror) === true
-                      ? Effect.succeed({ exit: 1, stdout: "" })
-                      : fixture.runner.run(command)
-                  )
-                ),
-            })
-          )
-        )
+      const snapshot = yield* Schema.decodeUnknownEffect(Snapshot)(
+        (yield* boxes.act({ action: "hibernate", peonId, requestId: "park" }))
+          .snapshot
       );
 
-      yield* Effect.gen(function* exportAndRetain() {
-        const boxes = yield* Boxes;
-        yield* boxes.create({
-          peonId,
-          template: fixture.template,
-          requestId: "create",
-        });
-        yield* boxes.act({
-          action: "prompt",
-          peonId,
-          requestId: "turn",
-          text: "owned fixture",
-        });
-        yield* fs.remove(`${fixture.root}/boxes/${peonId}/work/result.txt`);
-
-        const snapshot = yield* Schema.decodeUnknownEffect(Snapshot)(
-          (yield* boxes.act({ action: "hibernate", peonId, requestId: "park" }))
-            .snapshot
-        );
-
-        const failed = yield* Effect.flip(
-          boxes.act({ action: "export", peonId })
-        );
-
-        expect(failed.message).toContain("mv exited");
-        const final = `${roots.primary}/${peonId}/19700101T000000Z-mischief-peon-box-${peonId}`;
-        expect(yield* fs.exists(`${final}/session.jsonl`)).toBe(true);
-        expect(yield* fs.exists(`${final}/RECEIPT.json`)).toBe(false);
-        expect(
-          (yield* Effect.flip(boxes.act({ action: "export", peonId }))).message
-        ).toContain("already exists");
-        yield* Ref.set(cutMirror, false);
-        yield* TestClock.adjust(1000);
-        yield* boxes.act({ action: "export", peonId, row: "tested-row" });
-
-        const kept = yield* boxes.act({
-          action: "hibernate",
-          peonId,
-          requestId: "mark",
-          retained: true,
-        });
-
-        expect(kept.snapshot).toMatchObject({ retained: true });
-
-        const cleared = yield* boxes.act({
-          action: "hibernate",
-          peonId,
-          requestId: "clear",
-          retained: false,
-        });
-
-        expect(cleared.snapshot).not.toHaveProperty("retained");
-
-        const result = yield* boxes.act({
-          action: "destroy",
-          peonId,
-          requestId: "retain",
-          retained: true,
-          landedHead: fixture.template.workspace.sha,
-        });
-
-        expect(result).toMatchObject({
-          bytesFreed: 0,
-          snapshotKept: true,
-          state: "destroyed",
-        });
-        expect(yield* fs.exists(snapshot.path)).toBe(true);
-        const commands = yield* fs.readFileString(`${fixture.root}/commands`);
-        expect(
-          commands
-            .split("\n")
-            .filter((line) => line === `start mischief-peon-box-${peonId}`)
-        ).toHaveLength(1);
-      }).pipe(
-        Effect.provide(Boxes.layer(fixture.config).pipe(Layer.provide(disk))),
-        Effect.provideService(Runner, fixture.runner)
+      const exported = yield* Schema.decodeUnknownEffect(Export)(
+        yield* boxes.act({ action: "export", peonId, row: "tested-row" })
       );
+
+      yield* fixture.replicate(exported.exportReceipt.id);
+
+      const kept = yield* boxes.act({
+        action: "hibernate",
+        peonId,
+        requestId: "mark",
+        retained: true,
+      });
+
+      expect(kept.snapshot).toMatchObject({ retained: true });
+
+      const cleared = yield* boxes.act({
+        action: "hibernate",
+        peonId,
+        requestId: "clear",
+        retained: false,
+      });
+
+      expect(cleared.snapshot).not.toHaveProperty("retained");
+
+      const result = yield* boxes.act({
+        action: "destroy",
+        peonId,
+        requestId: "retain",
+        retained: true,
+        landedHead: fixture.template.workspace.sha,
+      });
+
+      expect(result).toMatchObject({
+        bytesFreed: 0,
+        snapshotKept: true,
+        state: "destroyed",
+      });
+      expect(yield* fs.exists(snapshot.path)).toBe(true);
+      const commands = yield* fs.readFileString(`${fixture.root}/commands`);
+      expect(
+        commands
+          .split("\n")
+          .filter((line) => line === `start mischief-peon-box-${peonId}`)
+      ).toHaveLength(1);
     }).pipe(
       Effect.provide(
-        boxRunnerLayer().pipe(
-          Layer.provideMerge(
-            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
-          )
+        Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))
+      ),
+      Effect.provideService(Runner, fixture.runner)
+    );
+  }).pipe(
+    Effect.provide(
+      boxRunnerLayer().pipe(
+        Layer.provideMerge(
+          Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
         )
       )
     )
+  )
 );
 
 it.effect(
@@ -985,7 +1020,12 @@ it.effect(
           template: fixture.template,
           requestId: "create",
         });
-        yield* boxes.act({ action: "export", peonId });
+
+        const exported = yield* Schema.decodeUnknownEffect(Export)(
+          yield* boxes.act({ action: "export", peonId })
+        );
+
+        yield* fixture.replicate(exported.exportReceipt.id);
         yield* git("update-index", "--assume-unchanged", "proof.txt");
         yield* fs.writeFileString(`${work}/proof.txt`, "other contents!\n");
         yield* fs.writeFileString(`${work}/.git/info/exclude`, "new.txt\n");
@@ -1024,6 +1064,38 @@ it.effect(
           Predicate.isTagged(refs, "WorkspaceUnlanded") && refs.refs
         ).toEqual(["refs/heads/unlanded"]);
         yield* git("branch", "-D", "unlanded");
+
+        for (const namespace of ["refs/notes/fixture", "refs/custom/fixture"]) {
+          yield* git("update-ref", namespace, abandoned);
+          const blocked = yield* Effect.flip(destroy(namespace));
+          expect(
+            Predicate.isTagged(blocked, "WorkspaceUnlanded") && blocked.refs
+          ).toEqual([namespace]);
+          yield* git("update-ref", "-d", namespace);
+        }
+
+        const linked = `${work}/.git/worktrees/fixture`;
+        yield* fs.makeDirectory(linked, { mode: 0o770, recursive: true });
+        yield* fs.writeFileString(`${linked}/HEAD`, `${abandoned}\n`);
+        const linkedRefusal = yield* Effect.flip(destroy("linked"));
+        expect(
+          Predicate.isTagged(linkedRefusal, "WorkspaceUnlanded") &&
+            linkedRefusal.refs
+        ).toEqual(["worktrees/fixture/HEAD"]);
+        yield* fs.writeFileString(`${linked}/HEAD`, `${landedHead}\n`);
+        const stashLog = `${work}/.git/logs/refs/stash`;
+        yield* git("update-ref", "refs/stash", landedHead);
+        yield* fs.writeFileString(
+          stashLog,
+          `${"0".repeat(40)} ${abandoned} Fixture <fixture@example.invalid> 1 +0000\tolder stash\n` +
+            `${abandoned} ${landedHead} Fixture <fixture@example.invalid> 2 +0000\tcurrent stash\n`
+        );
+        const stashRefusal = yield* Effect.flip(destroy("all-stashes"));
+        expect(
+          Predicate.isTagged(stashRefusal, "WorkspaceUnlanded") &&
+            stashRefusal.refs
+        ).toEqual(["stash@{1}"]);
+        yield* git("update-ref", "-d", "refs/stash");
         yield* git("config", "core.worktree", fixture.config.metadata);
         const final = yield* destroy("verified");
         expect(final).toMatchObject({
@@ -1031,6 +1103,98 @@ it.effect(
           ignored: 1,
           state: "destroyed",
         });
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
+
+it.effect(
+  "resumed teardown archives snapshot-only history and uses only live work as the landed proof",
+  () =>
+    Effect.gen(function* supersededSnapshot() {
+      const fixture = yield* custodyFixture;
+      const fs = yield* FileSystem.FileSystem;
+      const peonId = "snapshot-history";
+      const base = `${fixture.root}/boxes/${peonId}`;
+      const raw = "snapshot-only raw transcript\n";
+      const history = ".pi/agent/sessions/only-in-snapshot.jsonl";
+      yield* Effect.gen(function* lifecycle() {
+        const boxes = yield* Boxes;
+        yield* boxes.create({
+          peonId,
+          requestId: "create",
+          template: fixture.template,
+        });
+        yield* boxes.act({
+          action: "prompt",
+          peonId,
+          requestId: "turn",
+          text: "before snapshot",
+        });
+        yield* fs.writeFileString(`${base}/home/${history}`, raw);
+
+        const parked = yield* boxes.act({
+          action: "hibernate",
+          peonId,
+          requestId: "hibernate",
+          retained: true,
+        });
+
+        const snapshot = yield* Schema.decodeUnknownEffect(Snapshot)(
+          parked.snapshot
+        );
+
+        expect(snapshot.retained).toBe(true);
+        yield* boxes.act({ action: "resume", peonId, requestId: "resume" });
+        yield* fs.remove(`${base}/home/${history}`);
+
+        const exported = yield* Schema.decodeUnknownEffect(Export)(
+          yield* boxes.act({ action: "export", peonId })
+        );
+
+        yield* fixture.replicate(exported.exportReceipt.id);
+
+        const deletion: Parameters<typeof boxes.act>[0] = {
+          action: "destroy",
+          peonId,
+          requestId: "same-request",
+          landedHead: fixture.template.workspace.sha,
+        };
+
+        const refused = yield* Effect.flip(
+          boxes.act({ ...deletion, landedHead: "1".repeat(40) })
+        );
+
+        expect(refused._tag).toBe("WorkspaceUnlanded");
+        yield* fs.remove(`${base}/work/result.txt`);
+        const result = yield* boxes.act(deletion);
+        expect(result).toMatchObject({
+          state: "destroyed",
+          snapshotKept: false,
+          snapshotWorkSuperseded: true,
+          snapshotBytes: snapshot.bytes,
+        });
+        expect(yield* fs.exists(snapshot.path)).toBe(false);
+
+        for (const root of Object.values(fixture.roots)) {
+          expect(
+            yield* fs.readFileString(
+              `${root}/${exported.exportReceipt.id}/snapshot/${history}`
+            )
+          ).toBe(raw);
+        }
       }).pipe(
         Effect.provide(
           Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))
@@ -1063,9 +1227,11 @@ it.effect(
           template: fixture.template,
           requestId: "create",
         });
-        yield* fs.makeDirectory(root, { mode: 0o770, recursive: true });
-        const unarchivable = `${root}/has space.jsonl`;
-        yield* fs.writeFileString(unarchivable, "{}\n");
+        yield* fs.makeDirectory(
+          `${fixture.root}/boxes/${peonId}/home/.claude`,
+          { recursive: true, mode: 0o770 }
+        );
+        yield* fs.symlink(fixture.root, root);
 
         const exported = yield* Schema.decodeUnknownEffect(Export)(
           yield* boxes.act({ action: "export", peonId })
@@ -1075,7 +1241,7 @@ it.effect(
           `${fixture.roots.primary}/${exported.exportReceipt.id}/manifest.json`
         );
 
-        expect(manifest).toContain('"path":".claude/projects/has space.jsonl"');
+        expect(manifest).toContain('"path":".claude/projects"');
 
         const remove = (requestId: string) =>
           boxes.act({
@@ -1087,7 +1253,9 @@ it.effect(
 
         const refused = yield* Effect.flip(remove("skipped"));
         expect(refused._tag).toBe("CustodyIncomplete");
-        yield* fs.rename(unarchivable, `${root}/raw.jsonl`);
+        yield* fs.remove(root);
+        yield* fs.makeDirectory(root, { mode: 0o770 });
+        yield* fs.writeFileString(`${root}/raw.jsonl`, "{}\n");
         expect((yield* Effect.flip(remove("stale")))._tag).toBe(
           "CustodyIncomplete"
         );
@@ -1101,7 +1269,12 @@ it.effect(
           "ReceiptMismatch"
         );
         yield* TestClock.adjust(1000);
-        yield* boxes.act({ action: "export", peonId });
+
+        const verified = yield* Schema.decodeUnknownEffect(Export)(
+          yield* boxes.act({ action: "export", peonId })
+        );
+
+        yield* fixture.replicate(verified.exportReceipt.id);
         expect((yield* remove("verified")).state).toBe("destroyed");
       }).pipe(
         Effect.provide(
@@ -1137,10 +1310,10 @@ it.effect(
       for (const { roots, reason } of [
         {
           roots: { ...fixture.roots, primary: `${fixture.root}/missing` },
-          reason: "could not be resolved",
+          reason: "could not be read",
         },
         {
-          roots: { ...fixture.roots, primary: fixture.roots.mirror },
+          roots: { ...fixture.roots, primary: fixture.roots.replica },
           reason: "disjoint",
         },
         { roots: fixture.roots, reason: "designated box host" },
@@ -1517,6 +1690,13 @@ it.effect(
         }
 
         for (const command of creates) {
+          expect(command).toContain("--network mischief-peon-boxes");
+          expect(
+            command.match(/--mount type=bind,source=[^ ]+,target=[^ ]+/gu)
+          ).toEqual([
+            expect.stringMatching(/,target=\/work$/u),
+            expect.stringMatching(/,target=\/home\/peon$/u),
+          ]);
           expect(command).toContain(
             "--read-only --tmpfs /tmp:rw,nosuid,nodev,size=384m"
           );

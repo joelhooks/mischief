@@ -68,9 +68,25 @@ const CodexHeader = Schema.fromJsonString(
   })
 );
 
-export const isArchivePath = (file: string) =>
-  file.split("/").every((name) => safeName.test(name)) &&
-  sessionRoots.some((root) => belongs(file, root));
+const snapshotPrefix = "snapshot/";
+
+export const isArchivePath = (file: string) => {
+  const relative = file.startsWith(snapshotPrefix)
+    ? file.slice(snapshotPrefix.length)
+    : file;
+
+  return (
+    relative.split("/").every((name) => safeName.test(name)) &&
+    sessionRoots.some((root) => belongs(relative, root))
+  );
+};
+
+const escapeName = (name: string) =>
+  safeName.test(name) && !name.startsWith("__escaped__")
+    ? name
+    : `__escaped__${sha256(name)}`;
+
+const escapePath = (name: string) => name.split("/").map(escapeName).join("/");
 
 const PiHeader = Schema.fromJsonString(
   Schema.Struct({
@@ -88,8 +104,11 @@ export const sha256 = (text: string) =>
 export const fingerprintOf = (
   checksums: string,
   symlinks: string,
-  sessionIds: readonly string[]
-) => sha256(JSON.stringify([checksums, symlinks, sessionIds]));
+  sessionIds: readonly string[],
+  renamed: NonNullable<Manifest["renamed"]> = [],
+  nonData: NonNullable<Manifest["nonData"]> = []
+) =>
+  sha256(JSON.stringify([checksums, symlinks, sessionIds, renamed, nonData]));
 
 export const walkArchive = Effect.fn("Archive.walk")(function* walkArchive<R>(
   root: string,
@@ -116,20 +135,7 @@ export const walkArchive = Effect.fn("Archive.walk")(function* walkArchive<R>(
     }
 
     for (const name of yield* fs.readDirectory(absolute)) {
-      const child = path.join(relative, name);
-
-      if (safeName.test(name)) {
-        yield* walkArchive(root, child, visit, skip);
-      } else {
-        const reason =
-          "Archive contains a name outside [A-Za-z0-9._-]. Inspect the stopped box before retrying export.";
-
-        if (skip === undefined) {
-          return yield* archiveFailure(reason);
-        }
-
-        skip({ path: child, reason });
-      }
+      yield* walkArchive(root, path.join(relative, name), visit, skip);
     }
 
     return yield* Effect.void;
@@ -153,28 +159,46 @@ export const walkArchive = Effect.fn("Archive.walk")(function* walkArchive<R>(
 
 const scanFile = Effect.fn("Archive.scanFile")(function* scanFile(
   file: string,
-  readHeader: boolean
+  readHeader: boolean,
+  claude: boolean
 ) {
   const fs = yield* FileSystem.FileSystem;
   const digest = createHash("sha256");
   let header = Buffer.alloc(0);
   let complete = !readHeader;
   let bytes = 0;
+  let oversized = false;
+  let found = Option.none<string>();
   yield* fs.stream(file).pipe(
     Stream.runForEach((chunk) =>
       Effect.sync(() => {
         digest.update(chunk);
         bytes += chunk.byteLength;
 
-        if (!complete) {
-          const newline = chunk.indexOf(10);
+        for (let offset = 0; !complete && offset < chunk.byteLength;) {
+          const newline = chunk.indexOf(10, offset);
           const end = newline === -1 ? chunk.byteLength : newline;
           const remaining = 65_536 - header.length;
           header = Buffer.concat([
             header,
-            chunk.subarray(0, Math.min(end, remaining)),
+            chunk.subarray(offset, Math.min(end, offset + remaining)),
           ]);
-          complete = newline !== -1 || header.length === 65_536;
+          oversized ||= end - offset > remaining;
+
+          if (!claude) {
+            complete = newline !== -1 || header.length === 65_536;
+          } else if (newline !== -1) {
+            found = oversized
+              ? Option.none()
+              : Schema.decodeOption(ClaudeHeader)(
+                  header.toString("utf-8")
+                ).pipe(Option.map(({ sessionId }) => sessionId));
+            complete = Option.isSome(found);
+            header = Buffer.alloc(0);
+            oversized = false;
+          }
+
+          offset = end + 1;
         }
       })
     )
@@ -183,6 +207,12 @@ const scanFile = Effect.fn("Archive.scanFile")(function* scanFile(
   return {
     bytes,
     header: header.toString("utf-8"),
+    claudeId:
+      claude && !complete && !oversized
+        ? Schema.decodeOption(ClaudeHeader)(header.toString("utf-8")).pipe(
+            Option.map(({ sessionId }) => sessionId)
+          )
+        : found,
     sha256: digest.digest("hex"),
   };
 });
@@ -236,12 +266,6 @@ const sessionId = (root: string, head: string, pi: boolean) => {
     );
   }
 
-  if (derivedRoots.has(root)) {
-    return Schema.decodeOption(ClaudeHeader)(head).pipe(
-      Option.map(({ sessionId: id }) => id)
-    );
-  }
-
   return Schema.decodeOption(CodexHeader)(head).pipe(
     Option.map(({ payload }) => payload.id)
   );
@@ -255,31 +279,20 @@ export const collectArchive = Effect.fn("Archive.collect")(
       readonly boxId: string;
       readonly host: string;
       readonly row?: string;
-    }
+    },
+    snapshot?: string
   ) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-
-    if (
-      (yield* fs.lstat(home)).type !== "Directory" ||
-      (yield* fs.realPath(home)) !== home
-    ) {
-      return yield* archiveFailure(
-        "Box home is not a canonical directory. Recover the stopped box's home before exporting."
-      );
-    }
-
-    if (!(yield* sessionRootPresent(home, piAgentRoot, "Directory"))) {
-      return yield* archiveFailure(
-        "Box Pi agent directory is missing or not canonical. Recover it before retrying export."
-      );
-    }
 
     const files = new Map<
       string,
       { readonly bytes: number; readonly sha256: string }
     >();
 
+    const sources = new Map<string, string>();
+    const nonData: { path: string; type: string }[] = [];
+    const renamed: { from: string; to: string }[] = [];
     const symlinks = new Map<string, string>();
     const sessions = new Set<string>();
     const roots: Manifest["source_roots"][number][] = [];
@@ -291,56 +304,50 @@ export const collectArchive = Effect.fn("Archive.collect")(
     };
 
     const visitRoot = Effect.fn("Archive.visitRoot")(function* visitRoot(
+      source: string,
+      prefix: string,
       root: string
     ) {
       if (
         !(yield* sessionRootPresent(
-          home,
+          source,
           root,
           singleFiles.has(root) ? "File" : "Directory"
         ))
       ) {
-        if (root === primaryPiSession && box.lastPromptAt !== null) {
-          return yield* archiveFailure(
-            "Prompted box is missing its managed Pi session. Recover home/session.jsonl before exporting or destroying."
-          );
-        }
-
         return yield* Effect.void;
       }
 
       roots.push({
-        path: root,
+        path: prefix + root,
         role: derivedRoots.has(root) ? "derived" : "authoritative",
       });
       yield* walkArchive(
-        home,
+        source,
         root,
         (relative, entry) =>
           Effect.gen(function* visitSession() {
-            const file = path.join(home, relative);
+            const file = path.join(source, relative);
+            const from = prefix + relative;
+            const name = prefix + escapePath(relative);
 
             if (entry.type === "SymbolicLink") {
               const target = yield* fs.readLink(file);
 
-              if (/[\t\r\n]/u.test(target)) {
-                return yield* archiveFailure(
-                  "Session symlink cannot be represented by SYMLINKS.tsv. Inspect the stopped box before retrying export."
-                );
-              }
-
-              symlinks.set(relative, target);
+              symlinks.set(
+                name,
+                /[\t\r\n]/u.test(target) || target.startsWith('"')
+                  ? JSON.stringify(target)
+                  : target
+              );
 
               return yield* Effect.void;
             }
 
-            if (
-              entry.type !== "File" ||
-              Option.getOrElse(entry.nlink, () => 0n) !== 1n
-            ) {
-              return yield* archiveFailure(
-                "Session tree contains a special file or hard link. Inspect the stopped box before retrying export."
-              );
+            if (entry.type !== "File") {
+              nonData.push({ path: name, type: entry.type });
+
+              return yield* Effect.void;
             }
 
             const jsonl = relative.endsWith(".jsonl");
@@ -349,49 +356,103 @@ export const collectArchive = Effect.fn("Archive.collect")(
               root === primaryPiSession || (root === piSessions && jsonl);
 
             const transcript = jsonl && relative !== codexHistory;
-            const scanned = yield* scanFile(file, transcript);
+            const claude = derivedRoots.has(root);
+
+            const scanned = yield* scanFile(
+              file,
+              transcript,
+              claude && transcript
+            );
 
             if (transcript) {
-              const id = sessionId(root, scanned.header, pi);
+              const id = claude
+                ? scanned.claudeId
+                : sessionId(root, scanned.header, pi);
 
               if (Option.isSome(id)) {
                 sessions.add(id.value);
               } else {
-                unparsed.push(relative);
+                unparsed.push(name);
               }
             }
 
-            files.set(relative, {
+            if (from !== name) {
+              renamed.push({ from, to: name });
+            }
+
+            sources.set(name, file);
+            files.set(name, {
               bytes: scanned.bytes,
               sha256: scanned.sha256,
             });
 
             return yield* Effect.void;
           }),
-        derivedRoots.has(root) ? recordSkip : undefined
+        derivedRoots.has(root)
+          ? (entry) => {
+              recordSkip({ ...entry, path: prefix + entry.path });
+            }
+          : undefined
       );
 
       return yield* Effect.void;
     });
 
-    for (const root of sessionRoots) {
-      const scan = visitRoot(root);
-      yield* derivedRoots.has(root)
-        ? scan.pipe(
-            Effect.catch((error) =>
-              Effect.sync(() => {
-                recordSkip({
-                  path: root,
-                  reason: Predicate.isTagged(error, "ArchiveFailure")
-                    ? error.message
-                    : "Session root could not be read.",
-                });
-              })
+    const trees =
+      snapshot === undefined
+        ? [{ source: home, prefix: "" }]
+        : [
+            { source: home, prefix: "" },
+            { source: snapshot, prefix: snapshotPrefix },
+          ];
+
+    for (const { source, prefix } of trees) {
+      if (
+        (yield* fs.lstat(source)).type !== "Directory" ||
+        (yield* fs.realPath(source)) !== source
+      ) {
+        return yield* archiveFailure(
+          "Box home is not a canonical directory. Recover the stopped box's home before exporting."
+        );
+      }
+
+      if (!(yield* sessionRootPresent(source, piAgentRoot, "Directory"))) {
+        return yield* archiveFailure(
+          "Box Pi agent directory is missing or not canonical. Recover it before retrying export."
+        );
+      }
+
+      for (const root of sessionRoots) {
+        const scan = visitRoot(source, prefix, root);
+        yield* derivedRoots.has(root)
+          ? scan.pipe(
+              Effect.catch((error) =>
+                Effect.sync(() => {
+                  recordSkip({
+                    path: prefix + root,
+                    reason: Predicate.isTagged(error, "ArchiveFailure")
+                      ? error.message
+                      : "Session root could not be read.",
+                  });
+                })
+              )
             )
-          )
-        : scan;
+          : scan;
+      }
     }
 
+    if (
+      box.lastPromptAt !== null &&
+      !sources.has(primaryPiSession) &&
+      !sources.has(snapshotPrefix + primaryPiSession)
+    ) {
+      return yield* archiveFailure(
+        "Prompted box is missing its managed Pi session. Recover home/session.jsonl before exporting or destroying."
+      );
+    }
+
+    renamed.sort((a, b) => (a.from < b.from ? -1 : Number(a.from !== b.from)));
+    nonData.sort((a, b) => (a.path < b.path ? -1 : Number(a.path !== b.path)));
     skipped.sort((a, b) => (a.path < b.path ? -1 : Number(a.path !== b.path)));
 
     const entries = [...files.entries()].toSorted(([a], [b]) =>
@@ -428,6 +489,8 @@ export const collectArchive = Effect.fn("Archive.collect")(
       source_roots: roots,
       unparsed: unparsed.toSorted(),
       skipped,
+      renamed,
+      nonData,
     } satisfies Manifest;
 
     const manifest =
@@ -438,8 +501,14 @@ export const collectArchive = Effect.fn("Archive.collect")(
     return {
       files: {
         checksums,
-        fingerprint: fingerprintOf(checksums, links, sessionIds),
-        home,
+        fingerprint: fingerprintOf(
+          checksums,
+          links,
+          sessionIds,
+          renamed,
+          nonData
+        ),
+        sources,
         paths,
         symlinks: links,
       },

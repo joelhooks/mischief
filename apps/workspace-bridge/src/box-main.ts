@@ -47,7 +47,7 @@ const program = Effect.gen(function* serveBoxes() {
     Config.withDefault("")
   );
 
-  const mirror = yield* Config.String("MISCHIEF_BOX_ARCHIVE_MIRROR").pipe(
+  const replica = yield* Config.String("MISCHIEF_BOX_ARCHIVE_REPLICA").pipe(
     Config.withDefault("")
   );
 
@@ -56,9 +56,9 @@ const program = Effect.gen(function* serveBoxes() {
   );
 
   const archive =
-    primary === "" || mirror === "" || checkerHost === ""
+    primary === "" || replica === "" || checkerHost === ""
       ? ArchivePort.disabled
-      : archiveDiskLayer({ checkerHost, mirror, primary });
+      : archiveDiskLayer({ checkerHost, replica, primary });
 
   const config = {
     ...storage,

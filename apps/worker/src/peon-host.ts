@@ -500,7 +500,7 @@ export const peonHost = ({
 
     const lost = {
       ...stored,
-      pending: fault.boxCode === undefined ? stored.pending : null,
+      pending: fault.code === undefined ? stored.pending : null,
       report: { ...stored.report, fault: fault.reason, state },
     };
 

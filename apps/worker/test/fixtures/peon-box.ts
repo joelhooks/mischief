@@ -89,8 +89,62 @@ const deleteRefusal = (body: typeof RequestBody.Type, exported: boolean) => {
     : Response.json({ error: { code: "ReceiptMismatch" } }, { status: 409 });
 };
 
+const custodyMissing = {
+  code: "CustodyMissing",
+  message:
+    "Protected archive is not configured. Configure both archive roots before exporting or destroying.",
+};
+
+const refusals = new Map([
+  [
+    "custody-incomplete",
+    { code: "CustodyIncomplete", message: "Session files were skipped." },
+  ],
+  [
+    "replica-pending",
+    {
+      code: "ReplicaPending",
+      message: "The archive replica is still copying.",
+    },
+  ],
+  [
+    "replica-mismatch",
+    {
+      code: "ReplicaMismatch",
+      message: "The replica checksum differs from the primary.",
+    },
+  ],
+  [
+    "workspace-unlanded",
+    {
+      code: "WorkspaceUnlanded",
+      message: "The workspace has unlanded changes.",
+      dirtyPaths: ["src/draft.ts"],
+      refs: ["refs/heads/draft"],
+    },
+  ],
+  [
+    "destroy-in-progress",
+    { code: "DestroyInProgress", message: "A destroy is already recorded." },
+  ],
+  [
+    "receipt-mismatch",
+    {
+      code: "ReceiptMismatch",
+      message: "The primary archive receipt did not match.",
+    },
+  ],
+  ["generic-failure", { code: "Unavailable", message: "The box is offline." }],
+]);
+
 export class FakeBox extends DurableObject {
   private async deleteRefusal(path: string, body: typeof RequestBody.Type) {
+    const denial = refusals.get(path.slice("/v1/boxes/".length));
+
+    if (denial !== undefined && denial.code !== "ReceiptMismatch") {
+      return Response.json({ error: denial }, { status: 409 });
+    }
+
     const testMissing = `${path}/custody-missing-once`;
 
     if (
@@ -99,10 +153,7 @@ export class FakeBox extends DurableObject {
     ) {
       await this.ctx.storage.put(testMissing, true);
 
-      return Response.json(
-        { error: { code: "CustodyMissing" } },
-        { status: 409 }
-      );
+      return Response.json({ error: custodyMissing }, { status: 503 });
     }
 
     if ((await this.ctx.storage.get<boolean>(`${path}/retained`)) === true) {
@@ -120,6 +171,26 @@ export class FakeBox extends DurableObject {
       exported &&
         !(path === "/v1/boxes/worker-a" && body.discardWorkspace === true)
     );
+  }
+
+  private async exportBox(path: string, key: string) {
+    const denial = refusals.get(
+      path.slice("/v1/boxes/".length, -"/export".length)
+    );
+
+    if (denial?.code === "ReceiptMismatch") {
+      return Response.json({ error: denial }, { status: 409 });
+    }
+
+    const response = {
+      state: "suspended",
+      exportReceipt: { ...exportReceipt, replicaState: "pending" },
+    };
+
+    await this.ctx.storage.put(path, true);
+    await this.ctx.storage.put(key, response);
+
+    return Response.json(response);
   }
 
   override async fetch(request: Request) {
@@ -192,11 +263,7 @@ export class FakeBox extends DurableObject {
         state: "hibernated",
       };
     } else if (path.endsWith("/export")) {
-      await this.ctx.storage.put(path, true);
-      response = {
-        state: "suspended",
-        exportReceipt: { ...exportReceipt, replicaState: "pending" },
-      };
+      return await this.exportBox(path, key);
     } else if (request.method === "DELETE") {
       const denied = await this.deleteRefusal(path, body);
 

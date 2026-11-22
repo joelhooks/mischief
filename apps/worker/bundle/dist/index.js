@@ -56855,6 +56855,7 @@ var PeonExportReceipt = Schema4.Struct({
 var PeonBoxRefusalCode = Schema4.Literals([
   "CustodyMissing",
   "CustodyIncomplete",
+  "DestroyInProgress",
   "ReceiptMismatch",
   "ReplicaPending",
   "ReplicaMismatch",
@@ -56893,7 +56894,7 @@ var PeonReport = Schema4.Struct({
   resolvedTemplate: PeonTemplate,
   usage: PeonUsage
 });
-var PeonRefused = class extends Schema4.TaggedError()("PeonRefused", { reason: Schema4.String, boxCode: Schema4.optionalKey(PeonBoxRefusalCode) }) {
+var PeonRefused = class extends Schema4.TaggedError()("PeonRefused", { reason: Schema4.String, code: Schema4.optionalKey(PeonBoxRefusalCode) }) {
   get message() {
     return this.reason;
   }
@@ -84809,9 +84810,35 @@ var methodOf = (operation) => {
   }
   return operation === "destroy" ? "DELETE" : "POST";
 };
-var stopRetry = Schema97.fromJsonString(
-  Schema97.Struct({ error: Schema97.Struct({ code: PeonBoxRefusalCode }) })
+var custodyRefusal = Schema97.fromJsonString(
+  Schema97.Struct({
+    error: Schema97.Struct({
+      code: PeonBoxRefusalCode,
+      message: Schema97.optionalKey(Schema97.String),
+      dirtyPaths: Schema97.optionalKey(Schema97.Array(Schema97.String)),
+      refs: Schema97.optionalKey(Schema97.Array(Schema97.String))
+    })
+  })
 );
+var nextStep = {
+  CustodyMissing: "custody is off on this host; destroy is unavailable until custody-on",
+  CustodyIncomplete: "Recover the skipped session files, then retry destroyPeon.",
+  DestroyInProgress: "Retry destroyPeon with the original workspace disposition.",
+  ReceiptMismatch: "Ask the Mischief operator to check the protected archive before retrying destroyPeon.",
+  ReplicaPending: "The replica copy hasn't verified yet; retry destroyPeon after it has.",
+  ReplicaMismatch: "Ask the Mischief operator to repair and verify the replica before retrying destroyPeon.",
+  WorkspaceUnlanded: "Retry destroyPeon with landedHead (the landed commit) or discardWorkspace: true."
+};
+var unlandedDetails = ({
+  dirtyPaths = [],
+  refs = []
+}) => {
+  const details = [
+    ...dirtyPaths.length === 0 ? [] : [`Unlanded paths: ${dirtyPaths.join(", ")}.`],
+    ...refs.length === 0 ? [] : [`Unlanded refs: ${refs.join(", ")}.`]
+  ];
+  return details.length === 0 ? "" : ` ${details.join(" ")}`;
+};
 var exportReply = Schema97.fromJsonString(
   Schema97.Struct({ exportReceipt: PeonExportReceipt })
 );
@@ -84822,11 +84849,20 @@ var requireSuccess = (peonId, operation, response) => Effect65.gen(function* che
   if (response.status >= 200 && response.status < 300) {
     return response.text;
   }
-  const reply = Schema97.decodeOption(stopRetry)(response.text);
-  const reason = `Box ${peonId} ${operation} returned HTTP ${response.status}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`;
-  return yield* new PeonRefused(
-    Option50.isSome(reply) ? { reason, boxCode: reply.value.error.code } : { reason }
-  );
+  const reply = Schema97.decodeOption(custodyRefusal)(response.text);
+  const context = `Box ${peonId} ${operation} returned HTTP ${response.status}`;
+  if (Option50.isSome(reply)) {
+    const { error } = reply.value;
+    const message = error.message === void 0 ? "" : ` ${error.message}`;
+    const details = error.code === "WorkspaceUnlanded" ? unlandedDetails(error) : "";
+    return yield* new PeonRefused({
+      code: error.code,
+      reason: `${context} (${error.code}).${message}${details} ${nextStep[error.code]}`
+    });
+  }
+  return yield* new PeonRefused({
+    reason: `${context}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`
+  });
 });
 var custody = Schema97.fromJsonString(
   Schema97.Struct({
@@ -85231,7 +85267,7 @@ var peonHost = ({
     const state3 = stored2.report.state === "destroyed" ? "destroyed" : peonTransition(stored2.report.state, "BOX_LOST");
     const lost = {
       ...stored2,
-      pending: fault.boxCode === void 0 ? stored2.pending : null,
+      pending: fault.code === void 0 ? stored2.pending : null,
       report: { ...stored2.report, fault: fault.reason, state: state3 }
     };
     yield* commit(lost);
@@ -85545,7 +85581,14 @@ var Peon = class extends DurableObject3 {
         newPeonId,
         sender,
         text
-      })
+      }).pipe(
+        Effect68.catchTag(
+          "PeonRefused",
+          (refusal3) => refusal3.code === void 0 ? Effect68.fail(refusal3) : Effect68.succeed({
+            refusal: { code: refusal3.code, reason: refusal3.reason }
+          })
+        )
+      )
     );
   }
   async acceptMail(requestId2, text, sender) {
@@ -87977,6 +88020,11 @@ var serveDeskWake = async (request2, env, issuer) => {
 import { Clock as Clock15, Effect as Effect83, Layer as Layer34, Schema as Schema111 } from "effect";
 import { HttpRouter as HttpRouter4, HttpServer as HttpServer4 } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder5 } from "effect/http-api";
+var peonCommandRpc = (operation) => peonRpc(operation).pipe(
+  Effect83.flatMap(
+    (reply) => "refusal" in reply ? Effect83.fail(new PeonRefused(reply.refusal)) : Effect83.succeed(reply)
+  )
+);
 var peonServices = (env, owner) => {
   const registry = () => env.PEON_TEMPLATES.getByName(PEON_REGISTRY);
   const entryFor = Effect83.fn("Peon.entryFor")(function* entryFor2(id) {
@@ -88000,7 +88048,7 @@ var peonServices = (env, owner) => {
   const command = Effect83.fn("Peon.command")(function* command2(kind, input) {
     const object2 = yield* owned(input.peonId);
     const requestId2 = input.requestId ?? (yield* freshPeonId);
-    return yield* peonRpc(
+    return yield* peonCommandRpc(
       async () => await object2.command(
         kind,
         requestId2,
@@ -88024,7 +88072,7 @@ var peonServices = (env, owner) => {
           reason: `Peon ${input.peonId} cannot clone into its own id; copying over it would corrupt its workspace. Retry clonePeon with a different newPeonId.`
         });
       }
-      return yield* peonRpc(
+      return yield* peonCommandRpc(
         async () => await object2.command("clone", requestId2, void 0, newPeonId)
       );
     }),
@@ -88136,7 +88184,7 @@ var AuthRefused = class extends Schema113.TaggedError()(
 // src/service-auth.ts
 var NSID_PREFIX = "sh.mschf.mischief.";
 var SKEW_SECONDS = 5;
-var MINT = `Mint a fresh Rat King service token with serviceToken from @rat-king/mailbox-client/auth (ES256, signed with your DID's #atproto key): iss your DID, aud the host's audience, lxm ${NSID_PREFIX}<capability>, a unique jti of at least 16 characters, iat now and exp at most 60 seconds later. Send it as Authorization: Bearer <token>. A caller missing from the host's allowlist asks the Mischief desk (pi-durable/desk) to add its DID document`;
+var MINT = `Mint a fresh Rat King service token with serviceToken from @rat-king/mailbox-client/auth (ES256, signed with your DID's #atproto key): iss your DID, aud the host's audience, lxm ${NSID_PREFIX}<capability>, a unique jti of at least 16 characters, iat now and exp at most 60 seconds later. Send it as Authorization: Bearer <token>. If your DID is not on the host's allowlist, ask the Mischief operator to add your DID document.`;
 var authenticate = Effect84.fn("Mischief.authenticate")(
   function* authenticate2(request2) {
     const now = yield* Clock16.currentTimeMillis;

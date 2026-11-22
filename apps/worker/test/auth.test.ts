@@ -154,7 +154,7 @@ it.live.prop(
 );
 
 it.live(
-  "a caller whose clock runs up to five seconds ahead is served, and seven seconds ahead is refused",
+  "a caller within the clock tolerance is served, and an unlisted caller is directed to the operator",
   () =>
     Effect.gen(function* skew() {
       const alice = yield* freshCaller("alice");
@@ -180,6 +180,24 @@ it.live(
       expect(ahead).not.toBe(401);
 
       expect(later).toBe(401);
+
+      const unlisted = yield* postAs(
+        world,
+        "inspectRun",
+        { runId: "line" },
+        yield* AUTHORIZATIONS["unknown caller"](cast, now)
+      );
+
+      expect(unlisted.status).toBe(401);
+
+      const { error } = yield* Schema.decodeUnknownEffect(
+        Schema.Struct({ error: Schema.String })
+      )(unlisted.body);
+
+      expect(error).toContain(
+        "ask the Mischief operator to add your DID document."
+      );
+      expect(error).not.toContain("pi-durable/desk");
     }).pipe(Effect.scoped, Effect.provide(services)),
   60_000
 );

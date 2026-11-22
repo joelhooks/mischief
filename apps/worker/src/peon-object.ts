@@ -195,12 +195,22 @@ export class Peon extends DurableObject<Env> {
     }
   ) {
     return await this.run(
-      this.host.command(kind, requestId, events[kind], {
-        ...disposition,
-        newPeonId,
-        sender,
-        text,
-      })
+      this.host
+        .command(kind, requestId, events[kind], {
+          ...disposition,
+          newPeonId,
+          sender,
+          text,
+        })
+        .pipe(
+          Effect.catchTag("PeonRefused", (refusal) =>
+            refusal.code === undefined
+              ? Effect.fail(refusal)
+              : Effect.succeed({
+                  refusal: { code: refusal.code, reason: refusal.reason },
+                })
+          )
+        )
     );
   }
 

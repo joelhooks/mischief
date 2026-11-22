@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { PeonReport, PeonTombstone } from "@mischief/core";
+import { PeonRefused, PeonReport, PeonTombstone } from "@mischief/core";
 import { Effect, Layer, Option, Schedule, Schema } from "effect";
 import { FetchHttpClient, HttpClient } from "effect/http";
 
@@ -30,6 +30,108 @@ const report = (world: Workerd) =>
   post(world, "inspectPeon", { peonId: "worker-a" }).pipe(
     Effect.flatMap(({ body }) => Schema.decodeUnknownEffect(PeonReport)(body))
   );
+
+const custodyCases = [
+  [
+    "custody-incomplete",
+    "CustodyIncomplete",
+    "Session files were skipped.",
+    "Recover the skipped session files, then retry destroyPeon.",
+  ],
+  [
+    "replica-pending",
+    "ReplicaPending",
+    "The archive replica is still copying.",
+    "The replica copy hasn't verified yet; retry destroyPeon after it has.",
+  ],
+  [
+    "replica-mismatch",
+    "ReplicaMismatch",
+    "The replica checksum differs from the primary.",
+    "Ask the Mischief operator to repair and verify the replica before retrying destroyPeon.",
+  ],
+  [
+    "workspace-unlanded",
+    "WorkspaceUnlanded",
+    "The workspace has unlanded changes.",
+    "Retry destroyPeon with landedHead (the landed commit) or discardWorkspace: true.",
+  ],
+  [
+    "destroy-in-progress",
+    "DestroyInProgress",
+    "A destroy is already recorded.",
+    "Retry destroyPeon with the original workspace disposition.",
+  ],
+  [
+    "receipt-mismatch",
+    "ReceiptMismatch",
+    "The primary archive receipt did not match.",
+    "Ask the Mischief operator to check the protected archive before retrying destroyPeon.",
+  ],
+] as const;
+
+const spawnAndDestroy = Effect.fn("test.spawnAndDestroy")(
+  function* spawnAndDestroy(world: Workerd, peonId: string) {
+    const spawned = yield* post(world, "spawnPeon", {
+      overrides: { workspace },
+      peonId,
+      template: "full",
+    });
+
+    expect(spawned.status, JSON.stringify(spawned.body)).toBe(200);
+
+    const refused = yield* post(world, "destroyPeon", {
+      discardWorkspace: true,
+      peonId,
+      requestId: `destroy-${peonId}`,
+    });
+
+    expect(refused.status).toBe(422);
+
+    return refused.body;
+  }
+);
+
+it.live(
+  "destroyPeon preserves bridge refusals from destroy and export",
+  () =>
+    Effect.gen(function* custodyRefusals() {
+      const world = yield* prepare(200, [], undefined, { peons: true });
+      yield* start(world);
+
+      for (const [peonId, code, message, nextStep] of custodyCases) {
+        const body = yield* spawnAndDestroy(world, peonId);
+        const failure = yield* Schema.decodeUnknownEffect(PeonRefused)(body);
+
+        expect(failure.code).toBe(code);
+        expect(failure.reason).toContain(message);
+        expect(failure.reason.endsWith(nextStep)).toBe(true);
+
+        if (code === "WorkspaceUnlanded") {
+          expect(failure.reason).toContain("src/draft.ts");
+          expect(failure.reason).toContain("refs/heads/draft");
+        }
+
+        const inspected = yield* post(world, "inspectPeon", { peonId });
+
+        expect(inspected.body).toMatchObject({ pending: null });
+      }
+
+      const peonId = "generic-failure";
+      const body = yield* spawnAndDestroy(world, peonId);
+      const failure = yield* Schema.decodeUnknownEffect(PeonRefused)(body);
+
+      expect(body).not.toHaveProperty("code");
+      expect(failure.reason).toMatch(/^Peon object call failed:/u);
+
+      const inspected = yield* post(world, "inspectPeon", { peonId });
+
+      expect(inspected.body).toMatchObject({
+        pending: { kind: "destroy", requestId: `destroy-${peonId}` },
+      });
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  30_000
+);
 
 const untilReport = (world: Workerd, state: string) =>
   report(world).pipe(
@@ -236,7 +338,30 @@ it.live(
         discardWorkspace: true,
       });
 
-      expect(JSON.stringify(custodyMissing.body)).toContain("CustodyMissing");
+      expect(custodyMissing.status).toBe(422);
+
+      const refusal = yield* Schema.decodeUnknownEffect(PeonRefused)(
+        custodyMissing.body
+      );
+
+      expect(refusal.code).toBe("CustodyMissing");
+      expect(refusal.reason).toContain(
+        "Protected archive is not configured. Configure both archive roots before exporting or destroying."
+      );
+      expect(
+        refusal.reason.endsWith(
+          "custody is off on this host; destroy is unavailable until custody-on"
+        )
+      ).toBe(true);
+
+      const legacy = yield* Schema.decodeUnknownEffect(
+        Schema.Struct({
+          _tag: Schema.Literal("PeonRefused"),
+          reason: Schema.String,
+        })
+      )(custodyMissing.body);
+
+      expect(legacy.reason).toBe(refusal.reason);
       expect((yield* report(world)).pending).toBeNull();
 
       const receiptMismatch = yield* post(world, "destroyPeon", {

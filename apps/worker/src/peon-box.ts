@@ -54,9 +54,47 @@ export interface PeonBox {
   ) => Effect.Effect<A, PeonRefused>;
 }
 
-const stopRetry = Schema.fromJsonString(
-  Schema.Struct({ error: Schema.Struct({ code: PeonBoxRefusalCode }) })
+const custodyRefusal = Schema.fromJsonString(
+  Schema.Struct({
+    error: Schema.Struct({
+      code: PeonBoxRefusalCode,
+      message: Schema.optionalKey(Schema.String),
+      dirtyPaths: Schema.optionalKey(Schema.Array(Schema.String)),
+      refs: Schema.optionalKey(Schema.Array(Schema.String)),
+    }),
+  })
 );
+
+const nextStep = {
+  CustodyMissing:
+    "custody is off on this host; destroy is unavailable until custody-on",
+  CustodyIncomplete:
+    "Recover the skipped session files, then retry destroyPeon.",
+  DestroyInProgress:
+    "Retry destroyPeon with the original workspace disposition.",
+  ReceiptMismatch:
+    "Ask the Mischief operator to check the protected archive before retrying destroyPeon.",
+  ReplicaPending:
+    "The replica copy hasn't verified yet; retry destroyPeon after it has.",
+  ReplicaMismatch:
+    "Ask the Mischief operator to repair and verify the replica before retrying destroyPeon.",
+  WorkspaceUnlanded:
+    "Retry destroyPeon with landedHead (the landed commit) or discardWorkspace: true.",
+} satisfies Record<typeof PeonBoxRefusalCode.Type, string>;
+
+const unlandedDetails = ({
+  dirtyPaths = [],
+  refs = [],
+}: (typeof custodyRefusal.Type)["error"]) => {
+  const details = [
+    ...(dirtyPaths.length === 0
+      ? []
+      : [`Unlanded paths: ${dirtyPaths.join(", ")}.`]),
+    ...(refs.length === 0 ? [] : [`Unlanded refs: ${refs.join(", ")}.`]),
+  ];
+
+  return details.length === 0 ? "" : ` ${details.join(" ")}`;
+};
 
 const exportReply = Schema.fromJsonString(
   Schema.Struct({ exportReceipt: PeonExportReceipt })
@@ -76,14 +114,25 @@ const requireSuccess = (
       return response.text;
     }
 
-    const reply = Schema.decodeOption(stopRetry)(response.text);
-    const reason = `Box ${peonId} ${operation} returned HTTP ${response.status}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`;
+    const reply = Schema.decodeOption(custodyRefusal)(response.text);
+    const context = `Box ${peonId} ${operation} returned HTTP ${response.status}`;
 
-    return yield* new PeonRefused(
-      Option.isSome(reply)
-        ? { reason, boxCode: reply.value.error.code }
-        : { reason }
-    );
+    if (Option.isSome(reply)) {
+      const { error } = reply.value;
+      const message = error.message === undefined ? "" : ` ${error.message}`;
+
+      const details =
+        error.code === "WorkspaceUnlanded" ? unlandedDetails(error) : "";
+
+      return yield* new PeonRefused({
+        code: error.code,
+        reason: `${context} (${error.code}).${message}${details} ${nextStep[error.code]}`,
+      });
+    }
+
+    return yield* new PeonRefused({
+      reason: `${context}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`,
+    });
   });
 
 const custody = Schema.fromJsonString(

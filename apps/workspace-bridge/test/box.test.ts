@@ -3,6 +3,7 @@ import { expect, it } from "@effect/vitest";
 import {
   Deferred,
   Effect,
+  Exit,
   Fiber,
   FileSystem,
   Layer,
@@ -11,7 +12,10 @@ import {
 } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import * as Digest from "effect/crypto/Digest";
+import { TestClock } from "effect/testing";
 
+import { archiveDiskLayer } from "../src/box/archive-disk.js";
+import { ArchivePort } from "../src/box/archive.js";
 import { nextState } from "../src/box/machine.js";
 import { Boxes } from "../src/box/manager.js";
 import { PromptResult, Snapshot, State } from "../src/box/protocol.js";
@@ -20,6 +24,9 @@ import { receiptKey } from "../src/box/receipt.js";
 import { boxRunnerLayer } from "../src/box/runner.js";
 import { checked, Runner } from "../src/runner.js";
 import { image, piOutput, sha } from "./fixtures.js";
+
+const piHeader =
+  '{"type":"session","version":3,"id":"f4f15679-4146-4f95-8917-09c60abe812b","timestamp":"2026-01-01T00:00:00Z","cwd":"/work"}';
 
 const template: BoxTemplate = {
   limits: { cpus: 2, memory: "4g", pids: 512, tmp: "384m" },
@@ -99,6 +106,11 @@ rm) for name in "$@"; do case "$name" in mischief-peon-box-*) unlink '${root}/fa
 inspect)
   shift; shift
   if grep -qx running '${root}/fake/'"$1"; then printf '{"Running":true,"Pid":123}'; else printf '{"Running":false,"Pid":0}'; fi;;
+ps)
+  for file in '${root}/fake/'*; do
+    name="\${file##*/}"
+    if [ "$2" = --filter ] && [ "$3" = "name=^/$name$" ]; then printf '%s\\n' "$name"; fi
+  done;;
 top) printf 'PID\\n123\\n';;
 exec)
   while [ "\${1#mischief-peon-box-}" = "$1" ]; do shift; done
@@ -152,7 +164,9 @@ exec /usr/bin/du "$@"
 set -eu
 id="$PEON_TEST_ID"
 input="$(cat)"
-printf '%s\\n' "$input" >> '${root}/boxes/'"$id"'/home/session.jsonl'
+session='${root}/boxes/'"$id"'/home/session.jsonl'
+if [ ! -f "$session" ]; then printf '%s\\n' '${piHeader}' > "$session"; fi
+printf '%s\\n' "$input" >> "$session"
 mkdir -p '${root}/boxes/'"$id"'/home/tool/nested'
 for directory in .claude/projects .claude/sessions .claude/plugins .pi/agent/claude-bridge; do
   mkdir -p '${root}/boxes/'"$id"'/home/'"$directory"
@@ -212,6 +226,304 @@ printf '%s\\n' '${piOutput}'
     },
   };
 });
+
+const custodyFixture = Effect.gen(function* custodyFixture() {
+  const fixture = yield* harness;
+  const fs = yield* FileSystem.FileSystem;
+
+  const roots = {
+    mirror: `${fixture.root}/mirror-custody`,
+    primary: `${fixture.root}/primary-custody`,
+  };
+
+  yield* fs.makeDirectory(roots.primary);
+  yield* fs.makeDirectory(roots.mirror);
+
+  return {
+    ...fixture,
+    disk: archiveDiskLayer(roots, () => Effect.void).pipe(
+      Layer.provide(Layer.succeed(Runner, fixture.runner))
+    ),
+    roots,
+  };
+});
+
+const Export = Schema.Struct({
+  exportReceipt: Schema.Struct({
+    id: Schema.String,
+    location: Schema.String,
+    mirror: Schema.String,
+    sha256: Schema.String,
+  }),
+});
+
+it.effect(
+  "destroy requires two verified custody copies of the current stopped session set",
+  () =>
+    Effect.gen(function* dualCustody() {
+      const fs = yield* FileSystem.FileSystem;
+      const fixture = yield* custodyFixture;
+
+      const boxLayer = Boxes.layer(fixture.config).pipe(
+        Layer.provide(fixture.disk)
+      );
+
+      yield* Effect.gen(function* actAndVerify() {
+        const boxes = yield* Boxes;
+        const peonId = "custody";
+        const home = `${fixture.root}/boxes/${peonId}/home`;
+        const managed = `${home}/session.jsonl`;
+        yield* boxes.create({
+          peonId,
+          requestId: "create",
+          template: fixture.template,
+        });
+        yield* boxes.act({
+          action: "prompt",
+          peonId,
+          requestId: "turn",
+          text: "synthetic turn 🐀",
+        });
+        expect(
+          (yield* Effect.flip(
+            boxes.act({ action: "destroy", peonId, requestId: "early-delete" })
+          )).message
+        ).toContain("no matching verified receipt");
+        yield* fs.remove(managed);
+        expect(
+          (yield* Effect.flip(
+            boxes.act({
+              action: "export",
+              peonId,
+              requestId: "missing-session",
+            })
+          )).message
+        ).toContain("missing its managed Pi session");
+        expect(yield* fs.readDirectory(fixture.roots.primary)).toEqual([]);
+        const original = `${piHeader}\nsynthetic turn 🐀\n`;
+        yield* fs.writeFileString(managed, original);
+        yield* fs.makeDirectory(`${home}/.codex/sessions/2026`, {
+          mode: 0o770,
+          recursive: true,
+        });
+        yield* fs.writeFileString(
+          `${home}/.codex/sessions/2026/rollout.jsonl`,
+          '{"event":"fixture"}\n'
+        );
+        const target = `${fixture.root}/not-a-session`;
+        yield* fs.writeFileString(target, "must not be copied\n");
+        yield* fs.symlink(target, `${home}/.codex/sessions/never-follow`);
+
+        const exported = yield* Schema.decodeUnknownEffect(Export)(
+          yield* boxes.act({
+            action: "export",
+            peonId,
+            requestId: "first-export",
+          })
+        );
+
+        const proof = exported.exportReceipt;
+        expect(
+          yield* boxes.act({
+            action: "export",
+            peonId,
+            requestId: "retry-export",
+          })
+        ).toMatchObject(exported);
+        expect(
+          yield* fs.readDirectory(`${fixture.roots.primary}/${peonId}`)
+        ).toEqual([proof.id.split("/")[1]]);
+
+        for (const root of Object.values(fixture.roots)) {
+          const dest = `${root}/${proof.id}`;
+          expect(yield* fs.readFileString(`${dest}/session.jsonl`)).toBe(
+            original
+          );
+          expect(
+            yield* fs.readFileString(
+              `${dest}/.codex/sessions/2026/rollout.jsonl`
+            )
+          ).toBe('{"event":"fixture"}\n');
+          expect(yield* fs.exists(`${dest}/.codex/sessions/never-follow`)).toBe(
+            false
+          );
+          expect(yield* fs.readFileString(`${dest}/SYMLINKS.tsv`)).toBe(
+            `.codex/sessions/never-follow\t${target}\n`
+          );
+          expect(yield* fs.readFileString(`${dest}/RECEIPT.json`)).toContain(
+            proof.sha256
+          );
+        }
+
+        yield* fs.rename(`${home}/.pi/agent`, `${home}/.pi/agent-held`);
+        expect(
+          (yield* Effect.flip(
+            boxes.act({
+              action: "destroy",
+              peonId,
+              requestId: "missing-agent-directory",
+            })
+          )).message
+        ).toContain("Pi agent directory is missing");
+        yield* fs.rename(`${home}/.pi/agent-held`, `${home}/.pi/agent`);
+        yield* fs.writeFileString(managed, `${original}new raw bytes\n`);
+        expect(
+          (yield* Effect.flip(
+            boxes.act({
+              action: "destroy",
+              peonId,
+              requestId: "changed-source",
+            })
+          )).message
+        ).toContain("no matching verified receipt");
+        yield* fs.writeFileString(managed, original);
+        const mirrorFile = `${fixture.roots.mirror}/${proof.id}/session.jsonl`;
+        yield* fs.writeFileString(
+          mirrorFile,
+          original.replace("synthetic", "different")
+        );
+        expect(
+          (yield* Effect.flip(
+            boxes.act({
+              action: "destroy",
+              peonId,
+              requestId: "changed-mirror",
+            })
+          )).message
+        ).toContain("no matching verified receipt");
+        expect(yield* fs.readFileString(managed)).toBe(original);
+        yield* fs.writeFileString(mirrorFile, original);
+        yield* fs.remove(proof.mirror);
+        expect(
+          (yield* Effect.flip(
+            boxes.act({
+              action: "destroy",
+              peonId,
+              requestId: "missing-mirror-receipt",
+            })
+          )).status
+        ).toBe(409);
+        yield* TestClock.adjust(1000);
+
+        const refreshed = yield* Schema.decodeUnknownEffect(Export)(
+          yield* boxes.act({
+            action: "export",
+            peonId,
+            requestId: "repair-export",
+          })
+        );
+
+        expect(refreshed.exportReceipt.id).not.toBe(proof.id);
+        expect(
+          yield* boxes.act({
+            action: "destroy",
+            peonId,
+            requestId: "verified-delete",
+          })
+        ).toEqual({ ...refreshed, snapshotKept: false, state: "destroyed" });
+        expect(yield* fs.exists(home)).toBe(false);
+      }).pipe(
+        Effect.provide(boxLayer),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
+
+it.effect(
+  "a crash after put leaves an incoming zero-session inventory that cannot authorize destroy",
+  () =>
+    Effect.gen(function* crashAfterPut() {
+      const fs = yield* FileSystem.FileSystem;
+      const fixture = yield* custodyFixture;
+      const disk = yield* ArchivePort.pipe(Effect.provide(fixture.disk));
+
+      const crash = Layer.succeed(
+        ArchivePort,
+        ArchivePort.of({
+          put: disk.put,
+          readBack: () => Effect.interrupt,
+        })
+      );
+
+      const peonId = "crash";
+      const before = Boxes.layer(fixture.config).pipe(Layer.provide(crash));
+
+      const after = Boxes.layer(fixture.config).pipe(
+        Layer.provide(fixture.disk)
+      );
+
+      yield* Effect.gen(function* interruptedExport() {
+        const boxes = yield* Boxes;
+        yield* boxes.create({
+          peonId,
+          requestId: "create",
+          template: fixture.template,
+        });
+
+        const attempt = yield* Effect.forkChild(
+          boxes.act({ action: "export", peonId, requestId: "cut" })
+        );
+
+        expect(Exit.isFailure(yield* Fiber.await(attempt))).toBe(true);
+      }).pipe(
+        Effect.provide(before),
+        Effect.provideService(Runner, fixture.runner)
+      );
+
+      for (const root of Object.values(fixture.roots)) {
+        const incoming = `${root}/${peonId}/.incoming-crash-19700101T000000Z`;
+        expect(yield* fs.exists(`${incoming}/manifest.json`)).toBe(true);
+        expect(yield* fs.exists(`${incoming}/RECEIPT.json`)).toBe(false);
+      }
+
+      yield* Effect.gen(function* recoveredExport() {
+        const boxes = yield* Boxes;
+        expect(
+          (yield* Effect.flip(
+            boxes.act({ action: "destroy", peonId, requestId: "refused" })
+          )).status
+        ).toBe(409);
+        yield* TestClock.adjust(1000);
+
+        const exported = yield* Schema.decodeUnknownEffect(Export)(
+          yield* boxes.act({ action: "export", peonId, requestId: "cut" })
+        );
+
+        expect(
+          yield* fs.readFileString(exported.exportReceipt.location)
+        ).toContain('"sessions":0');
+        expect(
+          yield* fs.readFileString(exported.exportReceipt.mirror)
+        ).toContain('"sessions":0');
+        expect(
+          yield* boxes.act({
+            action: "destroy",
+            peonId,
+            requestId: "recovered-delete",
+          })
+        ).toMatchObject({ state: "destroyed" });
+      }).pipe(
+        Effect.provide(after),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
 
 it.effect(
   "a fake Docker executable preserves workspace and memory across sleep, clone from each sleeping state, snapshot restore and deletion",
@@ -279,7 +591,7 @@ it.effect(
           `${fixture.root}/boxes/source/home/session.jsonl`
         );
 
-        expect(session).toBe("write then test\n");
+        expect(session).toBe(`${piHeader}\nwrite then test\n`);
 
         const partial = yield* fixture.runner.run({
           executable: "docker",
@@ -490,13 +802,33 @@ it.effect(
           `${fixture.root}/boxes/source/home/.claude/projects`,
           0o700
         );
+
+        const finalSnapshot = yield* Schema.decodeUnknownEffect(Snapshot)(
+          (yield* boxes.act({
+            action: "hibernate",
+            peonId: "source",
+            requestId: "final-snapshot",
+          })).snapshot
+        );
+
+        const exported = yield* boxes.act({
+          action: "export",
+          peonId: "source",
+          requestId: "export-history",
+        });
+
         expect(
           yield* boxes.act({
             action: "destroy",
             peonId: "source",
             requestId: "delete",
           })
-        ).toEqual({ snapshotKept: true, state: "destroyed" });
+        ).toEqual({
+          exportReceipt: exported.exportReceipt,
+          snapshotKept: false,
+          state: "destroyed",
+        });
+        expect(yield* fs.exists(finalSnapshot.path)).toBe(false);
         expect(yield* boxes.inspect("source")).toMatchObject({
           bytes: { home: 0, work: 0 },
           processes: 0,
@@ -573,7 +905,9 @@ it.effect(
         expect(commands).not.toContain("--no-");
         expect(commands).not.toContain("write then test");
       }).pipe(
-        Effect.provide(Boxes.layer(fixture.config)),
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
+        ),
         Effect.provideService(Runner, fixture.runner)
       );
     }).pipe(
@@ -617,7 +951,9 @@ it.effect("ownership failures retain capped, redacted helper stderr", () =>
       );
       expect(failure.message.length).toBeLessThan(800);
     }).pipe(
-      Effect.provide(Boxes.layer(fixture.config)),
+      Effect.provide(
+        Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
+      ),
       Effect.provideService(Runner, fixture.runner)
     );
   }).pipe(
@@ -664,7 +1000,9 @@ it.effect("a changed snapshot fails its sha check before restoration", () =>
       expect(failure.message).toContain("sha256");
       expect(yield* fs.exists(`${fixture.root}/boxes/source`)).toBe(false);
     }).pipe(
-      Effect.provide(Boxes.layer(fixture.config)),
+      Effect.provide(
+        Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
+      ),
       Effect.provideService(Runner, fixture.runner)
     );
   }).pipe(
@@ -742,7 +1080,9 @@ it.effect(
         yield* Fiber.join(prompt);
         expect(yield* Ref.get(calls)).toBe(1);
       }).pipe(
-        Effect.provide(Boxes.layer(fixture.config)),
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
+        ),
         Effect.provideService(Runner, slowRunner)
       );
     }).pipe(
@@ -768,6 +1108,7 @@ it.effect.prop(
           "SUSPEND",
           "RESUME",
           "HIBERNATE",
+          "EXPORT",
           "DESTROY",
           "DONE",
         ])
@@ -834,7 +1175,9 @@ it.effect(
           state: "suspended",
         });
       }).pipe(
-        Effect.provide(Boxes.layer(fixture.config)),
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
+        ),
         Effect.provideService(Runner, failing)
       );
       yield* fs.makeDirectory(
@@ -892,7 +1235,9 @@ it.effect(
         expect(collision.status).toBe(409);
         expect(collision.message).toContain("different raw requestId");
       }).pipe(
-        Effect.provide(Boxes.layer(fixture.config)),
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
+        ),
         Effect.provideService(Runner, fixture.runner)
       );
     }).pipe(

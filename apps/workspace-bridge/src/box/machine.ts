@@ -19,6 +19,7 @@ export const boxMachine = setup({
       on: {
         CLONE: { target: "hibernated" },
         DESTROY: { target: "destroyed" },
+        EXPORT: { target: "hibernated" },
         HIBERNATE: { target: "hibernated" },
         RESUME: { target: "idle" },
       },
@@ -26,7 +27,7 @@ export const boxMachine = setup({
     idle: {
       on: {
         CLONE: { target: "idle" },
-        DESTROY: { target: "destroyed" },
+        EXPORT: { target: "suspended" },
         HIBERNATE: { target: "hibernated" },
         PROMPT: { target: "running" },
         SUSPEND: { target: "suspended" },
@@ -39,6 +40,7 @@ export const boxMachine = setup({
       on: {
         CLONE: { target: "suspended" },
         DESTROY: { target: "destroyed" },
+        EXPORT: { target: "suspended" },
         HIBERNATE: { target: "hibernated" },
         RESUME: { target: "idle" },
         SUSPEND: { target: "suspended" },

@@ -1,5 +1,7 @@
 import { Effect, Schema } from "effect";
 
+import { ArchiveReceiptSchema } from "./archive.js";
+
 export const PeonId = Schema.String.check(
   Schema.isPattern(/^[a-z0-9][a-z0-9-]{0,39}$/u)
 );
@@ -68,10 +70,12 @@ export const State = Schema.Literals([
 export const Snapshot = Schema.Struct({
   bytes: Schema.Finite,
   path: Schema.String,
+  retained: Schema.optionalKey(Schema.Literal(true)),
   sha256: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/u)),
 });
 
 export const Metadata = Schema.Struct({
+  archive: Schema.optionalKey(ArchiveReceiptSchema),
   image: Schema.String,
   lastPromptAt: Schema.NullOr(Schema.Finite),
   peonId: PeonId,
@@ -112,6 +116,7 @@ export const Action = Schema.Struct({
     "resume",
     "hibernate",
     "clone",
+    "export",
     "destroy",
   ]),
   newPeonId: Schema.optionalKey(PeonId),

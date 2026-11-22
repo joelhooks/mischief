@@ -122,6 +122,12 @@ it.effect(
         })).status
       ).toBe(200);
       expect(
+        (yield* HttpClient.post("/v1/boxes/peon/export", {
+          body: HttpBody.jsonUnsafe({ requestId: "export" }),
+          headers,
+        })).status
+      ).toBe(200);
+      expect(
         (yield* HttpClient.del("/v1/boxes/peon", {
           body: HttpBody.jsonUnsafe({ requestId: "destroy" }),
           headers,
@@ -132,6 +138,7 @@ it.effect(
         "create",
         "inspect",
         "prompt",
+        "export",
         "destroy",
       ]);
     }).pipe(

@@ -25,7 +25,8 @@ const createBox = implement(
 const actOnBox = implement(
   defineContract("actOnBox", {
     annotations: { idempotent: true, readOnly: false },
-    description: "Prompt, sleep, wake, copy or destroy a full peon box",
+    description:
+      "Prompt, sleep, wake, copy, export history or destroy a full peon box",
     failure: BridgeFailure,
     input: Action,
     output: Result,
@@ -76,13 +77,13 @@ const route = (key: Redacted.Redacted) =>
     }
 
     const match =
-      /^\/v1\/boxes\/(?<id>[a-z0-9][a-z0-9-]{0,39})(?:\/(?<action>prompt|suspend|resume|hibernate|clone))?$/u.exec(
+      /^\/v1\/boxes\/(?<id>[a-z0-9][a-z0-9-]{0,39})(?:\/(?<action>prompt|suspend|resume|hibernate|clone|export))?$/u.exec(
         request.url
       )?.groups;
 
     if (match?.id === undefined) {
       return yield* refusal(
-        "Unknown box route. Use POST /v1/boxes, GET or DELETE /v1/boxes/{id}, or POST /v1/boxes/{id}/{prompt,suspend,resume,hibernate,clone}.",
+        "Unknown box route. Use POST /v1/boxes, GET or DELETE /v1/boxes/{id}, or POST /v1/boxes/{id}/{prompt,suspend,resume,hibernate,clone,export}.",
         404
       );
     }

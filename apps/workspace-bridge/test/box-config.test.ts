@@ -3,6 +3,7 @@ import { expect, it } from "@effect/vitest";
 import { ConfigProvider, Effect, FileSystem, Layer } from "effect";
 import * as Digest from "effect/crypto/Digest";
 
+import { ArchivePort } from "../src/box/archive.js";
 import { boxStorageFromConfig } from "../src/box/config.js";
 import { Boxes } from "../src/box/manager.js";
 import { Runner } from "../src/runner.js";
@@ -111,6 +112,12 @@ it.effect(
       }
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NodeServices.layer, Digest.layerWebCrypto))
+      Effect.provide(
+        Layer.mergeAll(
+          NodeServices.layer,
+          Digest.layerWebCrypto,
+          ArchivePort.disabled
+        )
+      )
     )
 );

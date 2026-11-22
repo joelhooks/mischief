@@ -20,6 +20,7 @@ pnpm turbo run build --filter='@mischief/workspace-bridge^...'
 root=$(mktemp -d "$(pwd -P)/.mpt-XXXXXXXX")
 trap 'rmdir -- "$root"' EXIT
 export TMPDIR="$root"
+export NODE_DISABLE_COMPILE_CACHE=1
 export MISCHIEF_REAL_DOCKER_SCRATCH="$root/.mpt-run"
 export MISCHIEF_REAL_DOCKER_IMAGE=mischief-peon-full:ab95d63
 export MISCHIEF_REAL_DOCKER_PREFIX="mpt-$(basename "$root" | tr '[:upper:]' '[:lower:]' | cut -c 6-)-"

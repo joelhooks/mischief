@@ -7,14 +7,15 @@ const Hash = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u));
 
 const Stamp = Schema.String.check(Schema.isPattern(/^\d{8}T\d{6}Z$/u));
 
-const Name = Schema.String.check(
+export const ArchiveName = Schema.String.check(
   Schema.isPattern(/^(?!\.{1,2}$)[A-Za-z0-9._-]+$/u)
 );
 
 export const ArchiveReceiptSchema = Schema.Struct({
-  box: Name,
+  authority: Hash,
+  box: ArchiveName,
   fingerprint: Hash,
-  peon: Name,
+  peon: ArchiveName,
   sha256: Hash,
   stamp: Stamp,
 });
@@ -22,25 +23,32 @@ export const ArchiveReceiptSchema = Schema.Struct({
 export type ArchiveReceipt = typeof ArchiveReceiptSchema.Type;
 
 export const ManifestSchema = Schema.Struct({
-  box_id: Name,
+  box_id: ArchiveName,
   bytes: Schema.Int,
   created_at: Schema.String,
   exporter: Schema.Literal("mischief-peon-boxes"),
   exporter_version: Schema.Literal("1"),
   files: Schema.Int,
   manifest_sha256: Hash,
-  peon_id: Name,
+  peon_id: ArchiveName,
   repo: Schema.String,
-  row: Name,
+  row: Schema.optionalKey(ArchiveName),
   schema: Schema.Literal("peon-archive.v1"),
   session_ids: Schema.Array(Schema.String),
-  source_host: Name,
-  source_roots: Schema.Array(Schema.String),
+  source_host: ArchiveName,
+  source_roots: Schema.Array(
+    Schema.Struct({
+      path: Schema.String,
+      role: Schema.Literals(["authoritative", "derived"]),
+    })
+  ),
+  unparsed: Schema.Array(Schema.String),
 });
 
 export type Manifest = typeof ManifestSchema.Type;
 
 export interface ArchiveFiles {
+  readonly authority: string;
   readonly home: string;
   readonly paths: readonly string[];
   readonly checksums: string;
@@ -55,12 +63,14 @@ export type ReadBack = Data.TaggedEnum<{
 
 export const ReadBackResult = Data.taggedEnum<ReadBack>();
 
-interface ExportReceipt {
-  readonly id: string;
-  readonly sha256: string;
-  readonly location: string;
-  readonly mirror: string;
-}
+export const ExportReceiptSchema = Schema.Struct({
+  id: Schema.String,
+  sha256: Hash,
+  location: Schema.String,
+  mirror: Schema.String,
+});
+
+type ExportReceipt = typeof ExportReceiptSchema.Type;
 
 export const archiveId = (receipt: ArchiveReceipt) =>
   `${receipt.peon}/${receipt.stamp}-${receipt.box}`;
@@ -72,6 +82,7 @@ export const receiptOf = (
   manifest: Manifest,
   files: ArchiveFiles
 ): ArchiveReceipt => ({
+  authority: files.authority,
   box: manifest.box_id,
   fingerprint: files.fingerprint,
   peon: manifest.peon_id,
@@ -88,7 +99,7 @@ export class ArchivePort extends Context.Service<
     ) => Effect.Effect<ArchiveReceipt, ArchiveFailure>;
     readonly readBack: (
       receipt: ArchiveReceipt,
-      purpose: "publish" | "check"
+      purpose: "publish" | "check" | "receipts"
     ) => Effect.Effect<ReadBack, ArchiveFailure>;
   }
 >()("@mischief/workspace-bridge/ArchivePort") {
@@ -140,7 +151,7 @@ export class ArchivePort extends Context.Service<
             if (
               entry?.receipt.fingerprint !== receipt.fingerprint ||
               entry.receipt.sha256 !== receipt.sha256 ||
-              (!entry.published && purpose === "check")
+              (!entry.published && purpose !== "publish")
             ) {
               return ReadBackResult.Mismatch({
                 reason: "In-memory archive has no matching published receipt.",

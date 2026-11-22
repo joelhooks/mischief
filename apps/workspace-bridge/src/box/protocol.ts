@@ -1,6 +1,10 @@
 import { Effect, Schema } from "effect";
 
-import { ArchiveReceiptSchema } from "./archive.js";
+import {
+  ArchiveName,
+  ArchiveReceiptSchema,
+  ExportReceiptSchema,
+} from "./archive.js";
 
 export const PeonId = Schema.String.check(
   Schema.isPattern(/^[a-z0-9][a-z0-9-]{0,39}$/u)
@@ -74,7 +78,22 @@ export const Snapshot = Schema.Struct({
   sha256: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/u)),
 });
 
+export const Tombstone = Schema.Struct({
+  bytesFreed: Schema.Finite,
+  exportReceipt: Schema.optionalKey(ExportReceiptSchema),
+  snapshotKept: Schema.Boolean,
+  state: Schema.Literal("destroyed"),
+});
+
 export const Metadata = Schema.Struct({
+  destroying: Schema.optionalKey(
+    Schema.Struct({
+      bytesFreed: Schema.Finite,
+      receiptId: Schema.String,
+      retainSnapshot: Schema.Boolean,
+    })
+  ),
+  tombstone: Schema.optionalKey(Tombstone),
   archive: Schema.optionalKey(ArchiveReceiptSchema),
   image: Schema.String,
   lastPromptAt: Schema.NullOr(Schema.Finite),
@@ -109,7 +128,18 @@ export const Create = Schema.Struct({
   template: Template,
 });
 
+export const ActionBody = Schema.Struct({
+  discardWorkspace: Schema.optionalKey(Schema.Literal(true)),
+  landedHead: Schema.optionalKey(Template.fields.workspace.fields.sha),
+  newPeonId: Schema.optionalKey(PeonId),
+  requestId: Schema.optionalKey(RequestId),
+  retained: Schema.optionalKey(Schema.Literal(true)),
+  row: Schema.optionalKey(ArchiveName),
+  text: Schema.optionalKey(Schema.String),
+});
+
 export const Action = Schema.Struct({
+  ...ActionBody.fields,
   action: Schema.Literals([
     "prompt",
     "suspend",
@@ -119,13 +149,15 @@ export const Action = Schema.Struct({
     "export",
     "destroy",
   ]),
-  newPeonId: Schema.optionalKey(PeonId),
   peonId: PeonId,
-  requestId: RequestId,
-  text: Schema.optionalKey(Schema.String),
 });
 
-export const Result = Schema.Record(Schema.String, Schema.Unknown);
+export const Result = Schema.StructWithRest(
+  Schema.Struct({
+    exportReceipt: Schema.optionalKey(ExportReceiptSchema),
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)]
+);
 
 export type BoxMetadata = typeof Metadata.Type;
 

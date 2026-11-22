@@ -18,13 +18,15 @@ import { refusal } from "../protocol.js";
 import { checked, Runner } from "../runner.js";
 import type { Command, ProcessOutput } from "../runner.js";
 import type { ArchiveFailure } from "./archive-failure.js";
-import { collectArchive } from "./archive-source.js";
-import { ArchivePort, ReadBackResult } from "./archive.js";
+import { collectArchive, sessionRoots } from "./archive-source.js";
+import { ArchivePort, ReadBackResult, archiveId } from "./archive.js";
 import { nextState } from "./machine.js";
 import { promptPi, requireText } from "./pi.js";
-import { Metadata, PeonId, Result } from "./protocol.js";
+import { Metadata, PeonId, Result, Tombstone } from "./protocol.js";
 import type { BoxMetadata, Action, Create } from "./protocol.js";
 import { receiptKey } from "./receipt.js";
+import { unlanded, verifyWorkspace } from "./workspace-proof.js";
+import type { WorkspaceUnlanded } from "./workspace-unlanded.js";
 
 export interface BoxConfig {
   readonly root: string;
@@ -91,7 +93,7 @@ export class Boxes extends Context.Service<
     ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
     readonly act: (
       input: typeof Action.Type
-    ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
+    ) => Effect.Effect<typeof Result.Type, BridgeFailure | WorkspaceUnlanded>;
     readonly inspect: (
       id: string
     ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
@@ -251,7 +253,7 @@ export class Boxes extends Context.Service<
 
                   if (!accepted) {
                     return yield* refusal(
-                      "Box is busy; simultaneous prompts or lifecycle changes could corrupt its session. GET /v1/boxes/{id}, then retry after the active request finishes.",
+                      "Box is busy or not stopped; simultaneous prompts or lifecycle changes could corrupt its session. GET /v1/boxes/{id}, then retry after the active request finishes.",
                       409
                     );
                   }
@@ -668,66 +670,140 @@ export class Boxes extends Context.Service<
           return { box: updated, restored };
         });
 
+        const containerPresent = (id: string) =>
+          docker([
+            "ps",
+            "-a",
+            "--filter",
+            `name=^/${containerOf(id)}$`,
+            "--format",
+            "{{.Names}}",
+          ]).pipe(Effect.map((output) => output.trim() !== ""));
+
+        const snapshotPath = Effect.fn("Boxes.snapshotPath")(
+          function* snapshotPath(box: BoxMetadata) {
+            const { snapshot } = box;
+
+            if (
+              snapshot === undefined ||
+              path.dirname(snapshot.path) !==
+                path.join(config.snapshots, box.peonId) ||
+              (yield* fs.lstat(snapshot.path)).type !== "File" ||
+              (yield* fs.realPath(snapshot.path)) !== snapshot.path
+            ) {
+              return yield* refusal(
+                "Box has no canonical recorded hibernation snapshot. Recover the original snapshot before retrying.",
+                409
+              );
+            }
+
+            return snapshot;
+          }
+        );
+
+        const extractSnapshot = Effect.fn("Boxes.extractSnapshot")(
+          function* extractSnapshot(box: BoxMetadata, part: "home" | "work") {
+            const snapshot = yield* snapshotPath(box);
+
+            if ((yield* hash(snapshot.path)) !== snapshot.sha256) {
+              return yield* refusal(
+                "Recorded hibernation snapshot SHA differs. Recover the original before retrying.",
+                409
+              );
+            }
+
+            const staging = yield* fs.makeTempDirectoryScoped({
+              directory: meta(box.peonId),
+              prefix: "snapshot-read-",
+            });
+
+            if (part === "work") {
+              yield* execute({
+                executable: "tar",
+                args: [
+                  "--no-same-owner",
+                  "-xf",
+                  snapshot.path,
+                  "-C",
+                  staging,
+                  "--",
+                  "work",
+                ],
+              });
+
+              return path.join(staging, "work");
+            }
+
+            const entries = new Set(
+              (yield* execute({
+                executable: "tar",
+                args: ["-tf", snapshot.path],
+              })).split("\n")
+            );
+
+            const source = path.join(staging, "home");
+            yield* fs.makeDirectory(source);
+
+            if (entries.has("home/.pi/agent/")) {
+              yield* fs.makeDirectory(path.join(source, ".pi", "agent"), {
+                recursive: true,
+              });
+            }
+
+            const selected = [
+              ...[".pi", ".pi/agent", ".claude", ".codex"].filter((name) =>
+                entries.has(`home/${name}`)
+              ),
+              ...sessionRoots.filter(
+                (root) =>
+                  entries.has(`home/${root}`) || entries.has(`home/${root}/`)
+              ),
+            ].map((name) => `home/${name}`);
+
+            if (selected.length > 0) {
+              yield* execute({
+                executable: "tar",
+                args: [
+                  "--no-same-owner",
+                  "-xf",
+                  snapshot.path,
+                  "-C",
+                  staging,
+                  "--",
+                  ...selected,
+                ],
+              });
+            }
+
+            return source;
+          }
+        );
+
         const archiveSource = Effect.fn("Boxes.archiveSource")(
-          function* archiveSource(box: BoxMetadata) {
+          function* archiveSource(box: BoxMetadata, row?: string) {
             const id = box.peonId;
             let source = home(id);
 
             if (box.state === "hibernated") {
-              const containers = yield* docker([
-                "ps",
-                "-a",
-                "--filter",
-                `name=^/${containerOf(id)}$`,
-                "--format",
-                "{{.Names}}",
-              ]);
-
-              if (containers.trim() !== "" || (yield* fs.exists(base(id)))) {
+              if (
+                (yield* containerPresent(id)) ||
+                (yield* fs.exists(base(id)))
+              ) {
                 return yield* refusal(
                   "Hibernated box still has a container or live tree. Reconcile the interrupted lifecycle before exporting history.",
                   409
                 );
               }
 
-              if (
-                box.snapshot === undefined ||
-                path.dirname(box.snapshot.path) !==
-                  path.join(config.snapshots, id) ||
-                (yield* fs.realPath(box.snapshot.path)) !== box.snapshot.path ||
-                (yield* hash(box.snapshot.path)) !== box.snapshot.sha256
-              ) {
-                return yield* refusal(
-                  "Cannot export hibernated history without the intact snapshot. Restore the recorded snapshot before retrying export.",
-                  409
-                );
-              }
-
-              const staging = yield* fs.makeTempDirectoryScoped({
-                directory: meta(id),
-                prefix: "archive-source-",
-              });
-
-              yield* execute({
-                executable: "tar",
-                args: [
-                  "--no-same-owner",
-                  "-xf",
-                  box.snapshot.path,
-                  "-C",
-                  staging,
-                  "--",
-                  "home",
-                ],
-              });
-              source = path.join(staging, "home");
+              source = yield* extractSnapshot(box, "home");
             } else {
-              const status = yield* ready(id);
+              const status = (yield* containerPresent(id))
+                ? yield* ready(id)
+                : undefined;
 
               if (
                 box.state !== "suspended" ||
-                status.Running ||
-                status.Pid !== 0
+                (status !== undefined && (status.Running || status.Pid !== 0))
               ) {
                 return yield* refusal(
                   `Box ${id} is not stopped; Pi may still be writing its session. POST /v1/boxes/${id}/export to stop an idle box before destroying it.`,
@@ -738,7 +814,16 @@ export class Boxes extends Context.Service<
               yield* regrant(id);
             }
 
-            return yield* collectArchive(source, box, hostname()).pipe(
+            const identity = {
+              boxId: containerOf(id),
+              host: hostname().split(".")[0] ?? hostname(),
+            };
+
+            return yield* collectArchive(
+              source,
+              box,
+              row === undefined ? identity : { ...identity, row }
+            ).pipe(
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
               Effect.mapError(archiveRefusal)
@@ -747,9 +832,25 @@ export class Boxes extends Context.Service<
         );
 
         const exportBox = Effect.fn("Boxes.export")(function* exportBox(
-          id: string
+          id: string,
+          row?: string
         ) {
           let box = yield* load(id);
+
+          if (box.destroying !== undefined) {
+            return yield* refusal(
+              "Box is destroying; export cannot read a partially removed box. Retry DELETE to finish teardown.",
+              409
+            );
+          }
+
+          if (box.state === "running") {
+            return yield* refusal(
+              "Box is not stopped; wait for the active Pi prompt to exit, then retry export.",
+              409
+            );
+          }
+
           const state = yield* nextState(box.state, "EXPORT");
 
           if (box.state === "idle") {
@@ -758,11 +859,11 @@ export class Boxes extends Context.Service<
             yield* save(box);
           }
 
-          const { files, manifest } = yield* archiveSource(box);
+          const { files, manifest } = yield* archiveSource(box, row);
 
           if (
             box.archive?.peon === id &&
-            box.archive.box === id &&
+            box.archive.box === containerOf(id) &&
             box.archive.fingerprint === files.fingerprint
           ) {
             const previous = yield* archive
@@ -794,76 +895,216 @@ export class Boxes extends Context.Service<
           return { exportReceipt: proof.exportReceipt, state };
         }, Effect.scoped);
 
+        const proveArchive = Effect.fn("Boxes.proveArchive")(
+          function* proveArchive(
+            box: BoxMetadata,
+            purpose: "check" | "receipts"
+          ) {
+            const receipt = box.archive;
+
+            if (
+              receipt?.peon !== box.peonId ||
+              receipt.box !== containerOf(box.peonId)
+            ) {
+              return yield* needsExport(box.peonId);
+            }
+
+            const proof = yield* archive
+              .readBack(receipt, purpose)
+              .pipe(Effect.mapError(archiveRefusal));
+
+            if (!ReadBackResult.$is("Verified")(proof)) {
+              return yield* refusal(
+                `Cannot destroy without both custody receipts: ${proof.reason}`,
+                409
+              );
+            }
+
+            return proof.exportReceipt;
+          }
+        );
+
+        const authorizeWorkspace = Effect.fn("Boxes.authorizeWorkspace")(
+          function* authorizeWorkspace(
+            box: BoxMetadata,
+            input: typeof Action.Type,
+            retainSnapshot: boolean
+          ) {
+            const { landedHead } = input;
+
+            if (input.discardWorkspace === true && landedHead === undefined) {
+              yield* Effect.logInfo(
+                "Explicit peon workspace discard authorized"
+              ).pipe(
+                Effect.annotateLogs({
+                  box: box.peonId,
+                  requester: input.row ?? "authenticated box client",
+                  requestId: input.requestId ?? "",
+                })
+              );
+
+              return yield* Effect.void;
+            }
+
+            if (landedHead === undefined || input.discardWorkspace === true) {
+              return yield* unlanded(
+                "Workspace teardown requires exactly one disposition."
+              );
+            }
+
+            const verify = (directory: string) =>
+              verifyWorkspace(
+                directory,
+                landedHead,
+                box.image,
+                config.gid
+              ).pipe(Effect.provideService(Runner, runner));
+
+            if (box.state !== "hibernated") {
+              yield* verify(work(box.peonId));
+            }
+
+            if (
+              box.state === "hibernated" ||
+              (box.snapshot !== undefined && !retainSnapshot)
+            ) {
+              yield* Effect.scoped(
+                extractSnapshot(box, "work").pipe(Effect.flatMap(verify))
+              );
+            }
+
+            return yield* Effect.void;
+          }
+        );
+
+        const beginDestroy = Effect.fn("Boxes.beginDestroy")(
+          function* beginDestroy(box: BoxMetadata, input: typeof Action.Type) {
+            const id = box.peonId;
+            const receipt = box.archive;
+
+            if (receipt === undefined) {
+              return yield* needsExport(id);
+            }
+
+            if (box.state === "idle") {
+              return yield* refusal(
+                `Box is not stopped. POST /v1/boxes/${id}/export to stop it before destroying.`,
+                409
+              );
+            }
+
+            yield* nextState(box.state, "DESTROY");
+            const { files } = yield* Effect.scoped(archiveSource(box));
+
+            if (receipt.authority !== files.authority) {
+              return yield* refusal(
+                `Authoritative session bytes changed. POST /v1/boxes/${id}/export before destroying.`,
+                409
+              );
+            }
+
+            const proof = yield* proveArchive(box, "check");
+
+            const retainSnapshot =
+              input.retained === true || box.snapshot?.retained === true;
+
+            if (retainSnapshot && box.state !== "hibernated") {
+              return yield* unlanded(
+                "Hibernate the current workspace before retaining it."
+              );
+            }
+
+            const snapshot =
+              box.snapshot === undefined ? undefined : yield* snapshotPath(box);
+
+            yield* authorizeWorkspace(box, input, retainSnapshot);
+
+            const bytesFreed =
+              (yield* size(base(id))) +
+              (retainSnapshot ? 0 : (snapshot?.bytes ?? 0));
+
+            const marker = { bytesFreed, receiptId: proof.id, retainSnapshot };
+            yield* save({ ...box, destroying: marker });
+
+            return marker;
+          }
+        );
+
         const destroyBox = Effect.fn("Boxes.destroy")(function* destroyBox(
-          box: BoxMetadata
+          box: BoxMetadata,
+          input: typeof Action.Type
         ) {
-          const id = box.peonId;
-          const receipt = box.archive;
-
-          if (receipt?.peon !== id || receipt.box !== id) {
-            return yield* needsExport(id);
-          }
-
-          if (box.state === "idle") {
-            return yield* needsExport(id);
-          }
-
-          const state = yield* nextState(box.state, "DESTROY");
-
           if (box.state === "destroyed") {
-            return { snapshotKept: box.snapshot?.retained === true, state };
+            return (
+              box.tombstone ??
+              Tombstone.make({
+                state: "destroyed",
+                bytesFreed: 0,
+                snapshotKept: box.snapshot !== undefined,
+              })
+            );
           }
 
-          const { files } = yield* Effect.scoped(archiveSource(box));
-
-          if (receipt.fingerprint !== files.fingerprint) {
-            return yield* needsExport(id);
-          }
-
-          const proof = yield* archive
-            .readBack(receipt, "check")
-            .pipe(Effect.mapError(archiveRefusal));
-
-          if (!ReadBackResult.$is("Verified")(proof)) {
-            return yield* needsExport(id);
-          }
-
-          const { snapshot, ...metadata } = box;
-          const retained = snapshot?.retained === true ? snapshot : undefined;
+          const id = box.peonId;
+          const marker = box.destroying ?? (yield* beginDestroy(box, input));
 
           if (
-            snapshot !== undefined &&
-            retained === undefined &&
-            box.state !== "hibernated"
+            box.archive === undefined ||
+            marker.receiptId !== archiveId(box.archive)
           ) {
             return yield* refusal(
-              "An earlier snapshot may hold history outside this export. Reconcile and explicitly retain the earlier snapshot before destroying a resumed box.",
+              "Destroy marker does not match the recorded archive receipt. Reconcile host metadata before retrying DELETE.",
               409
             );
           }
 
-          if (box.state !== "hibernated") {
-            yield* docker(["rm", containerOf(id)]);
+          const exportReceipt = yield* proveArchive(box, "receipts");
+          yield* execute({ args: ["-f", meta(id)], executable: "sync" });
+
+          if (yield* containerPresent(id)) {
+            yield* docker(["rm", "--force", containerOf(id)]).pipe(
+              Effect.catch((error) =>
+                containerPresent(id).pipe(
+                  Effect.flatMap((present) =>
+                    present ? Effect.fail(error) : Effect.void
+                  )
+                )
+              )
+            );
+          }
+
+          if (yield* fs.exists(base(id))) {
+            yield* regrant(id);
             yield* owned(id);
             yield* fs.remove(base(id), { recursive: true });
           }
 
-          const tombstone = { ...metadata, state };
-          yield* save(
-            retained === undefined
-              ? tombstone
-              : { ...tombstone, snapshot: retained }
-          );
+          const { snapshot, destroying: _destroying, ...metadata } = box;
 
-          if (snapshot !== undefined && retained === undefined) {
+          if (
+            !marker.retainSnapshot &&
+            snapshot !== undefined &&
+            (yield* fs.exists(snapshot.path))
+          ) {
+            yield* snapshotPath(box);
             yield* fs.remove(snapshot.path);
           }
 
-          return {
-            exportReceipt: proof.exportReceipt,
-            snapshotKept: retained !== undefined,
-            state,
-          };
+          const tombstone = Tombstone.make({
+            bytesFreed: marker.bytesFreed,
+            exportReceipt,
+            snapshotKept: marker.retainSnapshot,
+            state: "destroyed",
+          });
+
+          const finished = { ...metadata, state: tombstone.state, tombstone };
+          yield* save(
+            marker.retainSnapshot && snapshot !== undefined
+              ? { ...finished, snapshot: { ...snapshot, retained: true } }
+              : finished
+          );
+
+          return tombstone;
         });
 
         const request = Effect.fn("Boxes.request")(function* request(
@@ -1068,7 +1309,22 @@ export class Boxes extends Context.Service<
             const id = input.peonId;
 
             if (input.action === "export") {
-              return yield* locked([id], exportBox(id));
+              return yield* locked([id], exportBox(id, input.row));
+            }
+
+            const { requestId } = input;
+
+            if (requestId === undefined) {
+              return yield* refusal(
+                "Supply a nonempty requestId for this box lifecycle action."
+              );
+            }
+
+            if (input.action === "destroy") {
+              return yield* locked(
+                [id],
+                load(id).pipe(Effect.flatMap((box) => destroyBox(box, input)))
+              );
             }
 
             return yield* locked(
@@ -1077,9 +1333,16 @@ export class Boxes extends Context.Service<
                 : [id],
               request(
                 id,
-                input.requestId,
+                requestId,
                 Effect.gen(function* actBox() {
                   let box = yield* load(id);
+
+                  if (box.destroying !== undefined) {
+                    return yield* refusal(
+                      "Box is destroying. Retry DELETE to finish teardown.",
+                      409
+                    );
+                  }
 
                   if (input.action === "resume") {
                     const result = yield* resume(box);
@@ -1136,9 +1399,9 @@ export class Boxes extends Context.Service<
                         "--input-type=module",
                         "-e",
                         "import{mkdir,writeFile}from'node:fs/promises';process.umask(0o0007);await mkdir('/home/peon/.box/requests',{recursive:true});const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);await writeFile(process.argv[1],Buffer.concat(chunks))",
-                        `/home/peon/.box/requests/${yield* keyOf(input.requestId)}.json`,
+                        `/home/peon/.box/requests/${yield* keyOf(requestId)}.json`,
                       ],
-                      JSON.stringify({ requestId: input.requestId, result })
+                      JSON.stringify({ requestId, result })
                     );
                     yield* save({
                       ...box,
@@ -1146,10 +1409,6 @@ export class Boxes extends Context.Service<
                     });
 
                     return result;
-                  }
-
-                  if (input.action === "destroy") {
-                    return yield* destroyBox(box);
                   }
 
                   const state = yield* nextState(
@@ -1167,7 +1426,20 @@ export class Boxes extends Context.Service<
 
                   if (input.action === "hibernate") {
                     if (box.state === "hibernated") {
-                      return { snapshot: box.snapshot, state };
+                      const previous = box.snapshot;
+
+                      if (input.retained === true && previous !== undefined) {
+                        const snapshot = {
+                          ...previous,
+                          retained: input.retained,
+                        };
+
+                        yield* save({ ...box, snapshot });
+
+                        return { snapshot, state };
+                      }
+
+                      return { snapshot: previous, state };
                     }
 
                     yield* stop(id);
@@ -1181,7 +1453,7 @@ export class Boxes extends Context.Service<
 
                     const file = path.join(
                       directory,
-                      `${yield* Clock.currentTimeMillis}-${yield* keyOf(input.requestId)}.tar`
+                      `${yield* Clock.currentTimeMillis}-${yield* keyOf(requestId)}.tar`
                     );
 
                     yield* execute({
@@ -1203,11 +1475,16 @@ export class Boxes extends Context.Service<
                       sha256: yield* hash(file),
                     };
 
-                    yield* save({ ...box, snapshot, state });
+                    const recorded =
+                      input.retained === true
+                        ? { ...snapshot, retained: input.retained }
+                        : snapshot;
+
+                    yield* save({ ...box, snapshot: recorded, state });
                     yield* docker(["rm", containerOf(id)]);
                     yield* fs.remove(base(id), { recursive: true });
 
-                    return { snapshot, state };
+                    return { snapshot: recorded, state };
                   }
 
                   const target = input.newPeonId;

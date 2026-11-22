@@ -24,7 +24,7 @@ const piAgentRoot = ".pi/agent";
 
 const piSessions = `${piAgentRoot}/sessions`;
 
-const sessionRoots = [
+export const sessionRoots = [
   primaryPiSession,
   piSessions,
   ".claude/projects",
@@ -32,6 +32,11 @@ const sessionRoots = [
 ];
 
 const safeName = /^(?!\.{1,2}$)[A-Za-z0-9._-]+$/u;
+
+const derivedRoot = ".claude/projects";
+
+const authoritative = (relative: string) =>
+  !relative.startsWith(`${derivedRoot}/`);
 
 const uuid = /[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}/iu;
 
@@ -101,52 +106,32 @@ const scanFile = Effect.fn("Archive.scanFile")(function* scanFile(
 ) {
   const fs = yield* FileSystem.FileSystem;
   const digest = createHash("sha256");
-  const decoder = new TextDecoder("utf-8", { fatal: true });
-  let first: string | undefined;
-  let header = "";
+  let header = Buffer.alloc(0);
+  let complete = !pi;
   let bytes = 0;
   yield* fs.stream(file).pipe(
     Stream.runForEach((chunk) =>
-      Effect.gen(function* digestChunk() {
+      Effect.sync(() => {
         digest.update(chunk);
         bytes += chunk.byteLength;
 
-        if (pi && first === undefined) {
+        if (!complete) {
           const newline = chunk.indexOf(10);
-          const head = newline === -1 ? chunk : chunk.subarray(0, newline);
-          header += yield* Effect.try({
-            try: () => decoder.decode(head, { stream: newline === -1 }),
-            catch: () =>
-              archiveFailure(
-                "Pi session header is not UTF-8. Recover the raw session before retrying export."
-              ),
-          });
-
-          if (header.length > 65_536) {
-            return yield* archiveFailure(
-              "Pi session has no bounded JSONL header. Recover the raw session before retrying export."
-            );
-          }
-
-          if (newline !== -1) {
-            first = header;
-          }
+          const end = newline === -1 ? chunk.byteLength : newline;
+          const remaining = 65_536 - header.length;
+          header = Buffer.concat([
+            header,
+            chunk.subarray(0, Math.min(end, remaining)),
+          ]);
+          complete = newline !== -1 || header.length === 65_536;
         }
-
-        return yield* Effect.void;
       })
     )
   );
 
   const session = pi
-    ? yield* Schema.decodeEffect(PiHeader)(first ?? "").pipe(
-        Effect.mapError(() =>
-          archiveFailure(
-            "Pi session is missing its v3 header, UUID, timestamp or absolute cwd. Recover the raw session before retrying export."
-          )
-        )
-      )
-    : undefined;
+    ? Schema.decodeOption(PiHeader)(header.toString("utf-8"))
+    : Option.none();
 
   return { bytes, session, sha256: digest.digest("hex") };
 });
@@ -193,7 +178,15 @@ const sessionRootPresent = Effect.fn("Archive.sessionRootPresent")(
 );
 
 export const collectArchive = Effect.fn("Archive.collect")(
-  function* collectArchive(home: string, box: BoxMetadata, host: string) {
+  function* collectArchive(
+    home: string,
+    box: BoxMetadata,
+    identity: {
+      readonly boxId: string;
+      readonly host: string;
+      readonly row?: string;
+    }
+  ) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
@@ -219,9 +212,12 @@ export const collectArchive = Effect.fn("Archive.collect")(
 
     const symlinks = new Map<string, string>();
     const sessions = new Set<string>();
-    const roots: string[] = [];
+    const roots: Manifest["source_roots"][number][] = [];
+    const unparsed: string[] = [];
 
-    for (const root of sessionRoots) {
+    const visitRoot = Effect.fn("Archive.visitRoot")(function* visitRoot(
+      root: string
+    ) {
       if (
         !(yield* sessionRootPresent(
           home,
@@ -235,10 +231,13 @@ export const collectArchive = Effect.fn("Archive.collect")(
           );
         }
 
-        continue;
+        return yield* Effect.void;
       }
 
-      roots.push(root);
+      roots.push({
+        path: root,
+        role: root === derivedRoot ? "derived" : "authoritative",
+      });
       yield* walkArchive(home, root, (relative, entry) =>
         Effect.gen(function* visitSession() {
           const file = path.join(home, relative);
@@ -273,24 +272,44 @@ export const collectArchive = Effect.fn("Archive.collect")(
 
           const scanned = yield* scanFile(file, pi);
 
-          if (scanned.session !== undefined) {
-            if (root === primaryPiSession && scanned.session.cwd !== "/work") {
-              return yield* archiveFailure(
-                "Managed Pi session header cwd is not /work. Recover the correct session before exporting."
-              );
-            }
-
-            sessions.add(scanned.session.id);
+          if (
+            Option.isSome(scanned.session) &&
+            (root !== primaryPiSession || scanned.session.value.cwd === "/work")
+          ) {
+            sessions.add(scanned.session.value.id);
+          } else if (pi) {
+            unparsed.push(relative);
           } else if (jsonl) {
             const stem = path.basename(relative, ".jsonl");
-            sessions.add(uuid.exec(stem)?.[0] ?? stem);
+            const id = uuid.exec(stem)?.[0];
+
+            if (id === undefined) {
+              unparsed.push(relative);
+            } else {
+              sessions.add(id);
+            }
           }
 
-          files.set(relative, scanned);
+          files.set(relative, { bytes: scanned.bytes, sha256: scanned.sha256 });
 
           return yield* Effect.void;
         })
       );
+
+      return yield* Effect.void;
+    });
+
+    for (const root of sessionRoots) {
+      const scan = visitRoot(root);
+      yield* root === derivedRoot
+        ? scan.pipe(
+            Effect.catch(() =>
+              Effect.logWarning(
+                "Some derived Claude transcript files could not be collected."
+              )
+            )
+          )
+        : scan;
     }
 
     const entries = [...files.entries()].toSorted(([a], [b]) =>
@@ -311,8 +330,8 @@ export const collectArchive = Effect.fn("Archive.collect")(
 
     const sessionIds = [...sessions].toSorted();
 
-    const manifest: Manifest = {
-      box_id: box.peonId,
+    const manifestCore = {
+      box_id: identity.boxId,
       bytes,
       created_at: DateTime.formatIso(yield* DateTime.now),
       exporter: "mischief-peon-boxes",
@@ -321,15 +340,30 @@ export const collectArchive = Effect.fn("Archive.collect")(
       manifest_sha256: sha256(checksums),
       peon_id: box.peonId,
       repo: box.template.workspace.repo,
-      row: box.peonId,
       schema: "peon-archive.v1",
       session_ids: sessionIds,
-      source_host: host,
+      source_host: identity.host,
       source_roots: roots,
-    };
+      unparsed: unparsed.toSorted(),
+    } satisfies Manifest;
+
+    const manifest =
+      identity.row === undefined
+        ? manifestCore
+        : { ...manifestCore, row: identity.row };
+
+    const authority = sha256(
+      JSON.stringify([
+        entries.filter(([name]) => authoritative(name)),
+        [...symlinks]
+          .filter(([name]) => authoritative(name))
+          .toSorted(([a], [b]) => (a < b ? -1 : Number(a !== b))),
+      ])
+    );
 
     return {
       files: {
+        authority,
         checksums,
         fingerprint: fingerprintOf(checksums, links, sessionIds),
         home,

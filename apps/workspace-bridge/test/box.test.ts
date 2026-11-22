@@ -7,6 +7,7 @@ import {
   Fiber,
   FileSystem,
   Layer,
+  Predicate,
   Ref,
   Schema,
 } from "effect";
@@ -58,6 +59,17 @@ printf '%s\\n' "$*" >> '${root}/commands'
 command="$1"; shift
 case "$command" in
 run)
+  if printf '%s' "$*" | grep -q -- '--entrypoint /usr/bin/git'; then
+    for arg in "$@"; do
+      case "$arg" in type=bind,source=*,target=/work,readonly)
+        workspace="\${arg#type=bind,source=}"
+        workspace="\${workspace%,target=/work,readonly}";;
+      esac
+    done
+    until [ "$1" = -C ]; do shift; done
+    shift 2
+    exec git -C "$workspace" "$@"
+  fi
   if [ -f '${root}/helper-error' ]; then cat '${root}/helper-error' >&2; exit 1; fi
   previous=''
   box=''
@@ -238,12 +250,15 @@ const custodyFixture = Effect.gen(function* custodyFixture() {
 
   yield* fs.makeDirectory(roots.primary);
   yield* fs.makeDirectory(roots.mirror);
+  const alias = `${fixture.root}/primary-alias`;
+  yield* fs.symlink(roots.primary, alias);
 
   return {
     ...fixture,
-    disk: archiveDiskLayer(roots, () => Effect.void).pipe(
-      Layer.provide(Layer.succeed(Runner, fixture.runner))
-    ),
+    disk: archiveDiskLayer(
+      { ...roots, checkerHost: "test-host", primary: alias },
+      () => Effect.void
+    ).pipe(Layer.provide(Layer.succeed(Runner, fixture.runner))),
     roots,
   };
 });
@@ -375,7 +390,7 @@ it.effect(
               requestId: "changed-source",
             })
           )).message
-        ).toContain("no matching verified receipt");
+        ).toContain("Authoritative session bytes changed");
         yield* fs.writeFileString(managed, original);
         const mirrorFile = `${fixture.roots.mirror}/${proof.id}/session.jsonl`;
         yield* fs.writeFileString(
@@ -390,7 +405,7 @@ it.effect(
               requestId: "changed-mirror",
             })
           )).message
-        ).toContain("no matching verified receipt");
+        ).toContain("sha256sum verification failed");
         expect(yield* fs.readFileString(managed)).toBe(original);
         yield* fs.writeFileString(mirrorFile, original);
         yield* fs.remove(proof.mirror);
@@ -414,13 +429,41 @@ it.effect(
         );
 
         expect(refreshed.exportReceipt.id).not.toBe(proof.id);
-        expect(
-          yield* boxes.act({
+
+        const noDisposition = yield* Effect.flip(
+          boxes.act({ action: "destroy", peonId, requestId: "no-disposition" })
+        );
+
+        expect(noDisposition._tag).toBe("WorkspaceUnlanded");
+        const changedWork = `${fixture.root}/boxes/${peonId}/work/result.txt`;
+
+        const dirty = yield* Effect.flip(
+          boxes.act({
             action: "destroy",
             peonId,
-            requestId: "verified-delete",
+            requestId: "dirty",
+            landedHead: fixture.template.workspace.sha,
           })
-        ).toEqual({ ...refreshed, snapshotKept: false, state: "destroyed" });
+        );
+
+        expect(
+          Predicate.isTagged(dirty, "WorkspaceUnlanded") && dirty.dirtyPaths
+        ).toEqual(["result.txt"]);
+        yield* fs.remove(changedWork);
+
+        const destroyed = yield* boxes.act({
+          action: "destroy",
+          peonId,
+          landedHead: fixture.template.workspace.sha,
+          requestId: "verified-delete",
+        });
+
+        expect(destroyed).toMatchObject({
+          ...refreshed,
+          snapshotKept: false,
+          state: "destroyed",
+        });
+        expect(Number(destroyed.bytesFreed)).toBeGreaterThan(0);
         expect(yield* fs.exists(home)).toBe(false);
       }).pipe(
         Effect.provide(boxLayer),
@@ -479,7 +522,7 @@ it.effect(
       );
 
       for (const root of Object.values(fixture.roots)) {
-        const incoming = `${root}/${peonId}/.incoming-crash-19700101T000000Z`;
+        const incoming = `${root}/${peonId}/.incoming-mischief-peon-box-crash-19700101T000000Z`;
         expect(yield* fs.exists(`${incoming}/manifest.json`)).toBe(true);
         expect(yield* fs.exists(`${incoming}/RECEIPT.json`)).toBe(false);
       }
@@ -507,6 +550,7 @@ it.effect(
           yield* boxes.act({
             action: "destroy",
             peonId,
+            discardWorkspace: true,
             requestId: "recovered-delete",
           })
         ).toMatchObject({ state: "destroyed" });
@@ -521,6 +565,288 @@ it.effect(
             Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
           )
         )
+      )
+    )
+);
+
+it.effect(
+  "a destroy cut after Docker removal resumes from custody and returns the original tombstone",
+  () =>
+    Effect.gen(function* destroyCut() {
+      const fs = yield* FileSystem.FileSystem;
+      const fixture = yield* custodyFixture;
+      const peonId = "cut-destroy";
+      const atPut = yield* Deferred.make<undefined>();
+      const releasePut = yield* Deferred.make<undefined>();
+      const disk = yield* ArchivePort.pipe(Effect.provide(fixture.disk));
+
+      const delayed = Layer.succeed(
+        ArchivePort,
+        ArchivePort.of({
+          put: (manifest, files) =>
+            Deferred.succeed(atPut, undefined).pipe(
+              Effect.andThen(Deferred.await(releasePut)),
+              Effect.andThen(disk.put(manifest, files))
+            ),
+          readBack: disk.readBack,
+        })
+      );
+
+      const cutting = Runner.of({
+        run: (command) => {
+          const run = fixture.runner.run(command);
+
+          return command.executable === "docker" &&
+            command.args[0] === "rm" &&
+            command.args[1] === "--force"
+            ? run.pipe(Effect.andThen(Effect.interrupt))
+            : run;
+        },
+      });
+
+      const before = Boxes.layer(fixture.config).pipe(Layer.provide(delayed));
+      yield* Effect.gen(function* cut() {
+        const boxes = yield* Boxes;
+        yield* boxes.create({
+          peonId,
+          template: fixture.template,
+          requestId: "create",
+        });
+
+        const exporter = yield* Effect.forkChild(
+          boxes.act({ action: "export", peonId })
+        );
+
+        yield* Deferred.await(atPut);
+
+        const busy = yield* Effect.flip(
+          boxes.act({
+            action: "destroy",
+            peonId,
+            requestId: "delete",
+            discardWorkspace: true,
+          })
+        );
+
+        expect(busy.message).toContain("Box is busy");
+        yield* Deferred.succeed(releasePut, undefined);
+        yield* Fiber.join(exporter);
+
+        const deleter = yield* Effect.forkChild(
+          boxes.act({
+            action: "destroy",
+            peonId,
+            requestId: "delete",
+            discardWorkspace: true,
+            row: "test-row",
+          })
+        );
+
+        expect(Exit.isFailure(yield* Fiber.await(deleter))).toBe(true);
+        expect(
+          yield* fs.exists(`${fixture.root}/fake/mischief-peon-box-${peonId}`)
+        ).toBe(false);
+      }).pipe(Effect.provide(before), Effect.provideService(Runner, cutting));
+      yield* Effect.gen(function* resumeDestroy() {
+        const boxes = yield* Boxes;
+
+        const exporting = yield* Effect.flip(
+          boxes.act({ action: "export", peonId })
+        );
+
+        expect(exporting.message).toContain("Box is destroying");
+
+        const result = yield* boxes.act({
+          action: "destroy",
+          peonId,
+          requestId: "delete",
+        });
+
+        expect(result.state).toBe("destroyed");
+        expect(Number(result.bytesFreed)).toBeGreaterThan(0);
+        expect(yield* fs.exists(`${fixture.root}/boxes/${peonId}`)).toBe(false);
+        expect(
+          yield* boxes.act({ action: "destroy", peonId, requestId: "repeat" })
+        ).toEqual(result);
+        yield* fs.writeFileString(
+          `${fixture.root}/metadata/${peonId}/box.json`,
+          JSON.stringify({
+            image,
+            lastPromptAt: null,
+            peonId,
+            state: "destroyed",
+            template: fixture.template,
+          })
+        );
+        expect(
+          yield* boxes.act({
+            action: "destroy",
+            peonId,
+            requestId: "legacy-repeat",
+          })
+        ).toEqual({ bytesFreed: 0, snapshotKept: false, state: "destroyed" });
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
+
+it.effect(
+  "hibernated custody preserves a retained snapshot and never rolls back a promoted archive",
+  () =>
+    Effect.gen(function* hibernatedCustody() {
+      const fs = yield* FileSystem.FileSystem;
+      const fixture = yield* custodyFixture;
+      const peonId = "retained";
+      const cutMirror = yield* Ref.make(true);
+      const roots = { ...fixture.roots, checkerHost: "test-host" };
+
+      const disk = archiveDiskLayer(roots, () => Effect.void).pipe(
+        Layer.provide(
+          Layer.succeed(
+            Runner,
+            Runner.of({
+              run: (command) =>
+                Ref.get(cutMirror).pipe(
+                  Effect.flatMap((cut) =>
+                    cut &&
+                    command.executable === "mv" &&
+                    command.args.at(-1)?.startsWith(roots.mirror) === true
+                      ? Effect.succeed({ exit: 1, stdout: "" })
+                      : fixture.runner.run(command)
+                  )
+                ),
+            })
+          )
+        )
+      );
+
+      yield* Effect.gen(function* exportAndRetain() {
+        const boxes = yield* Boxes;
+        yield* boxes.create({
+          peonId,
+          template: fixture.template,
+          requestId: "create",
+        });
+        yield* boxes.act({
+          action: "prompt",
+          peonId,
+          requestId: "turn",
+          text: "owned fixture",
+        });
+        yield* fs.remove(`${fixture.root}/boxes/${peonId}/work/result.txt`);
+
+        const snapshot = yield* Schema.decodeUnknownEffect(Snapshot)(
+          (yield* boxes.act({ action: "hibernate", peonId, requestId: "park" }))
+            .snapshot
+        );
+
+        const failed = yield* Effect.flip(
+          boxes.act({ action: "export", peonId })
+        );
+
+        expect(failed.message).toContain("mv exited");
+        const final = `${roots.primary}/${peonId}/19700101T000000Z-mischief-peon-box-${peonId}`;
+        expect(yield* fs.exists(`${final}/session.jsonl`)).toBe(true);
+        expect(yield* fs.exists(`${final}/RECEIPT.json`)).toBe(false);
+        expect(
+          (yield* Effect.flip(boxes.act({ action: "export", peonId }))).message
+        ).toContain("already exists");
+        yield* Ref.set(cutMirror, false);
+        yield* TestClock.adjust(1000);
+        yield* boxes.act({ action: "export", peonId, row: "tested-row" });
+
+        const result = yield* boxes.act({
+          action: "destroy",
+          peonId,
+          requestId: "retain",
+          retained: true,
+          landedHead: fixture.template.workspace.sha,
+        });
+
+        expect(result).toMatchObject({
+          bytesFreed: 0,
+          snapshotKept: true,
+          state: "destroyed",
+        });
+        expect(yield* fs.exists(snapshot.path)).toBe(true);
+        const commands = yield* fs.readFileString(`${fixture.root}/commands`);
+        expect(
+          commands
+            .split("\n")
+            .filter((line) => line === `start mischief-peon-box-${peonId}`)
+        ).toHaveLength(1);
+      }).pipe(
+        Effect.provide(Boxes.layer(fixture.config).pipe(Layer.provide(disk))),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
+
+it.effect(
+  "custody preparation refuses unresolved or overlapping roots and the wrong host",
+  () =>
+    Effect.gen(function* unavailableCustody() {
+      const fixture = yield* custodyFixture;
+
+      const receipt = {
+        authority: "a".repeat(64),
+        box: "test-box",
+        fingerprint: "a".repeat(64),
+        peon: "test-peon",
+        sha256: "a".repeat(64),
+        stamp: "20260101T000000Z",
+      };
+
+      for (const { roots, reason } of [
+        {
+          roots: { ...fixture.roots, primary: `${fixture.root}/missing` },
+          reason: "could not be resolved",
+        },
+        {
+          roots: { ...fixture.roots, primary: fixture.roots.mirror },
+          reason: "disjoint",
+        },
+        { roots: fixture.roots, reason: "designated box host" },
+      ]) {
+        const disk = archiveDiskLayer({
+          ...roots,
+          checkerHost: "invalid-test-host.",
+        });
+
+        const result = yield* ArchivePort.use(({ readBack }) =>
+          readBack(receipt, "check")
+        ).pipe(
+          Effect.provide(disk),
+          Effect.provideService(Runner, fixture.runner)
+        );
+
+        expect(
+          Predicate.isTagged(result, "Mismatch") && result.reason
+        ).toContain(reason);
+      }
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(Layer.provideMerge(NodeServices.layer))
       )
     )
 );
@@ -821,9 +1147,11 @@ it.effect(
           yield* boxes.act({
             action: "destroy",
             peonId: "source",
+            discardWorkspace: true,
             requestId: "delete",
           })
-        ).toEqual({
+        ).toMatchObject({
+          bytesFreed: finalSnapshot.bytes,
           exportReceipt: exported.exportReceipt,
           snapshotKept: false,
           state: "destroyed",
@@ -1056,6 +1384,12 @@ it.effect(
         );
 
         yield* Deferred.await(entered);
+
+        const exporting = yield* Effect.flip(
+          boxes.act({ action: "export", peonId: "source" })
+        );
+
+        expect(exporting.message).toContain("not stopped");
         expect(
           (yield* Effect.flip(
             boxes.act({

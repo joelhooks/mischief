@@ -402,12 +402,16 @@ printf '{"type":"message_end","message":{"role":"assistant","content":[{"type":"
               ) => {
                 step = `${id} ${action}`;
 
-                return boxes.act({
+                const request = {
                   peonId: id,
                   action,
                   requestId: `${id}-${action}-${nextKey()}`,
                   ...extra,
-                });
+                };
+
+                return action === "destroy"
+                  ? boxes.act({ ...request, discardWorkspace: true })
+                  : boxes.act(request);
               };
 
               const inspect = (id: string) =>

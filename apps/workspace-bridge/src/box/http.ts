@@ -9,7 +9,8 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { errorResponse, readBody } from "../http.js";
 import { refusal } from "../protocol.js";
 import { Boxes } from "./manager.js";
-import { Action, Create, PeonId, RequestId, Result } from "./protocol.js";
+import { Action, ActionBody, Create, PeonId, Result } from "./protocol.js";
+import { WorkspaceUnlanded } from "./workspace-unlanded.js";
 
 const createBox = implement(
   defineContract("createBox", {
@@ -27,7 +28,7 @@ const actOnBox = implement(
     annotations: { idempotent: true, readOnly: false },
     description:
       "Prompt, sleep, wake, copy, export history or destroy a full peon box",
-    failure: BridgeFailure,
+    failure: Schema.Union([BridgeFailure, WorkspaceUnlanded]),
     input: Action,
     output: Result,
   }),
@@ -44,12 +45,6 @@ const inspectBox = implement(
   }),
   ({ peonId }) => Boxes.use(({ inspect }) => inspect(peonId))
 );
-
-const Body = Schema.Struct({
-  newPeonId: Schema.optionalKey(PeonId),
-  requestId: RequestId,
-  text: Schema.optionalKey(Schema.String),
-});
 
 const route = (key: Redacted.Redacted) =>
   Effect.gen(function* boxRoute() {
@@ -112,16 +107,21 @@ const route = (key: Redacted.Redacted) =>
       )
     );
 
-    const body = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Body))(
-      yield* readBody,
-      { onExcessProperty: "error" }
-    ).pipe(
+    const body = yield* Schema.decodeUnknownEffect(
+      Schema.fromJsonString(ActionBody)
+    )(yield* readBody, { onExcessProperty: "error" }).pipe(
       Effect.mapError(() =>
         refusal(
           "Invalid box body. Supply a nonempty requestId of at most 512 characters plus text for prompt or newPeonId for clone, then retry the same endpoint."
         )
       )
     );
+
+    if (decodedAction !== "export" && body.requestId === undefined) {
+      return yield* refusal(
+        "Supply a nonempty requestId for this box lifecycle action."
+      );
+    }
 
     return HttpServerResponse.jsonUnsafe(
       yield* actOnBox.handler({
@@ -131,9 +131,22 @@ const route = (key: Redacted.Redacted) =>
       })
     );
   }).pipe(
-    Effect.catchTag("BridgeFailure", (failure) =>
-      Effect.succeed(errorResponse(failure))
-    )
+    Effect.catchTags({
+      BridgeFailure: (failure) => Effect.succeed(errorResponse(failure)),
+      WorkspaceUnlanded: (failure) =>
+        Effect.succeed(
+          HttpServerResponse.jsonUnsafe(
+            {
+              error: {
+                code: failure._tag,
+                dirtyPaths: failure.dirtyPaths,
+                message: failure.message,
+              },
+            },
+            { status: failure.status }
+          )
+        ),
+    })
   );
 
 export const boxRoutes = (key: Redacted.Redacted) =>

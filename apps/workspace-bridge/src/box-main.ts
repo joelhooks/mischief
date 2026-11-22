@@ -51,10 +51,14 @@ const program = Effect.gen(function* serveBoxes() {
     Config.withDefault("")
   );
 
+  const checkerHost = yield* Config.String("MISCHIEF_BOX_ARCHIVE_HOST").pipe(
+    Config.withDefault("")
+  );
+
   const archive =
-    primary === "" || mirror === ""
+    primary === "" || mirror === "" || checkerHost === ""
       ? ArchivePort.disabled
-      : archiveDiskLayer({ mirror, primary });
+      : archiveDiskLayer({ checkerHost, mirror, primary });
 
   const config = {
     ...storage,

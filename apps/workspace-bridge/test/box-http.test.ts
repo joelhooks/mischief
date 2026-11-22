@@ -1,10 +1,11 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer, Redacted, Ref, Tracer } from "effect";
+import { Effect, Layer, Redacted, Ref, Schema, Tracer } from "effect";
 import { HttpBody, HttpClient, HttpRouter } from "effect/http";
 
 import { boxRoutes } from "../src/box/http.js";
 import { Boxes } from "../src/box/manager.js";
+import { Result } from "../src/box/protocol.js";
 import { sha } from "./fixtures.js";
 
 it.effect(
@@ -13,10 +14,21 @@ it.effect(
     Effect.gen(function* boundary() {
       const calls = yield* Ref.make<string[]>([]);
 
+      const exportReceipt = {
+        id: "peon/example",
+        location: "/fixture/primary",
+        mirror: "/fixture/mirror",
+        sha256: "a".repeat(64),
+      };
+
       const boxes = Boxes.of({
         act: (input) =>
           Ref.update(calls, (values) => [...values, input.action]).pipe(
-            Effect.as({ state: "idle" })
+            Effect.as(
+              input.action === "export"
+                ? { exportReceipt, state: "suspended" }
+                : { state: "idle" }
+            )
           ),
         create: (input) =>
           Effect.sync(() => {
@@ -121,12 +133,19 @@ it.effect(
           headers,
         })).status
       ).toBe(200);
-      expect(
-        (yield* HttpClient.post("/v1/boxes/peon/export", {
-          body: HttpBody.jsonUnsafe({ requestId: "export" }),
-          headers,
-        })).status
-      ).toBe(200);
+
+      const exported = yield* HttpClient.post("/v1/boxes/peon/export", {
+        body: HttpBody.jsonUnsafe({}),
+        headers,
+      });
+
+      expect(exported.status).toBe(200);
+
+      const decoded = yield* Schema.decodeUnknownEffect(Result)(
+        yield* exported.json
+      );
+
+      expect(decoded.exportReceipt).toEqual(exportReceipt);
       expect(
         (yield* HttpClient.del("/v1/boxes/peon", {
           body: HttpBody.jsonUnsafe({ requestId: "destroy" }),

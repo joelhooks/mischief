@@ -100,15 +100,9 @@ const callerConfig = Effect.fn("callerConfig")(
   Effect.orDie
 );
 
-export const callersFromConfig = Effect.gen(function* callersFromConfig() {
-  const fs = yield* FileSystem.FileSystem;
-
-  const did = yield* Config.schema(MischiefDid, "MISCHIEF_DID");
-
-  const text = yield* fs.readFileString(
-    yield* Config.String("MISCHIEF_CALLERS_FILE")
-  );
-
+export const decodeCallers = Effect.fn("decodeCallers")(function* decodeCallers(
+  text: string
+) {
   const keys = yield* Schema.decodeUnknownEffect(
     Schema.fromJsonString(Schema.Array(Keys))
   )(text).pipe(Effect.orElseSucceed(() => []));
@@ -125,7 +119,18 @@ export const callersFromConfig = Effect.gen(function* callersFromConfig() {
     );
   }
 
-  const callers = yield* callerConfig(text);
+  return yield* callerConfig(text);
+});
+
+export const callersFromConfig = Effect.gen(function* callersFromConfig() {
+  const fs = yield* FileSystem.FileSystem;
+  const did = yield* Config.schema(MischiefDid, "MISCHIEF_DID");
+
+  const text = yield* fs.readFileString(
+    yield* Config.String("MISCHIEF_CALLERS_FILE")
+  );
+
+  const callers = yield* decodeCallers(text);
 
   return { ...callers, did };
 });

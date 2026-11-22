@@ -56664,7 +56664,7 @@ var SHADOW_PREFIX = "shadow/";
 var MailReachSchema = Schema3.Record(Schema3.String, Schema3.Array(RatKingName));
 var callerName = (did2) => {
   const scoped = /^did:web:(?<project>[a-z0-9-]+)\.(?<desk>[a-z0-9_-]+)\.pi\.ratking-fleet\.invalid$/u.exec(did2);
-  const bare = /^did:web:(?<name>[a-z0-9_-]+)\.ratking-fleet\.invalid$/u.exec(did2);
+  const bare = /^did:web:(?<name>[a-z0-9_-]+)(?:\.pi)?\.ratking-fleet\.invalid$/u.exec(did2);
   const name = scoped === null ? bare?.groups?.name : `${scoped.groups?.project}/${scoped.groups?.desk}`;
   return Option.flatMap(Option.fromNullishOr(name), Schema3.decodeUnknownOption(RatKingName));
 };
@@ -56673,7 +56673,7 @@ var callerReach = (did2, config) => {
   if (Option.isNone(own)) {
     return {
       names: [],
-      reason: `cannot derive a Rat King name from caller ${did2}. Use did:web:<project>.<desk>.pi.ratking-fleet.invalid or did:web:<name>.ratking-fleet.invalid; ask the Mischief desk (pi-durable/desk) to correct the caller DID`
+      reason: `cannot derive a Rat King name from caller ${did2}. Use did:web:<project>.<desk>.pi.ratking-fleet.invalid, did:web:<name>.pi.ratking-fleet.invalid, or a legacy did:web:<name>.ratking-fleet.invalid; ask the Mischief desk (pi-durable/desk) to correct the caller DID`
     };
   }
   const map = Schema3.decodeOption(Schema3.fromJsonString(MailReachSchema))(config ?? "{}");

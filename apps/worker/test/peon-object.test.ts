@@ -110,6 +110,10 @@ it.live(
         if (code === "WorkspaceUnlanded") {
           expect(failure.reason).toContain("src/draft.ts");
           expect(failure.reason).toContain("refs/heads/draft");
+          expect(failure.reason).toContain("…and 980 more");
+          expect(failure.reason).toContain("…and 1 more");
+          expect(failure.reason).not.toContain("message-tail");
+          expect(failure.reason.length).toBeLessThan(1024);
         }
 
         const inspected = yield* post(world, "inspectPeon", { peonId });

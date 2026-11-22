@@ -118,9 +118,15 @@ const refusals = new Map([
     "workspace-unlanded",
     {
       code: "WorkspaceUnlanded",
-      message: "The workspace has unlanded changes.",
-      dirtyPaths: ["src/draft.ts"],
-      refs: ["refs/heads/draft"],
+      message: `The workspace has unlanded changes. ${"x".repeat(1000)} message-tail`,
+      dirtyPaths: [
+        "src/draft.ts",
+        ...Array.from({ length: 999 }, (_, index) => `p${index}`),
+      ],
+      refs: [
+        "refs/heads/draft",
+        ...Array.from({ length: 20 }, (_, index) => `r${index}`),
+      ],
     },
   ],
   [

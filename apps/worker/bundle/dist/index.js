@@ -84816,6 +84816,7 @@ var custodyRefusal = Schema97.fromJsonString(
       code: PeonBoxRefusalCode,
       message: Schema97.optionalKey(Schema97.String),
       dirtyPaths: Schema97.optionalKey(Schema97.Array(Schema97.String)),
+      dirtyTotal: Schema97.optionalKey(Schema97.Int),
       refs: Schema97.optionalKey(Schema97.Array(Schema97.String))
     })
   })
@@ -84829,15 +84830,42 @@ var nextStep = {
   ReplicaMismatch: "Ask the Mischief operator to repair and verify the replica before retrying destroyPeon.",
   WorkspaceUnlanded: "Retry destroyPeon with landedHead (the landed commit) or discardWorkspace: true."
 };
+var listDetails = (label, items, total, budget) => {
+  if (total === 0) {
+    return "";
+  }
+  for (let count = Math.min(items.length, 20); count >= 0; count -= 1) {
+    const omitted = total - count;
+    const entries2 = items.slice(0, count);
+    const summary = [
+      ...entries2,
+      ...omitted === 0 ? [] : [`\u2026and ${omitted} more`]
+    ];
+    const detail = ` ${label}: ${summary.join(", ")}.`;
+    if (detail.length <= budget) {
+      return detail;
+    }
+  }
+  return "";
+};
 var unlandedDetails = ({
   dirtyPaths = [],
+  dirtyTotal = 0,
   refs = []
-}) => {
-  const details = [
-    ...dirtyPaths.length === 0 ? [] : [`Unlanded paths: ${dirtyPaths.join(", ")}.`],
-    ...refs.length === 0 ? [] : [`Unlanded refs: ${refs.join(", ")}.`]
-  ];
-  return details.length === 0 ? "" : ` ${details.join(" ")}`;
+}, budget) => {
+  const paths = listDetails(
+    "Unlanded paths",
+    dirtyPaths,
+    Math.max(dirtyTotal, dirtyPaths.length),
+    Math.floor(budget / 2)
+  );
+  const refDetails = listDetails(
+    "Unlanded refs",
+    refs,
+    refs.length,
+    budget - paths.length
+  );
+  return paths + refDetails;
 };
 var exportReply = Schema97.fromJsonString(
   Schema97.Struct({ exportReceipt: PeonExportReceipt })
@@ -84853,11 +84881,14 @@ var requireSuccess = (peonId, operation, response) => Effect65.gen(function* che
   const context = `Box ${peonId} ${operation} returned HTTP ${response.status}`;
   if (Option50.isSome(reply)) {
     const { error } = reply.value;
-    const message = error.message === void 0 ? "" : ` ${error.message}`;
-    const details = error.code === "WorkspaceUnlanded" ? unlandedDetails(error) : "";
+    const bridgeMessage = error.message ?? "";
+    const message = bridgeMessage.length > 512 ? `${bridgeMessage.slice(0, 511)}\u2026` : bridgeMessage;
+    const prefix = `${context} (${error.code}).${message === "" ? "" : ` ${message}`}`;
+    const suffix = ` ${nextStep[error.code]}`;
+    const details = error.code === "WorkspaceUnlanded" ? unlandedDetails(error, 1023 - prefix.length - suffix.length) : "";
     return yield* new PeonRefused({
       code: error.code,
-      reason: `${context} (${error.code}).${message}${details} ${nextStep[error.code]}`
+      reason: `${prefix}${details}${suffix}`
     });
   }
   return yield* new PeonRefused({

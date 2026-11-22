@@ -54,9 +54,88 @@ export interface PeonBox {
   ) => Effect.Effect<A, PeonRefused>;
 }
 
-const stopRetry = Schema.fromJsonString(
-  Schema.Struct({ error: Schema.Struct({ code: PeonBoxRefusalCode }) })
+const custodyRefusal = Schema.fromJsonString(
+  Schema.Struct({
+    error: Schema.Struct({
+      code: PeonBoxRefusalCode,
+      message: Schema.optionalKey(Schema.String),
+      dirtyPaths: Schema.optionalKey(Schema.Array(Schema.String)),
+      dirtyTotal: Schema.optionalKey(Schema.Int),
+      refs: Schema.optionalKey(Schema.Array(Schema.String)),
+    }),
+  })
 );
+
+const nextStep = {
+  CustodyMissing:
+    "Custody is off on this host; destroy is unavailable until custody-on.",
+  CustodyIncomplete:
+    "Recover the skipped session files, then retry destroyPeon.",
+  DestroyInProgress:
+    "Retry destroyPeon with the original workspace disposition.",
+  ReceiptMismatch:
+    "Ask the Mischief operator to check the protected archive before retrying destroyPeon.",
+  ReplicaPending:
+    "The replica copy hasn't verified yet; retry destroyPeon after it has.",
+  ReplicaMismatch:
+    "Ask the Mischief operator to repair and verify the replica before retrying destroyPeon.",
+  WorkspaceUnlanded:
+    "Retry destroyPeon with landedHead (the landed commit) or discardWorkspace: true.",
+} satisfies Record<typeof PeonBoxRefusalCode.Type, string>;
+
+const listDetails = (
+  label: string,
+  items: readonly string[],
+  total: number,
+  budget: number
+) => {
+  if (total === 0) {
+    return "";
+  }
+
+  for (let count = Math.min(items.length, 20); count >= 0; count -= 1) {
+    const omitted = total - count;
+    const entries = items.slice(0, count);
+
+    const summary = [
+      ...entries,
+      ...(omitted === 0 ? [] : [`…and ${omitted} more`]),
+    ];
+
+    const detail = ` ${label}: ${summary.join(", ")}.`;
+
+    if (detail.length <= budget) {
+      return detail;
+    }
+  }
+
+  return "";
+};
+
+const unlandedDetails = (
+  {
+    dirtyPaths = [],
+    dirtyTotal = 0,
+    refs = [],
+  }: (typeof custodyRefusal.Type)["error"],
+  budget: number
+) => {
+  const paths = listDetails(
+    "Unlanded paths",
+    dirtyPaths,
+    Math.max(dirtyTotal, dirtyPaths.length),
+    Math.floor(budget / 2)
+  );
+
+  const refDetails = listDetails(
+    "Unlanded refs",
+    refs,
+    refs.length,
+    budget - paths.length
+  );
+
+  return paths + refDetails;
+};
 
 const exportReply = Schema.fromJsonString(
   Schema.Struct({ exportReceipt: PeonExportReceipt })
@@ -76,14 +155,35 @@ const requireSuccess = (
       return response.text;
     }
 
-    const reply = Schema.decodeOption(stopRetry)(response.text);
-    const reason = `Box ${peonId} ${operation} returned HTTP ${response.status}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`;
+    const reply = Schema.decodeOption(custodyRefusal)(response.text);
+    const context = `Box ${peonId} ${operation} returned HTTP ${response.status}`;
 
-    return yield* new PeonRefused(
-      Option.isSome(reply)
-        ? { reason, boxCode: reply.value.error.code }
-        : { reason }
-    );
+    if (Option.isSome(reply)) {
+      const { error } = reply.value;
+      const bridgeMessage = error.message ?? "";
+
+      const message =
+        bridgeMessage.length > 512
+          ? `${bridgeMessage.slice(0, 511)}…`
+          : bridgeMessage;
+
+      const prefix = `${context} (${error.code}).${message === "" ? "" : ` ${message}`}`;
+      const suffix = ` ${nextStep[error.code]}`;
+
+      const details =
+        error.code === "WorkspaceUnlanded"
+          ? unlandedDetails(error, 1023 - prefix.length - suffix.length)
+          : "";
+
+      return yield* new PeonRefused({
+        code: error.code,
+        reason: `${prefix}${details}${suffix}`,
+      });
+    }
+
+    return yield* new PeonRefused({
+      reason: `${context}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`,
+    });
   });
 
 const custody = Schema.fromJsonString(

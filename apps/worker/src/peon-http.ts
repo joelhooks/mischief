@@ -17,8 +17,18 @@ import { freshPeonId as freshId, hashPeonText } from "./peon-crypto.js";
 import { peonGranted } from "./peon-grants.js";
 import { assertPeonSpawnable } from "./peon-host.js";
 import { peonRpc } from "./peon-object.js";
+import type { Peon } from "./peon-object.js";
 import { PEON_REGISTRY } from "./peon-state.js";
 import type { Env } from "./plan-run-object.js";
+
+const peonCommandRpc = (operation: () => ReturnType<Peon["command"]>) =>
+  peonRpc(operation).pipe(
+    Effect.flatMap((reply) =>
+      "refusal" in reply
+        ? Effect.fail(new PeonRefused(reply.refusal))
+        : Effect.succeed(reply)
+    )
+  );
 
 export const peonServices = (env: Env, owner: string): Peons["Service"] => {
   const registry = () => env.PEON_TEMPLATES.getByName(PEON_REGISTRY);
@@ -60,7 +70,7 @@ export const peonServices = (env: Env, owner: string): Peons["Service"] => {
     const object = yield* owned(input.peonId);
     const requestId = input.requestId ?? (yield* freshId);
 
-    return yield* peonRpc(
+    return yield* peonCommandRpc(
       async () =>
         await object.command(
           kind,
@@ -91,7 +101,7 @@ export const peonServices = (env: Env, owner: string): Peons["Service"] => {
           });
         }
 
-        return yield* peonRpc(
+        return yield* peonCommandRpc(
           async () =>
             await object.command("clone", requestId, undefined, newPeonId)
         );

@@ -62,7 +62,7 @@ const program = Effect.gen(function* plan() {
 
   if (action === "deploy" && (!deployApproved || review.trim() === "")) {
     return yield* refuse(
-      "deploy needs MISCHIEF_CELLD_APPROVED=true and MISCHIEF_REVIEW naming the plan approvals (Tin-Tin's and Servo's message ids), under Joel's pre-approval for this instance only"
+      "deploy needs MISCHIEF_CELLD_APPROVED=true and MISCHIEF_REVIEW naming the plan approvals (Tin-Tin's and pennywise/desk's message ids), under Joel's pre-approval for this instance only"
     );
   }
 

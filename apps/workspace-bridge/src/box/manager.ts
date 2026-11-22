@@ -1,3 +1,5 @@
+import { hostname } from "node:os";
+
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import {
   Clock,
@@ -6,6 +8,7 @@ import {
   FileSystem,
   Layer,
   Path,
+  Predicate,
   Ref,
   Schema,
 } from "effect";
@@ -15,11 +18,23 @@ import * as Digest from "effect/crypto/Digest";
 import { refusal } from "../protocol.js";
 import { checked, Runner } from "../runner.js";
 import type { Command, ProcessOutput } from "../runner.js";
+import type { ArchiveFailure } from "./archive-failure.js";
+import { agentDirs, collectArchive, sessionRoots } from "./archive-source.js";
+import { ArchivePort, ReadBackResult, archiveId } from "./archive.js";
+import type { OpenArchive } from "./archive.js";
+import type { CustodyMissing } from "./custody-missing.js";
+import { CustodyIncomplete } from "./custody-refusal.js";
+import { DestroyInProgress } from "./destroy-in-progress.js";
 import { nextState } from "./machine.js";
 import { promptPi, requireText } from "./pi.js";
-import { Metadata, PeonId, Result } from "./protocol.js";
+import { Metadata, PeonId, Result, Tombstone } from "./protocol.js";
 import type { BoxMetadata, Action, Create } from "./protocol.js";
+import { ReceiptMismatch } from "./receipt-mismatch.js";
 import { receiptKey } from "./receipt.js";
+import { ReplicaMismatch } from "./replica-mismatch.js";
+import { ReplicaPending } from "./replica-pending.js";
+import { unlanded, verifyWorkspace } from "./workspace-proof.js";
+import type { WorkspaceUnlanded } from "./workspace-unlanded.js";
 
 export interface BoxConfig {
   readonly root: string;
@@ -69,6 +84,57 @@ const hostFailure = (error: PlatformError.PlatformError) =>
     503
   );
 
+const archiveRefusal = (failure: ArchiveFailure) =>
+  refusal(failure.message, 409);
+
+const mismatch = (id: string, reason: string) =>
+  new ReceiptMismatch({
+    reason,
+    message: `${reason} Check custody, then POST /v1/boxes/${id}/export before retrying DELETE.`,
+    status: 409,
+  });
+
+const needsExport = (id: string) =>
+  mismatch(
+    id,
+    `Box ${id} has no matching verified receipt in both protected archives; destroy would lose its raw history.`
+  );
+
+type DestroyMarker = NonNullable<BoxMetadata["destroying"]>;
+
+const supersededWork = (snapshotBytes: number | undefined) =>
+  snapshotBytes === undefined
+    ? {}
+    : { snapshotWorkSuperseded: true, snapshotBytes };
+
+type SnapshotRoot = Effect.Effect<
+  string,
+  BridgeFailure | PlatformError.PlatformError
+>;
+
+const inProgress = (marker: DestroyMarker) =>
+  new DestroyInProgress({
+    requestId: marker.requestId,
+    disposition: marker.disposition,
+    retained: marker.retainSnapshot,
+    message:
+      "Box is destroying. Retry DELETE with the recorded disposition and retention setting.",
+    status: 409,
+  });
+
+const dispositionOf = (input: typeof Action.Type) => {
+  if (input.discardWorkspace !== true) {
+    return input.landedHead;
+  }
+
+  return input.landedHead === undefined ? "discardWorkspace" : undefined;
+};
+
+const archiveError = (failure: ArchiveFailure | CustodyMissing) =>
+  Predicate.isTagged(failure, "CustodyMissing")
+    ? failure
+    : archiveRefusal(failure);
+
 export class Boxes extends Context.Service<
   Boxes,
   {
@@ -77,7 +143,17 @@ export class Boxes extends Context.Service<
     ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
     readonly act: (
       input: typeof Action.Type
-    ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
+    ) => Effect.Effect<
+      typeof Result.Type,
+      | BridgeFailure
+      | WorkspaceUnlanded
+      | CustodyMissing
+      | CustodyIncomplete
+      | DestroyInProgress
+      | ReceiptMismatch
+      | ReplicaMismatch
+      | ReplicaPending
+    >;
     readonly inspect: (
       id: string
     ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
@@ -91,6 +167,7 @@ export class Boxes extends Context.Service<
         const path = yield* Path.Path;
         const runner = yield* Runner;
         const crypto = yield* Digest.Digest;
+        const archive = yield* ArchivePort;
 
         const keyOf = (requestId: string) =>
           receiptKey(requestId).pipe(
@@ -186,6 +263,38 @@ export class Boxes extends Context.Service<
           }
         }
 
+        const sweepSnapshotReads = Effect.fn("Boxes.sweepSnapshotReads")(
+          function* sweepSnapshotReads(id: string) {
+            const directory = meta(id);
+
+            if (
+              !(yield* fs.exists(directory)) ||
+              (yield* fs.realPath(directory)) !== directory
+            ) {
+              return;
+            }
+
+            for (const entry of yield* fs.readDirectory(directory)) {
+              if (entry.startsWith("snapshot-read-")) {
+                const staging = path.join(directory, entry);
+
+                if ((yield* fs.lstat(staging)).type === "Directory") {
+                  yield* fs.remove(staging, { recursive: true });
+                }
+              }
+            }
+          }
+        );
+
+        for (const entry of yield* fs.readDirectory(config.metadata)) {
+          if (
+            Schema.is(PeonId)(entry) &&
+            (yield* fs.lstat(meta(entry))).type === "Directory"
+          ) {
+            yield* sweepSnapshotReads(entry);
+          }
+        }
+
         const writeJson = Effect.fn("Boxes.writeJson")(function* writeJson(
           file: string,
           value: BoxMetadata | typeof Receipt.Type
@@ -236,7 +345,7 @@ export class Boxes extends Context.Service<
 
                   if (!accepted) {
                     return yield* refusal(
-                      "Box is busy; simultaneous prompts or lifecycle changes could corrupt its session. GET /v1/boxes/{id}, then retry after the active request finishes.",
+                      "Box is busy or not stopped; simultaneous prompts or lifecycle changes could corrupt its session. GET /v1/boxes/{id}, then retry after the active request finishes.",
                       409
                     );
                   }
@@ -424,7 +533,7 @@ export class Boxes extends Context.Service<
                 "/bin/sh",
                 config.image,
                 "-c",
-                `chown -hR 0:${config.gid} /box && ${initialize ? "cp /opt/peon/models.json /opt/peon/settings.json /box/home/.pi/agent/ && " : ""}chmod -R g+rwX /box && chown -hR 65534:${config.gid} /box`,
+                `chown -hR 0:${config.gid} /box && ${initialize ? `cp /opt/peon/models.json /opt/peon/settings.json /box/home/${agentDirs.PI_CODING_AGENT_DIR}/ && ` : ""}chmod -R g+rwX /box && chown -hR 65534:${config.gid} /box`,
               ],
             })
             .pipe(
@@ -486,11 +595,11 @@ export class Boxes extends Context.Service<
               "PIP_CACHE_DIR=/home/peon/.cache/pip",
               "PYTHONUSERBASE=/home/peon/.local",
               "COREPACK_HOME=/home/peon/.cache/corepack",
-              "CLAUDE_CONFIG_DIR=/home/peon/.claude",
               "DISABLE_AUTOUPDATER=1",
+              ...Object.entries(agentDirs).map(
+                ([key, value]) => `${key}=/home/peon/${value}`
+              ),
             ].flatMap((value) => ["--env", value]),
-            "--env",
-            "PI_CODING_AGENT_DIR=/home/peon/.pi/agent",
             "--env",
             "ANTHROPIC_BASE_URL=http://172.30.212.1:28013",
             "--env",
@@ -596,7 +705,9 @@ export class Boxes extends Context.Service<
             );
           }
 
-          if ((yield* hash(box.snapshot.path)) !== box.snapshot.sha256) {
+          const snapshot = yield* snapshotPath(box);
+
+          if ((yield* hash(snapshot.path)) !== snapshot.sha256) {
             return yield* refusal(
               "Snapshot sha256 differs from its receipt; restoring it would corrupt the workspace. Recover the original snapshot and retry resume.",
               409
@@ -608,13 +719,7 @@ export class Boxes extends Context.Service<
             recursive: true,
           });
           yield* execute({
-            args: [
-              "--no-same-owner",
-              "-xf",
-              box.snapshot.path,
-              "-C",
-              base(target),
-            ],
+            args: ["--no-same-owner", "-xf", snapshot.path, "-C", base(target)],
             executable: "tar",
           });
           yield* prepareTree(target);
@@ -647,10 +752,586 @@ export class Boxes extends Context.Service<
             );
           }
 
-          const updated = { ...box, state };
+          const { snapshot, ...metadata } = box;
+
+          const updated =
+            snapshot === undefined
+              ? { ...metadata, state }
+              : {
+                  ...metadata,
+                  state,
+                  snapshot: {
+                    bytes: snapshot.bytes,
+                    path: snapshot.path,
+                    sha256: snapshot.sha256,
+                  },
+                };
+
           yield* save(updated);
 
           return { box: updated, restored };
+        });
+
+        const containerPresent = (id: string) =>
+          docker([
+            "ps",
+            "-a",
+            "--filter",
+            `name=^/${containerOf(id)}$`,
+            "--format",
+            "{{.Names}}",
+          ]).pipe(Effect.map((output) => output.trim() !== ""));
+
+        const snapshotRoot = Effect.fn("Boxes.snapshotRoot")(
+          function* snapshotRoot() {
+            const root = yield* fs.realPath(config.snapshots);
+
+            if (root !== config.snapshots) {
+              return yield* refusal(
+                "Snapshot storage is not canonical. Restore the original snapshot root before retrying.",
+                503
+              );
+            }
+
+            return root;
+          }
+        );
+
+        const snapshotPath = Effect.fn("Boxes.snapshotPath")(
+          function* snapshotPath(
+            box: BoxMetadata,
+            canonical: SnapshotRoot = snapshotRoot()
+          ) {
+            const { snapshot } = box;
+            const root = yield* canonical;
+
+            if (
+              snapshot === undefined ||
+              path.dirname(snapshot.path) !== path.join(root, box.peonId) ||
+              (yield* fs.lstat(snapshot.path)).type !== "File" ||
+              (yield* fs.realPath(snapshot.path)) !== snapshot.path
+            ) {
+              return yield* refusal(
+                "Box has no canonical recorded hibernation snapshot. Recover the original snapshot before retrying.",
+                409
+              );
+            }
+
+            return snapshot;
+          }
+        );
+
+        const extractSnapshot = Effect.fn("Boxes.extractSnapshot")(
+          function* extractSnapshot(
+            box: BoxMetadata,
+            part: "home" | "work",
+            canonical?: SnapshotRoot
+          ) {
+            const snapshot = yield* snapshotPath(box, canonical);
+
+            if ((yield* hash(snapshot.path)) !== snapshot.sha256) {
+              return yield* refusal(
+                "Recorded hibernation snapshot SHA differs. Recover the original before retrying.",
+                409
+              );
+            }
+
+            const staging = yield* fs.makeTempDirectoryScoped({
+              directory: meta(box.peonId),
+              prefix: "snapshot-read-",
+            });
+
+            if (part === "work") {
+              yield* execute({
+                executable: "tar",
+                args: [
+                  "--no-same-owner",
+                  "--same-permissions",
+                  "-xf",
+                  snapshot.path,
+                  "-C",
+                  staging,
+                  "--",
+                  "work",
+                ],
+              });
+
+              return path.join(staging, "work");
+            }
+
+            const entries = new Set(
+              (yield* execute({
+                executable: "tar",
+                args: ["-tf", snapshot.path],
+              })).split("\n")
+            );
+
+            const source = path.join(staging, "home");
+            yield* fs.makeDirectory(source);
+
+            for (const name of [".pi", ...Object.values(agentDirs)]) {
+              if (entries.has(`home/${name}`)) {
+                return yield* refusal(
+                  "Snapshot session parent is not a directory. Recover the original before retrying export.",
+                  409
+                );
+              }
+
+              if (entries.has(`home/${name}/`)) {
+                yield* fs.makeDirectory(path.join(source, name), {
+                  recursive: true,
+                });
+              }
+            }
+
+            const selected = sessionRoots
+              .filter(
+                (root) =>
+                  entries.has(`home/${root}`) || entries.has(`home/${root}/`)
+              )
+              .map((root) => `home/${root}`);
+
+            if (selected.length > 0) {
+              yield* execute({
+                executable: "tar",
+                args: [
+                  "--no-same-owner",
+                  "-xf",
+                  snapshot.path,
+                  "-C",
+                  staging,
+                  "--",
+                  ...selected,
+                ],
+              });
+            }
+
+            return source;
+          }
+        );
+
+        const archiveSource = Effect.fn("Boxes.archiveSource")(
+          function* archiveSource(
+            box: BoxMetadata,
+            row?: string,
+            canonical?: SnapshotRoot
+          ) {
+            const id = box.peonId;
+            let source = home(id);
+
+            if (box.state === "hibernated") {
+              if (
+                (yield* containerPresent(id)) ||
+                (yield* fs.exists(base(id)))
+              ) {
+                return yield* refusal(
+                  "Hibernated box still has a container or live tree. Reconcile the interrupted lifecycle before exporting history.",
+                  409
+                );
+              }
+
+              source = yield* extractSnapshot(box, "home", canonical);
+            } else {
+              const status = (yield* containerPresent(id))
+                ? yield* ready(id)
+                : undefined;
+
+              if (
+                box.state !== "suspended" ||
+                (status !== undefined && (status.Running || status.Pid !== 0))
+              ) {
+                return yield* refusal(
+                  `Box ${id} is not stopped; Pi may still be writing its session. POST /v1/boxes/${id}/export to stop an idle box before destroying it.`,
+                  409
+                );
+              }
+
+              yield* regrant(id);
+            }
+
+            const identity = {
+              boxId: containerOf(id),
+              host: hostname().split(".")[0] ?? hostname(),
+            };
+
+            const snapshotHome =
+              box.state !== "hibernated" && box.snapshot !== undefined
+                ? yield* extractSnapshot(box, "home", canonical)
+                : undefined;
+
+            return yield* collectArchive(
+              source,
+              box,
+              row === undefined ? identity : { ...identity, row },
+              snapshotHome
+            ).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+              Effect.mapError(archiveRefusal)
+            );
+          }
+        );
+
+        const exportBox = Effect.fn("Boxes.export")(function* exportBox(
+          id: string,
+          row?: string
+        ) {
+          let box = yield* load(id);
+
+          if (box.destroying !== undefined) {
+            return yield* inProgress(box.destroying);
+          }
+
+          if (box.state === "running") {
+            return yield* refusal(
+              "Box is not stopped; wait for the active Pi prompt to exit, then retry export.",
+              409
+            );
+          }
+
+          const state = yield* nextState(box.state, "EXPORT");
+
+          if (box.state === "idle") {
+            yield* stop(id);
+            box = { ...box, state };
+            yield* save(box);
+          }
+
+          const { files, manifest } = yield* archiveSource(box, row);
+
+          const custody = yield* archive.open.pipe(
+            Effect.mapError(archiveError)
+          );
+
+          if (
+            box.archive?.peon === id &&
+            box.archive.box === containerOf(id) &&
+            box.archive.fingerprint === files.fingerprint &&
+            JSON.stringify(box.archive.skippedEntries) ===
+              JSON.stringify(manifest.skipped)
+          ) {
+            const previous = yield* custody
+              .readBack(box.archive, "primary")
+              .pipe(Effect.mapError(archiveError));
+
+            if (ReadBackResult.$is("Verified")(previous)) {
+              return { exportReceipt: previous.exportReceipt, state };
+            }
+          }
+
+          const receipt = yield* custody
+            .put(manifest, files)
+            .pipe(Effect.mapError(archiveError));
+
+          const proof = yield* custody
+            .readBack(receipt, "publish")
+            .pipe(Effect.mapError(archiveError));
+
+          if (!ReadBackResult.$is("Verified")(proof)) {
+            return yield* mismatch(
+              id,
+              `Primary archive read-back did not match: ${proof.reason}`
+            );
+          }
+
+          yield* save({ ...box, archive: receipt });
+
+          return { exportReceipt: proof.exportReceipt, state };
+        }, Effect.scoped);
+
+        const proveArchive = Effect.fn("Boxes.proveArchive")(
+          function* proveArchive(box: BoxMetadata, custody: OpenArchive) {
+            const receipt = box.archive;
+
+            if (
+              receipt?.peon !== box.peonId ||
+              receipt.box !== containerOf(box.peonId)
+            ) {
+              return yield* needsExport(box.peonId);
+            }
+
+            const proof = yield* custody
+              .readBack(receipt, "check")
+              .pipe(Effect.mapError(archiveError));
+
+            if (ReadBackResult.$is("ReplicaPending")(proof)) {
+              return yield* new ReplicaPending({
+                archiveId: archiveId(receipt),
+                message: proof.reason,
+                status: 409,
+              });
+            }
+
+            if (ReadBackResult.$is("ReplicaMismatch")(proof)) {
+              return yield* new ReplicaMismatch({
+                archiveId: archiveId(receipt),
+                message: proof.reason,
+                status: 409,
+              });
+            }
+
+            if (ReadBackResult.$is("Mismatch")(proof)) {
+              return yield* mismatch(
+                box.peonId,
+                `Cannot verify primary custody: ${proof.reason}`
+              );
+            }
+
+            return proof.exportReceipt;
+          }
+        );
+
+        const authorizeWorkspace = Effect.fn("Boxes.authorizeWorkspace")(
+          function* authorizeWorkspace(
+            box: BoxMetadata,
+            input: typeof Action.Type,
+            canonical: SnapshotRoot
+          ) {
+            const { landedHead } = input;
+
+            if (input.discardWorkspace === true && landedHead === undefined) {
+              yield* Effect.logInfo(
+                "Explicit peon workspace discard authorized"
+              ).pipe(
+                Effect.annotateLogs({
+                  box: box.peonId,
+                  requester: input.row ?? "authenticated box client",
+                  requestId: input.requestId ?? "",
+                })
+              );
+
+              return { abandoned: [], ignored: 0 };
+            }
+
+            if (landedHead === undefined || input.discardWorkspace === true) {
+              return yield* unlanded(
+                "Workspace teardown requires exactly one disposition."
+              );
+            }
+
+            const verify = (directory: string) =>
+              verifyWorkspace(
+                directory,
+                landedHead,
+                box.image,
+                managerUid,
+                config.gid
+              ).pipe(
+                Effect.provideService(Runner, runner),
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path)
+              );
+
+            return box.state === "hibernated"
+              ? yield* Effect.scoped(
+                  extractSnapshot(box, "work", canonical).pipe(
+                    Effect.flatMap(verify)
+                  )
+                )
+              : yield* verify(work(box.peonId));
+          }
+        );
+
+        const beginDestroy = Effect.fn("Boxes.beginDestroy")(
+          function* beginDestroy(
+            box: BoxMetadata,
+            input: typeof Action.Type,
+            custody: OpenArchive,
+            canonical: SnapshotRoot
+          ) {
+            const id = box.peonId;
+            const receipt = box.archive;
+
+            if (receipt === undefined) {
+              return yield* needsExport(id);
+            }
+
+            if (box.state === "idle") {
+              return yield* mismatch(
+                id,
+                "Box is not stopped; export must suspend it before destroy."
+              );
+            }
+
+            yield* nextState(box.state, "DESTROY");
+
+            const { files, manifest } = yield* Effect.scoped(
+              archiveSource(box, undefined, canonical)
+            );
+
+            const skipped =
+              manifest.skipped.length > 0
+                ? manifest.skipped
+                : (receipt.skippedEntries ?? []);
+
+            if (skipped.length > 0) {
+              return yield* new CustodyIncomplete({
+                skipped,
+                message: `Some session files were skipped. Recover them and POST /v1/boxes/${id}/export before destroying.`,
+                status: 409,
+              });
+            }
+
+            if (receipt.fingerprint !== files.fingerprint) {
+              return yield* mismatch(
+                id,
+                "Session inventory changed since export."
+              );
+            }
+
+            const proof = yield* proveArchive(box, custody);
+
+            const retainSnapshot =
+              input.retained ?? box.snapshot?.retained === true;
+
+            if (retainSnapshot && box.state !== "hibernated") {
+              return yield* unlanded(
+                "Hibernate the current workspace before retaining it."
+              );
+            }
+
+            const snapshot =
+              box.snapshot === undefined
+                ? undefined
+                : yield* snapshotPath(box, canonical);
+
+            const { requestId } = input;
+            const disposition = dispositionOf(input);
+
+            if (disposition === undefined || requestId === undefined) {
+              return yield* unlanded(
+                "Workspace teardown requires exactly one disposition and a requestId."
+              );
+            }
+
+            const workspace = yield* authorizeWorkspace(box, input, canonical);
+
+            const bytesFreed =
+              (yield* size(base(id))) +
+              (retainSnapshot ? 0 : (snapshot?.bytes ?? 0));
+
+            const marker = {
+              ...workspace,
+              ...supersededWork(
+                box.state === "hibernated" ? undefined : snapshot?.bytes
+              ),
+              bytesFreed,
+              disposition,
+              requestId,
+              receiptId: proof.id,
+              retainSnapshot,
+            };
+
+            yield* save({ ...box, destroying: marker });
+
+            return { exportReceipt: proof, marker };
+          }
+        );
+
+        const destroyBox = Effect.fn("Boxes.destroy")(function* destroyBox(
+          box: BoxMetadata,
+          input: typeof Action.Type
+        ) {
+          if (box.state === "destroyed") {
+            return (
+              box.tombstone ??
+              Tombstone.make({
+                state: "destroyed",
+                bytesFreed: 0,
+                snapshotKept: box.snapshot !== undefined,
+              })
+            );
+          }
+
+          const id = box.peonId;
+
+          if (
+            box.destroying !== undefined &&
+            (box.destroying.disposition !== dispositionOf(input) ||
+              box.destroying.retainSnapshot !==
+                (input.retained ?? box.snapshot?.retained === true))
+          ) {
+            return yield* inProgress(box.destroying);
+          }
+
+          const custody = yield* archive.open.pipe(
+            Effect.mapError(archiveError)
+          );
+
+          const canonical =
+            box.snapshot === undefined
+              ? snapshotRoot()
+              : Effect.succeed(yield* snapshotRoot());
+
+          if (
+            box.destroying !== undefined &&
+            (box.archive === undefined ||
+              box.destroying.receiptId !== archiveId(box.archive))
+          ) {
+            return yield* refusal(
+              "Destroy marker does not match the recorded archive receipt. Reconcile host metadata before retrying DELETE.",
+              409
+            );
+          }
+
+          const { exportReceipt, marker } =
+            box.destroying === undefined
+              ? yield* beginDestroy(box, input, custody, canonical)
+              : {
+                  exportReceipt: yield* proveArchive(box, custody),
+                  marker: box.destroying,
+                };
+
+          yield* execute({ args: ["-f", meta(id)], executable: "sync" });
+          yield* sweepSnapshotReads(id);
+
+          if (yield* containerPresent(id)) {
+            yield* docker(["rm", "--force", containerOf(id)]).pipe(
+              Effect.catch((error) =>
+                containerPresent(id).pipe(
+                  Effect.flatMap((present) =>
+                    present ? Effect.fail(error) : Effect.void
+                  )
+                )
+              )
+            );
+          }
+
+          if (yield* fs.exists(base(id))) {
+            yield* regrant(id);
+            yield* owned(id);
+            yield* fs.remove(base(id), { recursive: true });
+          }
+
+          const { snapshot, destroying: _destroying, ...metadata } = box;
+
+          if (!marker.retainSnapshot && snapshot !== undefined) {
+            yield* canonical;
+
+            if (yield* fs.exists(snapshot.path)) {
+              yield* snapshotPath(box, canonical);
+              yield* fs.remove(snapshot.path);
+            }
+          }
+
+          const tombstone = Tombstone.make({
+            abandoned: marker.abandoned,
+            ignored: marker.ignored,
+            bytesFreed: marker.bytesFreed,
+            exportReceipt,
+            snapshotKept: marker.retainSnapshot,
+            ...supersededWork(marker.snapshotBytes),
+            state: "destroyed",
+          });
+
+          const finished = { ...metadata, state: tombstone.state, tombstone };
+          yield* save(
+            marker.retainSnapshot && snapshot !== undefined
+              ? { ...finished, snapshot: { ...snapshot, retained: true } }
+              : finished
+          );
+
+          return tombstone;
         });
 
         const request = Effect.fn("Boxes.request")(function* request(
@@ -784,7 +1465,12 @@ export class Boxes extends Context.Service<
                     args: ["-C", work(id), "remote", "remove", "origin"],
                     executable: "git",
                   });
-                  const agent = path.join(home(id), ".pi", "agent");
+
+                  const agent = path.join(
+                    home(id),
+                    agentDirs.PI_CODING_AGENT_DIR
+                  );
+
                   yield* fs.makeDirectory(agent, {
                     mode: 0o770,
                     recursive: true,
@@ -854,15 +1540,41 @@ export class Boxes extends Context.Service<
           function* act(input: typeof Action.Type) {
             const id = input.peonId;
 
+            if (input.action === "export") {
+              return yield* locked([id], exportBox(id, input.row));
+            }
+
+            const { requestId } = input;
+
+            if (requestId === undefined) {
+              return yield* refusal(
+                "Supply a nonempty requestId for this box lifecycle action."
+              );
+            }
+
+            if (input.action === "destroy") {
+              return yield* locked(
+                [id],
+                load(id).pipe(Effect.flatMap((box) => destroyBox(box, input)))
+              );
+            }
+
             return yield* locked(
               input.action === "clone" && input.newPeonId !== undefined
                 ? [id, input.newPeonId]
                 : [id],
               request(
                 id,
-                input.requestId,
+                requestId,
                 Effect.gen(function* actBox() {
                   let box = yield* load(id);
+
+                  if (box.destroying !== undefined) {
+                    return yield* refusal(
+                      inProgress(box.destroying).message,
+                      409
+                    );
+                  }
 
                   if (input.action === "resume") {
                     const result = yield* resume(box);
@@ -919,9 +1631,9 @@ export class Boxes extends Context.Service<
                         "--input-type=module",
                         "-e",
                         "import{mkdir,writeFile}from'node:fs/promises';process.umask(0o0007);await mkdir('/home/peon/.box/requests',{recursive:true});const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);await writeFile(process.argv[1],Buffer.concat(chunks))",
-                        `/home/peon/.box/requests/${yield* keyOf(input.requestId)}.json`,
+                        `/home/peon/.box/requests/${yield* keyOf(requestId)}.json`,
                       ],
-                      JSON.stringify({ requestId: input.requestId, result })
+                      JSON.stringify({ requestId, result })
                     );
                     yield* save({
                       ...box,
@@ -946,13 +1658,31 @@ export class Boxes extends Context.Service<
 
                   if (input.action === "hibernate") {
                     if (box.state === "hibernated") {
-                      return { snapshot: box.snapshot, state };
+                      const previous = box.snapshot;
+
+                      if (
+                        input.retained !== undefined &&
+                        previous !== undefined
+                      ) {
+                        const { retained: _retained, ...evidence } =
+                          yield* snapshotPath(box);
+
+                        const snapshot = input.retained
+                          ? { ...evidence, retained: input.retained }
+                          : evidence;
+
+                        yield* save({ ...box, snapshot });
+
+                        return { snapshot, state };
+                      }
+
+                      return { snapshot: previous, state };
                     }
 
                     yield* stop(id);
                     yield* regrant(id);
                     yield* owned(id);
-                    const directory = path.join(config.snapshots, id);
+                    const directory = path.join(yield* snapshotRoot(), id);
                     yield* fs.makeDirectory(directory, {
                       mode: 0o700,
                       recursive: true,
@@ -960,11 +1690,12 @@ export class Boxes extends Context.Service<
 
                     const file = path.join(
                       directory,
-                      `${yield* Clock.currentTimeMillis}-${yield* keyOf(input.requestId)}.tar`
+                      `${yield* Clock.currentTimeMillis}-${yield* keyOf(requestId)}.tar`
                     );
 
                     yield* execute({
                       args: [
+                        "--hard-dereference",
                         "-cf",
                         `${file}.tmp`,
                         "-C",
@@ -982,84 +1713,73 @@ export class Boxes extends Context.Service<
                       sha256: yield* hash(file),
                     };
 
-                    yield* save({ ...box, snapshot, state });
+                    const recorded =
+                      input.retained === true
+                        ? { ...snapshot, retained: input.retained }
+                        : snapshot;
+
+                    yield* save({ ...box, snapshot: recorded, state });
                     yield* docker(["rm", containerOf(id)]);
                     yield* fs.remove(base(id), { recursive: true });
 
-                    return { snapshot, state };
+                    return { snapshot: recorded, state };
                   }
 
-                  if (input.action === "clone") {
-                    const target = input.newPeonId;
+                  const target = input.newPeonId;
 
-                    if (target === undefined || target === id) {
-                      return yield* refusal(
-                        "Clone needs a distinct newPeonId; copying over the source would lose its session. Retry clone with a new id."
-                      );
-                    }
-
-                    if (
-                      (yield* fs.exists(meta(target))) ||
-                      (yield* fs.exists(base(target)))
-                    ) {
-                      return yield* refusal(
-                        "Clone target already exists; replacing it would discard another session. Choose a newPeonId and retry clone.",
-                        409
-                      );
-                    }
-
-                    yield* fs.makeDirectory(meta(target), {
-                      mode: 0o700,
-                      recursive: true,
-                    });
-
-                    if (box.state === "hibernated") {
-                      yield* restore(box, target);
-                    } else {
-                      yield* regrant(id);
-                      yield* owned(id);
-                      yield* fs.makeDirectory(base(target), { mode: 0o770 });
-                      yield* execute({
-                        args: [
-                          "-R",
-                          "--preserve=mode,timestamps",
-                          "--",
-                          `${base(id)}/.`,
-                          base(target),
-                        ],
-                        executable: "cp",
-                      });
-                      yield* prepareTree(target);
-                      yield* owned(target);
-                    }
-
-                    const clone: BoxMetadata = {
-                      image: box.image,
-                      lastPromptAt: box.lastPromptAt,
-                      peonId: target,
-                      state: "suspended",
-                      template: box.template,
-                    };
-
-                    yield* container(clone, false);
-                    yield* save(clone);
-
-                    return { peonId: target, state: "suspended" };
+                  if (target === undefined || target === id) {
+                    return yield* refusal(
+                      "Clone needs a distinct newPeonId; copying over the source would lose its session. Retry clone with a new id."
+                    );
                   }
 
-                  if (box.state !== "hibernated" && box.state !== "destroyed") {
-                    yield* docker(["rm", "--force", containerOf(id)]);
+                  if (
+                    (yield* fs.exists(meta(target))) ||
+                    (yield* fs.exists(base(target)))
+                  ) {
+                    return yield* refusal(
+                      "Clone target already exists; replacing it would discard another session. Choose a newPeonId and retry clone.",
+                      409
+                    );
                   }
 
-                  if (yield* fs.exists(base(id))) {
+                  yield* fs.makeDirectory(meta(target), {
+                    mode: 0o700,
+                    recursive: true,
+                  });
+
+                  if (box.state === "hibernated") {
+                    yield* restore(box, target);
+                  } else {
                     yield* regrant(id);
                     yield* owned(id);
-                    yield* fs.remove(base(id), { recursive: true });
+                    yield* fs.makeDirectory(base(target), { mode: 0o770 });
+                    yield* execute({
+                      args: [
+                        "-R",
+                        "--preserve=mode,timestamps",
+                        "--",
+                        `${base(id)}/.`,
+                        base(target),
+                      ],
+                      executable: "cp",
+                    });
+                    yield* prepareTree(target);
+                    yield* owned(target);
                   }
 
-                  yield* save({ ...box, state });
+                  const clone: BoxMetadata = {
+                    image: box.image,
+                    lastPromptAt: box.lastPromptAt,
+                    peonId: target,
+                    state: "suspended",
+                    template: box.template,
+                  };
 
-                  return { snapshotKept: box.snapshot !== undefined, state };
+                  yield* container(clone, false);
+                  yield* save(clone);
+
+                  return { peonId: target, state: "suspended" };
                 })
               )
             );

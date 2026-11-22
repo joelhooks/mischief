@@ -108,7 +108,7 @@ Mirrors are reference material, not runtime dependencies. Exclude them from type
 
 ## Source control
 
-Preserve existing work. Inspect status before editing, stage only files changed for the current task, and do not commit generated output, secrets, or populated `.agent_sources/github.com/` trees. Use the repository's existing source-control tool; do not initialize or migrate one without approval. Never pass `--no-verify` to git.
+Preserve existing work. Inspect status before editing, stage only files changed for the current task, and do not commit generated output (one exception: the tracked worker bundle `apps/worker/bundle/dist/`, which CI requires to match a fresh build; regenerate and commit it with any change that alters it), secrets, or populated `.agent_sources/github.com/` trees. Use the repository's existing source-control tool; do not initialize or migrate one without approval. Never pass `--no-verify` to git.
 
 ## Project law
 

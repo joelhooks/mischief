@@ -56843,7 +56843,25 @@ var PeonPromptLog = Schema4.Struct({
   usage: PeonUsage,
   wallMs: Schema4.Finite
 });
+var PeonExportReceipt = Schema4.Struct({
+  id: Schema4.String,
+  location: Schema4.String,
+  mirror: Schema4.String,
+  sha256: Schema4.String.check(Schema4.isPattern(/^[a-f0-9]{64}$/u)),
+  primaryRoot: Schema4.optionalKey(Schema4.String),
+  replicaRoot: Schema4.optionalKey(Schema4.String),
+  replicaState: Schema4.optionalKey(Schema4.Literals(["pending", "verified"]))
+});
+var PeonBoxRefusalCode = Schema4.Literals([
+  "CustodyMissing",
+  "CustodyIncomplete",
+  "ReceiptMismatch",
+  "ReplicaPending",
+  "ReplicaMismatch",
+  "WorkspaceUnlanded"
+]);
 var PeonIndexEntry = Schema4.Struct({
+  exportReceipt: Schema4.optionalKey(PeonExportReceipt),
   creationKey: Schema4.optionalKey(Schema4.String),
   destroyedAt: Schema4.optionalKey(Schema4.Finite),
   owner: Schema4.String,
@@ -56853,6 +56871,7 @@ var PeonIndexEntry = Schema4.Struct({
   updatedAt: Schema4.Finite
 });
 var PeonTombstone = Schema4.Struct({
+  exportReceipt: Schema4.optionalKey(PeonExportReceipt),
   destroyedAt: Schema4.Finite,
   owner: Schema4.String,
   peonId: PeonId,
@@ -56874,7 +56893,7 @@ var PeonReport = Schema4.Struct({
   resolvedTemplate: PeonTemplate,
   usage: PeonUsage
 });
-var PeonRefused = class extends Schema4.TaggedError()("PeonRefused", { reason: Schema4.String }) {
+var PeonRefused = class extends Schema4.TaggedError()("PeonRefused", { reason: Schema4.String, boxCode: Schema4.optionalKey(PeonBoxRefusalCode) }) {
   get message() {
     return this.reason;
   }
@@ -57456,7 +57475,12 @@ var hibernatePeonContract = defineContract("hibernatePeon", {
 var destroyPeonContract = defineContract("destroyPeon", {
   ...lifecycle,
   annotations: { destructive: true, idempotent: true },
-  description: "Remove a peon box, keeping its last snapshot and registry tombstone.",
+  description: "Remove a peon box after custody verification and a verified landed head or explicit workspace discard.",
+  input: Schema9.Struct({
+    ...lifecycle.input.fields,
+    discardWorkspace: Schema9.optionalKey(Schema9.Literal(true)),
+    landedHead: Schema9.optionalKey(Schema9.String.check(Schema9.isPattern(/^[a-f0-9]{40}$/u)))
+  }),
   output: Schema9.Union([PeonReport, PeonTombstone])
 });
 var clonePeonContract = defineContract("clonePeon", {
@@ -83726,6 +83750,8 @@ var PEON_REGISTRY = "peons-v1";
 var PeonPending = Schema88.Struct({
   boxRequestId: Schema88.String,
   inputHash: Schema88.String,
+  discardWorkspace: Schema88.optional(Schema88.Literal(true)),
+  landedHead: Schema88.optional(Schema88.String),
   kind: Schema88.Literals([
     "spawn",
     "prompt",
@@ -84772,10 +84798,10 @@ var CallerThinks = class extends DurableObject2 {
 
 // src/peon-object.ts
 import { DurableObject as DurableObject3 } from "cloudflare:workers";
-import { Effect as Effect68, Option as Option50, Schema as Schema99, Semaphore as Semaphore6 } from "effect";
+import { Effect as Effect68, Option as Option51, Schema as Schema99, Semaphore as Semaphore6 } from "effect";
 
 // src/peon-box.ts
-import { Effect as Effect65, Schema as Schema97 } from "effect";
+import { Effect as Effect65, Option as Option50, Schema as Schema97 } from "effect";
 import { FetchHttpClient as FetchHttpClient2, HttpClient as HttpClient3, HttpClientRequest as HttpClientRequest3 } from "effect/http";
 var methodOf = (operation) => {
   if (operation === "inspect") {
@@ -84783,8 +84809,32 @@ var methodOf = (operation) => {
   }
   return operation === "destroy" ? "DELETE" : "POST";
 };
-var peonBox = (url, key) => ({
-  call: (peonId, operation, body, schema2) => Effect65.gen(function* callBox() {
+var stopRetry = Schema97.fromJsonString(
+  Schema97.Struct({ error: Schema97.Struct({ code: PeonBoxRefusalCode }) })
+);
+var exportReply = Schema97.fromJsonString(
+  Schema97.Struct({ exportReceipt: PeonExportReceipt })
+);
+var jsonObject = Schema97.fromJsonString(
+  Schema97.Record(Schema97.String, Schema97.Json)
+);
+var requireSuccess = (peonId, operation, response) => Effect65.gen(function* checkBoxResponse() {
+  if (response.status >= 200 && response.status < 300) {
+    return response.text;
+  }
+  const reply = Schema97.decodeOption(stopRetry)(response.text);
+  const reason = `Box ${peonId} ${operation} returned HTTP ${response.status}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`;
+  return yield* new PeonRefused(
+    Option50.isSome(reply) ? { reason, boxCode: reply.value.error.code } : { reason }
+  );
+});
+var custody = Schema97.fromJsonString(
+  Schema97.Struct({
+    error: Schema97.Struct({ code: Schema97.Literal("ReceiptMismatch") })
+  })
+);
+var peonBox = (url, key) => {
+  const send3 = Effect65.fn("PeonBox.send")(function* send4(peonId, operation, body) {
     const target = operation === "spawn" ? "/v1/boxes" : `/v1/boxes/${peonId}${operation === "inspect" || operation === "destroy" ? "" : `/${operation}`}`;
     const request2 = HttpClientRequest3.make(methodOf(operation))(
       new URL(target, url).href
@@ -84813,22 +84863,56 @@ var peonBox = (url, key) => ({
         })
       )
     );
-    if (response.status < 200 || response.status >= 300) {
-      return yield* new PeonRefused({
-        reason: `Box ${peonId} ${operation} returned HTTP ${response.status}: ${text.slice(0, 1024)}. The stored operation remains pending; inspectPeon before retrying.`
-      });
-    }
-    return yield* Schema97.decodeEffect(Schema97.fromJsonString(schema2))(
-      text
-    ).pipe(
-      Effect65.mapError(
-        () => new PeonRefused({
-          reason: `Box ${peonId} ${operation} returned data outside the box contract. Its requestId remains pending to prevent duplicate work; inspectPeon and check the box manager version.`
-        })
-      )
-    );
-  }).pipe(Effect65.provide(FetchHttpClient2.layer))
-});
+    return { status: response.status, text };
+  });
+  return {
+    call: (peonId, operation, body, schema2) => Effect65.gen(function* callBox() {
+      if (operation === "destroy" && (body === void 0 || body.landedHead === void 0 === (body.discardWorkspace !== true))) {
+        return yield* new PeonRefused({
+          reason: "Box destroy needs exactly one landedHead or discardWorkspace: true."
+        });
+      }
+      const response = yield* send3(peonId, operation, body);
+      const needsExport = operation === "destroy" && response.status === 409 && Option50.isSome(Schema97.decodeOption(custody)(response.text));
+      let receipt;
+      if (needsExport) {
+        const exported = yield* send3(
+          peonId,
+          "export",
+          body === void 0 ? void 0 : { requestId: body.requestId }
+        );
+        const exportedText = yield* requireSuccess(
+          peonId,
+          "export",
+          exported
+        );
+        receipt = (yield* Schema97.decodeEffect(exportReply)(exportedText).pipe(
+          Effect65.mapError(
+            () => new PeonRefused({
+              reason: "Box export returned no valid custody receipt. Check the box manager version."
+            })
+          )
+        )).exportReceipt;
+      }
+      const final = needsExport ? yield* send3(peonId, operation, body) : response;
+      const text = yield* requireSuccess(peonId, operation, final);
+      const responseObject = receipt === void 0 ? Option50.none() : Schema97.decodeOption(jsonObject)(text);
+      const payload2 = Option50.isSome(responseObject) && responseObject.value.exportReceipt === void 0 ? JSON.stringify({
+        ...responseObject.value,
+        exportReceipt: receipt
+      }) : text;
+      return yield* Schema97.decodeEffect(Schema97.fromJsonString(schema2))(
+        payload2
+      ).pipe(
+        Effect65.mapError(
+          () => new PeonRefused({
+            reason: `Box ${peonId} ${operation} returned data outside the box contract. Its requestId remains pending to prevent duplicate work; inspectPeon and check the box manager version.`
+          })
+        )
+      );
+    }).pipe(Effect65.provide(FetchHttpClient2.layer))
+  };
+};
 
 // src/peon-host.ts
 import { Clock as Clock13, Effect as Effect67, Schema as Schema98 } from "effect";
@@ -85045,18 +85129,32 @@ var peonHost = ({
       case "hibernate":
       case "resume":
       case "suspend": {
-        yield* box.call(
+        const result = yield* box.call(
           id,
           pending.kind,
-          { requestId: pending.boxRequestId },
+          {
+            requestId: pending.boxRequestId,
+            landedHead: pending.landedHead,
+            discardWorkspace: pending.discardWorkspace
+          },
           Schema98.Struct({
-            state: Schema98.Literal(acknowledgedStates[pending.kind])
+            state: Schema98.Literal(acknowledgedStates[pending.kind]),
+            exportReceipt: Schema98.optionalKey(PeonExportReceipt)
           })
         );
         if (pending.kind === "resume") {
           next = yield* move(stored2, "TURN_DONE");
         } else if (pending.kind === "destroy") {
-          next = yield* move(stored2, "DESTROY");
+          next = yield* move(
+            result.exportReceipt === void 0 ? stored2 : {
+              ...stored2,
+              report: {
+                ...stored2.report,
+                exportReceipt: result.exportReceipt
+              }
+            },
+            "DESTROY"
+          );
         }
         break;
       }
@@ -85133,6 +85231,7 @@ var peonHost = ({
     const state3 = stored2.report.state === "destroyed" ? "destroyed" : peonTransition(stored2.report.state, "BOX_LOST");
     const lost = {
       ...stored2,
+      pending: fault.boxCode === void 0 ? stored2.pending : null,
       report: { ...stored2.report, fault: fault.reason, state: state3 }
     };
     yield* commit(lost);
@@ -85144,7 +85243,13 @@ var peonHost = ({
   const recover = drive().pipe(Effect67.catchTag("PeonRefused", recordFault));
   const begin = Effect67.fn("Peon.begin")(function* begin2(kind, requestId2, event, options2 = {}) {
     const inputHash = yield* hashPeonText(
-      JSON.stringify({ kind, newPeonId: options2.newPeonId, text: options2.text })
+      JSON.stringify({
+        kind,
+        newPeonId: options2.newPeonId,
+        text: options2.text,
+        landedHead: options2.landedHead,
+        discardWorkspace: options2.discardWorkspace
+      })
     );
     const completed = yield* storage.completed(requestId2);
     if (completed !== void 0) {
@@ -85179,7 +85284,14 @@ var peonHost = ({
       );
       return stored2.report;
     }
+    if (kind === "destroy" && options2.landedHead === void 0 === (options2.discardWorkspace !== true)) {
+      return yield* failure4(
+        "Supply exactly one landedHead or discardWorkspace: true before destroyPeon."
+      );
+    }
     const pending = {
+      landedHead: options2.landedHead,
+      discardWorkspace: options2.discardWorkspace,
       boxRequestId: yield* hashPeonText(
         JSON.stringify([stored2.report.peonId, kind, requestId2, "main"])
       ),
@@ -85265,6 +85377,8 @@ var peonHost = ({
       const attaching = yield* move(initial, "SPAWN");
       const requestId2 = `spawn/${entry3.peonId}`;
       const pending = {
+        landedHead: void 0,
+        discardWorkspace: void 0,
         boxRequestId: yield* hashPeonText(
           JSON.stringify([entry3.peonId, "spawn", requestId2, "main"])
         ),
@@ -85412,7 +85526,7 @@ var Peon = class extends DurableObject3 {
     return await Effect68.runPromise(
       this.lock.withPermitsIfAvailable(1)(effect).pipe(
         Effect68.flatMap(
-          (value) => Option50.isSome(value) ? Effect68.succeed(value.value) : Effect68.fail(
+          (value) => Option51.isSome(value) ? Effect68.succeed(value.value) : Effect68.fail(
             new PeonRefused({
               reason: "This peon is already handling a call; a concurrent turn would race its workspace. Use inspectPeon and retry the same requestId when it finishes."
             })
@@ -85424,9 +85538,10 @@ var Peon = class extends DurableObject3 {
   async initialize(entry3, template, cloned = false) {
     return await this.run(this.host.initialize(entry3, template, cloned));
   }
-  async command(kind, requestId2, text, newPeonId, sender) {
+  async command(kind, requestId2, text, newPeonId, sender, disposition) {
     return await this.run(
       this.host.command(kind, requestId2, events[kind], {
+        ...disposition,
         newPeonId,
         sender,
         text
@@ -85461,7 +85576,7 @@ var Peon = class extends DurableObject3 {
 
 // src/peon-registry.ts
 import { DurableObject as DurableObject4 } from "cloudflare:workers";
-import { Effect as Effect69, Option as Option51, Schema as Schema101 } from "effect";
+import { Effect as Effect69, Option as Option53, Schema as Schema101 } from "effect";
 
 // src/peon-list.ts
 import { Schema as Schema100 } from "effect";
@@ -85546,8 +85661,8 @@ var PeonTemplates = class extends DurableObject4 {
         valid.name,
         valid.version
       ).toArray();
-      const found = Option51.fromUndefinedOr(rows[0]);
-      if (Option51.isNone(found)) {
+      const found = Option53.fromUndefinedOr(rows[0]);
+      if (Option53.isNone(found)) {
         return yield* registryFailure(
           `Unknown template ${valid.name}@${valid.version ?? "latest"}. Use listPeonTemplates, then retry spawnPeon with a listed version.`
         );
@@ -86726,14 +86841,14 @@ function openDurableObjectSqliteStorage(storage, options2 = {}) {
 
 // src/plan-run-object.ts
 import { DurableObject as DurableObject5 } from "cloudflare:workers";
-import { Clock as Clock14, Effect as Effect76, Layer as Layer30, Option as Option57, Redacted as Redacted3, Schema as Schema106 } from "effect";
+import { Clock as Clock14, Effect as Effect76, Layer as Layer30, Option as Option58, Redacted as Redacted3, Schema as Schema106 } from "effect";
 import { FetchHttpClient as FetchHttpClient3 } from "effect/http";
 
 // src/abort-notices.ts
-import { Effect as Effect71, Option as Option54 } from "effect";
+import { Effect as Effect71, Option as Option55 } from "effect";
 
 // src/postbox-mail.ts
-import { Effect as Effect70, Layer as Layer27, Option as Option53, Schema as Schema103 } from "effect";
+import { Effect as Effect70, Layer as Layer27, Option as Option54, Schema as Schema103 } from "effect";
 var OBJECT = "CREATE TABLE IF NOT EXISTS mischief_object (id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL)";
 var OBJECT_HEADER = "x-mischief-object";
 var rememberObject = (storage, name) => {
@@ -86748,11 +86863,11 @@ var rememberObject = (storage, name) => {
 var ObjectRow = Schema103.Struct({ name: Schema103.String });
 var objectOf = (storage) => {
   storage.sql.exec(OBJECT);
-  return Option53.fromNullishOr(
+  return Option54.fromNullishOr(
     storage.sql.exec("SELECT name FROM mischief_object WHERE id = 1").toArray()[0]
   ).pipe(
-    Option53.flatMap(Schema103.decodeUnknownOption(ObjectRow)),
-    Option53.map(({ name }) => name)
+    Option54.flatMap(Schema103.decodeUnknownOption(ObjectRow)),
+    Option54.map(({ name }) => name)
   );
 };
 var settled = (key, name, call) => Effect70.tryPromise({
@@ -86782,7 +86897,7 @@ var settled = (key, name, call) => Effect70.tryPromise({
 var OutboxEnvelope = Schema103.fromJsonString(
   Schema103.Struct({ message: Schema103.String, to: Schema103.String })
 );
-var recordOnly = (envelope) => Option53.isSome(Schema103.decodeUnknownOption(OutboxEnvelope)(envelope));
+var recordOnly = (envelope) => Option54.isSome(Schema103.decodeUnknownOption(OutboxEnvelope)(envelope));
 var postboxMail = (storage, postbox2) => Layer27.effect(
   Mail,
   Effect70.gen(function* routedMail() {
@@ -86793,7 +86908,7 @@ var postboxMail = (storage, postbox2) => Layer27.effect(
         if (to.startsWith(SHADOW_PREFIX)) {
           return outbox.seal(call);
         }
-        return Option53.match(objectOf(storage), {
+        return Option54.match(objectOf(storage), {
           onNone: () => Effect70.fail(
             new StepFailed({
               key,
@@ -86822,7 +86937,7 @@ var postboxMail = (storage, postbox2) => Layer27.effect(
 ).pipe(Layer27.provide(mailOutboxSql(storage)));
 
 // src/abort-notices.ts
-var abortNotices = (storage, postbox2) => (runId2, reason) => Option54.match(objectOf(storage), {
+var abortNotices = (storage, postbox2) => (runId2, reason) => Option55.match(objectOf(storage), {
   onNone: () => Effect71.die(
     `${runId2} cannot announce aborted replies without its object name`
   ),
@@ -86858,7 +86973,7 @@ var callerThinkPermit = (ports) => CallerThinkShare.of({
 });
 
 // src/judge-choice.ts
-import { Effect as Effect74, Layer as Layer28, Option as Option55, Schema as Schema104 } from "effect";
+import { Effect as Effect74, Layer as Layer28, Option as Option56, Schema as Schema104 } from "effect";
 var CHOICE = "CREATE TABLE IF NOT EXISTS mischief_judge (id INTEGER PRIMARY KEY CHECK (id = 1), mode TEXT NOT NULL)";
 var HOST_DEFAULT2 = "default";
 var SubmitJudge = Schema104.Struct({
@@ -86872,8 +86987,8 @@ var decodeMode = Schema104.decodeUnknownOption(JudgeModeSchema);
 var fixJudgeAtFirstSubmit = (storage, body) => {
   storage.sql.exec(CHOICE);
   const mode = decodeSubmit3(body).pipe(
-    Option55.flatMap(({ judge }) => Option55.fromNullishOr(judge)),
-    Option55.getOrElse(() => HOST_DEFAULT2)
+    Option56.flatMap(({ judge }) => Option56.fromNullishOr(judge)),
+    Option56.getOrElse(() => HOST_DEFAULT2)
   );
   const inserted = storage.transactionSync(() => {
     const fixed = storage.sql.exec("SELECT mode FROM mischief_judge WHERE id = 1").toArray().length > 0;
@@ -86893,11 +87008,11 @@ var fixJudgeAtFirstSubmit = (storage, body) => {
 };
 var judgeModeOf = (storage) => {
   storage.sql.exec(CHOICE);
-  return Option55.fromNullishOr(
+  return Option56.fromNullishOr(
     storage.sql.exec("SELECT mode FROM mischief_judge WHERE id = 1").toArray()[0]
   ).pipe(
-    Option55.flatMap(Schema104.decodeUnknownOption(ChoiceRow)),
-    Option55.flatMap(({ mode }) => decodeMode(mode))
+    Option56.flatMap(Schema104.decodeUnknownOption(ChoiceRow)),
+    Option56.flatMap(({ mode }) => decodeMode(mode))
   );
 };
 var noJevKey = Layer28.succeed(
@@ -86925,7 +87040,7 @@ var judgeChosenPerCall = ({
   Judge,
   Effect74.gen(function* makeChosenJudge() {
     const shadow = yield* serviceOf(shadowJudge);
-    const asked = yield* serviceOf(Option55.getOrElse(jev, () => noJevKey));
+    const asked = yield* serviceOf(Option56.getOrElse(jev, () => noJevKey));
     const unwired4 = yield* serviceOf(Judge.unwired);
     const pick = (mode) => {
       if (mode === "shadow") {
@@ -86933,7 +87048,7 @@ var judgeChosenPerCall = ({
       }
       return mode === "jev" ? asked : unwired4;
     };
-    const chosen = () => pick(Option55.getOrElse(judgeModeOf(storage), () => fallback));
+    const chosen = () => pick(Option56.getOrElse(judgeModeOf(storage), () => fallback));
     return Judge.of({
       admits: (plan) => chosen().admits?.(plan) ?? [],
       choose: (call) => chosen().choose(call)
@@ -86952,7 +87067,7 @@ var forgetUnlessStored = (storage, ...forgets) => {
 };
 
 // src/mail-reach.ts
-import { Effect as Effect75, Layer as Layer29, Option as Option56, Schema as Schema105 } from "effect";
+import { Effect as Effect75, Layer as Layer29, Option as Option57, Schema as Schema105 } from "effect";
 var Recipient = Schema105.fromJsonString(
   Schema105.Union([
     Schema105.Struct({ to: Schema105.String }),
@@ -86960,7 +87075,7 @@ var Recipient = Schema105.fromJsonString(
   ])
 );
 var reachableMail = (objectName, config) => {
-  const identity = (key) => Option56.match(objectName(), {
+  const identity = (key) => Option57.match(objectName(), {
     onNone: () => Effect75.fail(
       new StepFailed({
         key,
@@ -86974,8 +87089,8 @@ var reachableMail = (objectName, config) => {
       const did2 = name.slice(0, name.lastIndexOf("/"));
       const reach = callerReach(did2, config());
       const to = "to" in recipient ? recipient.to : reach.names.find(
-        (candidate) => Option56.contains(didFor(candidate), recipient.aad.recipientDid)
-      ) ?? Option56.getOrElse(
+        (candidate) => Option57.contains(didFor(candidate), recipient.aad.recipientDid)
+      ) ?? Option57.getOrElse(
         nameFor(recipient.aad.recipientDid),
         () => recipient.aad.recipientDid
       );
@@ -87035,8 +87150,8 @@ var thinkerFor = (env, storageFor) => {
 var judgeFor = (env, storage) => {
   const key = env.MISCHIEF_JEV_KEY ?? "";
   return judgeChosenPerCall({
-    fallback: Option57.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
-    jev: key === "" ? Option57.none() : Option57.some(
+    fallback: Option58.getOrNull(decodeHostJudge(env.MISCHIEF_JUDGE)),
+    jev: key === "" ? Option58.none() : Option58.some(
       jevJudge({ apiKey: Redacted3.make(key) }).pipe(
         Layer30.provide(FetchHttpClient3.layer)
       )
@@ -87061,7 +87176,7 @@ var PlanRun = class extends DurableObject5 {
     });
     const thinker = thinkerFor(env, storageFor);
     const shareObject = () => objectOf(ctx.storage).pipe(
-      Option57.map((name) => {
+      Option58.map((name) => {
         const caller = name.slice(0, name.lastIndexOf("/"));
         return { caller, name, share: env.CALLER_THINKS.getByName(caller) };
       })
@@ -87079,7 +87194,7 @@ var PlanRun = class extends DurableObject5 {
           });
           return Effect76.gen(function* acquireShare() {
             const object2 = shareObject();
-            if (Option57.isNone(object2)) {
+            if (Option58.isNone(object2)) {
               return yield* held(
                 "the run has no caller identity; resubmit it through the Worker so caller sharing can be enforced"
               );
@@ -87098,7 +87213,7 @@ var PlanRun = class extends DurableObject5 {
           });
         },
         durationMs: THINK_STREAM_TIMEOUT_MS,
-        release: (id) => Option57.match(shareObject(), {
+        release: (id) => Option58.match(shareObject(), {
           onNone: () => Effect76.logWarning(
             `caller think lease ${id} has no caller object and will expire`
           ),
@@ -87229,7 +87344,7 @@ var PlanRun = class extends DurableObject5 {
     }
     const body = await request2.clone().text();
     const object2 = objectOf(this.ctx.storage);
-    const reason = Option57.match(object2, {
+    const reason = Option58.match(object2, {
       onNone: () => "this run has no submitting caller identity. Resubmit it through the Worker so mail reach can be checked",
       onSome: (name) => submitMailReachReason(
         name.slice(0, name.lastIndexOf("/")),
@@ -87286,17 +87401,17 @@ var registeredCallables = (entries2) => {
 
 // src/schedule-object.ts
 import { DurableObject as DurableObject6 } from "cloudflare:workers";
-import { Effect as Effect79, Option as Option60 } from "effect";
+import { Effect as Effect79, Option as Option61 } from "effect";
 
 // src/schedule-notices.ts
-import { Effect as Effect77, Option as Option58 } from "effect";
+import { Effect as Effect77, Option as Option59 } from "effect";
 var callerOf = (objectName) => nameFor(objectName.slice(0, objectName.lastIndexOf("/")));
 var scheduleNotices = (ports) => ScheduleNotices.of({
   ended: ({ escalateTo, key, scheduleId: scheduleId2, text }) => {
-    const to = Option58.fromNullishOr(escalateTo).pipe(
-      Option58.orElse(() => Option58.flatMap(ports.objectName(), callerOf))
+    const to = Option59.fromNullishOr(escalateTo).pipe(
+      Option59.orElse(() => Option59.flatMap(ports.objectName(), callerOf))
     );
-    return Option58.match(to, {
+    return Option59.match(to, {
       onNone: () => Effect77.logWarning(
         `schedule ${scheduleId2} ended but has no mailbox to tell: it has no escalateTo and its caller's DID names no Rat King mailbox. inspectSchedule {"scheduleId": "${scheduleId2}"} shows why it ended; create it with escalateTo to be told next time`
       ),
@@ -87306,7 +87421,7 @@ var scheduleNotices = (ports) => ScheduleNotices.of({
         mailOnce(ports)(
           scheduleId2,
           "pi-durable/desk",
-          Option58.contains(to, "pi-durable/desk") ? key : `${key}:desk`,
+          Option59.contains(to, "pi-durable/desk") ? key : `${key}:desk`,
           text
         )
       )
@@ -87315,7 +87430,7 @@ var scheduleNotices = (ports) => ScheduleNotices.of({
 });
 
 // src/wake-runs.ts
-import { Effect as Effect78, Option as Option59, Schema as Schema108 } from "effect";
+import { Effect as Effect78, Option as Option60, Schema as Schema108 } from "effect";
 var SUBMIT_WAIT_MS = 5e3;
 var decodeReport = Schema108.decodeUnknownOption(RunReportSchema);
 var decodeRefused = Schema108.decodeUnknownOption(PlanRefused);
@@ -87348,7 +87463,7 @@ var answeredBy = (scheduleId2, runId2, step, pending) => answered(scheduleId2, r
 var unanswered = (scheduleId2, runId2, step, reason) => Effect78.fail(new WakeUnanswered({ reason, runId: runId2, scheduleId: scheduleId2, step }));
 var wakeRuns = (objects, storage, keepAlive) => {
   const scheduleFor = Effect78.suspend(
-    () => Option59.match(objectOf(storage), {
+    () => Option60.match(objectOf(storage), {
       onNone: () => Effect78.die(
         "this schedule never learned its owner's DID; create it again through the Mischief worker"
       ),
@@ -87389,7 +87504,7 @@ var wakeRuns = (objects, storage, keepAlive) => {
           )
         ).pipe(
           Effect78.flatMap(
-            ({ body, status }) => status === 200 || Option59.isSome(decodeUnknown(body)) ? Effect78.void : unanswered(
+            ({ body, status }) => status === 200 || Option60.isSome(decodeUnknown(body)) ? Effect78.void : unanswered(
               scheduleId2,
               runId2,
               "abortRun",
@@ -87409,7 +87524,7 @@ var wakeRuns = (objects, storage, keepAlive) => {
         ).pipe(
           Effect78.flatMap(({ body, status }) => {
             if (status === 200) {
-              return Option59.match(decodeReport(body), {
+              return Option60.match(decodeReport(body), {
                 onNone: () => unanswered(
                   scheduleId2,
                   runId2,
@@ -87419,7 +87534,7 @@ var wakeRuns = (objects, storage, keepAlive) => {
                 onSome: Effect78.succeedSome
               });
             }
-            return Option59.isSome(decodeUnknown(body)) ? Effect78.succeedNone : unanswered(
+            return Option60.isSome(decodeUnknown(body)) ? Effect78.succeedNone : unanswered(
               scheduleId2,
               runId2,
               "inspectRun",
@@ -87446,7 +87561,7 @@ var wakeRuns = (objects, storage, keepAlive) => {
         ).pipe(
           Effect78.timeoutOption(SUBMIT_WAIT_MS),
           Effect78.flatMap(
-            Option59.match({
+            Option60.match({
               onNone: () => Effect78.void,
               onSome: ({
                 body,
@@ -87455,7 +87570,7 @@ var wakeRuns = (objects, storage, keepAlive) => {
                 if (status === 200) {
                   return Effect78.void;
                 }
-                return Option59.match(decodeRefused(body), {
+                return Option60.match(decodeRefused(body), {
                   onNone: () => unanswered(
                     scheduleId2,
                     runId2,
@@ -87506,7 +87621,7 @@ var Schedule6 = class extends DurableObject6 {
     rememberObject(this.ctx.storage, request2.headers.get(OBJECT_HEADER));
     if (new URL(request2.url).pathname === "/createSchedule") {
       const body = await request2.clone().text();
-      const reason = Option60.match(objectOf(this.ctx.storage), {
+      const reason = Option61.match(objectOf(this.ctx.storage), {
         onNone: () => "this schedule has no submitting caller identity. Create it through the Worker so mail reach can be checked",
         onSome: (name) => submitMailReachReason(
           name.slice(0, name.lastIndexOf("/")),
@@ -87798,7 +87913,7 @@ var serviceToken3 = Effect311.fn("ServiceAuth.sign")(
 );
 
 // src/worker-handler.ts
-import { Effect as Effect87, Layer as Layer37, Option as Option64, Result as Result12, Schema as Schema116 } from "effect";
+import { Effect as Effect87, Layer as Layer37, Option as Option65, Result as Result12, Schema as Schema116 } from "effect";
 
 // src/desk-waker-http.ts
 import { Effect as Effect81, Layer as Layer33, Schema as Schema110 } from "effect";
@@ -87886,7 +88001,14 @@ var peonServices = (env, owner) => {
     const object2 = yield* owned(input.peonId);
     const requestId2 = input.requestId ?? (yield* freshPeonId);
     return yield* peonRpc(
-      async () => await object2.command(kind, requestId2, input.text, void 0, owner)
+      async () => await object2.command(
+        kind,
+        requestId2,
+        input.text,
+        void 0,
+        owner,
+        input
+      )
     );
   });
   return Peons.of({
@@ -88084,7 +88206,7 @@ var replayLedger = (ledgerFor, readOnly) => Layer35.succeed(
 );
 
 // src/run-address.ts
-import { Option as Option61, Schema as Schema114 } from "effect";
+import { Option as Option63, Schema as Schema114 } from "effect";
 var decodeAddress = Schema114.decodeUnknownOption(
   Schema114.fromJsonString(
     Schema114.Struct({
@@ -88094,20 +88216,20 @@ var decodeAddress = Schema114.decodeUnknownOption(
   )
 );
 var runIdOf = (body) => decodeAddress(body).pipe(
-  Option61.flatMap(
-    ({ replyTo, runId: runId2 }) => Option61.orElse(
-      Option61.fromUndefinedOr(runId2),
-      () => Option61.fromUndefinedOr(
+  Option63.flatMap(
+    ({ replyTo, runId: runId2 }) => Option63.orElse(
+      Option63.fromUndefinedOr(runId2),
+      () => Option63.fromUndefinedOr(
         replyTo?.includes("/") === true ? replyTo.split("/")[0] : void 0
       )
     )
   ),
-  Option61.filter((runId2) => runId2 !== "")
+  Option63.filter((runId2) => runId2 !== "")
 );
 var NO_RUN_ID = "this request names no run. Every run capability takes a JSON body with runId. deliverReply can find its run from replyTo only when replyTo is <runId>/<step>#<visit>; a Rat King message id (an ask sent as real mail, like 3mxoabjvtfwka) has no run in it, so add the run's runId (inspectRun shows the ask under awaiting). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 // src/schedule-address.ts
-import { Option as Option63, Schema as Schema115 } from "effect";
+import { Option as Option64, Schema as Schema115 } from "effect";
 var SCHEDULE_CAPABILITIES = /* @__PURE__ */ new Set([
   "createSchedule",
   "inspectSchedule",
@@ -88119,8 +88241,8 @@ var decodeAddress2 = Schema115.decodeUnknownOption(
   )
 );
 var scheduleIdOf = (body) => decodeAddress2(body).pipe(
-  Option63.flatMap(({ scheduleId: scheduleId2 }) => Option63.fromUndefinedOr(scheduleId2)),
-  Option63.filter((scheduleId2) => scheduleId2 !== "")
+  Option64.flatMap(({ scheduleId: scheduleId2 }) => Option64.fromUndefinedOr(scheduleId2)),
+  Option64.filter((scheduleId2) => scheduleId2 !== "")
 );
 var NO_SCHEDULE_ID = "this request names no schedule. createSchedule, inspectSchedule and completeSchedule each take a JSON body with scheduleId; add it and send the request again. GET /openapi.json lists every capability";
 
@@ -88196,7 +88318,7 @@ var worker_handler_default = {
     const callers = Schema116.decodeUnknownOption(CallersFromJson)(
       env.MISCHIEF_CALLERS ?? ""
     );
-    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option64.isNone(callers)) {
+    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option65.isNone(callers)) {
       return Response.json({ error: NOT_CONFIGURED }, { status: 503 });
     }
     const { pathname } = new URL(request2.url);
@@ -88258,7 +88380,7 @@ var worker_handler_default = {
     }
     if (SCHEDULE_CAPABILITIES.has(capability)) {
       const scheduleId2 = scheduleIdOf(body);
-      if (Option64.isNone(scheduleId2)) {
+      if (Option65.isNone(scheduleId2)) {
         return Response.json({ error: NO_SCHEDULE_ID }, { status: 400 });
       }
       const name = `${caller.success.iss}/${scheduleId2.value}`;
@@ -88274,7 +88396,7 @@ var worker_handler_default = {
       );
     }
     const runId2 = runIdOf(body);
-    if (Option64.isNone(runId2)) {
+    if (Option65.isNone(runId2)) {
       return Response.json({ error: NO_RUN_ID }, { status: 400 });
     }
     const run2 = env.PLAN_RUN.get(

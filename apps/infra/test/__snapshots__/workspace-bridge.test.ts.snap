@@ -507,10 +507,7 @@ exports[`an empty workspace URL preserves the existing plan byte for byte, even 
     "action": "create",
     "fqn": "mischief-deployment-stage-worker",
     "props": {
-      "content": {
-        "length": 5147926,
-        "sha256": "8b33390c5594eb41cd683f74dd75d79df33a3c4c8384238ddbd7bf742a8d5b7b",
-      },
+      "content": "<built worker bundle>",
       "mode": 384,
       "path": "<output>",
     },

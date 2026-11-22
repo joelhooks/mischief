@@ -12,6 +12,7 @@ import { Cause, Effect, Exit, Layer, Schema } from "effect";
 import * as Digest from "effect/crypto/Digest";
 import { describe } from "vitest";
 
+import { ArchivePort } from "../src/box/archive.js";
 import { Boxes } from "../src/box/manager.js";
 import { PromptResult } from "../src/box/protocol.js";
 import type { Action, BoxTemplate } from "../src/box/protocol.js";
@@ -168,6 +169,8 @@ describe.skipIf(process.env.MISCHIEF_REAL_DOCKER_SCRATCH === undefined)(
 
                   if (arg.startsWith("mischief-peon-box-")) {
                     arg = physical(arg.slice("mischief-peon-box-".length));
+                  } else if (arg.startsWith("name=^/mischief-peon-box-")) {
+                    arg = `name=^/${physical(arg.slice("name=^/mischief-peon-box-".length, -1))}$`;
                   }
 
                   if (arg === 'umask 0007; exec pi "$@"') {
@@ -203,7 +206,11 @@ describe.skipIf(process.env.MISCHIEF_REAL_DOCKER_SCRATCH === undefined)(
           const fakePi = `#!/bin/sh
 set -eu
 cache=0
-if [ -s /home/peon/session.jsonl ]; then cache=17; fi
+if [ -s /home/peon/session.jsonl ]; then
+  cache=17
+else
+  printf '%s\\n' '{"type":"session","version":3,"id":"f4f15679-4146-4f95-8917-09c60abe812b","timestamp":"2026-01-01T00:00:00Z","cwd":"/work"}' > /home/peon/session.jsonl
+fi
 input="$(cat)"
 printf '%s\\n' "$input" >> /home/peon/session.jsonl
 printf 'tool output\\n' > /work/result.txt
@@ -395,12 +402,16 @@ printf '{"type":"message_end","message":{"role":"assistant","content":[{"type":"
               ) => {
                 step = `${id} ${action}`;
 
-                return boxes.act({
+                const request = {
                   peonId: id,
                   action,
                   requestId: `${id}-${action}-${nextKey()}`,
                   ...extra,
-                });
+                };
+
+                return action === "destroy"
+                  ? boxes.act({ ...request, discardWorkspace: true })
+                  : boxes.act(request);
               };
 
               const inspect = (id: string) =>
@@ -494,6 +505,7 @@ printf '{"type":"message_end","message":{"role":"assistant","content":[{"type":"
                   `PASS clone from ${state}; fake cacheRead=${turn.usage.cacheRead} resumeMs=${turn.resumeMs}`
                 );
                 yield* failOldHelper(id);
+                yield* act(id, "export");
                 yield* act(id, "destroy");
                 yield* Effect.log(
                   `PASS delete recovers partial ownership for ${id}`
@@ -530,6 +542,8 @@ printf '{"type":"message_end","message":{"role":"assistant","content":[{"type":"
               );
               yield* assertRecovered("source");
               yield* Effect.log("PASS restore preserves conversation");
+              yield* act("source", "hibernate");
+              yield* act("source", "export");
               yield* act("source", "destroy");
               assert.equal((yield* inspect("source")).state, "destroyed");
               yield* Effect.log("PASS delete; no model calls made");
@@ -554,10 +568,12 @@ printf '{"type":"message_end","message":{"role":"assistant","content":[{"type":"
               yield* assertRecovered("manager-source");
               yield* assertRecovered("manager-copy");
               yield* makeManagerOwned("manager-copy");
+              yield* act("manager-copy", "export");
               yield* act("manager-copy", "destroy");
               yield* makeManagerOwned("manager-source");
               yield* act("manager-source", "hibernate");
               assert.ok((yield* inspect("manager-source")).bytes.snapshot > 0);
+              yield* act("manager-source", "export");
               yield* act("manager-source", "destroy");
               assert.equal(
                 fs.statSync(`${scratch}/outside-box`).mode % 0o1000,
@@ -573,6 +589,7 @@ printf '{"type":"message_end","message":{"role":"assistant","content":[{"type":"
                     Layer.mergeAll(
                       NodeServices.layer,
                       Digest.layerWebCrypto,
+                      ArchivePort.memory,
                       Layer.succeed(Runner, runner)
                     )
                   )

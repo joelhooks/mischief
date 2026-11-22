@@ -8,8 +8,15 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { errorResponse, readBody } from "../http.js";
 import { refusal } from "../protocol.js";
+import { CustodyMissing } from "./custody-missing.js";
+import { CustodyIncomplete } from "./custody-refusal.js";
+import { DestroyInProgress } from "./destroy-in-progress.js";
 import { Boxes } from "./manager.js";
-import { Action, Create, PeonId, RequestId, Result } from "./protocol.js";
+import { Action, ActionBody, Create, PeonId, Result } from "./protocol.js";
+import { ReceiptMismatch } from "./receipt-mismatch.js";
+import { ReplicaMismatch } from "./replica-mismatch.js";
+import { ReplicaPending } from "./replica-pending.js";
+import { WorkspaceUnlanded } from "./workspace-unlanded.js";
 
 const createBox = implement(
   defineContract("createBox", {
@@ -25,8 +32,18 @@ const createBox = implement(
 const actOnBox = implement(
   defineContract("actOnBox", {
     annotations: { idempotent: true, readOnly: false },
-    description: "Prompt, sleep, wake, copy or destroy a full peon box",
-    failure: BridgeFailure,
+    description:
+      "Prompt, sleep, wake, copy, export history or destroy a full peon box",
+    failure: Schema.Union([
+      BridgeFailure,
+      WorkspaceUnlanded,
+      CustodyMissing,
+      CustodyIncomplete,
+      DestroyInProgress,
+      ReceiptMismatch,
+      ReplicaMismatch,
+      ReplicaPending,
+    ]),
     input: Action,
     output: Result,
   }),
@@ -44,11 +61,20 @@ const inspectBox = implement(
   ({ peonId }) => Boxes.use(({ inspect }) => inspect(peonId))
 );
 
-const Body = Schema.Struct({
-  newPeonId: Schema.optionalKey(PeonId),
-  requestId: RequestId,
-  text: Schema.optionalKey(Schema.String),
-});
+const taggedFailure = (
+  failure: {
+    readonly _tag: string;
+    readonly status: number;
+    readonly message: string;
+  },
+  details: Readonly<Record<string, Schema.Json>>
+) =>
+  Effect.succeed(
+    HttpServerResponse.jsonUnsafe(
+      { error: { ...details, code: failure._tag, message: failure.message } },
+      { status: failure.status }
+    )
+  );
 
 const route = (key: Redacted.Redacted) =>
   Effect.gen(function* boxRoute() {
@@ -76,13 +102,13 @@ const route = (key: Redacted.Redacted) =>
     }
 
     const match =
-      /^\/v1\/boxes\/(?<id>[a-z0-9][a-z0-9-]{0,39})(?:\/(?<action>prompt|suspend|resume|hibernate|clone))?$/u.exec(
+      /^\/v1\/boxes\/(?<id>[a-z0-9][a-z0-9-]{0,39})(?:\/(?<action>prompt|suspend|resume|hibernate|clone|export))?$/u.exec(
         request.url
       )?.groups;
 
     if (match?.id === undefined) {
       return yield* refusal(
-        "Unknown box route. Use POST /v1/boxes, GET or DELETE /v1/boxes/{id}, or POST /v1/boxes/{id}/{prompt,suspend,resume,hibernate,clone}.",
+        "Unknown box route. Use POST /v1/boxes, GET or DELETE /v1/boxes/{id}, or POST /v1/boxes/{id}/{prompt,suspend,resume,hibernate,clone,export}.",
         404
       );
     }
@@ -111,16 +137,21 @@ const route = (key: Redacted.Redacted) =>
       )
     );
 
-    const body = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Body))(
-      yield* readBody,
-      { onExcessProperty: "error" }
-    ).pipe(
+    const body = yield* Schema.decodeUnknownEffect(
+      Schema.fromJsonString(ActionBody)
+    )(yield* readBody, { onExcessProperty: "error" }).pipe(
       Effect.mapError(() =>
         refusal(
           "Invalid box body. Supply a nonempty requestId of at most 512 characters plus text for prompt or newPeonId for clone, then retry the same endpoint."
         )
       )
     );
+
+    if (decodedAction !== "export" && body.requestId === undefined) {
+      return yield* refusal(
+        "Supply a nonempty requestId for this box lifecycle action."
+      );
+    }
 
     return HttpServerResponse.jsonUnsafe(
       yield* actOnBox.handler({
@@ -130,9 +161,30 @@ const route = (key: Redacted.Redacted) =>
       })
     );
   }).pipe(
-    Effect.catchTag("BridgeFailure", (failure) =>
-      Effect.succeed(errorResponse(failure))
-    )
+    Effect.catchTags({
+      BridgeFailure: (failure) => Effect.succeed(errorResponse(failure)),
+      WorkspaceUnlanded: (failure) =>
+        taggedFailure(failure, {
+          dirtyPaths: failure.dirtyPaths,
+          dirtyTotal: failure.dirtyTotal,
+          refs: failure.refs,
+        }),
+      CustodyIncomplete: (failure) =>
+        taggedFailure(failure, { skipped: failure.skipped }),
+      CustodyMissing: (failure) => taggedFailure(failure, { dir: failure.dir }),
+      DestroyInProgress: (failure) =>
+        taggedFailure(failure, {
+          requestId: failure.requestId,
+          disposition: failure.disposition,
+          retained: failure.retained,
+        }),
+      ReplicaPending: (failure) =>
+        taggedFailure(failure, { archiveId: failure.archiveId }),
+      ReplicaMismatch: (failure) =>
+        taggedFailure(failure, { archiveId: failure.archiveId }),
+      ReceiptMismatch: (failure) =>
+        taggedFailure(failure, { reason: failure.reason }),
+    })
   );
 
 export const boxRoutes = (key: Redacted.Redacted) =>

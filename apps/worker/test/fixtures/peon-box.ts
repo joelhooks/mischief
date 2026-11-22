@@ -3,6 +3,8 @@ import { DurableObject } from "cloudflare:workers";
 import { Effect, Schema } from "effect";
 
 const RequestBody = Schema.Struct({
+  discardWorkspace: Schema.optionalKey(Schema.Literal(true)),
+  landedHead: Schema.optionalKey(Schema.String),
   newPeonId: Schema.optionalKey(Schema.String),
   peonId: Schema.optionalKey(Schema.String),
   requestId: Schema.String,
@@ -30,9 +32,21 @@ const RequestBody = Schema.Struct({
   text: Schema.optionalKey(Schema.String),
 });
 
-const Call = Schema.Struct({ path: Schema.String, requestId: Schema.String });
+const Call = Schema.Struct({
+  path: Schema.String,
+  requestId: Schema.String,
+  discardWorkspace: Schema.optionalKey(Schema.Literal(true)),
+  landedHead: Schema.optionalKey(Schema.String),
+});
 
 const Calls = Schema.Array(Call);
+
+const exportReceipt = {
+  id: "worker-a/archive",
+  location: "/primary/archive/RECEIPT.json",
+  mirror: "/replica/archive/RECEIPT.json",
+  sha256: "a".repeat(64),
+};
 
 const Turn = {
   exit: 0,
@@ -44,7 +58,70 @@ const Turn = {
   wallMs: 1,
 };
 
+type CallValue = typeof Call.Type;
+
+type MutableCall = { -readonly [K in keyof CallValue]: CallValue[K] };
+
+const callOf = (path: string, body: typeof RequestBody.Type) => {
+  const call: MutableCall = { path, requestId: body.requestId };
+
+  if (body.discardWorkspace !== undefined) {
+    call.discardWorkspace = body.discardWorkspace;
+  }
+
+  if (body.landedHead !== undefined) {
+    call.landedHead = body.landedHead;
+  }
+
+  return call;
+};
+
+const deleteRefusal = (body: typeof RequestBody.Type, exported: boolean) => {
+  if ((body.landedHead === undefined) === (body.discardWorkspace !== true)) {
+    return Response.json(
+      { error: { code: "WorkspaceUnlanded" } },
+      { status: 409 }
+    );
+  }
+
+  return exported
+    ? undefined
+    : Response.json({ error: { code: "ReceiptMismatch" } }, { status: 409 });
+};
+
 export class FakeBox extends DurableObject {
+  private async deleteRefusal(path: string, body: typeof RequestBody.Type) {
+    const testMissing = `${path}/custody-missing-once`;
+
+    if (
+      path === "/v1/boxes/worker-a" &&
+      (await this.ctx.storage.get<boolean>(testMissing)) !== true
+    ) {
+      await this.ctx.storage.put(testMissing, true);
+
+      return Response.json(
+        { error: { code: "CustodyMissing" } },
+        { status: 409 }
+      );
+    }
+
+    if ((await this.ctx.storage.get<boolean>(`${path}/retained`)) === true) {
+      return Response.json(
+        { error: { code: "WorkspaceUnlanded" } },
+        { status: 409 }
+      );
+    }
+
+    const exported =
+      (await this.ctx.storage.get<boolean>(`${path}/export`)) === true;
+
+    return deleteRefusal(
+      body,
+      exported &&
+        !(path === "/v1/boxes/worker-a" && body.discardWorkspace === true)
+    );
+  }
+
   override async fetch(request: Request) {
     const path = new URL(request.url).pathname;
 
@@ -82,10 +159,7 @@ export class FakeBox extends DurableObject {
 
     const key = `${path}/${body.requestId}`;
     const previous = await this.ctx.storage.get(key);
-    await this.ctx.storage.put("calls", [
-      ...calls,
-      { path, requestId: body.requestId },
-    ]);
+    await this.ctx.storage.put("calls", [...calls, callOf(path, body)]);
 
     if (previous !== undefined) {
       return Response.json(previous);
@@ -107,17 +181,36 @@ export class FakeBox extends DurableObject {
     } else if (path.endsWith("/suspend")) {
       response = { state: "suspended" };
     } else if (path.endsWith("/hibernate")) {
+      await this.ctx.storage.put(path.replace("/hibernate", "/retained"), true);
       response = {
         snapshot: {
           bytes: 30,
           path: "/snapshots/fake.tar",
+          retained: true,
           sha256: "a".repeat(64),
         },
         state: "hibernated",
       };
+    } else if (path.endsWith("/export")) {
+      await this.ctx.storage.put(path, true);
+      response = {
+        state: "suspended",
+        exportReceipt: { ...exportReceipt, replicaState: "pending" },
+      };
     } else if (request.method === "DELETE") {
-      response = { snapshotKept: true, state: "destroyed" };
+      const denied = await this.deleteRefusal(path, body);
+
+      if (denied !== undefined) {
+        return denied;
+      }
+
+      response = {
+        snapshotKept: false,
+        state: "destroyed",
+        exportReceipt: { ...exportReceipt, replicaState: "verified" },
+      };
     } else {
+      await this.ctx.storage.delete(path.replace("/resume", "/retained"));
       response = { restored: true, state: "idle" };
     }
 

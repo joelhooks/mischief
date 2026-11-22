@@ -12,7 +12,12 @@ const services = Layer.merge(NodeServices.layer, FetchHttpClient.layer);
 const workspace = { repo: "example/project", sha: "a".repeat(40) };
 
 const Calls = Schema.Array(
-  Schema.Struct({ path: Schema.String, requestId: Schema.String })
+  Schema.Struct({
+    path: Schema.String,
+    requestId: Schema.String,
+    discardWorkspace: Schema.optionalKey(Schema.Literal(true)),
+    landedHead: Schema.optionalKey(Schema.String),
+  })
 );
 
 const readCalls = (world: Workerd) =>
@@ -225,10 +230,46 @@ it.live(
       });
       expect((yield* report(world)).state).toBe("idle");
 
-      yield* post(world, "destroyPeon", {
+      const custodyMissing = yield* post(world, "destroyPeon", {
         peonId: "worker-a",
         requestId: "destroy-1",
+        discardWorkspace: true,
       });
+
+      expect(JSON.stringify(custodyMissing.body)).toContain("CustodyMissing");
+      expect((yield* report(world)).pending).toBeNull();
+
+      const receiptMismatch = yield* post(world, "destroyPeon", {
+        peonId: "worker-a",
+        requestId: "destroy-1",
+        discardWorkspace: true,
+      });
+
+      expect(JSON.stringify(receiptMismatch.body)).toContain("ReceiptMismatch");
+      expect((yield* report(world)).pending).toBeNull();
+
+      const destroyed = yield* post(world, "destroyPeon", {
+        peonId: "worker-a",
+        requestId: "destroy-1",
+        landedHead: workspace.sha,
+      });
+
+      expect(destroyed.status, JSON.stringify(destroyed.body)).toBe(200);
+
+      const teardown = (yield* readCalls(world)).filter(
+        ({ path }) =>
+          path === "/v1/boxes/worker-a" || path === "/v1/boxes/worker-a/export"
+      );
+
+      expect(
+        teardown.map(({ path, landedHead }) => [path, landedHead])
+      ).toEqual([
+        ["/v1/boxes/worker-a", undefined],
+        ["/v1/boxes/worker-a", undefined],
+        ["/v1/boxes/worker-a/export", undefined],
+        ["/v1/boxes/worker-a", undefined],
+        ["/v1/boxes/worker-a", workspace.sha],
+      ]);
 
       const tombstone = yield* post(world, "inspectPeon", {
         peonId: "worker-a",
@@ -237,6 +278,9 @@ it.live(
       expect(
         Option.isSome(Schema.decodeUnknownOption(PeonTombstone)(tombstone.body))
       ).toBe(true);
+      expect(tombstone.body).toMatchObject({
+        exportReceipt: { id: "worker-a/archive", replicaState: "verified" },
+      });
       expect(JSON.stringify(tombstone.body)).not.toContain("Remember the task");
 
       const listed = yield* post(world, "listPeons", { state: "all" });

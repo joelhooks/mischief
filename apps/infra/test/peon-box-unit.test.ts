@@ -64,6 +64,52 @@ it.effect(
     })
 );
 
+it.effect("deploy archive config reaches only the box manager unit", () =>
+  Effect.gen(function* archiveConfig() {
+    const archive = {
+      MISCHIEF_BOX_ARCHIVE_HOST: "checker-fixture",
+      MISCHIEF_BOX_ARCHIVE_PRIMARY: "/fixture/primary/peon-sessions",
+      MISCHIEF_BOX_ARCHIVE_REPLICA: "/fixture/replica/peon-sessions",
+    };
+
+    const config = yield* peonBoxesFromConfig.pipe(
+      Effect.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromEnvRecord({
+            ...archive,
+            MISCHIEF_PEON_BOXES: "on",
+            MISCHIEF_BOX_ENTRY: "/opt/mischief/box-main.js",
+            MISCHIEF_BOX_MOUNT: "/srv/peon-volume",
+            MISCHIEF_PEON_FULL_PROXY_ENTRY: "/opt/mischief/full-proxy-main.js",
+          })
+        )
+      )
+    );
+
+    const units = config.pipe(
+      Option.map((settings) =>
+        peonBoxUnits({ home: "/home/fixture" }, settings)
+      )
+    );
+
+    expect(Option.isSome(units)).toBe(true);
+
+    if (Option.isSome(units)) {
+      const [manager, proxy] = units.value;
+
+      for (const [name, value] of Object.entries(archive)) {
+        expect(manager?.sections.flatMap(({ lines }) => lines)).toContainEqual([
+          "Environment",
+          `${name}=${value}`,
+        ]);
+        expect(
+          proxy?.sections.flatMap(({ lines }) => lines)
+        ).not.toContainEqual(["Environment", `${name}=${value}`]);
+      }
+    }
+  })
+);
+
 it.effect(
   "enabled box units refuse a missing or unsafe mount gate instead of risking the shared disk",
   () =>

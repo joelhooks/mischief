@@ -274,7 +274,32 @@ it.effect(
       });
 
       expect(JSON.stringify(deskWakeOff)).toBe(JSON.stringify(baseline));
-      expect(baseline).toMatchSnapshot();
+
+      const workerContent = Schema.Struct({
+        content: Schema.Struct({
+          length: Schema.Int.check(Schema.isGreaterThan(0)),
+          sha256: Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u)),
+        }),
+      });
+
+      const rows = baseline.map((row) => {
+        if (row.fqn !== "mischief-deployment-stage-worker") {
+          return row;
+        }
+
+        expect(Schema.is(workerContent)(row.props)).toBe(true);
+
+        const props = Schema.decodeUnknownSync(
+          Schema.Record(Schema.String, Schema.Unknown)
+        )(row.props);
+
+        return {
+          ...row,
+          props: { ...props, content: "<built worker bundle>" },
+        };
+      });
+
+      expect(rows).toMatchSnapshot();
     }).pipe(Effect.provide(NodeServices.layer)),
   120_000
 );

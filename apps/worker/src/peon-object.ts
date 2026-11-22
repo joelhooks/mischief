@@ -188,10 +188,15 @@ export class Peon extends DurableObject<Env> {
     requestId: string,
     text?: string,
     newPeonId?: string,
-    sender?: string
+    sender?: string,
+    disposition?: {
+      readonly landedHead?: string;
+      readonly discardWorkspace?: true;
+    }
   ) {
     return await this.run(
       this.host.command(kind, requestId, events[kind], {
+        ...disposition,
         newPeonId,
         sender,
         text,

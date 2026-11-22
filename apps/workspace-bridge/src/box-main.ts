@@ -8,6 +8,8 @@ import { Config, Effect, Layer, Redacted, Schema } from "effect";
 import * as Digest from "effect/crypto/Digest";
 import { HttpRouter } from "effect/http";
 
+import { archiveDiskLayer } from "./box/archive-disk.js";
+import { ArchivePort } from "./box/archive.js";
 import { boxStorageFromConfig } from "./box/config.js";
 import { boxRoutes } from "./box/http.js";
 import { Boxes } from "./box/manager.js";
@@ -41,6 +43,23 @@ const program = Effect.gen(function* serveBoxes() {
 
   const storage = yield* boxStorageFromConfig;
 
+  const primary = yield* Config.String("MISCHIEF_BOX_ARCHIVE_PRIMARY").pipe(
+    Config.withDefault("")
+  );
+
+  const replica = yield* Config.String("MISCHIEF_BOX_ARCHIVE_REPLICA").pipe(
+    Config.withDefault("")
+  );
+
+  const checkerHost = yield* Config.String("MISCHIEF_BOX_ARCHIVE_HOST").pipe(
+    Config.withDefault("")
+  );
+
+  const archive =
+    primary === "" || replica === "" || checkerHost === ""
+      ? ArchivePort.disabled
+      : archiveDiskLayer({ checkerHost, replica, primary });
+
   const config = {
     ...storage,
     gid,
@@ -55,7 +74,12 @@ const program = Effect.gen(function* serveBoxes() {
       disableListenLog: true,
       disableLogger: true,
     }).pipe(
-      Layer.provide(Boxes.layer(config).pipe(Layer.provide(boxRunnerLayer()))),
+      Layer.provide(
+        Boxes.layer(config).pipe(
+          Layer.provide(archive),
+          Layer.provide(boxRunnerLayer())
+        )
+      ),
       Layer.provide(
         NodeHttpServer.layer(createServer, { host: "127.0.0.1", port: 28_014 })
       ),

@@ -6,6 +6,8 @@ export const PEON_REGISTRY = "peons-v1";
 export const PeonPending = Schema.Struct({
   boxRequestId: Schema.String,
   inputHash: Schema.String,
+  discardWorkspace: Schema.optional(Schema.Literal(true)),
+  landedHead: Schema.optional(Schema.String),
   kind: Schema.Literals([
     "spawn",
     "prompt",

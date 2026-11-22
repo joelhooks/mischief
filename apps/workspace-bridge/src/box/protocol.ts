@@ -79,6 +79,8 @@ export const Snapshot = Schema.Struct({
 });
 
 export const Tombstone = Schema.Struct({
+  abandoned: Schema.optionalKey(Schema.Array(Schema.String)),
+  ignored: Schema.optionalKey(Schema.Finite),
   bytesFreed: Schema.Finite,
   exportReceipt: Schema.optionalKey(ExportReceiptSchema),
   snapshotKept: Schema.Boolean,
@@ -88,7 +90,11 @@ export const Tombstone = Schema.Struct({
 export const Metadata = Schema.Struct({
   destroying: Schema.optionalKey(
     Schema.Struct({
+      abandoned: Schema.Array(Schema.String),
+      ignored: Schema.Finite,
       bytesFreed: Schema.Finite,
+      disposition: Schema.String,
+      requestId: RequestId,
       receiptId: Schema.String,
       retainSnapshot: Schema.Boolean,
     })
@@ -133,7 +139,7 @@ export const ActionBody = Schema.Struct({
   landedHead: Schema.optionalKey(Template.fields.workspace.fields.sha),
   newPeonId: Schema.optionalKey(PeonId),
   requestId: Schema.optionalKey(RequestId),
-  retained: Schema.optionalKey(Schema.Literal(true)),
+  retained: Schema.optionalKey(Schema.Boolean),
   row: Schema.optionalKey(ArchiveName),
   text: Schema.optionalKey(Schema.String),
 });

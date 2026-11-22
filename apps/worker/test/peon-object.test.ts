@@ -12,7 +12,11 @@ const services = Layer.merge(NodeServices.layer, FetchHttpClient.layer);
 const workspace = { repo: "example/project", sha: "a".repeat(40) };
 
 const Calls = Schema.Array(
-  Schema.Struct({ path: Schema.String, requestId: Schema.String })
+  Schema.Struct({
+    path: Schema.String,
+    requestId: Schema.String,
+    discardWorkspace: Schema.optionalKey(Schema.Literal(true)),
+  })
 );
 
 const readCalls = (world: Workerd) =>
@@ -228,7 +232,21 @@ it.live(
       yield* post(world, "destroyPeon", {
         peonId: "worker-a",
         requestId: "destroy-1",
+        discardWorkspace: true,
       });
+
+      const teardown = (yield* readCalls(world)).filter(
+        ({ path }) =>
+          path === "/v1/boxes/worker-a" || path === "/v1/boxes/worker-a/export"
+      );
+
+      expect(
+        teardown.map(({ path, discardWorkspace }) => [path, discardWorkspace])
+      ).toEqual([
+        ["/v1/boxes/worker-a", true],
+        ["/v1/boxes/worker-a/export", undefined],
+        ["/v1/boxes/worker-a", true],
+      ]);
 
       const tombstone = yield* post(world, "inspectPeon", {
         peonId: "worker-a",

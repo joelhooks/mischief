@@ -72,6 +72,8 @@ export interface PeonHostOptions {
 }
 
 interface CommandOptions {
+  readonly landedHead?: string | undefined;
+  readonly discardWorkspace?: true | undefined;
   readonly text?: string | undefined;
   readonly newPeonId?: string | undefined;
   readonly sender?: string | undefined;
@@ -359,7 +361,11 @@ export const peonHost = ({
         yield* box.call(
           id,
           pending.kind,
-          { requestId: pending.boxRequestId },
+          {
+            requestId: pending.boxRequestId,
+            landedHead: pending.landedHead,
+            discardWorkspace: pending.discardWorkspace,
+          },
           Schema.Struct({
             state: Schema.Literal(acknowledgedStates[pending.kind]),
           })
@@ -502,7 +508,13 @@ export const peonHost = ({
     options: CommandOptions = {}
   ) {
     const inputHash = yield* hashText(
-      JSON.stringify({ kind, newPeonId: options.newPeonId, text: options.text })
+      JSON.stringify({
+        kind,
+        newPeonId: options.newPeonId,
+        text: options.text,
+        landedHead: options.landedHead,
+        discardWorkspace: options.discardWorkspace,
+      })
     );
 
     const completed = yield* storage.completed(requestId);
@@ -550,7 +562,18 @@ export const peonHost = ({
       return stored.report;
     }
 
+    if (
+      kind === "destroy" &&
+      (options.landedHead === undefined) === (options.discardWorkspace !== true)
+    ) {
+      return yield* failure(
+        "Supply exactly one landedHead or discardWorkspace: true before destroyPeon."
+      );
+    }
+
     const pending: typeof PeonPending.Type = {
+      landedHead: options.landedHead,
+      discardWorkspace: options.discardWorkspace,
       boxRequestId: yield* hashText(
         JSON.stringify([stored.report.peonId, kind, requestId, "main"])
       ),
@@ -669,6 +692,8 @@ export const peonHost = ({
       const requestId = `spawn/${entry.peonId}`;
 
       const pending: typeof PeonPending.Type = {
+        landedHead: undefined,
+        discardWorkspace: undefined,
         boxRequestId: yield* hashText(
           JSON.stringify([entry.peonId, "spawn", requestId, "main"])
         ),

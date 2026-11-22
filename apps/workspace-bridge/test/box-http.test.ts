@@ -3,9 +3,14 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Layer, Redacted, Ref, Schema, Tracer } from "effect";
 import { HttpBody, HttpClient, HttpRouter } from "effect/http";
 
+import { CustodyMissing } from "../src/box/custody-missing.js";
+import { CustodyIncomplete } from "../src/box/custody-refusal.js";
+import { DestroyInProgress } from "../src/box/destroy-in-progress.js";
 import { boxRoutes } from "../src/box/http.js";
 import { Boxes } from "../src/box/manager.js";
 import { Result } from "../src/box/protocol.js";
+import { ReceiptMismatch } from "../src/box/receipt-mismatch.js";
+import { WorkspaceUnlanded } from "../src/box/workspace-unlanded.js";
 import { sha } from "./fixtures.js";
 
 it.effect(
@@ -21,15 +26,52 @@ it.effect(
         sha256: "a".repeat(64),
       };
 
+      const refusals = [
+        new CustodyMissing({ dir: "fixture", message: "missing", status: 503 }),
+        new CustodyIncomplete({
+          skipped: [{ path: "fixture", reason: "unreadable" }],
+          message: "incomplete",
+          status: 409,
+        }),
+        new DestroyInProgress({
+          requestId: "previous",
+          disposition: "discardWorkspace",
+          retained: false,
+          message: "retry",
+          status: 409,
+        }),
+        new ReceiptMismatch({
+          reason: "changed",
+          message: "mismatch",
+          status: 409,
+        }),
+        new WorkspaceUnlanded({
+          dirtyPaths: ["fixture"],
+          dirtyTotal: 1,
+          refs: [],
+          message: "unlanded",
+          status: 409,
+        }),
+      ];
+
       const boxes = Boxes.of({
-        act: (input) =>
-          Ref.update(calls, (values) => [...values, input.action]).pipe(
+        act: (input) => {
+          const refused = refusals.find(
+            (failure) => failure._tag === input.requestId
+          );
+
+          if (refused !== undefined) {
+            return Effect.fail(refused);
+          }
+
+          return Ref.update(calls, (values) => [...values, input.action]).pipe(
             Effect.as(
               input.action === "export"
                 ? { exportReceipt, state: "suspended" }
                 : { state: "idle" }
             )
-          ),
+          );
+        },
         create: (input) =>
           Effect.sync(() => {
             expect(input.template.limits.tmp).toBe("1g");
@@ -152,6 +194,22 @@ it.effect(
           headers,
         })).status
       ).toBe(200);
+
+      for (const failure of refusals) {
+        const response = yield* HttpClient.del("/v1/boxes/peon", {
+          body: HttpBody.jsonUnsafe({
+            requestId: failure._tag,
+            discardWorkspace: true,
+          }),
+          headers,
+        });
+
+        expect(response.status).toBe(failure.status);
+        expect(yield* response.json).toMatchObject({
+          error: { code: failure._tag, message: failure.message },
+        });
+      }
+
       expect(yield* Ref.get(calls)).toEqual([
         "create",
         "create",

@@ -8,8 +8,12 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { errorResponse, readBody } from "../http.js";
 import { refusal } from "../protocol.js";
+import { CustodyMissing } from "./custody-missing.js";
+import { CustodyIncomplete } from "./custody-refusal.js";
+import { DestroyInProgress } from "./destroy-in-progress.js";
 import { Boxes } from "./manager.js";
 import { Action, ActionBody, Create, PeonId, Result } from "./protocol.js";
+import { ReceiptMismatch } from "./receipt-mismatch.js";
 import { WorkspaceUnlanded } from "./workspace-unlanded.js";
 
 const createBox = implement(
@@ -28,7 +32,14 @@ const actOnBox = implement(
     annotations: { idempotent: true, readOnly: false },
     description:
       "Prompt, sleep, wake, copy, export history or destroy a full peon box",
-    failure: Schema.Union([BridgeFailure, WorkspaceUnlanded]),
+    failure: Schema.Union([
+      BridgeFailure,
+      WorkspaceUnlanded,
+      CustodyMissing,
+      CustodyIncomplete,
+      DestroyInProgress,
+      ReceiptMismatch,
+    ]),
     input: Action,
     output: Result,
   }),
@@ -45,6 +56,21 @@ const inspectBox = implement(
   }),
   ({ peonId }) => Boxes.use(({ inspect }) => inspect(peonId))
 );
+
+const taggedFailure = (
+  failure: {
+    readonly _tag: string;
+    readonly status: number;
+    readonly message: string;
+  },
+  details: Readonly<Record<string, Schema.Json>>
+) =>
+  Effect.succeed(
+    HttpServerResponse.jsonUnsafe(
+      { error: { ...details, code: failure._tag, message: failure.message } },
+      { status: failure.status }
+    )
+  );
 
 const route = (key: Redacted.Redacted) =>
   Effect.gen(function* boxRoute() {
@@ -134,18 +160,22 @@ const route = (key: Redacted.Redacted) =>
     Effect.catchTags({
       BridgeFailure: (failure) => Effect.succeed(errorResponse(failure)),
       WorkspaceUnlanded: (failure) =>
-        Effect.succeed(
-          HttpServerResponse.jsonUnsafe(
-            {
-              error: {
-                code: failure._tag,
-                dirtyPaths: failure.dirtyPaths,
-                message: failure.message,
-              },
-            },
-            { status: failure.status }
-          )
-        ),
+        taggedFailure(failure, {
+          dirtyPaths: failure.dirtyPaths,
+          dirtyTotal: failure.dirtyTotal,
+          refs: failure.refs,
+        }),
+      CustodyIncomplete: (failure) =>
+        taggedFailure(failure, { skipped: failure.skipped }),
+      CustodyMissing: (failure) => taggedFailure(failure, { dir: failure.dir }),
+      DestroyInProgress: (failure) =>
+        taggedFailure(failure, {
+          requestId: failure.requestId,
+          disposition: failure.disposition,
+          retained: failure.retained,
+        }),
+      ReceiptMismatch: (failure) =>
+        taggedFailure(failure, { reason: failure.reason }),
     })
   );
 

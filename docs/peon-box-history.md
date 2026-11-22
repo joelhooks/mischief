@@ -8,10 +8,11 @@ Export a full-tools box before deleting it. Export stops an idle box and leaves 
 | --- | --- | --- |
 | `session.jsonl` | `authoritative` | The managed Pi session. The file is required once a prompt started. |
 | `.pi/agent/sessions/` | `authoritative` | Default sessions from additional Pi invocations. The managed invocation does not create this directory. |
-| `.claude/projects/` | `derived` | Claude Code project transcripts and subagent history. Collected on a best-effort basis. |
-| `.codex/sessions/` | `authoritative` | Codex rollouts if a tool runs Codex under the box home. The box's model proxy does not itself run Codex there. |
+| `.pi/agent/claude-bridge/` | `derived` | Claude bridge state retained with the sessions. |
+| `.claude/projects/` | `derived` | Claude Code project transcripts and subagent history. |
+| `.codex/sessions/`, `.codex/archived_sessions/`, `.codex/history.jsonl` | `authoritative` | Codex rollouts and command history when a tool runs Codex under the box home. |
 
-Pi's append-only session files hold its complete history. The pinned Claude bridge (`743aaba`, `src/index.ts:1228–1229`) rebuilds its derived Claude Code transcript by design. Export includes surviving abort orphans but cannot retain transcript versions that the bridge already superseded. An empty Claude directory does not block export or delete.
+Pi's append-only session files hold its complete history. The pinned Claude bridge (`743aaba`, `src/index.ts:1228–1229`) rebuilds its derived Claude Code transcript by design. Export includes surviving abort orphans but cannot retain transcript versions that the bridge already superseded. An empty or absent Claude directory does not block export or delete. The root role describes provenance, not the deletion policy: every archived file must verify in both copies. Export records unreadable derived paths in `skipped`. Delete returns `CustodyIncomplete` until a fresh export includes them.
 
 A missing managed session after a prompt, or a missing home or Pi agent directory, is not a zero-session export. Headers supply session IDs, not permission to discard bytes. The exporter copies empty, headerless, and unfamiliar files and lists their paths under `unparsed` in `manifest.json`. Nested symlink targets are recorded in `SYMLINKS.tsv`; the exporter does not follow them. Custom transcript locations, caches, and provider credentials are outside the archive.
 
@@ -27,11 +28,13 @@ printf 'header = "Authorization: Bearer %s"\n' "$MISCHIEF_BOX_KEY" |
     "$MISCHIEF_BOX_URL/v1/boxes/$PEON_ID/export"
 ```
 
-Export does not need a `requestId`. An unchanged inventory reuses its verified receipt. An optional `row` identifies the requesting desk row when known; `box_id` names the container. Check both returned receipt locations and the manifest digest, then give only `exportReceipt` to Muster as `packet_intake.exportReceipt`. Zero-session exports produce two explicit `sessions: 0` receipts. Leave `.incoming-*`, incomplete finals, and written receipts in place. On a failed publication, retry in a fresh UTC second.
+Export does not need a `requestId`. An unchanged inventory reuses its verified receipt. An optional `row` identifies the requesting desk row when known; `box_id` names the container. Check both returned receipt locations and the manifest digest, then give only `exportReceipt` to Muster as `packet_intake.exportReceipt`. Each receipt records counts for parsed `sessions`, `unparsed` paths, and `skipped` paths, plus the SHA-256 of both `MANIFEST.sha256` and `manifest.json`. The checksum list contains only archived session files; the manifest's `files` and `bytes` exclude custody metadata. Leave `.incoming-*`, incomplete finals, and written receipts in place. On a failed publication, retry in a fresh UTC second.
 
 Only after teardown authorization, call `DELETE /v1/boxes/{id}` with a `requestId` and exactly one workspace disposition:
 
-- `landedHead`: the SHA of the commit the desk landed. The box manager checks the commit and refuses if the current workspace or any snapshot it would delete contains work not in that commit. It reports dirty paths as `WorkspaceUnlanded`.
+- `landedHead`: the SHA of the commit the desk landed. The manager checks file bytes, executable modes, symlink targets, and refs against that commit. It does not trust workspace Git configuration, filters, or the index. Only ignore rules from the landed tree can exempt paths; the receipt counts them and lists commits found only in reflogs as `abandoned`. `WorkspaceUnlanded` reports up to 50 dirty paths and the total.
 - `discardWorkspace: true`: explicit permission to discard workspace bytes. The manager logs the request ID and supplied `row`, or the authenticated box client if no row is supplied.
 
-Pass `retained: true` to hibernate or to delete a hibernated box to retain the snapshot. The response reports `snapshotKept` and the apparent bytes freed. A delete interrupted after the marker was written can be retried with the same request ID. It checks both archive receipts and finishes teardown without reopening the partially removed source. A completed delete returns its original tombstone. Older untracked snapshots and historical orphan directories are not swept by this operation.
+Pass `retained: true` to hibernate or to delete a hibernated box to retain the snapshot. Pass `retained: false` to hibernate an already hibernated box to clear retention. The response reports `snapshotKept` and the apparent bytes freed. If delete stops after writing its marker, retry with the recorded disposition and retention setting. A different disposition returns `DestroyInProgress` with the original request ID. The retry checks both archive receipts and finishes teardown without reopening the partially removed source. A completed delete returns its original tombstone. Older untracked snapshots and historical orphan directories are not swept by this operation.
+
+For the live hibernated teardown check, submit a valid `landedHead` against a stopped, hibernated canary with manager-owned extracted Git objects. Confirm the proof container can read them as the extraction UID without starting the peon container.

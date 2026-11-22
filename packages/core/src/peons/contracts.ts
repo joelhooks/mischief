@@ -72,7 +72,14 @@ export const destroyPeonContract = defineContract("destroyPeon", {
   ...lifecycle,
   annotations: { destructive: true, idempotent: true },
   description:
-    "Remove a peon box, keeping its last snapshot and registry tombstone.",
+    "Remove a peon box after custody verification and a verified landed head or explicit workspace discard.",
+  input: Schema.Struct({
+    ...lifecycle.input.fields,
+    discardWorkspace: Schema.optionalKey(Schema.Literal(true)),
+    landedHead: Schema.optionalKey(
+      Schema.String.check(Schema.isPattern(/^[a-f0-9]{40}$/u))
+    ),
+  }),
   output: Schema.Union([PeonReport, PeonTombstone]),
 });
 

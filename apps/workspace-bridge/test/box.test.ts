@@ -16,7 +16,12 @@ import * as Digest from "effect/crypto/Digest";
 import { TestClock } from "effect/testing";
 
 import { archiveDiskLayer } from "../src/box/archive-disk.js";
-import { ArchivePort } from "../src/box/archive.js";
+import { agentDirs, isArchivePath, sha256 } from "../src/box/archive-source.js";
+import {
+  ArchivePort,
+  ManifestSchema,
+  ReadBackResult,
+} from "../src/box/archive.js";
 import { nextState } from "../src/box/machine.js";
 import { Boxes } from "../src/box/manager.js";
 import { PromptResult, Snapshot, State } from "../src/box/protocol.js";
@@ -45,10 +50,11 @@ const template: BoxTemplate = {
 const harness = Effect.gen(function* harness() {
   const fs = yield* FileSystem.FileSystem;
 
-  const root = yield* fs.makeTempDirectoryScoped({
-    directory: process.cwd(),
-    prefix: ".box-test-",
-  });
+  const root = yield* fs.realPath(
+    yield* fs.makeTempDirectoryScoped({
+      prefix: "mischief-box-test-",
+    })
+  );
 
   yield* fs.makeDirectory(`${root}/bin`);
   yield* fs.makeDirectory(`${root}/fake`);
@@ -59,16 +65,28 @@ printf '%s\\n' "$*" >> '${root}/commands'
 command="$1"; shift
 case "$command" in
 run)
-  if printf '%s' "$*" | grep -q -- '--entrypoint /usr/bin/git'; then
+  if printf '%s' "$*" | grep -q -- '--entrypoint /usr/bin/env .*GIT_DIR=/proof/repo'; then
+    objects=''
     for arg in "$@"; do
-      case "$arg" in type=bind,source=*,target=/work,readonly)
-        workspace="\${arg#type=bind,source=}"
-        workspace="\${workspace%,target=/work,readonly}";;
+      case "$arg" in
+        type=bind,source=*,target=/proof,readonly)
+          proof="\${arg#type=bind,source=}"
+          proof="\${proof%,target=/proof,readonly}";;
+        type=bind,source=*,target=/objects,readonly)
+          storage="\${arg#type=bind,source=}"
+          storage="\${storage%,target=/objects,readonly}";;
+        GIT_OBJECT_DIRECTORY=/objects) objects="$storage";;
       esac
     done
-    until [ "$1" = -C ]; do shift; done
-    shift 2
-    exec git -C "$workspace" "$@"
+    until [ "$1" = /usr/bin/git ]; do
+      if [ "$1" = --user ]; then test "$2" = "$(id -u):1000"; fi
+      shift
+    done
+    if [ -n "$objects" ]; then export GIT_OBJECT_DIRECTORY="$objects"; fi
+    export GIT_DIR="$proof/repo" GIT_WORK_TREE="$proof/ignore"
+    export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_NO_REPLACE_OBJECTS=1
+    shift
+    exec git -C "$proof/ignore" "$@"
   fi
   if [ -f '${root}/helper-error' ]; then cat '${root}/helper-error' >&2; exit 1; fi
   previous=''
@@ -96,8 +114,8 @@ run)
   if [ "$user" = 65534:1000 ]; then
     test ! -f '${root}/partial-root-owned'
     test ! -f '${root}/manager-owned'
-    test "$*" = "--rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --user 65534:1000 --mount type=bind,source=$box,target=/box --entrypoint /bin/chmod ${image} -R u+rwX,g+rwX,o-rwx /box"
-    chmod -R u+rwX,g+rwX,o-rwx "$box"
+    test "$*" = "--rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --user 65534:1000 --mount type=bind,source=$box,target=/box --entrypoint /bin/chmod ${image} -R u+rw,g+rwX,o-rwx /box"
+    chmod -R u+rw,g+rwX,o-rwx "$box"
     exit 0
   fi
   test "$user" = 0:1000
@@ -111,6 +129,7 @@ create)
   test "$1" = --name
   name="$2"
   printf stopped > '${root}/fake/'"$name"
+  printf '%s\n' "$@" > '${root}/fake/'"$name"'.args'
   ;;
 start) printf running > '${root}/fake/'"$1";;
 stop) if [ ! -f '${root}/stop-stuck' ]; then printf stopped > '${root}/fake/'"$1"; fi;;
@@ -128,6 +147,12 @@ exec)
   while [ "\${1#mischief-peon-box-}" = "$1" ]; do shift; done
   id="\${1#mischief-peon-box-}"; shift
   if [ "$1" = /bin/sh ]; then
+    boxenv='${root}/fake/mischief-peon-box-'"$id"'.args'
+    base='${root}/boxes/'"$id"'/home'
+    for key in PI_CODING_AGENT_DIR CLAUDE_CONFIG_DIR CODEX_HOME; do
+      value="$(grep "^$key=/home/peon/" "$boxenv" | cut -d/ -f4-)"
+      export "$key=$base/$value"
+    done
     PEON_TEST_ID="$id" "$@"
   else
     umask 0007
@@ -147,7 +172,7 @@ set -eu
 if [ "$1" = LC_ALL=C ] && [ "$2" = find ]; then
   shift; shift
   box="$1"
-  test "$*" = "$box -xdev -user $(id -u) ! -type l -exec chmod u+rwX,g+rwX,o-rwx {} +"
+  test "$*" = "$box -xdev -user $(id -u) ! -type l -exec chmod u+rw,g+rwX,o-rwx {} +"
   printf 'host-find %s\\n' "$*" >> '${root}/commands'
   if [ -f '${root}/manager-error' ]; then cat '${root}/manager-error' >&2; exit 1; fi
   if [ -f '${root}/manager-owned' ]; then exec /usr/bin/find "$@"; fi
@@ -184,6 +209,13 @@ for directory in .claude/projects .claude/sessions .claude/plugins .pi/agent/cla
   mkdir -p '${root}/boxes/'"$id"'/home/'"$directory"
   chmod 700 '${root}/boxes/'"$id"'/home/'"$directory"
 done
+mkdir -p "$PI_CODING_AGENT_DIR/sessions" "$CODEX_HOME/sessions" "$CODEX_HOME/archived_sessions"
+printf '%s\\n' '${piHeader}' > "$PI_CODING_AGENT_DIR/sessions/fixture.jsonl"
+printf '%s\\n' '{"sessionId":"8bef6a17-e343-4849-9858-aa31eafe62af"}' > "$CLAUDE_CONFIG_DIR/projects/fixture.jsonl"
+printf '%s\\n' '{}' > "$PI_CODING_AGENT_DIR/claude-bridge/state.json"
+printf '%s\\n' '{"type":"session_meta","payload":{"id":"b4419e3f-b704-4d1a-a45b-161a1695ae9c"}}' > "$CODEX_HOME/sessions/fixture.jsonl"
+cp "$CODEX_HOME/sessions/fixture.jsonl" "$CODEX_HOME/archived_sessions/fixture.jsonl"
+printf '%s\\n' '{}' > "$CODEX_HOME/history.jsonl"
 printf 'changed by tool\\n' > '${root}/boxes/'"$id"'/work/result.txt'
 printf '%s\\n' '${piOutput}'
 `,
@@ -192,8 +224,9 @@ printf '%s\\n' '${piOutput}'
   const source = `${root}/source`;
   yield* checked({ args: ["init", source], executable: "git" });
   yield* fs.writeFileString(`${source}/proof.txt`, "pinned contents\n");
+  yield* fs.writeFileString(`${source}/.gitignore`, "build/\n");
   yield* checked({
-    args: ["-C", source, "add", "proof.txt"],
+    args: ["-C", source, "add", ".gitignore", "proof.txt"],
     executable: "git",
   });
   yield* checked({
@@ -293,12 +326,31 @@ it.effect(
           requestId: "create",
           template: fixture.template,
         });
+
+        const filesInHome = checked({
+          executable: "find",
+          args: [home, "-type", "f", "-printf", "%P\\n"],
+        }).pipe(Effect.map((files) => files.split("\n").filter(Boolean)));
+
+        const before = new Set(yield* filesInHome);
         yield* boxes.act({
           action: "prompt",
           peonId,
           requestId: "turn",
           text: "synthetic turn 🐀",
         });
+
+        const written = (yield* filesInHome).filter(
+          (name) =>
+            !before.has(name) &&
+            (name === "session.jsonl" ||
+              Object.values(agentDirs).some((dir) =>
+                name.startsWith(`${dir}/`)
+              ))
+        );
+
+        expect(written).toHaveLength(7);
+        expect(written.filter((name) => !isArchivePath(name))).toEqual([]);
         expect(
           (yield* Effect.flip(
             boxes.act({ action: "destroy", peonId, requestId: "early-delete" })
@@ -328,6 +380,16 @@ it.effect(
         const target = `${fixture.root}/not-a-session`;
         yield* fs.writeFileString(target, "must not be copied\n");
         yield* fs.symlink(target, `${home}/.codex/sessions/never-follow`);
+
+        const unavailable = `${fixture.roots.primary}-offline`;
+        yield* fs.rename(fixture.roots.primary, unavailable);
+
+        const offline = yield* Effect.flip(
+          boxes.act({ action: "export", peonId })
+        );
+
+        expect(offline._tag).toBe("CustodyMissing");
+        yield* fs.rename(unavailable, fixture.roots.primary);
 
         const exported = yield* Schema.decodeUnknownEffect(Export)(
           yield* boxes.act({
@@ -365,9 +427,44 @@ it.effect(
           expect(yield* fs.readFileString(`${dest}/SYMLINKS.tsv`)).toBe(
             `.codex/sessions/never-follow\t${target}\n`
           );
-          expect(yield* fs.readFileString(`${dest}/RECEIPT.json`)).toContain(
-            proof.sha256
+
+          const manifestText = yield* fs.readFileString(
+            `${dest}/manifest.json`
           );
+
+          const manifest = yield* Schema.decodeEffect(
+            Schema.fromJsonString(ManifestSchema)
+          )(manifestText);
+
+          const checksums = yield* fs.readFileString(`${dest}/MANIFEST.sha256`);
+
+          const listed = checksums
+            .trimEnd()
+            .split("\n")
+            .map((line) => line.slice(66))
+            .toSorted();
+
+          expect(listed).toEqual(
+            [...written, ".codex/sessions/2026/rollout.jsonl"].toSorted()
+          );
+          let bytes = 0;
+
+          for (const name of listed) {
+            bytes += Number((yield* fs.stat(`${dest}/${name}`)).size);
+          }
+
+          expect(manifest.files).toBe(listed.length);
+          expect(manifest.bytes).toBe(bytes);
+          const receiptText = yield* fs.readFileString(`${dest}/RECEIPT.json`);
+          expect(receiptText).toContain(
+            `"manifest_sha256":"${sha256(checksums)}"`
+          );
+          expect(receiptText).toContain(
+            `"manifest_json_sha256":"${sha256(manifestText)}"`
+          );
+          expect(receiptText).toContain('"sessions":3');
+          expect(receiptText).toContain('"unparsed":1');
+          expect(receiptText).toContain('"skipped":0');
         }
 
         yield* fs.rename(`${home}/.pi/agent`, `${home}/.pi/agent-held`);
@@ -390,7 +487,7 @@ it.effect(
               requestId: "changed-source",
             })
           )).message
-        ).toContain("Authoritative session bytes changed");
+        ).toContain("Session inventory changed");
         yield* fs.writeFileString(managed, original);
         const mirrorFile = `${fixture.roots.mirror}/${proof.id}/session.jsonl`;
         yield* fs.writeFileString(
@@ -408,6 +505,20 @@ it.effect(
         ).toContain("sha256sum verification failed");
         expect(yield* fs.readFileString(managed)).toBe(original);
         yield* fs.writeFileString(mirrorFile, original);
+        const mirrorManifest = `${fixture.roots.mirror}/${proof.id}/manifest.json`;
+        const recordedManifest = yield* fs.readFileString(mirrorManifest);
+        yield* fs.writeFileString(mirrorManifest, `${recordedManifest}\n`);
+
+        const badManifest = yield* Effect.flip(
+          boxes.act({
+            action: "destroy",
+            peonId,
+            requestId: "changed-manifest",
+          })
+        );
+
+        expect(badManifest._tag).toBe("ReceiptMismatch");
+        yield* fs.writeFileString(mirrorManifest, recordedManifest);
         yield* fs.remove(proof.mirror);
         expect(
           (yield* Effect.flip(
@@ -491,8 +602,12 @@ it.effect(
       const crash = Layer.succeed(
         ArchivePort,
         ArchivePort.of({
-          put: disk.put,
-          readBack: () => Effect.interrupt,
+          open: disk.open.pipe(
+            Effect.map((archive) => ({
+              ...archive,
+              readBack: () => Effect.interrupt,
+            }))
+          ),
         })
       );
 
@@ -583,12 +698,19 @@ it.effect(
       const delayed = Layer.succeed(
         ArchivePort,
         ArchivePort.of({
-          put: (manifest, files) =>
-            Deferred.succeed(atPut, undefined).pipe(
-              Effect.andThen(Deferred.await(releasePut)),
-              Effect.andThen(disk.put(manifest, files))
-            ),
-          readBack: disk.readBack,
+          open: disk.open.pipe(
+            Effect.map((archive) => ({
+              put: (
+                manifest: Parameters<typeof archive.put>[0],
+                files: Parameters<typeof archive.put>[1]
+              ) =>
+                Deferred.succeed(atPut, undefined).pipe(
+                  Effect.andThen(Deferred.await(releasePut)),
+                  Effect.andThen(archive.put(manifest, files))
+                ),
+              readBack: archive.readBack,
+            }))
+          ),
         })
       );
 
@@ -647,6 +769,9 @@ it.effect(
           yield* fs.exists(`${fixture.root}/fake/mischief-peon-box-${peonId}`)
         ).toBe(false);
       }).pipe(Effect.provide(before), Effect.provideService(Runner, cutting));
+      const meta = `${fixture.root}/metadata/${peonId}`;
+      const startupStaging = `${meta}/snapshot-read-startup`;
+      yield* fs.makeDirectory(startupStaging);
       yield* Effect.gen(function* resumeDestroy() {
         const boxes = yield* Boxes;
 
@@ -654,15 +779,31 @@ it.effect(
           boxes.act({ action: "export", peonId })
         );
 
-        expect(exporting.message).toContain("Box is destroying");
+        expect(exporting._tag).toBe("DestroyInProgress");
+        expect(yield* fs.exists(startupStaging)).toBe(false);
+        const teardownStaging = `${meta}/snapshot-read-teardown`;
+        yield* fs.makeDirectory(teardownStaging);
+
+        const conflicting = yield* Effect.flip(
+          boxes.act({
+            action: "destroy",
+            peonId,
+            requestId: "other",
+            landedHead: fixture.template.workspace.sha,
+          })
+        );
+
+        expect(conflicting._tag).toBe("DestroyInProgress");
 
         const result = yield* boxes.act({
           action: "destroy",
           peonId,
           requestId: "delete",
+          discardWorkspace: true,
         });
 
         expect(result.state).toBe("destroyed");
+        expect(yield* fs.exists(teardownStaging)).toBe(false);
         expect(Number(result.bytesFreed)).toBeGreaterThan(0);
         expect(yield* fs.exists(`${fixture.root}/boxes/${peonId}`)).toBe(false);
         expect(
@@ -767,6 +908,24 @@ it.effect(
         yield* TestClock.adjust(1000);
         yield* boxes.act({ action: "export", peonId, row: "tested-row" });
 
+        const kept = yield* boxes.act({
+          action: "hibernate",
+          peonId,
+          requestId: "mark",
+          retained: true,
+        });
+
+        expect(kept.snapshot).toMatchObject({ retained: true });
+
+        const cleared = yield* boxes.act({
+          action: "hibernate",
+          peonId,
+          requestId: "clear",
+          retained: false,
+        });
+
+        expect(cleared.snapshot).not.toHaveProperty("retained");
+
         const result = yield* boxes.act({
           action: "destroy",
           peonId,
@@ -803,13 +962,171 @@ it.effect(
 );
 
 it.effect(
+  "destroy checks landed bytes and refs without using worktree Git settings",
+  () =>
+    Effect.gen(function* compareWorkspace() {
+      const fs = yield* FileSystem.FileSystem;
+      const fixture = yield* custodyFixture;
+      yield* Effect.gen(function* workspaceProof() {
+        const boxes = yield* Boxes;
+        const peonId = "landed-proof";
+        const base = `${fixture.root}/boxes/${peonId}`;
+        const work = `${base}/work`;
+        const landedHead = fixture.template.workspace.sha;
+
+        const git = (...args: string[]) =>
+          checked({ executable: "git", args: ["-C", work, ...args] });
+
+        const destroy = (requestId: string) =>
+          boxes.act({ action: "destroy", peonId, requestId, landedHead });
+
+        yield* boxes.create({
+          peonId,
+          template: fixture.template,
+          requestId: "create",
+        });
+        yield* boxes.act({ action: "export", peonId });
+        yield* git("update-index", "--assume-unchanged", "proof.txt");
+        yield* fs.writeFileString(`${work}/proof.txt`, "other contents!\n");
+        yield* fs.writeFileString(`${work}/.git/info/exclude`, "new.txt\n");
+        yield* fs.writeFileString(`${work}/new.txt`, "unlanded\n");
+        yield* fs.makeDirectory(`${work}/build`, { mode: 0o770 });
+        yield* fs.writeFileString(`${work}/build/output.txt`, "ignored\n");
+        const dirty = yield* Effect.flip(destroy("dirty"));
+        expect(
+          Predicate.isTagged(dirty, "WorkspaceUnlanded") && dirty.dirtyPaths
+        ).toEqual(["new.txt", "proof.txt"]);
+        yield* fs.writeFileString(`${work}/proof.txt`, "pinned contents\n");
+        yield* fs.chmod(`${work}/proof.txt`, 0o760);
+        const modeChange = yield* Effect.flip(destroy("mode"));
+        expect(
+          Predicate.isTagged(modeChange, "WorkspaceUnlanded") &&
+            modeChange.dirtyPaths
+        ).toEqual(["new.txt", "proof.txt"]);
+        yield* fs.chmod(`${work}/proof.txt`, 0o660);
+        yield* fs.remove(`${work}/new.txt`);
+        yield* git(
+          "-c",
+          "user.name=fixture",
+          "-c",
+          "user.email=fixture@example.invalid",
+          "commit",
+          "--allow-empty",
+          "-m",
+          "unlanded"
+        );
+        const abandoned = (yield* git("rev-parse", "HEAD")).trim();
+        yield* git("branch", "unlanded", abandoned);
+        yield* git("checkout", "--detach", landedHead);
+        yield* git("pack-refs", "--all");
+        const refs = yield* Effect.flip(destroy("ref"));
+        expect(
+          Predicate.isTagged(refs, "WorkspaceUnlanded") && refs.refs
+        ).toEqual(["refs/heads/unlanded"]);
+        yield* git("branch", "-D", "unlanded");
+        yield* git("config", "core.worktree", fixture.config.metadata);
+        const final = yield* destroy("verified");
+        expect(final).toMatchObject({
+          abandoned: [abandoned],
+          ignored: 1,
+          state: "destroyed",
+        });
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
+
+it.effect(
+  "derived files skipped by either inventory block whole-box destroy until verified again",
+  () =>
+    Effect.gen(function* reconcileDerived() {
+      const fs = yield* FileSystem.FileSystem;
+      const fixture = yield* custodyFixture;
+      yield* Effect.gen(function* derivedCustody() {
+        const boxes = yield* Boxes;
+        const peonId = "derived";
+        const root = `${fixture.root}/boxes/${peonId}/home/.claude/projects`;
+        yield* boxes.create({
+          peonId,
+          template: fixture.template,
+          requestId: "create",
+        });
+        yield* fs.makeDirectory(root, { mode: 0o770, recursive: true });
+        const unarchivable = `${root}/has space.jsonl`;
+        yield* fs.writeFileString(unarchivable, "{}\n");
+
+        const exported = yield* Schema.decodeUnknownEffect(Export)(
+          yield* boxes.act({ action: "export", peonId })
+        );
+
+        const manifest = yield* fs.readFileString(
+          `${fixture.roots.primary}/${exported.exportReceipt.id}/manifest.json`
+        );
+
+        expect(manifest).toContain('"path":".claude/projects/has space.jsonl"');
+
+        const remove = (requestId: string) =>
+          boxes.act({
+            action: "destroy",
+            peonId,
+            requestId,
+            discardWorkspace: true,
+          });
+
+        const refused = yield* Effect.flip(remove("skipped"));
+        expect(refused._tag).toBe("CustodyIncomplete");
+        yield* fs.rename(unarchivable, `${root}/raw.jsonl`);
+        expect((yield* Effect.flip(remove("stale")))._tag).toBe(
+          "CustodyIncomplete"
+        );
+        yield* TestClock.adjust(1000);
+        yield* boxes.act({ action: "export", peonId });
+        yield* fs.writeFileString(
+          `${root}/raw.jsonl`,
+          "changed derived bytes\n"
+        );
+        expect((yield* Effect.flip(remove("changed")))._tag).toBe(
+          "ReceiptMismatch"
+        );
+        yield* TestClock.adjust(1000);
+        yield* boxes.act({ action: "export", peonId });
+        expect((yield* remove("verified")).state).toBe("destroyed");
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
+
+it.effect(
   "custody preparation refuses unresolved or overlapping roots and the wrong host",
   () =>
     Effect.gen(function* unavailableCustody() {
       const fixture = yield* custodyFixture;
 
       const receipt = {
-        authority: "a".repeat(64),
         box: "test-box",
         fingerprint: "a".repeat(64),
         peon: "test-peon",
@@ -833,11 +1150,16 @@ it.effect(
           checkerHost: "invalid-test-host.",
         });
 
-        const result = yield* ArchivePort.use(({ readBack }) =>
-          readBack(receipt, "check")
+        const result = yield* ArchivePort.use(({ open }) =>
+          open.pipe(
+            Effect.flatMap(({ readBack }) => readBack(receipt, "check"))
+          )
         ).pipe(
           Effect.provide(disk),
-          Effect.provideService(Runner, fixture.runner)
+          Effect.provideService(Runner, fixture.runner),
+          Effect.catch((error) =>
+            Effect.succeed(ReadBackResult.Mismatch({ reason: error.message }))
+          )
         );
 
         expect(
@@ -1221,12 +1543,7 @@ it.effect(
         expect(commands).toContain(
           "--cap-drop ALL --security-opt no-new-privileges --user 65534:1000"
         );
-        expect(
-          commands
-            .split("\n")
-            .filter((line) => line.startsWith("create "))
-            .map((line) => line.replaceAll(fixture.root, "/fixture"))
-        ).toMatchSnapshot();
+        expect(commands).toContain("--env CODEX_HOME=/home/peon/.codex");
         expect(commands).toContain(
           "--cgroup-parent mischief-peon-boxes.slice --read-only --tmpfs /tmp:rw,nosuid,nodev,size=384m --dns 1.1.1.1 --dns 9.9.9.9"
         );

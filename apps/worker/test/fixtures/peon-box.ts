@@ -3,6 +3,8 @@ import { DurableObject } from "cloudflare:workers";
 import { Effect, Schema } from "effect";
 
 const RequestBody = Schema.Struct({
+  discardWorkspace: Schema.optionalKey(Schema.Literal(true)),
+  landedHead: Schema.optionalKey(Schema.String),
   newPeonId: Schema.optionalKey(Schema.String),
   peonId: Schema.optionalKey(Schema.String),
   requestId: Schema.String,
@@ -30,7 +32,12 @@ const RequestBody = Schema.Struct({
   text: Schema.optionalKey(Schema.String),
 });
 
-const Call = Schema.Struct({ path: Schema.String, requestId: Schema.String });
+const Call = Schema.Struct({
+  path: Schema.String,
+  requestId: Schema.String,
+  discardWorkspace: Schema.optionalKey(Schema.Literal(true)),
+  landedHead: Schema.optionalKey(Schema.String),
+});
 
 const Calls = Schema.Array(Call);
 
@@ -42,6 +49,37 @@ const Turn = {
   toolCalls: ["edit", "bash"],
   usage: { cacheRead: 12, cacheWrite: 3, input: 20, output: 4, total: 39 },
   wallMs: 1,
+};
+
+type CallValue = typeof Call.Type;
+
+type MutableCall = { -readonly [K in keyof CallValue]: CallValue[K] };
+
+const callOf = (path: string, body: typeof RequestBody.Type) => {
+  const call: MutableCall = { path, requestId: body.requestId };
+
+  if (body.discardWorkspace !== undefined) {
+    call.discardWorkspace = body.discardWorkspace;
+  }
+
+  if (body.landedHead !== undefined) {
+    call.landedHead = body.landedHead;
+  }
+
+  return call;
+};
+
+const deleteRefusal = (body: typeof RequestBody.Type, exported: boolean) => {
+  if ((body.landedHead === undefined) === (body.discardWorkspace !== true)) {
+    return Response.json(
+      { error: { code: "WorkspaceUnlanded" } },
+      { status: 409 }
+    );
+  }
+
+  return exported
+    ? undefined
+    : Response.json({ error: { code: "ReceiptMismatch" } }, { status: 409 });
 };
 
 export class FakeBox extends DurableObject {
@@ -82,10 +120,7 @@ export class FakeBox extends DurableObject {
 
     const key = `${path}/${body.requestId}`;
     const previous = await this.ctx.storage.get(key);
-    await this.ctx.storage.put("calls", [
-      ...calls,
-      { path, requestId: body.requestId },
-    ]);
+    await this.ctx.storage.put("calls", [...calls, callOf(path, body)]);
 
     if (previous !== undefined) {
       return Response.json(previous);
@@ -115,7 +150,19 @@ export class FakeBox extends DurableObject {
         },
         state: "hibernated",
       };
+    } else if (path.endsWith("/export")) {
+      await this.ctx.storage.put(path, true);
+      response = { state: "suspended" };
     } else if (request.method === "DELETE") {
+      const denied = deleteRefusal(
+        body,
+        (await this.ctx.storage.get<boolean>(`${path}/export`)) === true
+      );
+
+      if (denied !== undefined) {
+        return denied;
+      }
+
       response = { snapshotKept: true, state: "destroyed" };
     } else {
       response = { restored: true, state: "idle" };

@@ -67,7 +67,7 @@ it.effect(
       yield* fs.makeDirectory(claude, { recursive: true });
       yield* fs.writeFileString(
         `${claude}/${claudeId}.jsonl`,
-        '{"fixture":true}\n'
+        `${JSON.stringify({ sessionId: claudeId })}\n`
       );
       const first = yield* scan();
       expect(first.manifest).toMatchObject({
@@ -91,7 +91,6 @@ it.effect(
         "rewritten derived bytes\n"
       );
       const rewritten = yield* scan();
-      expect(rewritten.files.authority).toBe(first.files.authority);
       expect(rewritten.files.fingerprint).not.toBe(first.files.fingerprint);
     }).pipe(Effect.provide(NodeServices.layer))
 );

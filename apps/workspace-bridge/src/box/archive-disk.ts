@@ -1,14 +1,6 @@
 import { hostname } from "node:os";
 
-import {
-  DateTime,
-  Effect,
-  FileSystem,
-  Layer,
-  Path,
-  Result,
-  Schema,
-} from "effect";
+import { DateTime, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import type { PlatformError } from "effect";
 
 import { Runner } from "../runner.js";
@@ -29,7 +21,13 @@ import {
   archiveStamp,
   receiptOf,
 } from "./archive.js";
-import type { ArchiveReceipt, Manifest, ReadBack } from "./archive.js";
+import type {
+  ArchiveFiles,
+  ArchiveReceipt,
+  Manifest,
+  ReadBack,
+} from "./archive.js";
+import { custodyMissing } from "./custody-missing.js";
 
 const mountTypes = new Set(["ff534d42", "fe534d42"]);
 
@@ -55,9 +53,12 @@ const DiskReceipt = Schema.fromJsonString(
     dirs: Schema.Array(Schema.String),
     files: Schema.Int,
     manifest_sha256: Schema.String,
+    manifest_json_sha256: Schema.String,
     ok: Schema.Literal(true),
     rc: Schema.Literal(0),
-    sessions: Schema.optionalKey(Schema.Literal(0)),
+    sessions: Schema.Int,
+    unparsed: Schema.Int,
+    skipped: Schema.Int,
     verified_at: Schema.String,
   })
 );
@@ -113,24 +114,6 @@ export const archiveDiskLayer = (
       const path = yield* Path.Path;
       const runner = yield* Runner;
 
-      const resolved = yield* Effect.result(
-        Effect.gen(function* resolveRoots() {
-          const canonical = [];
-
-          for (const root of [roots.primary, roots.mirror]) {
-            if (!path.isAbsolute(root)) {
-              return yield* archiveFailure(
-                "Both archive roots must be absolute. Correct the custody configuration."
-              );
-            }
-
-            canonical.push(yield* fs.realPath(root));
-          }
-
-          return canonical;
-        })
-      );
-
       const verifyDirectory = Effect.fn("Archive.verifyDirectory")(
         function* verifyDirectory(directory: string) {
           if (
@@ -147,13 +130,28 @@ export const archiveDiskLayer = (
       );
 
       const prepare = Effect.fn("Archive.prepare")(function* prepare() {
-        if (!Result.isSuccess(resolved)) {
-          return yield* archiveFailure(
-            "An archive root could not be resolved at startup. Check both configured custody directories before retrying."
-          );
-        }
+        const destinations: string[] = [];
 
-        const destinations = resolved.success;
+        for (const root of [roots.primary, roots.mirror]) {
+          if (!path.isAbsolute(root)) {
+            return yield* archiveFailure(
+              "Both archive roots must be absolute. Correct the custody configuration."
+            );
+          }
+
+          const missing = () =>
+            custodyMissing(
+              root,
+              "An archive root could not be resolved or read. Check both configured custody directories before retrying."
+            );
+
+          const canonical = yield* fs
+            .realPath(root)
+            .pipe(Effect.mapError(missing));
+
+          yield* fs.readDirectory(canonical).pipe(Effect.mapError(missing));
+          destinations.push(canonical);
+        }
 
         if (
           destinations.some(
@@ -177,10 +175,10 @@ export const archiveDiskLayer = (
           );
         }
 
-        for (const root of destinations) {
-          yield* verifyDirectory(root);
-          yield* fs.readDirectory(root);
-          yield* checkMount(root, runner, roots.checkerHost);
+        for (const canonical of destinations) {
+          yield* checkMount(canonical, runner, roots.checkerHost).pipe(
+            Effect.mapError((error) => custodyMissing(canonical, error.message))
+          );
         }
 
         return destinations;
@@ -256,9 +254,11 @@ export const archiveDiskLayer = (
       ) {
         yield* verifyDirectory(directory);
 
-        const manifest = yield* Schema.decodeUnknownEffect(
+        const manifestJson = yield* readText(directory, manifestName);
+
+        const manifest = yield* Schema.decodeEffect(
           Schema.fromJsonString(ManifestSchema)
-        )(yield* readText(directory, manifestName)).pipe(
+        )(manifestJson).pipe(
           Effect.mapError(() =>
             archiveFailure(
               "Archive manifest is invalid. Inspect custody copies and retry export."
@@ -273,6 +273,7 @@ export const archiveDiskLayer = (
           manifest.peon_id !== receipt.peon ||
           manifest.box_id !== receipt.box ||
           archiveStamp(manifest.created_at) !== receipt.stamp ||
+          sha256(manifestJson) !== receipt.manifestJsonSha256 ||
           manifest.manifest_sha256 !== receipt.sha256 ||
           sha256(checksums) !== receipt.sha256 ||
           fingerprintOf(checksums, links, manifest.session_ids) !==
@@ -336,8 +337,12 @@ export const archiveDiskLayer = (
         return manifest;
       });
 
-      const put: typeof ArchivePort.Service.put = Effect.fn("Archive.diskPut")(
-        function* put(manifest, files) {
+      const put = Effect.fn("Archive.diskPut")(
+        function* put(
+          destinations: readonly string[],
+          manifest: Manifest,
+          files: ArchiveFiles
+        ) {
           const receipt = yield* Schema.decodeEffect(
             Schema.Tuple([ManifestSchema, ArchiveReceiptSchema])
           )([manifest, receiptOf(manifest, files)]).pipe(
@@ -354,8 +359,6 @@ export const archiveDiskLayer = (
               "Archive file is outside the permitted session roots. Inspect the stopped box before retrying export."
             );
           }
-
-          const destinations = yield* prepare();
 
           if (manifest.bytes > 50_000_000_000) {
             yield* Effect.logWarning(
@@ -441,7 +444,7 @@ export const archiveDiskLayer = (
       const checkReceipt = Effect.fn("Archive.checkReceipt")(
         function* checkReceipt(
           directory: string,
-          manifest: Manifest | undefined,
+          manifest: Manifest,
           dirs: readonly string[],
           receipt: ArchiveReceipt
         ) {
@@ -459,12 +462,14 @@ export const archiveDiskLayer = (
 
           if (
             proof.manifest_sha256 !== receipt.sha256 ||
+            proof.manifest_json_sha256 !== receipt.manifestJsonSha256 ||
+            proof.sessions !== receipt.counts?.sessions ||
+            proof.unparsed !== receipt.counts?.unparsed ||
+            proof.skipped !== receipt.counts?.skipped ||
             proof.checker_host !== roots.checkerHost ||
             JSON.stringify(proof.dirs) !== JSON.stringify(dirs) ||
-            (manifest !== undefined &&
-              (proof.bytes !== manifest.bytes ||
-                proof.files !== manifest.files ||
-                (manifest.session_ids.length === 0 && proof.sessions !== 0)))
+            proof.bytes !== manifest.bytes ||
+            proof.files !== manifest.files
           ) {
             return yield* archiveFailure(
               "Protected archive receipt differs from the verified inventory. Retry export before destroying."
@@ -505,19 +510,18 @@ export const archiveDiskLayer = (
             dirs,
             files: manifest.files,
             manifest_sha256: receipt.sha256,
+            manifest_json_sha256: receipt.manifestJsonSha256,
+            sessions: manifest.session_ids.length,
+            unparsed: manifest.unparsed.length,
+            skipped: manifest.skipped.length,
             ok: true,
             rc: 0,
             verified_at: verifiedAt,
           };
 
-          const proof =
-            manifest.session_ids.length === 0
-              ? { ...evidence, sessions: 0 }
-              : evidence;
-
           yield* fs.writeFileString(
             path.join(directory, receiptName),
-            JSON.stringify(proof),
+            JSON.stringify(evidence),
             { flag: "wx", mode: 0o600 }
           );
         }
@@ -525,17 +529,15 @@ export const archiveDiskLayer = (
         return copies;
       });
 
-      const readBack: typeof ArchivePort.Service.readBack = Effect.fn(
-        "Archive.diskReadBack"
-      )(
+      const readBack = Effect.fn("Archive.diskReadBack")(
         function* readBack(
+          destinations: readonly string[],
           receipt: ArchiveReceipt,
-          purpose: "check" | "publish" | "receipts"
+          purpose: "check" | "publish"
         ): Effect.fn.Return<
           ReadBack,
           ArchiveFailure | PlatformError.PlatformError
         > {
-          const destinations = yield* prepare();
           const locations = destinations.map((root) => layout(root, receipt));
           const dirs = locations.map(({ final }) => final);
 
@@ -554,19 +556,13 @@ export const archiveDiskLayer = (
             sha256: receipt.sha256,
           };
 
-          if (purpose === "receipts") {
-            for (const directory of dirs) {
-              yield* checkReceipt(directory, undefined, dirs, receipt);
-            }
-          } else {
-            const copies =
-              purpose === "publish"
-                ? yield* publish(receipt, locations)
-                : yield* checkCopies(dirs, receipt);
+          const copies =
+            purpose === "publish"
+              ? yield* publish(receipt, locations)
+              : yield* checkCopies(dirs, receipt);
 
-            for (const { directory, manifest } of copies) {
-              yield* checkReceipt(directory, manifest, dirs, receipt);
-            }
+          for (const { directory, manifest } of copies) {
+            yield* checkReceipt(directory, manifest, dirs, receipt);
           }
 
           return ReadBackResult.Verified({ exportReceipt });
@@ -586,6 +582,15 @@ export const archiveDiskLayer = (
         })
       );
 
-      return ArchivePort.of({ put, readBack });
+      return ArchivePort.of({
+        open: prepare().pipe(
+          Effect.map((destinations) => ({
+            put: (manifest: Manifest, files: ArchiveFiles) =>
+              put(destinations, manifest, files),
+            readBack: (receipt: ArchiveReceipt, purpose: "check" | "publish") =>
+              readBack(destinations, receipt, purpose),
+          }))
+        ),
+      });
     })
   );

@@ -112,7 +112,12 @@ it.effect.prop(
 
       failNext = true;
       yield* host()
-        .command(kind, "failed-call", events[kind])
+        .command(
+          kind,
+          "failed-call",
+          events[kind],
+          kind === "destroy" ? { discardWorkspace: true } : {}
+        )
         .pipe(Effect.flip);
 
       const parked = yield* host().inspectStored;
@@ -121,7 +126,9 @@ it.effect.prop(
       expect(parked.pending?.requestId).toBe("failed-call");
 
       const resumed = yield* cancel
-        ? host().command("destroy", "cancel-failed-call", "DESTROY")
+        ? host().command("destroy", "cancel-failed-call", "DESTROY", {
+            discardWorkspace: true,
+          })
         : host().idle();
 
       expect(resumed.state).toBe(cancel ? "destroyed" : states[kind]);

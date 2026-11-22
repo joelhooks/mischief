@@ -2,6 +2,9 @@ import { Context, Data, Effect, Layer, Ref, Schema } from "effect";
 
 import { archiveFailure } from "./archive-failure.js";
 import type { ArchiveFailure } from "./archive-failure.js";
+import { sha256 } from "./archive-source.js";
+import { custodyMissing } from "./custody-missing.js";
+import type { CustodyMissing } from "./custody-missing.js";
 
 const Hash = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u));
 
@@ -11,10 +14,23 @@ export const ArchiveName = Schema.String.check(
   Schema.isPattern(/^(?!\.{1,2}$)[A-Za-z0-9._-]+$/u)
 );
 
+export const SkippedEntry = Schema.Struct({
+  path: Schema.String,
+  reason: Schema.String,
+});
+
 export const ArchiveReceiptSchema = Schema.Struct({
-  authority: Hash,
   box: ArchiveName,
   fingerprint: Hash,
+  manifestJsonSha256: Schema.optionalKey(Hash),
+  skippedEntries: Schema.optionalKey(Schema.Array(SkippedEntry)),
+  counts: Schema.optionalKey(
+    Schema.Struct({
+      sessions: Schema.Int,
+      unparsed: Schema.Int,
+      skipped: Schema.Int,
+    })
+  ),
   peon: ArchiveName,
   sha256: Hash,
   stamp: Stamp,
@@ -43,12 +59,12 @@ export const ManifestSchema = Schema.Struct({
     })
   ),
   unparsed: Schema.Array(Schema.String),
+  skipped: Schema.Array(SkippedEntry),
 });
 
 export type Manifest = typeof ManifestSchema.Type;
 
 export interface ArchiveFiles {
-  readonly authority: string;
   readonly home: string;
   readonly paths: readonly string[];
   readonly checksums: string;
@@ -82,36 +98,42 @@ export const receiptOf = (
   manifest: Manifest,
   files: ArchiveFiles
 ): ArchiveReceipt => ({
-  authority: files.authority,
   box: manifest.box_id,
   fingerprint: files.fingerprint,
+  manifestJsonSha256: sha256(JSON.stringify(manifest)),
+  skippedEntries: manifest.skipped,
+  counts: {
+    sessions: manifest.session_ids.length,
+    unparsed: manifest.unparsed.length,
+    skipped: manifest.skipped.length,
+  },
   peon: manifest.peon_id,
   sha256: manifest.manifest_sha256,
   stamp: archiveStamp(manifest.created_at),
 });
 
+export interface OpenArchive {
+  readonly put: (
+    manifest: Manifest,
+    files: ArchiveFiles
+  ) => Effect.Effect<ArchiveReceipt, ArchiveFailure | CustodyMissing>;
+  readonly readBack: (
+    receipt: ArchiveReceipt,
+    purpose: "publish" | "check"
+  ) => Effect.Effect<ReadBack, ArchiveFailure>;
+}
+
 export class ArchivePort extends Context.Service<
   ArchivePort,
   {
-    readonly put: (
-      manifest: Manifest,
-      files: ArchiveFiles
-    ) => Effect.Effect<ArchiveReceipt, ArchiveFailure>;
-    readonly readBack: (
-      receipt: ArchiveReceipt,
-      purpose: "publish" | "check" | "receipts"
-    ) => Effect.Effect<ReadBack, ArchiveFailure>;
+    readonly open: Effect.Effect<OpenArchive, ArchiveFailure | CustodyMissing>;
   }
 >()("@mischief/workspace-bridge/ArchivePort") {
   static readonly disabled = Layer.succeed(ArchivePort, {
-    put: () =>
-      archiveFailure(
-        "Protected archive is not configured. Configure both archive roots before exporting."
-      ),
-    readBack: () =>
-      archiveFailure(
-        "Protected archive is not configured. Configure both archive roots before destroying."
-      ),
+    open: custodyMissing(
+      "archive",
+      "Protected archive is not configured. Configure both archive roots before exporting or destroying."
+    ),
   });
 
   static readonly memory = Layer.effect(
@@ -124,7 +146,7 @@ export class ArchivePort extends Context.Service<
         >()
       );
 
-      return ArchivePort.of({
+      const archive: OpenArchive = {
         put: Effect.fn("Archive.memoryPut")(
           function* memoryPut(manifest, files) {
             const receipt = receiptOf(manifest, files);
@@ -172,7 +194,9 @@ export class ArchivePort extends Context.Service<
             });
           }
         ),
-      });
+      };
+
+      return ArchivePort.of({ open: Effect.succeed(archive) });
     })
   );
 }

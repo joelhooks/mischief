@@ -53,6 +53,8 @@ export const peonServices = (env: Env, owner: string): Peons["Service"] => {
       readonly peonId: string;
       readonly requestId?: string;
       readonly text?: string;
+      readonly landedHead?: string;
+      readonly discardWorkspace?: true;
     }
   ) {
     const object = yield* owned(input.peonId);
@@ -60,7 +62,14 @@ export const peonServices = (env: Env, owner: string): Peons["Service"] => {
 
     return yield* peonRpc(
       async () =>
-        await object.command(kind, requestId, input.text, undefined, owner)
+        await object.command(
+          kind,
+          requestId,
+          input.text,
+          undefined,
+          owner,
+          input
+        )
     );
   });
 

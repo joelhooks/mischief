@@ -8,6 +8,7 @@ import {
   FileSystem,
   Layer,
   Path,
+  Predicate,
   Ref,
   Schema,
 } from "effect";
@@ -18,12 +19,17 @@ import { refusal } from "../protocol.js";
 import { checked, Runner } from "../runner.js";
 import type { Command, ProcessOutput } from "../runner.js";
 import type { ArchiveFailure } from "./archive-failure.js";
-import { collectArchive, sessionRoots } from "./archive-source.js";
+import { agentDirs, collectArchive, sessionRoots } from "./archive-source.js";
 import { ArchivePort, ReadBackResult, archiveId } from "./archive.js";
+import type { OpenArchive } from "./archive.js";
+import type { CustodyMissing } from "./custody-missing.js";
+import { CustodyIncomplete } from "./custody-refusal.js";
+import { DestroyInProgress } from "./destroy-in-progress.js";
 import { nextState } from "./machine.js";
 import { promptPi, requireText } from "./pi.js";
 import { Metadata, PeonId, Result, Tombstone } from "./protocol.js";
 import type { BoxMetadata, Action, Create } from "./protocol.js";
+import { ReceiptMismatch } from "./receipt-mismatch.js";
 import { receiptKey } from "./receipt.js";
 import { unlanded, verifyWorkspace } from "./workspace-proof.js";
 import type { WorkspaceUnlanded } from "./workspace-unlanded.js";
@@ -79,11 +85,48 @@ const hostFailure = (error: PlatformError.PlatformError) =>
 const archiveRefusal = (failure: ArchiveFailure) =>
   refusal(failure.message, 409);
 
+const mismatch = (id: string, reason: string) =>
+  new ReceiptMismatch({
+    reason,
+    message: `${reason} Check custody, then POST /v1/boxes/${id}/export before retrying DELETE.`,
+    status: 409,
+  });
+
 const needsExport = (id: string) =>
-  refusal(
-    `Box ${id} has no matching verified receipt in both protected archives; destroy would lose its raw history. POST /v1/boxes/${id}/export, then retry DELETE with a fresh requestId.`,
-    409
+  mismatch(
+    id,
+    `Box ${id} has no matching verified receipt in both protected archives; destroy would lose its raw history.`
   );
+
+type DestroyMarker = NonNullable<BoxMetadata["destroying"]>;
+
+type SnapshotRoot = Effect.Effect<
+  string,
+  BridgeFailure | PlatformError.PlatformError
+>;
+
+const inProgress = (marker: DestroyMarker) =>
+  new DestroyInProgress({
+    requestId: marker.requestId,
+    disposition: marker.disposition,
+    retained: marker.retainSnapshot,
+    message:
+      "Box is destroying. Retry DELETE with the recorded disposition and retention setting.",
+    status: 409,
+  });
+
+const dispositionOf = (input: typeof Action.Type) => {
+  if (input.discardWorkspace !== true) {
+    return input.landedHead;
+  }
+
+  return input.landedHead === undefined ? "discardWorkspace" : undefined;
+};
+
+const archiveError = (failure: ArchiveFailure | CustodyMissing) =>
+  Predicate.isTagged(failure, "CustodyMissing")
+    ? failure
+    : archiveRefusal(failure);
 
 export class Boxes extends Context.Service<
   Boxes,
@@ -93,7 +136,15 @@ export class Boxes extends Context.Service<
     ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
     readonly act: (
       input: typeof Action.Type
-    ) => Effect.Effect<typeof Result.Type, BridgeFailure | WorkspaceUnlanded>;
+    ) => Effect.Effect<
+      typeof Result.Type,
+      | BridgeFailure
+      | WorkspaceUnlanded
+      | CustodyMissing
+      | CustodyIncomplete
+      | DestroyInProgress
+      | ReceiptMismatch
+    >;
     readonly inspect: (
       id: string
     ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
@@ -203,6 +254,38 @@ export class Boxes extends Context.Service<
           }
         }
 
+        const sweepSnapshotReads = Effect.fn("Boxes.sweepSnapshotReads")(
+          function* sweepSnapshotReads(id: string) {
+            const directory = meta(id);
+
+            if (
+              !(yield* fs.exists(directory)) ||
+              (yield* fs.realPath(directory)) !== directory
+            ) {
+              return;
+            }
+
+            for (const entry of yield* fs.readDirectory(directory)) {
+              if (entry.startsWith("snapshot-read-")) {
+                const staging = path.join(directory, entry);
+
+                if ((yield* fs.lstat(staging)).type === "Directory") {
+                  yield* fs.remove(staging, { recursive: true });
+                }
+              }
+            }
+          }
+        );
+
+        for (const entry of yield* fs.readDirectory(config.metadata)) {
+          if (
+            Schema.is(PeonId)(entry) &&
+            (yield* fs.lstat(meta(entry))).type === "Directory"
+          ) {
+            yield* sweepSnapshotReads(entry);
+          }
+        }
+
         const writeJson = Effect.fn("Boxes.writeJson")(function* writeJson(
           file: string,
           value: BoxMetadata | typeof Receipt.Type
@@ -274,7 +357,7 @@ export class Boxes extends Context.Service<
 
         const prepareTree = (id: string) =>
           execute({
-            args: ["-R", "u+rwX,g+rwX,o-rwx", base(id)],
+            args: ["-R", "u+rw,g+rwX,o-rwx", base(id)],
             executable: "chmod",
           });
 
@@ -340,7 +423,7 @@ export class Boxes extends Context.Service<
               "l",
               "-exec",
               "chmod",
-              "u+rwX,g+rwX,o-rwx",
+              "u+rw,g+rwX,o-rwx",
               "{}",
               "+",
             ],
@@ -410,7 +493,7 @@ export class Boxes extends Context.Service<
             "/bin/chmod",
             config.image,
             "-R",
-            "u+rwX,g+rwX,o-rwx",
+            "u+rw,g+rwX,o-rwx",
             "/box",
           ]);
 
@@ -441,7 +524,7 @@ export class Boxes extends Context.Service<
                 "/bin/sh",
                 config.image,
                 "-c",
-                `chown -hR 0:${config.gid} /box && ${initialize ? "cp /opt/peon/models.json /opt/peon/settings.json /box/home/.pi/agent/ && " : ""}chmod -R g+rwX /box && chown -hR 65534:${config.gid} /box`,
+                `chown -hR 0:${config.gid} /box && ${initialize ? `cp /opt/peon/models.json /opt/peon/settings.json /box/home/${agentDirs.PI_CODING_AGENT_DIR}/ && ` : ""}chmod -R g+rwX /box && chown -hR 65534:${config.gid} /box`,
               ],
             })
             .pipe(
@@ -503,11 +586,11 @@ export class Boxes extends Context.Service<
               "PIP_CACHE_DIR=/home/peon/.cache/pip",
               "PYTHONUSERBASE=/home/peon/.local",
               "COREPACK_HOME=/home/peon/.cache/corepack",
-              "CLAUDE_CONFIG_DIR=/home/peon/.claude",
               "DISABLE_AUTOUPDATER=1",
+              ...Object.entries(agentDirs).map(
+                ([key, value]) => `${key}=/home/peon/${value}`
+              ),
             ].flatMap((value) => ["--env", value]),
-            "--env",
-            "PI_CODING_AGENT_DIR=/home/peon/.pi/agent",
             "--env",
             "ANTHROPIC_BASE_URL=http://172.30.212.1:28013",
             "--env",
@@ -613,7 +696,9 @@ export class Boxes extends Context.Service<
             );
           }
 
-          if ((yield* hash(box.snapshot.path)) !== box.snapshot.sha256) {
+          const snapshot = yield* snapshotPath(box);
+
+          if ((yield* hash(snapshot.path)) !== snapshot.sha256) {
             return yield* refusal(
               "Snapshot sha256 differs from its receipt; restoring it would corrupt the workspace. Recover the original snapshot and retry resume.",
               409
@@ -625,13 +710,7 @@ export class Boxes extends Context.Service<
             recursive: true,
           });
           yield* execute({
-            args: [
-              "--no-same-owner",
-              "-xf",
-              box.snapshot.path,
-              "-C",
-              base(target),
-            ],
+            args: ["--no-same-owner", "-xf", snapshot.path, "-C", base(target)],
             executable: "tar",
           });
           yield* prepareTree(target);
@@ -680,14 +759,32 @@ export class Boxes extends Context.Service<
             "{{.Names}}",
           ]).pipe(Effect.map((output) => output.trim() !== ""));
 
+        const snapshotRoot = Effect.fn("Boxes.snapshotRoot")(
+          function* snapshotRoot() {
+            const root = yield* fs.realPath(config.snapshots);
+
+            if (root !== config.snapshots) {
+              return yield* refusal(
+                "Snapshot storage is not canonical. Restore the original snapshot root before retrying.",
+                503
+              );
+            }
+
+            return root;
+          }
+        );
+
         const snapshotPath = Effect.fn("Boxes.snapshotPath")(
-          function* snapshotPath(box: BoxMetadata) {
+          function* snapshotPath(
+            box: BoxMetadata,
+            canonical: SnapshotRoot = snapshotRoot()
+          ) {
             const { snapshot } = box;
+            const root = yield* canonical;
 
             if (
               snapshot === undefined ||
-              path.dirname(snapshot.path) !==
-                path.join(config.snapshots, box.peonId) ||
+              path.dirname(snapshot.path) !== path.join(root, box.peonId) ||
               (yield* fs.lstat(snapshot.path)).type !== "File" ||
               (yield* fs.realPath(snapshot.path)) !== snapshot.path
             ) {
@@ -702,8 +799,12 @@ export class Boxes extends Context.Service<
         );
 
         const extractSnapshot = Effect.fn("Boxes.extractSnapshot")(
-          function* extractSnapshot(box: BoxMetadata, part: "home" | "work") {
-            const snapshot = yield* snapshotPath(box);
+          function* extractSnapshot(
+            box: BoxMetadata,
+            part: "home" | "work",
+            canonical?: SnapshotRoot
+          ) {
+            const snapshot = yield* snapshotPath(box, canonical);
 
             if ((yield* hash(snapshot.path)) !== snapshot.sha256) {
               return yield* refusal(
@@ -722,6 +823,7 @@ export class Boxes extends Context.Service<
                 executable: "tar",
                 args: [
                   "--no-same-owner",
+                  "--same-permissions",
                   "-xf",
                   snapshot.path,
                   "-C",
@@ -744,21 +846,27 @@ export class Boxes extends Context.Service<
             const source = path.join(staging, "home");
             yield* fs.makeDirectory(source);
 
-            if (entries.has("home/.pi/agent/")) {
-              yield* fs.makeDirectory(path.join(source, ".pi", "agent"), {
-                recursive: true,
-              });
+            for (const name of [".pi", ...Object.values(agentDirs)]) {
+              if (entries.has(`home/${name}`)) {
+                return yield* refusal(
+                  "Snapshot session parent is not a directory. Recover the original before retrying export.",
+                  409
+                );
+              }
+
+              if (entries.has(`home/${name}/`)) {
+                yield* fs.makeDirectory(path.join(source, name), {
+                  recursive: true,
+                });
+              }
             }
 
-            const selected = [
-              ...[".pi", ".pi/agent", ".claude", ".codex"].filter((name) =>
-                entries.has(`home/${name}`)
-              ),
-              ...sessionRoots.filter(
+            const selected = sessionRoots
+              .filter(
                 (root) =>
                   entries.has(`home/${root}`) || entries.has(`home/${root}/`)
-              ),
-            ].map((name) => `home/${name}`);
+              )
+              .map((root) => `home/${root}`);
 
             if (selected.length > 0) {
               yield* execute({
@@ -780,7 +888,11 @@ export class Boxes extends Context.Service<
         );
 
         const archiveSource = Effect.fn("Boxes.archiveSource")(
-          function* archiveSource(box: BoxMetadata, row?: string) {
+          function* archiveSource(
+            box: BoxMetadata,
+            row?: string,
+            canonical?: SnapshotRoot
+          ) {
             const id = box.peonId;
             let source = home(id);
 
@@ -795,7 +907,7 @@ export class Boxes extends Context.Service<
                 );
               }
 
-              source = yield* extractSnapshot(box, "home");
+              source = yield* extractSnapshot(box, "home", canonical);
             } else {
               const status = (yield* containerPresent(id))
                 ? yield* ready(id)
@@ -838,10 +950,7 @@ export class Boxes extends Context.Service<
           let box = yield* load(id);
 
           if (box.destroying !== undefined) {
-            return yield* refusal(
-              "Box is destroying; export cannot read a partially removed box. Retry DELETE to finish teardown.",
-              409
-            );
+            return yield* inProgress(box.destroying);
           }
 
           if (box.state === "running") {
@@ -861,32 +970,38 @@ export class Boxes extends Context.Service<
 
           const { files, manifest } = yield* archiveSource(box, row);
 
+          const custody = yield* archive.open.pipe(
+            Effect.mapError(archiveError)
+          );
+
           if (
             box.archive?.peon === id &&
             box.archive.box === containerOf(id) &&
-            box.archive.fingerprint === files.fingerprint
+            box.archive.fingerprint === files.fingerprint &&
+            JSON.stringify(box.archive.skippedEntries) ===
+              JSON.stringify(manifest.skipped)
           ) {
-            const previous = yield* archive
+            const previous = yield* custody
               .readBack(box.archive, "check")
-              .pipe(Effect.mapError(archiveRefusal));
+              .pipe(Effect.mapError(archiveError));
 
             if (ReadBackResult.$is("Verified")(previous)) {
               return { exportReceipt: previous.exportReceipt, state };
             }
           }
 
-          const receipt = yield* archive
+          const receipt = yield* custody
             .put(manifest, files)
-            .pipe(Effect.mapError(archiveRefusal));
+            .pipe(Effect.mapError(archiveError));
 
-          const proof = yield* archive
+          const proof = yield* custody
             .readBack(receipt, "publish")
-            .pipe(Effect.mapError(archiveRefusal));
+            .pipe(Effect.mapError(archiveError));
 
           if (!ReadBackResult.$is("Verified")(proof)) {
-            return yield* refusal(
-              `Protected archive read-back did not match in both destinations: ${proof.reason} Check custody storage, then POST /v1/boxes/${id}/export again.`,
-              409
+            return yield* mismatch(
+              id,
+              `Protected archive read-back did not match in both destinations: ${proof.reason}`
             );
           }
 
@@ -896,10 +1011,7 @@ export class Boxes extends Context.Service<
         }, Effect.scoped);
 
         const proveArchive = Effect.fn("Boxes.proveArchive")(
-          function* proveArchive(
-            box: BoxMetadata,
-            purpose: "check" | "receipts"
-          ) {
+          function* proveArchive(box: BoxMetadata, custody: OpenArchive) {
             const receipt = box.archive;
 
             if (
@@ -909,14 +1021,14 @@ export class Boxes extends Context.Service<
               return yield* needsExport(box.peonId);
             }
 
-            const proof = yield* archive
-              .readBack(receipt, purpose)
-              .pipe(Effect.mapError(archiveRefusal));
+            const proof = yield* custody
+              .readBack(receipt, "check")
+              .pipe(Effect.mapError(archiveError));
 
             if (!ReadBackResult.$is("Verified")(proof)) {
-              return yield* refusal(
-                `Cannot destroy without both custody receipts: ${proof.reason}`,
-                409
+              return yield* mismatch(
+                box.peonId,
+                `Cannot destroy without both custody receipts: ${proof.reason}`
               );
             }
 
@@ -928,7 +1040,8 @@ export class Boxes extends Context.Service<
           function* authorizeWorkspace(
             box: BoxMetadata,
             input: typeof Action.Type,
-            retainSnapshot: boolean
+            retainSnapshot: boolean,
+            canonical: SnapshotRoot
           ) {
             const { landedHead } = input;
 
@@ -943,7 +1056,7 @@ export class Boxes extends Context.Service<
                 })
               );
 
-              return yield* Effect.void;
+              return { abandoned: [], ignored: 0 };
             }
 
             if (landedHead === undefined || input.discardWorkspace === true) {
@@ -957,28 +1070,48 @@ export class Boxes extends Context.Service<
                 directory,
                 landedHead,
                 box.image,
+                managerUid,
                 config.gid
-              ).pipe(Effect.provideService(Runner, runner));
+              ).pipe(
+                Effect.provideService(Runner, runner),
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path)
+              );
 
-            if (box.state !== "hibernated") {
-              yield* verify(work(box.peonId));
-            }
+            const live =
+              box.state === "hibernated"
+                ? undefined
+                : yield* verify(work(box.peonId));
 
-            if (
+            const saved =
               box.state === "hibernated" ||
               (box.snapshot !== undefined && !retainSnapshot)
-            ) {
-              yield* Effect.scoped(
-                extractSnapshot(box, "work").pipe(Effect.flatMap(verify))
-              );
-            }
+                ? yield* Effect.scoped(
+                    extractSnapshot(box, "work", canonical).pipe(
+                      Effect.flatMap(verify)
+                    )
+                  )
+                : undefined;
 
-            return yield* Effect.void;
+            return {
+              abandoned: [
+                ...new Set([
+                  ...(live?.abandoned ?? []),
+                  ...(saved?.abandoned ?? []),
+                ]),
+              ].toSorted(),
+              ignored: (live?.ignored ?? 0) + (saved?.ignored ?? 0),
+            };
           }
         );
 
         const beginDestroy = Effect.fn("Boxes.beginDestroy")(
-          function* beginDestroy(box: BoxMetadata, input: typeof Action.Type) {
+          function* beginDestroy(
+            box: BoxMetadata,
+            input: typeof Action.Type,
+            custody: OpenArchive,
+            canonical: SnapshotRoot
+          ) {
             const id = box.peonId;
             const receipt = box.archive;
 
@@ -987,26 +1120,42 @@ export class Boxes extends Context.Service<
             }
 
             if (box.state === "idle") {
-              return yield* refusal(
-                `Box is not stopped. POST /v1/boxes/${id}/export to stop it before destroying.`,
-                409
+              return yield* mismatch(
+                id,
+                "Box is not stopped; export must suspend it before destroy."
               );
             }
 
             yield* nextState(box.state, "DESTROY");
-            const { files } = yield* Effect.scoped(archiveSource(box));
 
-            if (receipt.authority !== files.authority) {
-              return yield* refusal(
-                `Authoritative session bytes changed. POST /v1/boxes/${id}/export before destroying.`,
-                409
+            const { files, manifest } = yield* Effect.scoped(
+              archiveSource(box, undefined, canonical)
+            );
+
+            const skipped =
+              manifest.skipped.length > 0
+                ? manifest.skipped
+                : (receipt.skippedEntries ?? []);
+
+            if (skipped.length > 0) {
+              return yield* new CustodyIncomplete({
+                skipped,
+                message: `Some session files were skipped. Recover them and POST /v1/boxes/${id}/export before destroying.`,
+                status: 409,
+              });
+            }
+
+            if (receipt.fingerprint !== files.fingerprint) {
+              return yield* mismatch(
+                id,
+                "Session inventory changed since export."
               );
             }
 
-            const proof = yield* proveArchive(box, "check");
+            const proof = yield* proveArchive(box, custody);
 
             const retainSnapshot =
-              input.retained === true || box.snapshot?.retained === true;
+              input.retained ?? box.snapshot?.retained === true;
 
             if (retainSnapshot && box.state !== "hibernated") {
               return yield* unlanded(
@@ -1015,18 +1164,42 @@ export class Boxes extends Context.Service<
             }
 
             const snapshot =
-              box.snapshot === undefined ? undefined : yield* snapshotPath(box);
+              box.snapshot === undefined
+                ? undefined
+                : yield* snapshotPath(box, canonical);
 
-            yield* authorizeWorkspace(box, input, retainSnapshot);
+            const { requestId } = input;
+            const disposition = dispositionOf(input);
+
+            if (disposition === undefined || requestId === undefined) {
+              return yield* unlanded(
+                "Workspace teardown requires exactly one disposition and a requestId."
+              );
+            }
+
+            const workspace = yield* authorizeWorkspace(
+              box,
+              input,
+              retainSnapshot,
+              canonical
+            );
 
             const bytesFreed =
               (yield* size(base(id))) +
               (retainSnapshot ? 0 : (snapshot?.bytes ?? 0));
 
-            const marker = { bytesFreed, receiptId: proof.id, retainSnapshot };
+            const marker = {
+              ...workspace,
+              bytesFreed,
+              disposition,
+              requestId,
+              receiptId: proof.id,
+              retainSnapshot,
+            };
+
             yield* save({ ...box, destroying: marker });
 
-            return marker;
+            return { exportReceipt: proof, marker };
           }
         );
 
@@ -1046,11 +1219,29 @@ export class Boxes extends Context.Service<
           }
 
           const id = box.peonId;
-          const marker = box.destroying ?? (yield* beginDestroy(box, input));
 
           if (
-            box.archive === undefined ||
-            marker.receiptId !== archiveId(box.archive)
+            box.destroying !== undefined &&
+            (box.destroying.disposition !== dispositionOf(input) ||
+              box.destroying.retainSnapshot !==
+                (input.retained ?? box.snapshot?.retained === true))
+          ) {
+            return yield* inProgress(box.destroying);
+          }
+
+          const custody = yield* archive.open.pipe(
+            Effect.mapError(archiveError)
+          );
+
+          const canonical =
+            box.snapshot === undefined
+              ? snapshotRoot()
+              : Effect.succeed(yield* snapshotRoot());
+
+          if (
+            box.destroying !== undefined &&
+            (box.archive === undefined ||
+              box.destroying.receiptId !== archiveId(box.archive))
           ) {
             return yield* refusal(
               "Destroy marker does not match the recorded archive receipt. Reconcile host metadata before retrying DELETE.",
@@ -1058,8 +1249,16 @@ export class Boxes extends Context.Service<
             );
           }
 
-          const exportReceipt = yield* proveArchive(box, "receipts");
+          const { exportReceipt, marker } =
+            box.destroying === undefined
+              ? yield* beginDestroy(box, input, custody, canonical)
+              : {
+                  exportReceipt: yield* proveArchive(box, custody),
+                  marker: box.destroying,
+                };
+
           yield* execute({ args: ["-f", meta(id)], executable: "sync" });
+          yield* sweepSnapshotReads(id);
 
           if (yield* containerPresent(id)) {
             yield* docker(["rm", "--force", containerOf(id)]).pipe(
@@ -1081,16 +1280,18 @@ export class Boxes extends Context.Service<
 
           const { snapshot, destroying: _destroying, ...metadata } = box;
 
-          if (
-            !marker.retainSnapshot &&
-            snapshot !== undefined &&
-            (yield* fs.exists(snapshot.path))
-          ) {
-            yield* snapshotPath(box);
-            yield* fs.remove(snapshot.path);
+          if (!marker.retainSnapshot && snapshot !== undefined) {
+            yield* canonical;
+
+            if (yield* fs.exists(snapshot.path)) {
+              yield* snapshotPath(box, canonical);
+              yield* fs.remove(snapshot.path);
+            }
           }
 
           const tombstone = Tombstone.make({
+            abandoned: marker.abandoned,
+            ignored: marker.ignored,
             bytesFreed: marker.bytesFreed,
             exportReceipt,
             snapshotKept: marker.retainSnapshot,
@@ -1238,7 +1439,12 @@ export class Boxes extends Context.Service<
                     args: ["-C", work(id), "remote", "remove", "origin"],
                     executable: "git",
                   });
-                  const agent = path.join(home(id), ".pi", "agent");
+
+                  const agent = path.join(
+                    home(id),
+                    agentDirs.PI_CODING_AGENT_DIR
+                  );
+
                   yield* fs.makeDirectory(agent, {
                     mode: 0o770,
                     recursive: true,
@@ -1339,7 +1545,7 @@ export class Boxes extends Context.Service<
 
                   if (box.destroying !== undefined) {
                     return yield* refusal(
-                      "Box is destroying. Retry DELETE to finish teardown.",
+                      inProgress(box.destroying).message,
                       409
                     );
                   }
@@ -1428,11 +1634,16 @@ export class Boxes extends Context.Service<
                     if (box.state === "hibernated") {
                       const previous = box.snapshot;
 
-                      if (input.retained === true && previous !== undefined) {
-                        const snapshot = {
-                          ...previous,
-                          retained: input.retained,
-                        };
+                      if (
+                        input.retained !== undefined &&
+                        previous !== undefined
+                      ) {
+                        const { retained: _retained, ...evidence } =
+                          yield* snapshotPath(box);
+
+                        const snapshot = input.retained
+                          ? { ...evidence, retained: input.retained }
+                          : evidence;
 
                         yield* save({ ...box, snapshot });
 
@@ -1445,7 +1656,7 @@ export class Boxes extends Context.Service<
                     yield* stop(id);
                     yield* regrant(id);
                     yield* owned(id);
-                    const directory = path.join(config.snapshots, id);
+                    const directory = path.join(yield* snapshotRoot(), id);
                     yield* fs.makeDirectory(directory, {
                       mode: 0o700,
                       recursive: true,

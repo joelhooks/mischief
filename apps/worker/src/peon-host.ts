@@ -493,21 +493,23 @@ export const peonHost = ({
       return yield* fault;
     }
 
+    const refused = fault.code !== undefined;
+
     const state =
-      stored.report.state === "destroyed"
-        ? "destroyed"
+      refused || stored.report.state === "destroyed"
+        ? stored.report.state
         : peonTransition(stored.report.state, "BOX_LOST");
 
-    const lost = {
+    const faulted = {
       ...stored,
-      pending: fault.code === undefined ? stored.pending : null,
+      pending: refused ? null : stored.pending,
       report: { ...stored.report, fault: fault.reason, state },
     };
 
-    yield* commit(lost);
+    yield* commit(faulted);
 
-    if (lost.report.state !== "destroyed") {
-      yield* publish(indexOf(lost.report));
+    if (state !== "destroyed") {
+      yield* publish(indexOf(faulted.report));
     }
 
     return yield* fault;

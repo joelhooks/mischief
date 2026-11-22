@@ -132,6 +132,51 @@ it.live(
 
       expect(inspected.body).toMatchObject({
         pending: { kind: "destroy", requestId: `destroy-${peonId}` },
+        state: "suspended",
+      });
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  30_000
+);
+
+it.live(
+  "a refused destroy leaves a hibernated peon hibernated in inspect and list",
+  () =>
+    Effect.gen(function* refuseHibernatedDestroy() {
+      const world = yield* prepare(200, [], undefined, { peons: true });
+      yield* start(world);
+      const peonId = "worker-a";
+
+      const spawned = yield* post(world, "spawnPeon", {
+        overrides: { workspace },
+        peonId,
+        template: "full",
+      });
+
+      expect(spawned.status, JSON.stringify(spawned.body)).toBe(200);
+
+      const hibernated = yield* post(world, "hibernatePeon", { peonId });
+
+      expect(hibernated.status, JSON.stringify(hibernated.body)).toBe(200);
+      expect(hibernated.body).toMatchObject({ state: "hibernated" });
+
+      const refused = yield* post(world, "destroyPeon", {
+        peonId,
+        discardWorkspace: true,
+        requestId: "destroy-hibernated",
+      });
+
+      expect(refused.status).toBe(422);
+      expect(refused.body).toMatchObject({ code: "CustodyMissing" });
+
+      const stored = yield* report(world);
+
+      expect(stored).toMatchObject({ pending: null, state: "hibernated" });
+      expect(stored.fault).toContain("CustodyMissing");
+
+      const sleeping = yield* post(world, "listPeons", { state: "hibernated" });
+
+      expect(sleeping.body).toMatchObject({
+        peons: [{ peonId, state: "hibernated" }],
       });
     }).pipe(Effect.scoped, Effect.provide(services)),
   30_000
@@ -354,7 +399,7 @@ it.live(
       );
       expect(
         refusal.reason.endsWith(
-          "custody is off on this host; destroy is unavailable until custody-on"
+          "Custody is off on this host; destroy is unavailable until custody-on."
         )
       ).toBe(true);
 
@@ -366,7 +411,11 @@ it.live(
       )(custodyMissing.body);
 
       expect(legacy.reason).toBe(refusal.reason);
-      expect((yield* report(world)).pending).toBeNull();
+
+      const stored = yield* report(world);
+
+      expect(stored).toMatchObject({ pending: null, state: "idle" });
+      expect(stored.fault).toBe(refusal.reason);
 
       const receiptMismatch = yield* post(world, "destroyPeon", {
         peonId: "worker-a",

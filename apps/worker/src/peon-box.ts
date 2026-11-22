@@ -68,7 +68,7 @@ const custodyRefusal = Schema.fromJsonString(
 
 const nextStep = {
   CustodyMissing:
-    "custody is off on this host; destroy is unavailable until custody-on",
+    "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete:
     "Recover the skipped session files, then retry destroyPeon.",
   DestroyInProgress:

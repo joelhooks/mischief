@@ -239,6 +239,15 @@ it.live(
       expect(JSON.stringify(custodyMissing.body)).toContain("CustodyMissing");
       expect((yield* report(world)).pending).toBeNull();
 
+      const receiptMismatch = yield* post(world, "destroyPeon", {
+        peonId: "worker-a",
+        requestId: "destroy-1",
+        discardWorkspace: true,
+      });
+
+      expect(JSON.stringify(receiptMismatch.body)).toContain("ReceiptMismatch");
+      expect((yield* report(world)).pending).toBeNull();
+
       const destroyed = yield* post(world, "destroyPeon", {
         peonId: "worker-a",
         requestId: "destroy-1",
@@ -256,8 +265,9 @@ it.live(
         teardown.map(({ path, landedHead }) => [path, landedHead])
       ).toEqual([
         ["/v1/boxes/worker-a", undefined],
-        ["/v1/boxes/worker-a", workspace.sha],
+        ["/v1/boxes/worker-a", undefined],
         ["/v1/boxes/worker-a/export", undefined],
+        ["/v1/boxes/worker-a", undefined],
         ["/v1/boxes/worker-a", workspace.sha],
       ]);
 

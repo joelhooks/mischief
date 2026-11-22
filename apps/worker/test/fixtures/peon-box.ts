@@ -112,9 +112,13 @@ export class FakeBox extends DurableObject {
       );
     }
 
+    const exported =
+      (await this.ctx.storage.get<boolean>(`${path}/export`)) === true;
+
     return deleteRefusal(
       body,
-      (await this.ctx.storage.get<boolean>(`${path}/export`)) === true
+      exported &&
+        !(path === "/v1/boxes/worker-a" && body.discardWorkspace === true)
     );
   }
 

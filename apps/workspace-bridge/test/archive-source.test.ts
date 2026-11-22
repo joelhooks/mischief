@@ -2,7 +2,7 @@ import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer } from "effect";
 
-import { collectArchive } from "../src/box/archive-source.js";
+import { collectArchive, sha256 } from "../src/box/archive-source.js";
 import type { BoxMetadata } from "../src/box/protocol.js";
 import { boxRunnerLayer } from "../src/box/runner.js";
 import { image, sha } from "./fixtures.js";
@@ -91,6 +91,27 @@ it.effect(
       );
       const rewritten = yield* scan();
       expect(rewritten.files.fingerprint).not.toBe(first.files.fingerprint);
+    }).pipe(Effect.provide(NodeServices.layer))
+);
+
+it.effect(
+  "a Claude session ID after 64 KiB of the first record is included without truncating its bytes",
+  () =>
+    Effect.gen(function* longClaudeRecord() {
+      const { fs, home, scan } = yield* fixture;
+      const path = ".claude/projects/long.jsonl";
+      yield* fs.makeDirectory(`${home}/.claude/projects`, { recursive: true });
+
+      const record = JSON.stringify({
+        text: "x".repeat(80 * 1024),
+        sessionId: claudeId,
+      });
+
+      yield* fs.writeFileString(`${home}/${path}`, record);
+      const archive = yield* scan();
+      expect(archive.manifest.session_ids).toContain(claudeId);
+      expect(archive.manifest.unparsed).not.toContain(path);
+      expect(archive.files.checksums).toContain(`${sha256(record)}  ${path}\n`);
     }).pipe(Effect.provide(NodeServices.layer))
 );
 

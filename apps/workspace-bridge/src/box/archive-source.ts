@@ -164,11 +164,17 @@ const scanFile = Effect.fn("Archive.scanFile")(function* scanFile(
 ) {
   const fs = yield* FileSystem.FileSystem;
   const digest = createHash("sha256");
-  let header = Buffer.alloc(0);
+  let remaining = claude ? 8 * 1024 * 1024 : 65_536;
+  const segments: Uint8Array[] = [];
   let complete = !readHeader;
   let bytes = 0;
-  let oversized = false;
   let found = Option.none<string>();
+
+  const decodeClaude = () =>
+    Schema.decodeOption(ClaudeHeader)(
+      Buffer.concat(segments).toString("utf-8")
+    ).pipe(Option.map(({ sessionId }) => sessionId));
+
   yield* fs.stream(file).pipe(
     Stream.runForEach((chunk) =>
       Effect.sync(() => {
@@ -177,28 +183,23 @@ const scanFile = Effect.fn("Archive.scanFile")(function* scanFile(
 
         for (let offset = 0; !complete && offset < chunk.byteLength;) {
           const newline = chunk.indexOf(10, offset);
-          const end = newline === -1 ? chunk.byteLength : newline;
-          const remaining = 65_536 - header.length;
-          header = Buffer.concat([
-            header,
-            chunk.subarray(offset, Math.min(end, offset + remaining)),
-          ]);
-          oversized ||= end - offset > remaining;
+          const hasRecord = newline !== -1 && newline - offset < remaining;
 
-          if (!claude) {
-            complete = newline !== -1 || header.length === 65_536;
-          } else if (newline !== -1) {
-            found = oversized
-              ? Option.none()
-              : Schema.decodeOption(ClaudeHeader)(
-                  header.toString("utf-8")
-                ).pipe(Option.map(({ sessionId }) => sessionId));
-            complete = Option.isSome(found);
-            header = Buffer.alloc(0);
-            oversized = false;
+          const end = hasRecord
+            ? newline
+            : Math.min(chunk.byteLength, offset + remaining);
+
+          segments.push(chunk.subarray(offset, end));
+          remaining -= end - offset + Number(hasRecord);
+
+          if (claude && hasRecord) {
+            found = decodeClaude();
+            segments.length = 0;
           }
 
-          offset = end + 1;
+          complete =
+            (hasRecord && !claude) || remaining === 0 || Option.isSome(found);
+          offset = end + Number(hasRecord);
         }
       })
     )
@@ -206,13 +207,8 @@ const scanFile = Effect.fn("Archive.scanFile")(function* scanFile(
 
   return {
     bytes,
-    header: header.toString("utf-8"),
-    claudeId:
-      claude && !complete && !oversized
-        ? Schema.decodeOption(ClaudeHeader)(header.toString("utf-8")).pipe(
-            Option.map(({ sessionId }) => sessionId)
-          )
-        : found,
+    header: claude ? "" : Buffer.concat(segments).toString("utf-8"),
+    claudeId: claude && !complete ? decodeClaude() : found,
     sha256: digest.digest("hex"),
   };
 });

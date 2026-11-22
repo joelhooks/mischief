@@ -1084,6 +1084,21 @@ it.effect(
         ).toEqual(["worktrees/fixture/HEAD"]);
         yield* fs.writeFileString(`${linked}/HEAD`, `${landedHead}\n`);
         const stashLog = `${work}/.git/logs/refs/stash`;
+
+        for (const fifo of [
+          stashLog,
+          `${work}/.git/objects/info/commit-graph`,
+        ]) {
+          yield* checked({ executable: "mkfifo", args: [fifo] });
+
+          const blocked = yield* TestClock.withLive(
+            destroy("git-fifo").pipe(Effect.timeout("2 seconds"), Effect.flip)
+          );
+
+          expect(Predicate.isTagged(blocked, "WorkspaceUnlanded")).toBe(true);
+          yield* fs.remove(fifo);
+        }
+
         yield* git("update-ref", "refs/stash", landedHead);
         yield* fs.writeFileString(
           stashLog,

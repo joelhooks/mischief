@@ -162,6 +162,7 @@ export const PeonExportReceipt = Schema.Struct({
 export const PeonBoxRefusalCode = Schema.Literals([
   "CustodyMissing",
   "CustodyIncomplete",
+  "ReceiptMismatch",
   "ReplicaPending",
   "ReplicaMismatch",
   "WorkspaceUnlanded",

@@ -74,10 +74,25 @@ while IFS= read -r ref; do
 done
 `;
 
-const reflog = Effect.fn("Box.readReflog")(function* reflog(file: string) {
+const readGitFile = Effect.fn("Box.readGitFile")(function* readGitFile(
+  file: string
+) {
   const fs = yield* FileSystem.FileSystem;
 
-  return yield* fs.readFileString(file).pipe(
+  if (
+    (yield* fs.lstat(file)).type !== "File" ||
+    (yield* fs.realPath(file)) !== file
+  ) {
+    return yield* unlanded(
+      "Git refs, reflogs and other metadata must be canonical regular files."
+    );
+  }
+
+  return yield* fs.readFileString(file);
+});
+
+const reflog = (file: string) =>
+  readGitFile(file).pipe(
     Effect.map((text) =>
       text
         .split("\n")
@@ -85,7 +100,6 @@ const reflog = Effect.fn("Box.readReflog")(function* reflog(file: string) {
         .map((line) => line.split(" ", 2))
     )
   );
-});
 
 const listCheckoutHeads = Effect.fn("Box.checkoutHeads")(
   function* listCheckoutHeads(repo: string) {
@@ -133,15 +147,6 @@ const abandonedCommits = Effect.fn("Box.abandonedCommits")(
       const file = path.join(repo, path.dirname(label), "logs", "HEAD");
 
       if (yield* fs.exists(file)) {
-        if (
-          (yield* fs.realPath(file)) !== file ||
-          (yield* fs.lstat(file)).type !== "File"
-        ) {
-          return yield* unlanded(
-            "Git HEAD reflogs must be canonical regular files."
-          );
-        }
-
         for (const entry of yield* reflog(file)) {
           for (const commit of entry) {
             if (hashPattern.test(commit) && commit !== "0".repeat(40)) {
@@ -210,11 +215,7 @@ const checkRefs = Effect.fn("Box.checkRefs")(function* checkRefs(
   for (const label of checkoutHeads) {
     const file = path.join(repo, label);
 
-    if ((yield* fs.lstat(file)).type !== "File") {
-      return yield* unlanded("A workspace Git HEAD is not a regular file.");
-    }
-
-    const value = (yield* fs.readFileString(file)).trim();
+    const value = (yield* readGitFile(file)).trim();
     const candidate = value.startsWith("ref: ") ? value.slice(5) : value;
 
     if (!hashPattern.test(candidate) && !refs.includes(candidate)) {
@@ -457,6 +458,19 @@ export const verifyWorkspace = Effect.fn("Box.verifyWorkspace")(
       }
     }
 
+    yield* walk(objects, (name, stat) =>
+      stat.type !== "File" ||
+      name === "info/alternates" ||
+      name === "info/http-alternates"
+        ? Effect.fail(
+            unlanded(
+              "Git object storage must use regular files and cannot refer to an alternate store.",
+              [`.git/objects/${name}`]
+            )
+          )
+        : Effect.void
+    );
+
     const proof = yield* fs.makeTempDirectoryScoped();
     const gitDir = path.join(proof, "repo");
     const ignores = path.join(proof, "ignore");
@@ -475,22 +489,15 @@ export const verifyWorkspace = Effect.fn("Box.verifyWorkspace")(
       mode: 0o644,
     });
 
-    const copy = (relative: string, stat: FileSystem.File.Info) =>
+    const copy = (relative: string) =>
       Effect.gen(function* copyEvidence() {
-        if (stat.type !== "File") {
-          return yield* unlanded("Git refs and reflogs must be regular files.");
-        }
-
+        const contents = yield* readGitFile(path.join(repo, relative));
         const target = path.join(gitDir, relative);
         yield* fs.makeDirectory(path.dirname(target), {
           mode: 0o755,
           recursive: true,
         });
-        yield* fs.writeFileString(
-          target,
-          yield* fs.readFileString(path.join(repo, relative)),
-          { mode: 0o644 }
-        );
+        yield* fs.writeFileString(target, contents, { mode: 0o644 });
 
         return yield* Effect.void;
       });
@@ -505,10 +512,8 @@ export const verifyWorkspace = Effect.fn("Box.verifyWorkspace")(
       const stat = yield* fs.lstat(absolute);
 
       yield* stat.type === "Directory" && (name === "refs" || name === "logs")
-        ? walk(absolute, (relative, entry) =>
-            copy(`${name}/${relative}`, entry)
-          )
-        : copy(name, stat);
+        ? walk(absolute, (relative) => copy(`${name}/${relative}`))
+        : copy(name);
     }
 
     const git: Git = (args, input, objectStore = true) => {

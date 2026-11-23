@@ -97,7 +97,11 @@ const stripControls = (value: string) => {
 
     if (
       (code < 32 && code !== 9 && code !== 10) ||
-      (code >= 127 && code <= 159)
+      (code >= 127 && code <= 159) ||
+      (code >= 0x20_0b && code <= 0x20_0f) ||
+      (code >= 0x20_2a && code <= 0x20_2e) ||
+      (code >= 0x20_66 && code <= 0x20_69) ||
+      code === 0xfe_ff
     ) {
       out.push(value.slice(start, index));
       start = endControl(value, index);
@@ -123,6 +127,8 @@ const namedSecret =
 const providerKey =
   /\b(?:sk-[a-z0-9_-]{8,}|(?:gh[pors]_|github_pat_)[a-z0-9_]{8,}|(?:AKIA|ASIA|AIDA|AROA)[A-Z0-9]{16}|(?:mischief[-_])?model[-_]route[-_](?:[a-z0-9_-]{8,}))/giu;
 
+const wholeJwt = /eyJ[\w-]+\.[\w-]+\.[\w-]*/gu;
+
 const tokenRun =
   /(?<![A-Za-z0-9+/_-])(?:(?:[a-f0-9]{40,})(?![A-Za-z0-9+/_-])|[A-Za-z0-9+/_-]{40,}={0,2})(?![A-Za-z0-9+/_-])/giu;
 
@@ -137,6 +143,7 @@ export const sanitizeTailText = (value: string) =>
     .replaceAll(authorization, "[redacted]")
     .replaceAll(bearer, "[redacted]")
     .replaceAll(namedSecret, "[redacted]")
+    .replaceAll(wholeJwt, "[redacted]")
     .replaceAll(providerKey, "[redacted]")
     .replaceAll(tokenRun, (run) => (tokenLike(run) ? "[redacted]" : run));
 

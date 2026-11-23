@@ -57792,7 +57792,7 @@ var stripControls = (value) => {
   let start = 0;
   for (let index3 = 0; index3 < value.length; index3 += 1) {
     const code = codeAt(value, index3);
-    if (code < 32 && code !== 9 && code !== 10 || code >= 127 && code <= 159) {
+    if (code < 32 && code !== 9 && code !== 10 || code >= 127 && code <= 159 || code >= 8203 && code <= 8207 || code >= 8234 && code <= 8238 || code === 173 || code === 1564 || code === 6158 || code >= 8288 && code <= 8297 && code !== 8293 || code === 65279) {
       out.push(value.slice(start, index3));
       start = endControl(value, index3);
       index3 = start - 1;
@@ -57806,9 +57806,10 @@ var authorization = /\b(?:proxy-)?authorization\b["']?[ \t]*[:=][^\n]*/giu;
 var bearer = /\bbearer[ \t]+[^\s"'`,;)}\]]+/giu;
 var namedSecret = /\b(?:[\w-]{0,64}model[-_ ]?route[-_ ]?(?:api[-_ ]?)?key|[\w-]{0,64}(?:api[-_ ]?key|token|secret(?:[-_ ]?key)?|password|private[-_ ]?key|database[-_ ]?url))["']?[ \t]*[:=][ \t]*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;)}\]]+)/giu;
 var providerKey = /\b(?:sk-[a-z0-9_-]{8,}|(?:gh[pors]_|github_pat_)[a-z0-9_]{8,}|(?:AKIA|ASIA|AIDA|AROA)[A-Z0-9]{16}|(?:mischief[-_])?model[-_]route[-_](?:[a-z0-9_-]{8,}))/giu;
+var wholeJwt = /eyJ[\w-]+\.[\w-]+\.[\w-]*/gu;
 var tokenRun = /(?<![A-Za-z0-9+/_-])(?:(?:[a-f0-9]{40,})(?![A-Za-z0-9+/_-])|[A-Za-z0-9+/_-]{40,}={0,2})(?![A-Za-z0-9+/_-])/giu;
 var tokenLike = (value) => /^[a-f0-9]+$/iu.test(value) || /[a-z]/u.test(value) && /[A-Z]/u.test(value) && /\d/u.test(value) || /[+/=]/u.test(value);
-var sanitizeTailText = (value) => stripControls(value).replaceAll(pemBlock, "[redacted]").replaceAll(authorization, "[redacted]").replaceAll(bearer, "[redacted]").replaceAll(namedSecret, "[redacted]").replaceAll(providerKey, "[redacted]").replaceAll(tokenRun, (run2) => tokenLike(run2) ? "[redacted]" : run2);
+var sanitizeTailText = (value) => stripControls(value).replaceAll(pemBlock, "[redacted]").replaceAll(authorization, "[redacted]").replaceAll(bearer, "[redacted]").replaceAll(namedSecret, "[redacted]").replaceAll(wholeJwt, "[redacted]").replaceAll(providerKey, "[redacted]").replaceAll(tokenRun, (run2) => tokenLike(run2) ? "[redacted]" : run2);
 var encoder3 = new TextEncoder();
 var tailJsonBytes = (value) => encoder3.encode(value).byteLength;
 var clipTailText = (value, budget) => {

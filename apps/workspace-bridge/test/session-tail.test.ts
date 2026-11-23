@@ -271,6 +271,52 @@ const previewPayload = [
 const previewRecord = (role: "user" | "assistant", content: Schema.Json) =>
   JSON.stringify({ type: "message", message: { role, content } });
 
+it.effect("tail strips invisible controls before redacting whole secrets", () =>
+  Effect.gen(function* invisibleControlsAndJwt() {
+    const { fs, home, tail } = yield* runRoute();
+
+    const invisibleControls =
+      "\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069\u200B\u200C\u200D\u200E\u200F\uFEFF\u2060\u2061\u2062\u2063\u2064\u00AD\u061C\u180E";
+
+    const markedText = Array.from(
+      invisibleControls,
+      (mark) => `a${mark}b`
+    ).join(" ");
+
+    const splitSecret = ["s", "\u200B", "k-", "a".repeat(24)].join("");
+    const joinedSecret = ["s", "\u2060", "k-", "b".repeat(24)].join("");
+    const jwtHeader = ["ey", "J", "hbGciOiJIUzI1NiJ9"].join("");
+    const jwt = [jwtHeader, "e30", "fake-signature"].join(".");
+    const unsignedJwt = [jwtHeader, "e30", ""].join(".");
+
+    const assistant = previewRecord("assistant", [
+      {
+        type: "text",
+        text: `${markedText} a\u2065b\n${splitSecret} ${joinedSecret} ${jwt} ${unsignedJwt} done`,
+      },
+      {
+        type: "toolCall",
+        name: "bash",
+        arguments: { command: `check ${jwt}` },
+      },
+    ]);
+
+    yield* fs.writeFileString(`${home}/session.jsonl`, `${assistant}\n`);
+
+    const { result } = yield* readPage(yield* tail({}));
+
+    expect(result).toMatchObject({
+      status: "tail",
+      entries: [
+        {
+          text: `${Array.from(invisibleControls, () => "ab").join(" ")} a\u2065b\n[redacted] [redacted] [redacted] [redacted] done`,
+          toolCalls: [{ name: "bash", args: '{"command":"check [redacted]"}' }],
+        },
+      ],
+    });
+  }).pipe(Effect.provide(NodeServices.layer))
+);
+
 const verboseAssistant = previewRecord("assistant", [
   { type: "text", text: "work 🛠 ".repeat(400) },
 ]);

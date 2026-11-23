@@ -59,88 +59,86 @@ export const providerFailure = (
   );
 };
 
-export const workspaceCompletion = Effect.fn("WorkspaceBridge.decodePi")(
-  function* workspaceCompletion(
-    stdout: string,
-    exit: number,
-    provider?: string
+export const workspaceCompletionReader = (provider?: string) => {
+  let final: typeof Assistant.Type.message | undefined;
+
+  const usage = {
+    cacheRead: 0,
+    cacheWrite: 0,
+    input: 0,
+    output: 0,
+  };
+
+  const read = Effect.fn("WorkspaceBridge.decodePiEvent")(function* read(
+    line: string
   ) {
-    let final: typeof Assistant.Type.message | undefined;
-
-    const usage = {
-      cacheRead: 0,
-      cacheWrite: 0,
-      input: 0,
-      output: 0,
-    };
-
-    for (const line of stdout
-      .split("\n")
-      .filter((entry) => entry.trim() !== "")) {
-      const event = yield* Schema.decodeUnknownEffect(
-        Schema.fromJsonString(Event)
-      )(line).pipe(
-        Effect.mapError(() =>
-          refusal(
-            "Pi returned invalid JSON events. Check the pinned workspace image and retry.",
-            502
-          )
-        )
-      );
-
-      if (event.type !== "message_end") {
-        continue;
-      }
-
-      const message = yield* Schema.decodeUnknownEffect(
-        Schema.fromJsonString(Message)
-      )(line).pipe(
-        Effect.mapError(() =>
-          refusal(
-            "Pi returned an invalid message_end. Check the pinned workspace image and retry.",
-            502
-          )
-        )
-      );
-
-      if (message.message.role !== "assistant") {
-        continue;
-      }
-
-      const assistant: typeof Assistant.Type =
-        yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Assistant))(
-          line
-        ).pipe(
-          Effect.mapError(() =>
-            refusal(
-              "Pi returned an unsupported assistant message. Check the pinned workspace image and retry.",
-              502
-            )
-          )
-        );
-
-      if (
-        assistant.message.stopReason === "error" ||
-        assistant.message.stopReason === "aborted"
-      ) {
-        return yield* providerFailure(
-          assistant.message.errorMessage ?? "",
-          provider ?? "peon/gpt-6.1-sol"
-        );
-      }
-
-      for (const key of [
-        "cacheRead",
-        "cacheWrite",
-        "input",
-        "output",
-      ] as const) {
-        usage[key] += assistant.message.usage[key];
-      }
-
-      final = assistant.message;
+    if (line.trim() === "") {
+      return yield* Effect.void;
     }
 
+    const event = yield* Schema.decodeUnknownEffect(
+      Schema.fromJsonString(Event)
+    )(line).pipe(
+      Effect.mapError(() =>
+        refusal(
+          "Pi returned invalid JSON events. Check the pinned workspace image and retry.",
+          502
+        )
+      )
+    );
+
+    if (event.type !== "message_end") {
+      return yield* Effect.void;
+    }
+
+    const message = yield* Schema.decodeUnknownEffect(
+      Schema.fromJsonString(Message)
+    )(line).pipe(
+      Effect.mapError(() =>
+        refusal(
+          "Pi returned an invalid message_end. Check the pinned workspace image and retry.",
+          502
+        )
+      )
+    );
+
+    if (message.message.role !== "assistant") {
+      return yield* Effect.void;
+    }
+
+    const assistant: typeof Assistant.Type = yield* Schema.decodeUnknownEffect(
+      Schema.fromJsonString(Assistant)
+    )(line).pipe(
+      Effect.mapError(() =>
+        refusal(
+          "Pi returned an unsupported assistant message. Check the pinned workspace image and retry.",
+          502
+        )
+      )
+    );
+
+    if (
+      assistant.message.stopReason === "error" ||
+      assistant.message.stopReason === "aborted"
+    ) {
+      return yield* providerFailure(
+        assistant.message.errorMessage ?? "",
+        provider ?? "peon/gpt-6.1-sol"
+      );
+    }
+
+    for (const key of ["cacheRead", "cacheWrite", "input", "output"] as const) {
+      usage[key] += assistant.message.usage[key];
+    }
+
+    final = assistant.message;
+
+    return yield* Effect.void;
+  });
+
+  const finish = Effect.fn("WorkspaceBridge.finishPi")(function* finish(
+    exit: number
+  ) {
     if (final === undefined || final.stopReason === "toolUse") {
       return yield* refusal(
         "Pi exited without a final answer after its tool loop. Inspect workspace provider health and retry.",
@@ -153,5 +151,23 @@ export const workspaceCompletion = Effect.fn("WorkspaceBridge.decodePi")(
       exit,
       ""
     );
+  });
+
+  return { read, finish };
+};
+
+export const workspaceCompletion = Effect.fn("WorkspaceBridge.decodePi")(
+  function* workspaceCompletion(
+    stdout: string,
+    exit: number,
+    provider?: string
+  ) {
+    const reader = workspaceCompletionReader(provider);
+
+    for (const line of stdout.split("\n")) {
+      yield* reader.read(line);
+    }
+
+    return yield* reader.finish(exit);
   }
 );

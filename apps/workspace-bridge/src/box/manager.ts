@@ -1680,14 +1680,25 @@ export class Boxes extends Context.Service<
                     };
                     yield* save(box);
 
+                    const requestKey = yield* keyOf(requestId);
+
+                    const directory = path.join(
+                      meta(id),
+                      "requests",
+                      requestKey
+                    );
+
                     const result = yield* promptPi(
                       containerOf(id),
                       box.template,
                       text,
                       began,
-                      resumeMs
+                      resumeMs,
+                      directory
                     ).pipe(
                       Effect.provideService(Runner, runner),
+                      Effect.provideService(FileSystem.FileSystem, fs),
+                      Effect.provideService(Path.Path, path),
                       Effect.onError(() =>
                         stop(id).pipe(
                           Effect.andThen(save({ ...box, state: "suspended" })),
@@ -1705,7 +1716,7 @@ export class Boxes extends Context.Service<
                         "--input-type=module",
                         "-e",
                         "import{mkdir,writeFile}from'node:fs/promises';process.umask(0o0007);await mkdir('/home/peon/.box/requests',{recursive:true});const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);await writeFile(process.argv[1],Buffer.concat(chunks))",
-                        `/home/peon/.box/requests/${yield* keyOf(requestId)}.json`,
+                        `/home/peon/.box/requests/${requestKey}.json`,
                       ],
                       JSON.stringify({ requestId, result })
                     );

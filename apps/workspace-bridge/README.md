@@ -14,6 +14,8 @@ Operators can sign `POST /inspectDeskWake` with `sh.mschf.mischief.inspectDeskWa
 
 The box manager records each prompt result or error under its request ID in host-owned metadata. A committed error returns `PromptFailed` with the original message, including on replay of receipts written before that code existed. The worker clears the pending turn and records the fault without marking the box lost. Inspect the peon, then use a new request ID for the next turn. A receipt that only says the request began still returns an uncoded 409: reconcile it before attempting new work, because the old prompt may have run tools.
 
+Pi's raw event stream goes to the private host file `metadata/<peon>/requests/<request hash>/events.jsonl`, not the box home. Each file drops its previous window when the next write would cross 32 MiB, so it can start mid-event after rotation. The manager reads events as they arrive and skips oversized diagnostic and tool-result records; the file is not a source of turn results. The returned reply and tool names still share a 16 MiB budget.
+
 ## Workspace deployment
 
 These definitions do not create a Docker network, slice, firewall rule or unit, and the units are not registered with the infrastructure stack. Local image builds do not prove peon-network execution or live provider behavior; those proofs remain rollout work.

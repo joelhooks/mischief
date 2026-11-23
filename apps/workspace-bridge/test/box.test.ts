@@ -237,6 +237,18 @@ printf '%s\\n' '{"type":"session_meta","payload":{"id":"b4419e3f-b704-4d1a-a45b-
 cp "$CODEX_HOME/sessions/fixture.jsonl" "$CODEX_HOME/archived_sessions/fixture.jsonl"
 printf '%s\\n' '{}' > "$CODEX_HOME/history.jsonl"
 printf 'changed by tool\\n' > '${root}/boxes/'"$id"'/work/result.txt'
+if [ "$input" = 'large event stream' ]; then
+  printf '%s\\n' '{"type":"tool_execution_start","toolName":"inspect"}'
+  printf '%s\\n' '{"type":"message_end","message":{"role":"assistant","content":[],"stopReason":"toolUse","usage":{"input":3,"output":2,"cacheRead":0,"cacheWrite":0}}}'
+  printf '%s' '{"type":"tool_execution_end","result":"'
+  head -c $((33 * 1024 * 1024)) /dev/zero | tr '\\000' x
+  printf '%s\\n' '"}'
+elif [ "$input" = 'large reply' ]; then
+  printf '%s' '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"'
+  head -c $((17 * 1024 * 1024)) /dev/zero | tr '\\000' x
+  printf '%s\\n' '"}],"stopReason":"stop","usage":{"input":1,"output":1,"cacheRead":0,"cacheWrite":0}}}'
+  exit 0
+fi
 printf '%s\\n' '${piOutput}'
 `,
     { mode: 0o700 }
@@ -2204,10 +2216,16 @@ it.effect(
         );
 
         expect(woke.resumeMs).toBeGreaterThanOrEqual(0);
+
+        const requestFiles = yield* fs.readDirectory(
+          `${fixture.root}/metadata/source/requests`
+        );
+
+        const wokeKey = yield* receiptKey("mail:../../wake/..");
+        expect(requestFiles).toContain(wokeKey);
+        expect(requestFiles).toContain(`${wokeKey}.json`);
         expect(
-          (yield* fs.readDirectory(
-            `${fixture.root}/metadata/source/requests`
-          )).every((name) => /^[0-9a-f]{64}\.json$/u.test(name))
+          requestFiles.every((name) => /^[0-9a-f]{64}(?:\.json)?$/u.test(name))
         ).toBe(true);
         expect(yield* boxes.inspect("source")).toMatchObject({
           processes: 1,
@@ -2559,6 +2577,71 @@ it.effect.prop(
         }
       }
     })
+);
+
+it.effect("a 33 MiB tool event does not consume the reply budget", () =>
+  Effect.gen(function* largeStream() {
+    const fixture = yield* harness;
+    const fs = yield* FileSystem.FileSystem;
+
+    yield* Effect.gen(function* prompt() {
+      const boxes = yield* Boxes;
+      yield* boxes.create({
+        peonId: "source",
+        requestId: "create",
+        template: fixture.template,
+      });
+
+      const result = yield* boxes.act({
+        peonId: "source",
+        requestId: "large-turn",
+        action: "prompt",
+        text: "large event stream",
+      });
+
+      expect(result).toMatchObject({
+        output: "verdict",
+        toolCalls: ["inspect", "read"],
+        usage: { input: 4, output: 3, total: 7 },
+      });
+
+      const log = `${fixture.root}/metadata/source/requests/${yield* receiptKey("large-turn")}/events.jsonl`;
+      const info = yield* fs.stat(log);
+
+      expect(Number(info.size)).toBeLessThanOrEqual(32 * 1024 * 1024);
+      expect((yield* fs.readFileString(log)).endsWith(`${piOutput}\n`)).toBe(
+        true
+      );
+
+      const oversized = yield* Effect.flip(
+        boxes.act({
+          peonId: "source",
+          requestId: "large-reply",
+          action: "prompt",
+          text: "large reply",
+        })
+      );
+
+      expect(oversized).toBeInstanceOf(PromptFailed);
+      expect(oversized.message).toContain(
+        "reply exceeds the box result budget"
+      );
+    }).pipe(
+      Effect.provide(
+        Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
+      ),
+      Effect.provideService(Runner, fixture.runner)
+    );
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(
+      boxRunnerLayer().pipe(
+        Layer.provideMerge(
+          Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+        )
+      )
+    )
+  )
 );
 
 it.effect(

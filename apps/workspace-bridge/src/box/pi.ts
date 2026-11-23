@@ -1,14 +1,9 @@
-import { Clock, Effect, Schema } from "effect";
+import { Clock, Effect, FileSystem, Path } from "effect";
 
-import { workspaceCompletion } from "../pi-output.js";
 import { refusal } from "../protocol.js";
 import { Runner } from "../runner.js";
+import { promptEvents } from "./prompt-events.js";
 import type { BoxTemplate } from "./protocol.js";
-
-const ToolEvent = Schema.Struct({
-  toolName: Schema.optionalKey(Schema.String),
-  type: Schema.String,
-});
 
 export const modelOf = (template: BoxTemplate) =>
   template.model === "opus"
@@ -32,8 +27,22 @@ export const promptPi = Effect.fn("Box.promptPi")(function* promptPi(
   template: BoxTemplate,
   text: string,
   began: number,
-  resumeMs: number
+  resumeMs: number,
+  directory: string
 ) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+
+  yield* fs.makeDirectory(directory, { mode: 0o700, recursive: true });
+
+  const log = yield* fs.open(path.join(directory, "events.jsonl"), {
+    flag: "w",
+    mode: 0o600,
+    noFollow: true,
+  });
+
+  const events = promptEvents(log);
+
   const output = yield* Runner.use(({ run }) =>
     run({
       args: [
@@ -58,32 +67,13 @@ export const promptPi = Effect.fn("Box.promptPi")(function* promptPi(
         "--append-system-prompt",
         "/home/peon/append-system.md",
       ],
+      consumeStdout: events.consume,
       executable: "docker",
       input: text,
     })
   );
 
-  const completion = yield* workspaceCompletion(output.stdout, output.exit);
-  const toolCalls: string[] = [];
-
-  for (const line of output.stdout
-    .split("\n")
-    .filter((value) => value.trim() !== "")) {
-    const event = yield* Schema.decodeUnknownEffect(
-      Schema.fromJsonString(ToolEvent)
-    )(line).pipe(
-      Effect.mapError(() =>
-        refusal(
-          "Pi returned an invalid tool event. Inspect the session before retrying the prompt.",
-          502
-        )
-      )
-    );
-
-    if (event.type === "tool_execution_start" && event.toolName !== undefined) {
-      toolCalls.push(event.toolName);
-    }
-  }
+  const { completion, toolCalls } = yield* events.finish(output.exit);
 
   return {
     exit: output.exit,
@@ -102,4 +92,4 @@ export const promptPi = Effect.fn("Box.promptPi")(function* promptPi(
     },
     wallMs: (yield* Clock.currentTimeMillis) - began,
   };
-});
+}, Effect.scoped);

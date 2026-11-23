@@ -2,7 +2,7 @@ import { Effect, Layer, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { refusal } from "../protocol.js";
-import { collectBytes, Runner } from "../runner.js";
+import { collectBytes, OUTPUT_LIMIT, Runner } from "../runner.js";
 import type { Command } from "../runner.js";
 
 export const boxRunnerLayer = (searchPath?: string) =>
@@ -31,9 +31,22 @@ export const boxRunnerLayer = (searchPath?: string) =>
             })
           );
 
+          if (command.consumeStdout !== undefined) {
+            const { exit } = yield* Effect.all(
+              {
+                stdout: command.consumeStdout(child.stdout),
+                stderr: Stream.runDrain(child.stderr),
+                exit: child.exitCode,
+              },
+              { concurrency: "unbounded" }
+            );
+
+            return { exit: Number(exit), stdout: "" };
+          }
+
           const [bytes, stderr, exit] = yield* Effect.all(
             [
-              collectBytes(child.stdout, 16 * 1024 * 1024),
+              collectBytes(child.stdout, OUTPUT_LIMIT),
               collectBytes(child.stderr, 64 * 1024),
               child.exitCode,
             ],

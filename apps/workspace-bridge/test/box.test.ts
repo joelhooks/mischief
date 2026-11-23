@@ -1250,23 +1250,29 @@ it.effect(
 );
 
 it.effect.each(["live", "snapshot"])(
-  "uncovered JSONL in the %s home blocks destroy even after both archives verify",
+  "derived JSONL from anywhere in the %s home is verified before destroy",
   (source) =>
-    Effect.gen(function* uncoveredCustody() {
+    Effect.gen(function* derivedHomeCustody() {
       const fs = yield* FileSystem.FileSystem;
       const fixture = yield* custodyFixture;
       yield* Effect.gen(function* lifecycle() {
         const boxes = yield* Boxes;
-        const peonId = "uncovered";
+        const peonId = "derived-home";
         const home = `${fixture.root}/boxes/${peonId}/home`;
-        const relative = ".cache/other/trace.jsonl";
+        const paths = [".cache/x/fixture.jsonl", "tmp/scratch.jsonl"];
+        const raw = '{"message":"derived fixture"}\n';
+
         yield* boxes.create({
           peonId,
           template: fixture.template,
           requestId: "create",
         });
-        yield* fs.makeDirectory(`${home}/.cache/other`, { recursive: true });
-        yield* fs.writeFileString(`${home}/${relative}`, "{}\n");
+        yield* fs.makeDirectory(`${home}/.cache/x`, { recursive: true });
+        yield* fs.makeDirectory(`${home}/tmp`);
+
+        for (const relative of paths) {
+          yield* fs.writeFileString(`${home}/${relative}`, raw);
+        }
 
         if (source === "snapshot") {
           yield* boxes.act({
@@ -1275,7 +1281,16 @@ it.effect.each(["live", "snapshot"])(
             requestId: "hibernate",
           });
           yield* boxes.act({ action: "resume", peonId, requestId: "resume" });
-          yield* fs.remove(`${home}/${relative}`);
+
+          for (const relative of paths) {
+            yield* fs.remove(`${home}/${relative}`);
+          }
+
+          yield* fs.makeDirectory(`${home}/snapshot/tmp`, { recursive: true });
+          yield* fs.writeFileString(
+            `${home}/snapshot/tmp/scratch.jsonl`,
+            "live bytes\n"
+          );
         }
 
         const exported = yield* Schema.decodeUnknownEffect(Export)(
@@ -1284,25 +1299,38 @@ it.effect.each(["live", "snapshot"])(
 
         yield* fixture.replicate(exported.exportReceipt.id);
 
-        const refused = yield* Effect.flip(
-          boxes.act({
-            action: "destroy",
-            peonId,
-            requestId: "destroy",
-            discardWorkspace: true,
-          })
-        );
+        for (const root of Object.values(fixture.roots)) {
+          const archive = `${root}/${exported.exportReceipt.id}`;
 
-        expect(refused._tag).toBe("CustodyIncomplete");
-        expect(refused).toMatchObject({
-          skipped: [
-            {
-              path: source === "snapshot" ? `snapshot/${relative}` : relative,
-              reason: "uncovered",
-            },
-          ],
+          const checksums = yield* fs.readFileString(
+            `${archive}/MANIFEST.sha256`
+          );
+
+          for (const relative of paths) {
+            const name =
+              source === "snapshot" ? `snapshot/${relative}` : relative;
+
+            expect(checksums).toContain(`${sha256(raw)}  ${name}\n`);
+            expect(yield* fs.readFileString(`${archive}/${name}`)).toBe(raw);
+          }
+
+          if (source === "snapshot") {
+            const live = `__escaped__${sha256("snapshot")}/tmp/scratch.jsonl`;
+            expect(yield* fs.readFileString(`${archive}/${live}`)).toBe(
+              "live bytes\n"
+            );
+          }
+        }
+
+        const result = yield* boxes.act({
+          action: "destroy",
+          peonId,
+          requestId: "destroy",
+          discardWorkspace: true,
         });
-        expect(yield* fs.exists(home)).toBe(true);
+
+        expect(result.state).toBe("destroyed");
+        expect(yield* fs.exists(home)).toBe(false);
       }).pipe(
         Effect.provide(
           Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))

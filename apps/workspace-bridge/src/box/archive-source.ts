@@ -96,7 +96,8 @@ export const isArchivePath = (file: string) => {
 
   return (
     relative.split("/").every((name) => safeName.test(name)) &&
-    sessionRoots.some((root) => belongs(relative, root))
+    (relative.endsWith(".jsonl") ||
+      sessionRoots.some((root) => belongs(relative, root)))
   );
 };
 
@@ -105,7 +106,29 @@ const escapeName = (name: string) =>
     ? name
     : `__escaped__${sha256(name)}`;
 
-const escapePath = (name: string) => name.split("/").map(escapeName).join("/");
+const escapePath = (relative: string, reserveSnapshot: boolean) =>
+  relative
+    .split("/")
+    .map((name, index) =>
+      reserveSnapshot && index === 0 && name === "snapshot"
+        ? `__escaped__${sha256(name)}`
+        : escapeName(name)
+    )
+    .join("/");
+
+const archiveEntryName = (
+  prefix: string,
+  relative: string,
+  incidental: boolean
+) => {
+  const escaped = prefix + escapePath(relative, prefix === "");
+
+  return incidental &&
+    relative.endsWith(".jsonl") &&
+    !escaped.endsWith(".jsonl")
+    ? `${escaped}.jsonl`
+    : escaped;
+};
 
 const PiHeader = Schema.fromJsonString(
   Schema.Struct({
@@ -313,12 +336,92 @@ export const collectArchive = Effect.fn("Archive.collect")(
     const roots: Manifest["source_roots"][number][] = [];
     const unparsed: string[] = [];
     const skips = new Map<string, Manifest["skipped"][number]>();
+    const collected = new Set<string>();
 
-    const recordSkip = (entry: Manifest["skipped"][number]) => {
-      if (!skips.has(entry.path)) {
-        skips.set(entry.path, entry);
+    const sourcePath = (prefix: string, relative: string) =>
+      prefix === "" && relative.startsWith(snapshotPrefix)
+        ? `./${relative}`
+        : prefix + relative;
+
+    const recordSkip = (prefix: string, entry: Manifest["skipped"][number]) => {
+      const name = sourcePath(prefix, entry.path || ".");
+
+      if (!skips.has(name)) {
+        skips.set(name, {
+          path: name,
+          reason: `${entry.reason} Recover readable history at ${JSON.stringify(name)} before retrying export.`,
+        });
       }
     };
+
+    const visitEntry = Effect.fn("Archive.visitEntry")(function* visitEntry(
+      source: string,
+      prefix: string,
+      relative: string,
+      entry: FileSystem.File.Info,
+      root?: string
+    ) {
+      const file = path.join(source, relative);
+      const from = sourcePath(prefix, relative);
+      const jsonl = relative.endsWith(".jsonl");
+      const incidental = root === undefined || root === claudeCache;
+      const name = archiveEntryName(prefix, relative, incidental);
+
+      if (root === undefined) {
+        roots.push({ path: from, role: "derived" });
+      } else if (jsonl) {
+        collected.add(file);
+      }
+
+      if (entry.type === "SymbolicLink") {
+        const target = yield* fs.readLink(file);
+
+        symlinks.set(
+          name,
+          /[\t\r\n]/u.test(target) || target.startsWith('"')
+            ? JSON.stringify(target)
+            : target
+        );
+
+        return yield* Effect.void;
+      }
+
+      if (entry.type !== "File") {
+        nonData.push({ path: name, type: entry.type });
+
+        return yield* Effect.void;
+      }
+
+      const transcript =
+        root !== undefined && !incidental && jsonl && relative !== codexHistory;
+
+      const claude = root !== undefined && derivedRoots.has(root);
+
+      const scanned = yield* scanFile(file, transcript, claude && transcript);
+
+      if (transcript) {
+        const pi = root === primaryPiSession || root === piSessions;
+
+        const id = claude
+          ? scanned.claudeId
+          : sessionId(root, scanned.header, pi);
+
+        if (Option.isSome(id)) {
+          sessions.add(id.value);
+        } else {
+          unparsed.push(name);
+        }
+      }
+
+      if (from !== name) {
+        renamed.push({ from, to: name });
+      }
+
+      sources.set(name, file);
+      files.set(name, { bytes: scanned.bytes, sha256: scanned.sha256 });
+
+      return yield* Effect.void;
+    });
 
     const visitRoot = Effect.fn("Archive.visitRoot")(function* visitRoot(
       source: string,
@@ -343,76 +446,11 @@ export const collectArchive = Effect.fn("Archive.collect")(
         source,
         root,
         (relative, entry) =>
-          Effect.gen(function* visitSession() {
-            if (!belongs(relative, root)) {
-              return yield* Effect.void;
-            }
-
-            const file = path.join(source, relative);
-            const from = prefix + relative;
-            const name = prefix + escapePath(relative);
-
-            if (entry.type === "SymbolicLink") {
-              const target = yield* fs.readLink(file);
-
-              symlinks.set(
-                name,
-                /[\t\r\n]/u.test(target) || target.startsWith('"')
-                  ? JSON.stringify(target)
-                  : target
-              );
-
-              return yield* Effect.void;
-            }
-
-            if (entry.type !== "File") {
-              nonData.push({ path: name, type: entry.type });
-
-              return yield* Effect.void;
-            }
-
-            const jsonl = relative.endsWith(".jsonl");
-
-            const pi =
-              root === primaryPiSession || (root === piSessions && jsonl);
-
-            const transcript =
-              jsonl && relative !== codexHistory && root !== claudeCache;
-
-            const claude = derivedRoots.has(root);
-
-            const scanned = yield* scanFile(
-              file,
-              transcript,
-              claude && transcript
-            );
-
-            if (transcript) {
-              const id = claude
-                ? scanned.claudeId
-                : sessionId(root, scanned.header, pi);
-
-              if (Option.isSome(id)) {
-                sessions.add(id.value);
-              } else {
-                unparsed.push(name);
-              }
-            }
-
-            if (from !== name) {
-              renamed.push({ from, to: name });
-            }
-
-            sources.set(name, file);
-            files.set(name, {
-              bytes: scanned.bytes,
-              sha256: scanned.sha256,
-            });
-
-            return yield* Effect.void;
-          }),
+          belongs(relative, root)
+            ? visitEntry(source, prefix, relative, entry, root)
+            : Effect.void,
         (entry) => {
-          recordSkip({ ...entry, path: prefix + entry.path });
+          recordSkip(prefix, entry);
         }
       );
 
@@ -453,8 +491,8 @@ export const collectArchive = Effect.fn("Archive.collect")(
             }
 
             return Effect.sync(() => {
-              recordSkip({
-                path: prefix + root,
+              recordSkip(prefix, {
+                path: root,
                 reason: noncanonical
                   ? error.message
                   : "Session root could not be read.",
@@ -467,17 +505,13 @@ export const collectArchive = Effect.fn("Archive.collect")(
       yield* walkArchive(
         source,
         "",
-        (relative) =>
-          Effect.sync(() => {
-            if (
-              relative.endsWith(".jsonl") &&
-              !files.has(prefix + escapePath(relative))
-            ) {
-              recordSkip({ path: prefix + relative, reason: "uncovered" });
-            }
-          }),
-        ({ path: relative, reason }) => {
-          recordSkip({ path: prefix + (relative || "."), reason });
+        (relative, entry) =>
+          relative.endsWith(".jsonl") &&
+          !collected.has(path.join(source, relative))
+            ? visitEntry(source, prefix, relative, entry)
+            : Effect.void,
+        (entry) => {
+          recordSkip(prefix, entry);
         }
       );
     }

@@ -117,10 +117,10 @@ it.effect(
 );
 
 it.effect(
-  "archives only Claude MCP logs and reports other JSONL without following links",
+  "archives MCP logs and other JSONL as derived without following links",
   () =>
     Effect.gen(function* cacheCoverage() {
-      const { fs, home, scan } = yield* fixture;
+      const { fs, home, pi, scan } = yield* fixture;
       const outside = yield* fs.makeTempDirectoryScoped();
       const mcp = ".cache/claude-cli-nodejs/-work/mcp-logs-custom-tools/nested";
       const other = ".cache/claude-cli-nodejs/-work/mcp-logs-neighbor.jsonl";
@@ -132,18 +132,26 @@ it.effect(
       yield* fs.writeFileString(`${outside}/not-in-home.jsonl`, raw);
       yield* fs.symlink(outside, `${home}/${mcp}/outside`);
       yield* fs.symlink(`${outside}/not-in-home.jsonl`, `${home}/link.jsonl`);
+      yield* fs.symlink(`${outside}/not-in-home.jsonl`, `${pi}/link.jsonl`);
 
       const { files, manifest } = yield* scan();
       expect(manifest.source_roots).toContainEqual({
         path: ".cache/claude-cli-nodejs",
         role: "derived",
       });
-      expect(files.paths).toEqual([`${mcp}/log.jsonl`, "session.jsonl"]);
+      expect(manifest.source_roots).toContainEqual({
+        path: other,
+        role: "derived",
+      });
+      expect(files.paths).toEqual([`${mcp}/log.jsonl`, other, "session.jsonl"]);
       expect(files.checksums).toContain(`${sha256(raw)}  ${mcp}/log.jsonl\n`);
-      expect(manifest.skipped).toEqual([
-        { path: other, reason: "uncovered" },
-        { path: "link.jsonl", reason: "uncovered" },
-      ]);
+      expect(files.checksums).toContain(`${sha256(raw)}  ${other}\n`);
+      expect(files.symlinks).toContain(
+        `.pi/agent/sessions/link.jsonl\t${outside}/not-in-home.jsonl\n`
+      );
+      expect(manifest.session_ids).toEqual([piId]);
+      expect(manifest.unparsed).toEqual([]);
+      expect(manifest.skipped).toEqual([]);
     }).pipe(Effect.provide(NodeServices.layer))
 );
 
@@ -164,7 +172,11 @@ it.effect(
 
       expect(files.paths).toEqual([]);
       expect(manifest.skipped).toEqual([
-        { path: "session.jsonl", reason: "Session path could not be read." },
+        {
+          path: "session.jsonl",
+          reason:
+            'Session path could not be read. Recover readable history at "session.jsonl" before retrying export.',
+        },
       ]);
     }).pipe(Effect.provide(NodeServices.layer))
 );

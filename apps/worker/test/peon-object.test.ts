@@ -150,11 +150,17 @@ it.live(
         expect(failure.body, attempt).toMatchObject({ code: "PromptFailed" });
         const stored = yield* report(world);
 
+        const box = yield* HttpClient.get(
+          `http://127.0.0.1:${world.boxPort}/v1/boxes/${peonId}`,
+          { headers: { authorization: "Bearer fake-box-key" } }
+        ).pipe(Effect.flatMap((response) => response.json));
+
+        expect(box).toMatchObject({ state: "suspended" });
         expect(stored.fault).toContain("The provider is unavailable.");
         expect(stored).toMatchObject({
           lastTurn: null,
           pending: null,
-          state: "idle",
+          state: "suspended",
         });
       }
 

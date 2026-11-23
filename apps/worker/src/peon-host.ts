@@ -500,18 +500,24 @@ export const peonHost = ({
       stored.pending.kind === "prompt" &&
       stored.report.state === "running";
 
-    const settled = promptFinished ? yield* move(stored, "TURN_DONE") : stored;
+    const observed = promptFinished
+      ? (fault.boxState ?? "idle")
+      : stored.report.state;
 
     const state =
-      refused || settled.report.state === "destroyed"
-        ? settled.report.state
-        : peonTransition(settled.report.state, "BOX_LOST");
+      refused || observed === "destroyed"
+        ? observed
+        : peonTransition(observed, "BOX_LOST");
+
+    const updatedAt = promptFinished
+      ? yield* Clock.currentTimeMillis
+      : stored.report.updatedAt;
 
     const faulted = {
-      ...settled,
-      idleAt: promptFinished ? settled.report.updatedAt : settled.idleAt,
-      pending: refused ? null : settled.pending,
-      report: { ...settled.report, fault: fault.reason, state },
+      ...stored,
+      idleAt: promptFinished ? updatedAt : stored.idleAt,
+      pending: refused ? null : stored.pending,
+      report: { ...stored.report, fault: fault.reason, state, updatedAt },
     };
 
     yield* commit(faulted);

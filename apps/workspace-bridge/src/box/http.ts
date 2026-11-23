@@ -215,7 +215,11 @@ const route = (key: Redacted.Redacted) =>
           disposition: failure.disposition,
           retained: failure.retained,
         }),
-      PromptFailed: (failure) => taggedFailure(failure, {}),
+      PromptFailed: (failure) =>
+        taggedFailure(
+          failure,
+          failure.state === undefined ? {} : { state: failure.state }
+        ),
       ReplicaPending: (failure) =>
         taggedFailure(failure, { archiveId: failure.archiveId }),
       ReplicaMismatch: (failure) =>

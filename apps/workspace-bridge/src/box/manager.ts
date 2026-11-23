@@ -1,5 +1,6 @@
 import { hostname } from "node:os";
 
+import { PeonState } from "@mischief/core";
 import type { BoxTailResult, PeonTailQuery } from "@mischief/core";
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import {
@@ -1399,10 +1400,25 @@ export class Boxes extends Context.Service<
           return tombstone;
         });
 
+        const promptFailure = Effect.fn("Boxes.promptFailure")(
+          function* promptFailure(id: string, error: BridgeFailure) {
+            const state = yield* load(id).pipe(
+              Effect.map((box) => box.state),
+              Effect.catch(() => Effect.succeed(undefined))
+            );
+
+            const failure = { message: error.message, status: error.status };
+
+            return yield* new PromptFailed(
+              Schema.is(PeonState)(state) ? { ...failure, state } : failure
+            );
+          }
+        );
+
         const request = Effect.fn("Boxes.request")(function* request<E>(
           id: string,
           requestId: string,
-          committedFailure: (error: BridgeFailure) => E,
+          committedFailure: (error: BridgeFailure) => Effect.Effect<never, E>,
           operation: Effect.Effect<
             typeof Result.Type,
             BridgeFailure | PlatformError.PlatformError
@@ -1436,7 +1452,7 @@ export class Boxes extends Context.Service<
             }
 
             if (receipt.error !== undefined) {
-              return yield* Effect.fail(committedFailure(receipt.error));
+              return yield* committedFailure(receipt.error);
             }
 
             return yield* refusal(
@@ -1454,7 +1470,7 @@ export class Boxes extends Context.Service<
             Effect.matchEffect({
               onFailure: (error) =>
                 writeJson(file, { error, requestId }).pipe(
-                  Effect.andThen(Effect.fail(committedFailure(error)))
+                  Effect.andThen(committedFailure(error))
                 ),
               onSuccess: (result) =>
                 writeJson(file, { requestId, result }).pipe(Effect.as(result)),
@@ -1471,7 +1487,7 @@ export class Boxes extends Context.Service<
               request(
                 id,
                 input.requestId,
-                (error) => error,
+                Effect.fail,
                 Effect.gen(function* createBox() {
                   if (yield* fs.exists(metadataPath(id))) {
                     return yield* refusal(
@@ -1633,13 +1649,10 @@ export class Boxes extends Context.Service<
               request(
                 id,
                 requestId,
-                (error) =>
+                (error): Effect.Effect<never, BridgeFailure | PromptFailed> =>
                   input.action === "prompt"
-                    ? new PromptFailed({
-                        message: error.message,
-                        status: error.status,
-                      })
-                    : error,
+                    ? promptFailure(id, error)
+                    : Effect.fail(error),
                 Effect.gen(function* actBox() {
                   let box = yield* load(id);
 
@@ -1688,44 +1701,53 @@ export class Boxes extends Context.Service<
                       requestKey
                     );
 
-                    const result = yield* promptPi(
-                      containerOf(id),
-                      box.template,
-                      text,
-                      began,
-                      resumeMs,
-                      directory
-                    ).pipe(
-                      Effect.provideService(Runner, runner),
-                      Effect.provideService(FileSystem.FileSystem, fs),
-                      Effect.provideService(Path.Path, path),
+                    const parked = {
+                      ...box,
+                      state: "suspended",
+                    } satisfies BoxMetadata;
+
+                    return yield* Effect.gen(function* runPrompt() {
+                      const result = yield* promptPi(
+                        containerOf(id),
+                        box.template,
+                        text,
+                        began,
+                        resumeMs,
+                        directory
+                      ).pipe(
+                        Effect.provideService(Runner, runner),
+                        Effect.provideService(FileSystem.FileSystem, fs),
+                        Effect.provideService(Path.Path, path)
+                      );
+
+                      yield* docker(
+                        [
+                          "exec",
+                          "-i",
+                          containerOf(id),
+                          "node",
+                          "--input-type=module",
+                          "-e",
+                          "import{mkdir,writeFile}from'node:fs/promises';process.umask(0o0007);await mkdir('/home/peon/.box/requests',{recursive:true});const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);await writeFile(process.argv[1],Buffer.concat(chunks))",
+                          `/home/peon/.box/requests/${requestKey}.json`,
+                        ],
+                        JSON.stringify({ requestId, result })
+                      );
+                      yield* save({
+                        ...box,
+                        state: yield* nextState(box.state, "DONE"),
+                      });
+
+                      return result;
+                    }).pipe(
                       Effect.onError(() =>
                         stop(id).pipe(
-                          Effect.andThen(save({ ...box, state: "suspended" })),
+                          Effect.andThen(save(parked)),
                           Effect.orDie
                         )
-                      )
+                      ),
+                      Effect.tapError(() => parkArchive(parked, input.row))
                     );
-
-                    yield* docker(
-                      [
-                        "exec",
-                        "-i",
-                        containerOf(id),
-                        "node",
-                        "--input-type=module",
-                        "-e",
-                        "import{mkdir,writeFile}from'node:fs/promises';process.umask(0o0007);await mkdir('/home/peon/.box/requests',{recursive:true});const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);await writeFile(process.argv[1],Buffer.concat(chunks))",
-                        `/home/peon/.box/requests/${requestKey}.json`,
-                      ],
-                      JSON.stringify({ requestId, result })
-                    );
-                    yield* save({
-                      ...box,
-                      state: yield* nextState(box.state, "DONE"),
-                    });
-
-                    return result;
                   }
 
                   const state = yield* nextState(

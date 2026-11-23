@@ -12,9 +12,9 @@ Operators can sign `POST /inspectDeskWake` with `sh.mschf.mischief.inspectDeskWa
 
 ## Box prompt receipts
 
-The box manager records each prompt result or error under its request ID in host-owned metadata. A committed error returns `PromptFailed` with the original message, including on replay of receipts written before that code existed. The worker clears the pending turn and records the fault without marking the box lost. Inspect the peon, then use a new request ID for the next turn. A receipt that only says the request began still returns an uncoded 409: reconcile it before attempting new work, because the old prompt may have run tools.
+The box manager records each prompt result or error under its request ID in host-owned metadata. A committed error returns `PromptFailed` with the original message and the current box state when readable, including on replay of receipts written before that code existed. The worker clears the pending turn, records the fault, and adopts the box state. If Pi ran and the manager parked the box after a failure, it attempts the same change-only, deadline-bound archive as an explicit park. Inspect the peon, then use a new request ID for the next turn. A receipt that only says the request began still returns an uncoded 409: reconcile it before attempting new work, because the old prompt may have run tools.
 
-Pi's raw event stream goes to the private host file `metadata/<peon>/requests/<request hash>/events.jsonl`, not the box home. Each file drops its previous window when the next write would cross 32 MiB, so it can start mid-event after rotation. The manager reads events as they arrive and skips oversized diagnostic and tool-result records; the file is not a source of turn results. The returned reply and tool names still share a 16 MiB budget.
+Pi's raw event stream goes to the private host file `metadata/<peon>/requests/<request hash>/events.jsonl`, not the box home. It is a bounded debug window: the manager truncates and restarts it when the next write would cross 32 MiB, so it can begin mid-record. The manager parses live events, never reads the file back to recover a turn, and uses the request receipt as the authority on replay. The returned reply and tool names still share a 16 MiB budget.
 
 ## Workspace deployment
 

@@ -102,7 +102,11 @@ const deleteRefusal = (body: typeof RequestBody.Type, exported: boolean) => {
 const failedPrompt = () =>
   Response.json(
     {
-      error: { code: "PromptFailed", message: "The provider is unavailable." },
+      error: {
+        code: "PromptFailed",
+        message: "The provider is unavailable.",
+        state: "suspended",
+      },
     },
     { status: 503 }
   );
@@ -227,7 +231,7 @@ export class FakeBox extends DurableObject {
         bytes: { home: 20, snapshot: 30, work: 10 },
         container: "box",
         lastPromptAt: null,
-        state: "idle",
+        state: (await this.ctx.storage.get(`${path}/state`)) ?? "idle",
       });
     }
 
@@ -256,14 +260,18 @@ export class FakeBox extends DurableObject {
         : Response.json(previous);
     }
 
+    const stateKey = path.replace(/\/prompt$/u, "/state");
+
     if (text === "fail-this-turn") {
       await this.ctx.storage.put(key, "failed-prompt");
+      await this.ctx.storage.put(stateKey, "suspended");
 
       return failedPrompt();
     }
 
     const response = fixtureTurn(path);
     await this.ctx.storage.put(key, response);
+    await this.ctx.storage.delete(stateKey);
 
     return text === "hold-until-eviction"
       ? new Response(

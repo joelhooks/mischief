@@ -221,6 +221,9 @@ exec /usr/bin/du "$@"
 set -eu
 id="$PEON_TEST_ID"
 input="$(cat)"
+if [ "$input" = 'fail without new history' ]; then
+  exit 7
+fi
 session='${root}/boxes/'"$id"'/home/session.jsonl'
 if [ ! -f "$session" ]; then printf '%s\\n' '${piHeader}' > "$session"; fi
 printf '%s\\n' "$input" >> "$session"
@@ -237,6 +240,9 @@ printf '%s\\n' '{"type":"session_meta","payload":{"id":"b4419e3f-b704-4d1a-a45b-
 cp "$CODEX_HOME/sessions/fixture.jsonl" "$CODEX_HOME/archived_sessions/fixture.jsonl"
 printf '%s\\n' '{}' > "$CODEX_HOME/history.jsonl"
 printf 'changed by tool\\n' > '${root}/boxes/'"$id"'/work/result.txt'
+if [ "$input" = 'fail after writing history' ]; then
+  exit 7
+fi
 if [ "$input" = 'large event stream' ]; then
   printf '%s\\n' '{"type":"tool_execution_start","toolName":"inspect"}'
   printf '%s\\n' '{"type":"message_end","message":{"role":"assistant","content":[],"stopReason":"toolUse","usage":{"input":3,"output":2,"cacheRead":0,"cacheWrite":0}}}'
@@ -401,6 +407,96 @@ it.effect("commits as the bot in a spawned box", () =>
       )
     )
   )
+);
+
+it.effect(
+  "a prompt failure archives new history only when it parks the box",
+  () =>
+    Effect.gen(function* failedPark() {
+      const fs = yield* FileSystem.FileSystem;
+      const fixture = yield* custodyFixture;
+
+      yield* Effect.gen(function* verifyPark() {
+        const boxes = yield* Boxes;
+        const peonId = "failed-park";
+        const primary = `${fixture.roots.primary}/${peonId}`;
+
+        yield* boxes.create({
+          peonId,
+          requestId: "create",
+          template: fixture.template,
+        });
+
+        const refused = yield* Effect.flip(
+          boxes.act({ action: "prompt", peonId, requestId: "empty", text: " " })
+        );
+
+        expect(refused).toBeInstanceOf(PromptFailed);
+        expect(refused).toMatchObject({ state: "idle", status: 400 });
+        expect(yield* boxes.inspect(peonId)).toMatchObject({
+          state: "idle",
+          processes: 1,
+        });
+        expect(yield* fs.exists(primary)).toBe(false);
+
+        const prompt = boxes.act({
+          action: "prompt",
+          peonId,
+          requestId: "failed-turn",
+          text: "fail after writing history",
+        });
+
+        const failed = yield* Effect.flip(prompt);
+        expect(failed).toBeInstanceOf(PromptFailed);
+        expect(failed).toMatchObject({ state: "suspended", status: 502 });
+        expect(yield* boxes.inspect(peonId)).toMatchObject({
+          state: "suspended",
+          processes: 0,
+        });
+
+        const receipts = yield* fs.readDirectory(primary);
+        expect(receipts).toHaveLength(1);
+        expect(
+          yield* fs.readFileString(`${primary}/${receipts[0]}/session.jsonl`)
+        ).toContain("fail after writing history");
+
+        expect(yield* Effect.flip(prompt)).toMatchObject({
+          state: "suspended",
+          status: 502,
+        });
+        expect(
+          yield* Effect.flip(
+            boxes.act({
+              action: "prompt",
+              peonId,
+              requestId: "unchanged-history",
+              text: "fail without new history",
+            })
+          )
+        ).toMatchObject({ state: "suspended", status: 502 });
+        expect(yield* fs.readDirectory(primary)).toEqual(receipts);
+
+        yield* boxes.act({ action: "resume", peonId, requestId: "wake" });
+        expect(yield* Effect.flip(prompt)).toMatchObject({
+          state: "idle",
+          status: 502,
+        });
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
 );
 
 it.effect(
@@ -642,68 +738,89 @@ it.effect(
     )
 );
 
-it.effect("park times out a hung archive without keeping the box busy", () =>
-  Effect.gen(function* hungArchive() {
-    const fixture = yield* custodyFixture;
-    const entered = yield* Deferred.make<undefined>();
-    const cancelled = yield* Deferred.make<undefined>();
-    const disk = yield* ArchivePort.pipe(Effect.provide(fixture.disk));
+it.effect.each(["suspend", "prompt"] as const)(
+  "park times out a hung archive without keeping the box busy after %s",
+  (action) =>
+    Effect.gen(function* hungArchive() {
+      const fixture = yield* custodyFixture;
+      const entered = yield* Deferred.make<undefined>();
+      const cancelled = yield* Deferred.make<undefined>();
+      const disk = yield* ArchivePort.pipe(Effect.provide(fixture.disk));
 
-    const hanging = Layer.succeed(ArchivePort, {
-      ...disk,
-      open: Deferred.succeed(entered, undefined).pipe(
-        Effect.andThen(Effect.never),
-        Effect.onInterrupt(() => Deferred.succeed(cancelled, undefined))
-      ),
-    });
-
-    yield* Effect.gen(function* park() {
-      const boxes = yield* Boxes;
-      const peonId = "timed-park";
-
-      const suspend = () =>
-        boxes.act({ action: "suspend", peonId, requestId: "sleep" });
-
-      yield* boxes.create({
-        peonId,
-        template: fixture.template,
-        requestId: "create",
+      const hanging = Layer.succeed(ArchivePort, {
+        ...disk,
+        open: Deferred.succeed(entered, undefined).pipe(
+          Effect.andThen(Effect.never),
+          Effect.onInterrupt(() => Deferred.succeed(cancelled, undefined))
+        ),
       });
-      const parking = yield* Effect.forkChild(suspend());
-      yield* Deferred.await(entered);
-      expect(yield* boxes.inspect(peonId)).toMatchObject({
-        state: "suspended",
-        processes: 0,
-      });
-      yield* TestClock.adjust("1 second");
-      const receipt = yield* Fiber.join(parking);
-      expect(receipt).toEqual({
-        state: "suspended",
-        parkExport: "failed",
-        parkExportFailure: "timeout",
-      });
-      expect(yield* Deferred.isDone(cancelled)).toBe(true);
-      expect(yield* suspend()).toEqual(receipt);
-      expect(
-        yield* boxes.act({ action: "resume", peonId, requestId: "wake" })
-      ).toMatchObject({ state: "idle" });
+
+      yield* Effect.gen(function* park() {
+        const boxes = yield* Boxes;
+        const peonId = "timed-park";
+
+        const parkResult = boxes
+          .act({
+            action,
+            peonId,
+            requestId: "sleep",
+            text: "fail after writing history",
+          })
+          .pipe(
+            Effect.match({
+              onSuccess: (result) => result,
+              onFailure: (failure) => failure,
+            })
+          );
+
+        yield* boxes.create({
+          peonId,
+          template: fixture.template,
+          requestId: "create",
+        });
+        const parking = yield* Effect.forkChild(parkResult);
+        yield* Deferred.await(entered);
+        expect(yield* boxes.inspect(peonId)).toMatchObject({
+          state: "suspended",
+          processes: 0,
+        });
+        yield* TestClock.adjust("1 second");
+        const receipt = yield* Fiber.join(parking);
+
+        if (action === "prompt") {
+          expect(receipt).toBeInstanceOf(PromptFailed);
+          expect(receipt).toMatchObject({ state: "suspended", status: 502 });
+        } else {
+          expect(receipt).toEqual({
+            state: "suspended",
+            parkExport: "failed",
+            parkExportFailure: "timeout",
+          });
+        }
+
+        expect(yield* Deferred.isDone(cancelled)).toBe(true);
+        expect(yield* parkResult).toEqual(receipt);
+        expect(
+          yield* boxes.act({ action: "resume", peonId, requestId: "wake" })
+        ).toMatchObject({ state: "idle" });
+      }).pipe(
+        Effect.provide(
+          Boxes.layer({
+            ...fixture.config,
+            parkArchiveTimeout: "1 second",
+          }).pipe(Layer.provide(hanging))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
     }).pipe(
       Effect.provide(
-        Boxes.layer({ ...fixture.config, parkArchiveTimeout: "1 second" }).pipe(
-          Layer.provide(hanging)
-        )
-      ),
-      Effect.provideService(Runner, fixture.runner)
-    );
-  }).pipe(
-    Effect.provide(
-      boxRunnerLayer().pipe(
-        Layer.provideMerge(
-          Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
         )
       )
     )
-  )
 );
 
 it.effect(

@@ -49,7 +49,11 @@ it.effect(
           message: "retry",
           status: 409,
         }),
-        new PromptFailed({ message: "Provider unavailable", status: 503 }),
+        new PromptFailed({
+          message: "Provider unavailable",
+          state: "suspended",
+          status: 503,
+        }),
         new ReceiptMismatch({
           reason: "changed",
           message: "mismatch",
@@ -225,9 +229,15 @@ it.effect(
             });
 
         expect(response.status).toBe(failure.status);
-        expect(yield* response.json).toMatchObject({
+
+        const errorBody = yield* response.json;
+        expect(errorBody).toMatchObject({
           error: { code: failure._tag, message: failure.message },
         });
+
+        if (Predicate.isTagged(failure, "PromptFailed")) {
+          expect(errorBody).toMatchObject({ error: { state: "suspended" } });
+        }
       }
 
       expect(yield* Ref.get(calls)).toEqual([

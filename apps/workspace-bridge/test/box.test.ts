@@ -1144,7 +1144,13 @@ it.effect(
       const peonId = "snapshot-history";
       const base = `${fixture.root}/boxes/${peonId}`;
       const raw = "snapshot-only raw transcript\n";
-      const history = ".pi/agent/sessions/only-in-snapshot.jsonl";
+      const logs = ".cache/claude-cli-nodejs/-work/mcp-logs-custom-tools";
+
+      const histories = [
+        ".pi/agent/sessions/only-in-snapshot.jsonl",
+        `${logs}/only-in-snapshot.jsonl`,
+      ];
+
       yield* Effect.gen(function* lifecycle() {
         const boxes = yield* Boxes;
         yield* boxes.create({
@@ -1158,7 +1164,11 @@ it.effect(
           requestId: "turn",
           text: "before snapshot",
         });
-        yield* fs.writeFileString(`${base}/home/${history}`, raw);
+        yield* fs.makeDirectory(`${base}/home/${logs}`, { recursive: true });
+
+        for (const history of histories) {
+          yield* fs.writeFileString(`${base}/home/${history}`, raw);
+        }
 
         const parked = yield* boxes.act({
           action: "hibernate",
@@ -1173,7 +1183,10 @@ it.effect(
 
         expect(snapshot.retained).toBe(true);
         yield* boxes.act({ action: "resume", peonId, requestId: "resume" });
-        yield* fs.remove(`${base}/home/${history}`);
+
+        for (const history of histories) {
+          yield* fs.remove(`${base}/home/${history}`);
+        }
 
         const exported = yield* Schema.decodeUnknownEffect(Export)(
           yield* boxes.act({ action: "export", peonId })
@@ -1204,12 +1217,120 @@ it.effect(
         expect(yield* fs.exists(snapshot.path)).toBe(false);
 
         for (const root of Object.values(fixture.roots)) {
-          expect(
-            yield* fs.readFileString(
-              `${root}/${exported.exportReceipt.id}/snapshot/${history}`
-            )
-          ).toBe(raw);
+          const archive = `${root}/${exported.exportReceipt.id}`;
+
+          const checksums = yield* fs.readFileString(
+            `${archive}/MANIFEST.sha256`
+          );
+
+          for (const history of histories) {
+            expect(
+              yield* fs.readFileString(`${archive}/snapshot/${history}`)
+            ).toBe(raw);
+            expect(checksums).toContain(
+              `${sha256(raw)}  snapshot/${history}\n`
+            );
+          }
         }
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
+
+it.effect.each(["live", "snapshot"])(
+  "derived JSONL from anywhere in the %s home is verified before destroy",
+  (source) =>
+    Effect.gen(function* derivedHomeCustody() {
+      const fs = yield* FileSystem.FileSystem;
+      const fixture = yield* custodyFixture;
+      yield* Effect.gen(function* lifecycle() {
+        const boxes = yield* Boxes;
+        const peonId = "derived-home";
+        const home = `${fixture.root}/boxes/${peonId}/home`;
+        const paths = [".cache/x/fixture.jsonl", "tmp/scratch.jsonl"];
+        const raw = '{"message":"derived fixture"}\n';
+
+        yield* boxes.create({
+          peonId,
+          template: fixture.template,
+          requestId: "create",
+        });
+        yield* fs.makeDirectory(`${home}/.cache/x`, { recursive: true });
+        yield* fs.makeDirectory(`${home}/tmp`);
+
+        for (const relative of paths) {
+          yield* fs.writeFileString(`${home}/${relative}`, raw);
+        }
+
+        if (source === "snapshot") {
+          yield* boxes.act({
+            action: "hibernate",
+            peonId,
+            requestId: "hibernate",
+          });
+          yield* boxes.act({ action: "resume", peonId, requestId: "resume" });
+
+          for (const relative of paths) {
+            yield* fs.remove(`${home}/${relative}`);
+          }
+
+          yield* fs.makeDirectory(`${home}/snapshot/tmp`, { recursive: true });
+          yield* fs.writeFileString(
+            `${home}/snapshot/tmp/scratch.jsonl`,
+            "live bytes\n"
+          );
+        }
+
+        const exported = yield* Schema.decodeUnknownEffect(Export)(
+          yield* boxes.act({ action: "export", peonId })
+        );
+
+        yield* fixture.replicate(exported.exportReceipt.id);
+
+        for (const root of Object.values(fixture.roots)) {
+          const archive = `${root}/${exported.exportReceipt.id}`;
+
+          const checksums = yield* fs.readFileString(
+            `${archive}/MANIFEST.sha256`
+          );
+
+          for (const relative of paths) {
+            const name =
+              source === "snapshot" ? `snapshot/${relative}` : relative;
+
+            expect(checksums).toContain(`${sha256(raw)}  ${name}\n`);
+            expect(yield* fs.readFileString(`${archive}/${name}`)).toBe(raw);
+          }
+
+          if (source === "snapshot") {
+            const live = `__escaped__${sha256("snapshot")}/tmp/scratch.jsonl`;
+            expect(yield* fs.readFileString(`${archive}/${live}`)).toBe(
+              "live bytes\n"
+            );
+          }
+        }
+
+        const result = yield* boxes.act({
+          action: "destroy",
+          peonId,
+          requestId: "destroy",
+          discardWorkspace: true,
+        });
+
+        expect(result.state).toBe("destroyed");
+        expect(yield* fs.exists(home)).toBe(false);
       }).pipe(
         Effect.provide(
           Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))

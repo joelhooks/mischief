@@ -19,7 +19,7 @@ import { refusal } from "../protocol.js";
 import { checked, Runner } from "../runner.js";
 import type { Command, ProcessOutput } from "../runner.js";
 import type { ArchiveFailure } from "./archive-failure.js";
-import { agentDirs, collectArchive, sessionRoots } from "./archive-source.js";
+import { agentDirs, collectArchive } from "./archive-source.js";
 import { ArchivePort, ReadBackResult, archiveId } from "./archive.js";
 import type { OpenArchive } from "./archive.js";
 import type { CustodyMissing } from "./custody-missing.js";
@@ -841,72 +841,21 @@ export class Boxes extends Context.Service<
               prefix: "snapshot-read-",
             });
 
-            if (part === "work") {
-              yield* execute({
-                executable: "tar",
-                args: [
-                  "--no-same-owner",
-                  "--same-permissions",
-                  "-xf",
-                  snapshot.path,
-                  "-C",
-                  staging,
-                  "--",
-                  "work",
-                ],
-              });
+            yield* execute({
+              executable: "tar",
+              args: [
+                "--no-same-owner",
+                ...(part === "work" ? ["--same-permissions"] : []),
+                "-xf",
+                snapshot.path,
+                "-C",
+                staging,
+                "--",
+                part,
+              ],
+            });
 
-              return path.join(staging, "work");
-            }
-
-            const entries = new Set(
-              (yield* execute({
-                executable: "tar",
-                args: ["-tf", snapshot.path],
-              })).split("\n")
-            );
-
-            const source = path.join(staging, "home");
-            yield* fs.makeDirectory(source);
-
-            for (const name of [".pi", ...Object.values(agentDirs)]) {
-              if (entries.has(`home/${name}`)) {
-                return yield* refusal(
-                  "Snapshot session parent is not a directory. Recover the original before retrying export.",
-                  409
-                );
-              }
-
-              if (entries.has(`home/${name}/`)) {
-                yield* fs.makeDirectory(path.join(source, name), {
-                  recursive: true,
-                });
-              }
-            }
-
-            const selected = sessionRoots
-              .filter(
-                (root) =>
-                  entries.has(`home/${root}`) || entries.has(`home/${root}/`)
-              )
-              .map((root) => `home/${root}`);
-
-            if (selected.length > 0) {
-              yield* execute({
-                executable: "tar",
-                args: [
-                  "--no-same-owner",
-                  "-xf",
-                  snapshot.path,
-                  "-C",
-                  staging,
-                  "--",
-                  ...selected,
-                ],
-              });
-            }
-
-            return source;
+            return path.join(staging, part);
           }
         );
 

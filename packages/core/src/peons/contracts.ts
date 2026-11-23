@@ -12,6 +12,7 @@ import {
   PeonTemplateVersion,
   PeonTombstone,
 } from "./schema.js";
+import { tailPeonContract } from "./tail.js";
 
 const requestId = Schema.String.check(
   Schema.isMinLength(1),
@@ -164,6 +165,7 @@ export const peonContracts = [
   clonePeonContract,
   destroyPeonContract,
   inspectPeonContract,
+  tailPeonContract,
   listPeonTemplatesContract,
   savePeonTemplateContract,
   listPeonsContract,

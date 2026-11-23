@@ -8,6 +8,7 @@ import { peonBox } from "./peon-box.js";
 import { peonHost } from "./peon-host.js";
 import { PEON_REGISTRY, PeonCompleted, PeonStored } from "./peon-state.js";
 import type { PeonPending } from "./peon-state.js";
+import { safeLastTurn } from "./peon-tail.js";
 import type { Env } from "./plan-run-object.js";
 
 export const peonRpc = <A>(operation: () => Promise<A>) =>
@@ -235,6 +236,12 @@ export class Peon extends DurableObject<Env> {
         ? this.host.inspect
         : this.host.inspectStored
     );
+  }
+
+  async tailContext() {
+    const { lastTurn, state } = await this.run(this.host.inspectStored);
+
+    return { lastTurn: safeLastTurn(lastTurn), state };
   }
 
   override async alarm() {

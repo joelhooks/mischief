@@ -68,6 +68,30 @@ export {
 
 export { Peons, peonCapabilities } from "./peons/capabilities.js";
 
+export {
+  BoxTailResult,
+  PeonTailContext,
+  PeonTailEntry,
+  PeonTailEntryType,
+  PeonTailForbidden,
+  PeonTailNotFound,
+  PeonTailQuery,
+  peonTailArgBudget,
+  peonTailDefaultEntries,
+  peonTailEntryBudget,
+  peonTailLastToolLimit,
+  peonTailNameBudget,
+  peonTailPageEntryBudget,
+  tailPeonContract,
+} from "./peons/tail.js";
+
+export {
+  clipTailText,
+  previewTailText,
+  sanitizeTailText,
+  tailJsonBytes,
+} from "./peons/tail-sanitize.js";
+
 export { thinkStatus, thinkingCapabilities } from "./thinking/capabilities.js";
 
 export {

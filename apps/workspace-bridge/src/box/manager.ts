@@ -1,5 +1,6 @@
 import { hostname } from "node:os";
 
+import type { BoxTailResult, PeonTailQuery } from "@mischief/core";
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import {
   Cause,
@@ -39,6 +40,7 @@ import { ReceiptMismatch } from "./receipt-mismatch.js";
 import { receiptKey } from "./receipt.js";
 import { ReplicaMismatch } from "./replica-mismatch.js";
 import { ReplicaPending } from "./replica-pending.js";
+import { readSessionTail } from "./session-tail.js";
 import { unlanded, verifyWorkspace } from "./workspace-proof.js";
 import type { WorkspaceUnlanded } from "./workspace-unlanded.js";
 
@@ -185,6 +187,10 @@ export class Boxes extends Context.Service<
     readonly inspect: (
       id: string
     ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
+    readonly tail: (
+      id: string,
+      query: typeof PeonTailQuery.Type
+    ) => Effect.Effect<typeof BoxTailResult.Type, BridgeFailure>;
   }
 >()("@mischief/workspace-bridge/Boxes") {
   static readonly layer = (config: BoxConfig) =>
@@ -1915,7 +1921,38 @@ export class Boxes extends Context.Service<
           Effect.catchTag("PlatformError", hostFailure)
         );
 
-        return Boxes.of({ act, create, inspect });
+        const tail = Effect.fn("Boxes.tail")(
+          function* tail(id: string, query: typeof PeonTailQuery.Type) {
+            yield* Schema.decodeUnknownEffect(PeonId)(id).pipe(
+              Effect.mapError(() =>
+                refusal(
+                  "Invalid peonId. Call listPeons and retry tailPeon with an existing id."
+                )
+              )
+            );
+            const box = yield* load(id);
+
+            if (box.peonId !== id) {
+              return yield* refusal(
+                "Box metadata does not match its id. Check the box record before retrying tailPeon.",
+                503
+              );
+            }
+
+            if (
+              box.state === "hibernated" ||
+              box.state === "destroyed" ||
+              box.state === "absent"
+            ) {
+              return { reason: box.state, status: "not-live" } as const;
+            }
+
+            return yield* readSessionTail(base(box.peonId), query);
+          },
+          Effect.catchTag("PlatformError", hostFailure)
+        );
+
+        return Boxes.of({ act, create, inspect, tail });
       }).pipe(Effect.catchTag("PlatformError", hostFailure))
     );
 }

@@ -1,4 +1,13 @@
-import { Context, Data, Effect, Layer, Ref, Schema } from "effect";
+import {
+  Context,
+  Data,
+  DateTime,
+  Effect,
+  Layer,
+  Option,
+  Ref,
+  Schema,
+} from "effect";
 
 import { archiveFailure } from "./archive-failure.js";
 import type { ArchiveFailure } from "./archive-failure.js";
@@ -34,6 +43,7 @@ export const ArchiveReceiptSchema = Schema.Struct({
     })
   ),
   peon: ArchiveName,
+  previousReceiptId: Schema.optionalKey(Schema.String),
   sha256: Hash,
   stamp: Stamp,
 });
@@ -49,6 +59,7 @@ export const ManifestSchema = Schema.Struct({
   files: Schema.Int,
   manifest_sha256: Hash,
   peon_id: ArchiveName,
+  previous_receipt_id: Schema.optionalKey(Schema.String),
   repo: Schema.String,
   row: Schema.optionalKey(ArchiveName),
   schema: Schema.Literal("peon-archive.v1"),
@@ -94,6 +105,7 @@ export const ExportReceiptSchema = Schema.Struct({
   sha256: Hash,
   location: Schema.String,
   mirror: Schema.String,
+  previousReceiptId: Schema.optionalKey(Schema.String),
   replicaState: Schema.optionalKey(Schema.Literals(["pending", "verified"])),
   primaryRoot: Schema.optionalKey(Schema.String),
   replicaRoot: Schema.optionalKey(Schema.String),
@@ -105,6 +117,38 @@ export const archiveId = (receipt: ArchiveReceipt) =>
   `${receipt.peon}/${receipt.stamp}-${receipt.box}`;
 
 export const archiveStamp = (iso: string) => iso.replaceAll(/[-:]/gu, "");
+
+const stampTime = (stamp: string) =>
+  DateTime.make(
+    `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T${stamp.slice(9, 11)}:${stamp.slice(11, 13)}:${stamp.slice(13)}`
+  );
+
+export const linkManifest = (manifest: Manifest, previous: ArchiveReceipt) => {
+  const last = stampTime(previous.stamp);
+  const now = DateTime.make(manifest.created_at);
+
+  const next =
+    Option.isSome(last) && Option.isSome(now)
+      ? DateTime.make(
+          Math.max(
+            DateTime.toEpochMillis(now.value),
+            DateTime.toEpochMillis(last.value) + 1
+          )
+        )
+      : Option.none();
+
+  return {
+    ...manifest,
+    created_at: Option.match(next, {
+      onNone: () => manifest.created_at,
+      onSome: DateTime.formatIso,
+    }),
+    previous_receipt_id: archiveId(previous),
+  };
+};
+
+export const previousReceiptLink = (previousReceiptId: string | undefined) =>
+  previousReceiptId === undefined ? {} : { previousReceiptId };
 
 export const receiptOf = (
   manifest: Manifest,
@@ -120,6 +164,7 @@ export const receiptOf = (
     skipped: manifest.skipped.length,
   },
   peon: manifest.peon_id,
+  ...previousReceiptLink(manifest.previous_receipt_id),
   sha256: manifest.manifest_sha256,
   stamp: archiveStamp(manifest.created_at),
 });
@@ -138,10 +183,12 @@ export interface OpenArchive {
 export class ArchivePort extends Context.Service<
   ArchivePort,
   {
+    readonly disabled?: true;
     readonly open: Effect.Effect<OpenArchive, ArchiveFailure | CustodyMissing>;
   }
 >()("@mischief/workspace-bridge/ArchivePort") {
   static readonly disabled = Layer.succeed(ArchivePort, {
+    disabled: true,
     open: custodyMissing(
       "archive",
       "Protected archive is not configured. Configure both archive roots before exporting or destroying."
@@ -185,6 +232,7 @@ export class ArchivePort extends Context.Service<
             if (
               entry?.receipt.fingerprint !== receipt.fingerprint ||
               entry.receipt.sha256 !== receipt.sha256 ||
+              entry.receipt.previousReceiptId !== receipt.previousReceiptId ||
               (!entry.published && purpose !== "publish")
             ) {
               return ReadBackResult.Mismatch({
@@ -201,6 +249,7 @@ export class ArchivePort extends Context.Service<
                 id,
                 location: `primary/${id}/RECEIPT.json`,
                 mirror: `mirror/${id}/RECEIPT.json`,
+                ...previousReceiptLink(receipt.previousReceiptId),
                 sha256: receipt.sha256,
               },
             });

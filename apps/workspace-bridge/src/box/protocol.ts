@@ -165,6 +165,15 @@ export const Action = Schema.Struct({
 export const Result = Schema.StructWithRest(
   Schema.Struct({
     exportReceipt: Schema.optionalKey(ExportReceiptSchema),
+    parkExport: Schema.optionalKey(
+      Schema.Literals([
+        "exported",
+        "unchanged",
+        "disabled",
+        "failed",
+        "incomplete",
+      ])
+    ),
   }),
   [Schema.Record(Schema.String, Schema.Unknown)]
 );

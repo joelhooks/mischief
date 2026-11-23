@@ -20,7 +20,12 @@ import { checked, Runner } from "../runner.js";
 import type { Command, ProcessOutput } from "../runner.js";
 import type { ArchiveFailure } from "./archive-failure.js";
 import { agentDirs, collectArchive } from "./archive-source.js";
-import { ArchivePort, ReadBackResult, archiveId } from "./archive.js";
+import {
+  ArchivePort,
+  ReadBackResult,
+  archiveId,
+  linkManifest,
+} from "./archive.js";
 import type { OpenArchive } from "./archive.js";
 import type { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
@@ -101,6 +106,27 @@ const needsExport = (id: string) =>
   );
 
 type DestroyMarker = NonNullable<BoxMetadata["destroying"]>;
+
+type ArchiveSource = Effect.Success<ReturnType<typeof collectArchive>>;
+
+const latestArchive = (box: BoxMetadata) =>
+  box.archive?.peon === box.peonId &&
+  box.archive.box === containerOf(box.peonId)
+    ? box.archive
+    : undefined;
+
+const currentArchive = (
+  box: BoxMetadata,
+  { files, manifest }: ArchiveSource
+) => {
+  const latest = latestArchive(box);
+
+  return latest?.fingerprint === files.fingerprint &&
+    JSON.stringify(latest.skippedEntries ?? []) ===
+      JSON.stringify(manifest.skipped)
+    ? latest
+    : undefined;
+};
 
 const supersededWork = (snapshotBytes: number | undefined) =>
   snapshotBytes === undefined
@@ -921,6 +947,89 @@ export class Boxes extends Context.Service<
           }
         );
 
+        const openCustody = archive.open.pipe(Effect.mapError(archiveError));
+
+        const publishArchive = Effect.fn("Boxes.publishArchive")(
+          function* publishArchive(
+            box: BoxMetadata,
+            { files, manifest }: ArchiveSource,
+            custody: OpenArchive
+          ) {
+            const latest = latestArchive(box);
+
+            const receipt = yield* custody
+              .put(
+                latest === undefined
+                  ? manifest
+                  : linkManifest(manifest, latest),
+                files
+              )
+              .pipe(Effect.mapError(archiveError));
+
+            const proof = yield* custody
+              .readBack(receipt, "publish")
+              .pipe(Effect.mapError(archiveError));
+
+            if (!ReadBackResult.$is("Verified")(proof)) {
+              return yield* mismatch(
+                box.peonId,
+                `Primary archive read-back did not match: ${proof.reason}`
+              );
+            }
+
+            const updated = { ...box, archive: receipt };
+            yield* save(updated);
+
+            return { box: updated, exportReceipt: proof.exportReceipt };
+          }
+        );
+
+        const parkArchive = Effect.fn("Boxes.parkArchive")(
+          function* parkArchive(box: BoxMetadata, row?: string) {
+            if (archive.disabled === true) {
+              return { parkExport: "disabled" } satisfies typeof Result.Type;
+            }
+
+            const source = yield* archiveSource(box, row);
+            const complete = source.manifest.skipped.length === 0;
+
+            if (
+              box.state === "suspended" &&
+              complete &&
+              currentArchive(box, source) !== undefined
+            ) {
+              return { parkExport: "unchanged" } satisfies typeof Result.Type;
+            }
+
+            const { exportReceipt } = yield* publishArchive(
+              box,
+              source,
+              yield* openCustody
+            );
+
+            return {
+              exportReceipt,
+              parkExport: complete ? "exported" : "incomplete",
+            } satisfies typeof Result.Type;
+          },
+          Effect.scoped,
+          Effect.catch(({ _tag }) =>
+            Effect.logWarning(
+              "Park archive failed; retry on the next park or DELETE"
+            ).pipe(
+              Effect.annotateLogs({ failure: _tag }),
+              Effect.as({ parkExport: "failed" } satisfies typeof Result.Type)
+            )
+          ),
+          Effect.catchDefect(() =>
+            Effect.logError(
+              "Park archive defect; retry on the next park or DELETE"
+            ).pipe(
+              Effect.as({ parkExport: "failed" } satisfies typeof Result.Type)
+            )
+          )
+        );
+
         const exportBox = Effect.fn("Boxes.export")(function* exportBox(
           id: string,
           row?: string
@@ -946,21 +1055,13 @@ export class Boxes extends Context.Service<
             yield* save(box);
           }
 
-          const { files, manifest } = yield* archiveSource(box, row);
+          const source = yield* archiveSource(box, row);
+          const custody = yield* openCustody;
+          const current = currentArchive(box, source);
 
-          const custody = yield* archive.open.pipe(
-            Effect.mapError(archiveError)
-          );
-
-          if (
-            box.archive?.peon === id &&
-            box.archive.box === containerOf(id) &&
-            box.archive.fingerprint === files.fingerprint &&
-            JSON.stringify(box.archive.skippedEntries) ===
-              JSON.stringify(manifest.skipped)
-          ) {
+          if (current !== undefined) {
             const previous = yield* custody
-              .readBack(box.archive, "primary")
+              .readBack(current, "primary")
               .pipe(Effect.mapError(archiveError));
 
             if (ReadBackResult.$is("Verified")(previous)) {
@@ -968,34 +1069,16 @@ export class Boxes extends Context.Service<
             }
           }
 
-          const receipt = yield* custody
-            .put(manifest, files)
-            .pipe(Effect.mapError(archiveError));
+          const { exportReceipt } = yield* publishArchive(box, source, custody);
 
-          const proof = yield* custody
-            .readBack(receipt, "publish")
-            .pipe(Effect.mapError(archiveError));
-
-          if (!ReadBackResult.$is("Verified")(proof)) {
-            return yield* mismatch(
-              id,
-              `Primary archive read-back did not match: ${proof.reason}`
-            );
-          }
-
-          yield* save({ ...box, archive: receipt });
-
-          return { exportReceipt: proof.exportReceipt, state };
+          return { exportReceipt, state };
         }, Effect.scoped);
 
         const proveArchive = Effect.fn("Boxes.proveArchive")(
           function* proveArchive(box: BoxMetadata, custody: OpenArchive) {
-            const receipt = box.archive;
+            const receipt = latestArchive(box);
 
-            if (
-              receipt?.peon !== box.peonId ||
-              receipt.box !== containerOf(box.peonId)
-            ) {
+            if (receipt === undefined) {
               return yield* needsExport(box.peonId);
             }
 
@@ -1083,50 +1166,51 @@ export class Boxes extends Context.Service<
 
         const beginDestroy = Effect.fn("Boxes.beginDestroy")(
           function* beginDestroy(
-            box: BoxMetadata,
+            original: BoxMetadata,
             input: typeof Action.Type,
             custody: OpenArchive,
             canonical: SnapshotRoot
           ) {
-            const id = box.peonId;
-            const receipt = box.archive;
+            const id = original.peonId;
 
-            if (receipt === undefined) {
-              return yield* needsExport(id);
-            }
+            if (original.state === "idle") {
+              if (latestArchive(original) === undefined) {
+                return yield* needsExport(id);
+              }
 
-            if (box.state === "idle") {
               return yield* mismatch(
                 id,
                 "Box is not stopped; export must suspend it before destroy."
               );
             }
 
-            yield* nextState(box.state, "DESTROY");
+            yield* nextState(original.state, "DESTROY");
 
-            const { files, manifest } = yield* Effect.scoped(
-              archiveSource(box, undefined, canonical)
+            const box = yield* Effect.scoped(
+              Effect.gen(function* refreshArchive() {
+                const source = yield* archiveSource(
+                  original,
+                  input.row,
+                  canonical
+                );
+
+                const { skipped } = source.manifest;
+
+                if (skipped.length > 0) {
+                  return yield* new CustodyIncomplete({
+                    skipped,
+                    message: `Some session files were skipped. Recover them and POST /v1/boxes/${id}/export before destroying.`,
+                    status: 409,
+                  });
+                }
+
+                if (currentArchive(original, source) !== undefined) {
+                  return original;
+                }
+
+                return (yield* publishArchive(original, source, custody)).box;
+              })
             );
-
-            const skipped =
-              manifest.skipped.length > 0
-                ? manifest.skipped
-                : (receipt.skippedEntries ?? []);
-
-            if (skipped.length > 0) {
-              return yield* new CustodyIncomplete({
-                skipped,
-                message: `Some session files were skipped. Recover them and POST /v1/boxes/${id}/export before destroying.`,
-                status: 409,
-              });
-            }
-
-            if (receipt.fingerprint !== files.fingerprint) {
-              return yield* mismatch(
-                id,
-                "Session inventory changed since export."
-              );
-            }
 
             const proof = yield* proveArchive(box, custody);
 
@@ -1203,9 +1287,7 @@ export class Boxes extends Context.Service<
             return yield* inProgress(box.destroying);
           }
 
-          const custody = yield* archive.open.pipe(
-            Effect.mapError(archiveError)
-          );
+          const custody = yield* openCustody;
 
           const canonical =
             box.snapshot === undefined
@@ -1600,9 +1682,13 @@ export class Boxes extends Context.Service<
                   if (input.action === "suspend") {
                     yield* stop(id);
 
-                    yield* save({ ...box, state });
+                    const parked = { ...box, state };
+                    yield* save(parked);
 
-                    return { state };
+                    return {
+                      state,
+                      ...(yield* parkArchive(parked, input.row)),
+                    };
                   }
 
                   if (input.action === "hibernate") {
@@ -1625,7 +1711,11 @@ export class Boxes extends Context.Service<
                         return { snapshot, state };
                       }
 
-                      return { snapshot: previous, state };
+                      return {
+                        snapshot: previous,
+                        state,
+                        ...(yield* parkArchive(box, input.row)),
+                      };
                     }
 
                     yield* stop(id);
@@ -1667,11 +1757,16 @@ export class Boxes extends Context.Service<
                         ? { ...snapshot, retained: input.retained }
                         : snapshot;
 
-                    yield* save({ ...box, snapshot: recorded, state });
+                    const parked = { ...box, snapshot: recorded, state };
+                    yield* save(parked);
                     yield* docker(["rm", containerOf(id)]);
                     yield* fs.remove(base(id), { recursive: true });
 
-                    return { snapshot: recorded, state };
+                    return {
+                      snapshot: recorded,
+                      state,
+                      ...(yield* parkArchive(parked, input.row)),
+                    };
                   }
 
                   const target = input.newPeonId;

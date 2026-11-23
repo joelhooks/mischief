@@ -27,6 +27,7 @@ import {
   ReadBackResult,
   archiveId,
   archiveStamp,
+  previousReceiptLink,
   receiptOf,
 } from "./archive.js";
 import type {
@@ -105,6 +106,7 @@ const DiskReceipt = Schema.fromJsonString(
     manifest_json_sha256: Schema.String,
     ok: Schema.Literal(true),
     primary_root: Schema.String,
+    previous_receipt_id: Schema.optionalKey(Schema.String),
     rc: Schema.Literal(0),
     replica_root: Schema.String,
     sessions: Schema.Int,
@@ -321,6 +323,7 @@ export const archiveDiskLayer = (
           manifest.peon_id !== receipt.peon ||
           manifest.box_id !== receipt.box ||
           archiveStamp(manifest.created_at) !== receipt.stamp ||
+          manifest.previous_receipt_id !== receipt.previousReceiptId ||
           sha256(manifestJson) !== receipt.manifestJsonSha256 ||
           manifest.manifest_sha256 !== receipt.sha256 ||
           sha256(checksums) !== receipt.sha256 ||
@@ -501,6 +504,7 @@ export const archiveDiskLayer = (
             proof.skipped !== receipt.counts?.skipped ||
             proof.checker_host !== roots.checkerHost ||
             proof.primary_root !== roots.primary ||
+            proof.previous_receipt_id !== receipt.previousReceiptId ||
             proof.replica_root !== roots.replica ||
             JSON.stringify(proof.dirs) !== JSON.stringify(dirs) ||
             proof.bytes !== manifest.bytes ||
@@ -550,9 +554,14 @@ export const archiveDiskLayer = (
           verified_at: verifiedAt,
         };
 
+        const linkedEvidence =
+          receipt.previousReceiptId === undefined
+            ? evidence
+            : { ...evidence, previous_receipt_id: receipt.previousReceiptId };
+
         yield* fs.writeFileString(
           path.join(final, receiptName),
-          JSON.stringify(evidence),
+          JSON.stringify(linkedEvidence),
           { flag: "wx", mode: 0o600 }
         );
 
@@ -660,6 +669,7 @@ export const archiveDiskLayer = (
               id: archiveId(receipt),
               location: path.join(dirs[0] ?? location.final, receiptName),
               mirror: path.join(replica.final, receiptName),
+              ...previousReceiptLink(receipt.previousReceiptId),
               primaryRoot: roots.primary,
               replicaRoot: roots.replica,
               replicaState: purpose === "check" ? "verified" : "pending",

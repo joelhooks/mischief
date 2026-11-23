@@ -56856,6 +56856,7 @@ var PeonBoxRefusalCode = Schema4.Literals([
   "CustodyMissing",
   "CustodyIncomplete",
   "DestroyInProgress",
+  "PromptFailed",
   "ReceiptMismatch",
   "ReplicaPending",
   "ReplicaMismatch",
@@ -56894,7 +56895,11 @@ var PeonReport = Schema4.Struct({
   resolvedTemplate: PeonTemplate,
   usage: PeonUsage
 });
-var PeonRefused = class extends Schema4.TaggedError()("PeonRefused", { reason: Schema4.String, code: Schema4.optionalKey(PeonBoxRefusalCode) }) {
+var PeonRefused = class extends Schema4.TaggedError()("PeonRefused", {
+  reason: Schema4.String,
+  code: Schema4.optionalKey(PeonBoxRefusalCode),
+  boxState: Schema4.optionalKey(PeonState)
+}) {
   get message() {
     return this.reason;
   }
@@ -85011,6 +85016,7 @@ var custodyRefusal = Schema100.fromJsonString(
     error: Schema100.Struct({
       code: PeonBoxRefusalCode,
       message: Schema100.optionalKey(Schema100.String),
+      state: Schema100.optionalKey(PeonState),
       dirtyPaths: Schema100.optionalKey(Schema100.Array(Schema100.String)),
       dirtyTotal: Schema100.optionalKey(Schema100.Int),
       refs: Schema100.optionalKey(Schema100.Array(Schema100.String))
@@ -85021,6 +85027,7 @@ var nextStep = {
   CustodyMissing: "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete: "Recover the skipped session files, then retry destroyPeon.",
   DestroyInProgress: "Retry destroyPeon with the original workspace disposition.",
+  PromptFailed: "The prompt finished with an error. Use inspectPeon to check the fault, then promptPeon with a new requestId when ready.",
   ReceiptMismatch: "Ask the Mischief operator to check the protected archive before retrying destroyPeon.",
   ReplicaPending: "The replica copy hasn't verified yet; retry destroyPeon after it has.",
   ReplicaMismatch: "Ask the Mischief operator to repair and verify the replica before retrying destroyPeon.",
@@ -85082,10 +85089,13 @@ var requireSuccess = (peonId, operation, response) => Effect65.gen(function* che
     const prefix = `${context} (${error.code}).${message === "" ? "" : ` ${message}`}`;
     const suffix = ` ${nextStep[error.code]}`;
     const details = error.code === "WorkspaceUnlanded" ? unlandedDetails(error, 1023 - prefix.length - suffix.length) : "";
-    return yield* new PeonRefused({
+    const failure6 = {
       code: error.code,
       reason: `${prefix}${details}${suffix}`
-    });
+    };
+    return yield* new PeonRefused(
+      error.code === "PromptFailed" && error.state !== void 0 ? { ...failure6, boxState: error.state } : failure6
+    );
   }
   return yield* new PeonRefused({
     reason: `${context}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`
@@ -85492,11 +85502,15 @@ var peonHost = ({
       return yield* fault;
     }
     const refused3 = fault.code !== void 0;
-    const state3 = refused3 || stored2.report.state === "destroyed" ? stored2.report.state : peonTransition(stored2.report.state, "BOX_LOST");
+    const promptFinished = fault.code === "PromptFailed" && stored2.pending.kind === "prompt" && stored2.report.state === "running";
+    const observed = promptFinished ? fault.boxState ?? "idle" : stored2.report.state;
+    const state3 = refused3 || observed === "destroyed" ? observed : peonTransition(observed, "BOX_LOST");
+    const updatedAt = promptFinished ? yield* Clock13.currentTimeMillis : stored2.report.updatedAt;
     const faulted = {
       ...stored2,
+      idleAt: promptFinished ? updatedAt : stored2.idleAt,
       pending: refused3 ? null : stored2.pending,
-      report: { ...stored2.report, fault: fault.reason, state: state3 }
+      report: { ...stored2.report, fault: fault.reason, state: state3, updatedAt }
     };
     yield* commit(faulted);
     if (state3 !== "destroyed") {

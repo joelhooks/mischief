@@ -64,6 +64,8 @@ MISCHIEF_PEON_FULL_MODELS=["gpt-6.1-sol","claude-opus-5-5"]
 
 The full proxy listens only on `172.30.212.1:28013`. It forwards POST `/v1/responses` and `/v1/messages`, with optional `?beta=true`. It replaces both credential headers, passes through request fields, feature headers and tools, holds at most eight streams, and reads at most 64 KiB of an upstream error. Returned errors omit the upstream body so a provider cannot echo the host key.
 
+Upstream transport failures and HTTP 5xx responses emit one `peon_upstream_transport_error` JSON line on stderr. The line contains the model, route without its query, elapsed milliseconds, status or error class, and the proxy-generated ID sent upstream as `x-mischief-request-id`. It excludes headers, bodies, keys and raw exception text. A 503 from the proxy's own stream limit is not an upstream failure.
+
 No host provider key enters a box. The only model credentials written into a box are the placeholder `proxy` values.
 
 ## Container and storage contract

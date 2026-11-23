@@ -1,5 +1,6 @@
 import type { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import { Context, Effect, Layer, Stream } from "effect";
+import type { PlatformError } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { refusal } from "./protocol.js";
@@ -11,6 +12,9 @@ export interface Command {
   readonly executable: string;
   readonly input?: string;
   readonly onStdout?: (chunk: Uint8Array) => Effect.Effect<void>;
+  readonly consumeStdout?: (
+    stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>
+  ) => Effect.Effect<void, BridgeFailure | PlatformError.PlatformError>;
 }
 
 export interface ProcessOutput {

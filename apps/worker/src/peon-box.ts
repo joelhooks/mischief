@@ -2,6 +2,7 @@ import {
   PeonBoxRefusalCode,
   PeonExportReceipt,
   PeonRefused,
+  PeonState,
 } from "@mischief/core";
 import type { PeonTemplate } from "@mischief/core";
 import { Effect, Option, Schema } from "effect";
@@ -59,6 +60,7 @@ const custodyRefusal = Schema.fromJsonString(
     error: Schema.Struct({
       code: PeonBoxRefusalCode,
       message: Schema.optionalKey(Schema.String),
+      state: Schema.optionalKey(PeonState),
       dirtyPaths: Schema.optionalKey(Schema.Array(Schema.String)),
       dirtyTotal: Schema.optionalKey(Schema.Int),
       refs: Schema.optionalKey(Schema.Array(Schema.String)),
@@ -73,6 +75,8 @@ const nextStep = {
     "Recover the skipped session files, then retry destroyPeon.",
   DestroyInProgress:
     "Retry destroyPeon with the original workspace disposition.",
+  PromptFailed:
+    "The prompt finished with an error. Use inspectPeon to check the fault, then promptPeon with a new requestId when ready.",
   ReceiptMismatch:
     "Ask the Mischief operator to check the protected archive before retrying destroyPeon.",
   ReplicaPending:
@@ -175,10 +179,16 @@ const requireSuccess = (
           ? unlandedDetails(error, 1023 - prefix.length - suffix.length)
           : "";
 
-      return yield* new PeonRefused({
+      const failure = {
         code: error.code,
         reason: `${prefix}${details}${suffix}`,
-      });
+      };
+
+      return yield* new PeonRefused(
+        error.code === "PromptFailed" && error.state !== undefined
+          ? { ...failure, boxState: error.state }
+          : failure
+      );
     }
 
     return yield* new PeonRefused({

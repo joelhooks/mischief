@@ -19,6 +19,7 @@
           "effect/Path",
           "effect/http/HttpBody",
           "effect/http/HttpClient",
+          "effect/http/HttpClientError",
           "effect/http/HttpIncomingMessage",
           "effect/http/HttpRouter",
           "effect/http/HttpServerRequest",

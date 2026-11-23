@@ -10,6 +10,12 @@ With the feature enabled, `POST /v1/desks/{encoded-name}/wake` accepts `{ "messa
 
 Operators can sign `POST /inspectDeskWake` with `sh.mschf.mischief.inspectDeskWake` and the configured operator DID, then send `{ "name": "example/desk" }`. The Worker accepts only the typed `sh.mschf.ratking.desk.wake` record from `MISCHIEF_DESK_WAKE_SENDER`. The worker's local mail schema is a compatibility copy until the Rat King pin includes `packages/lexicon/src/desk.wake.ts` from Rat King `567a1c7`. The recorded sequence is diagnostic only; the Postbox cursor belongs to a different mailbox.
 
+## Box prompt receipts
+
+The box manager records each prompt result or error under its request ID in host-owned metadata. A committed error returns `PromptFailed` with the original message and the current box state when readable, including on replay of receipts written before that code existed. The worker clears the pending turn, records the fault, and adopts the box state. If Pi ran and the manager parked the box after a failure, it attempts the same change-only, deadline-bound archive as an explicit park. Inspect the peon, then use a new request ID for the next turn. A receipt that only says the request began still returns an uncoded 409: reconcile it before attempting new work, because the old prompt may have run tools.
+
+Pi's raw event stream goes to the private host file `metadata/<peon>/requests/<request hash>/events.jsonl`, not the box home. It is a bounded debug window: the manager truncates and restarts it when the next write would cross 32 MiB, so it can begin mid-record. The manager parses live events, never reads the file back to recover a turn, and uses the request receipt as the authority on replay. The returned reply and tool names still share a 16 MiB budget.
+
 ## Workspace deployment
 
 These definitions do not create a Docker network, slice, firewall rule or unit, and the units are not registered with the infrastructure stack. Local image builds do not prove peon-network execution or live provider behavior; those proofs remain rollout work.

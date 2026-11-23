@@ -163,6 +163,7 @@ export const PeonBoxRefusalCode = Schema.Literals([
   "CustodyMissing",
   "CustodyIncomplete",
   "DestroyInProgress",
+  "PromptFailed",
   "ReceiptMismatch",
   "ReplicaPending",
   "ReplicaMismatch",
@@ -213,7 +214,11 @@ export const PeonReport = Schema.Struct({
 
 export class PeonRefused extends Schema.TaggedError<PeonRefused>()(
   "PeonRefused",
-  { reason: Schema.String, code: Schema.optionalKey(PeonBoxRefusalCode) }
+  {
+    reason: Schema.String,
+    code: Schema.optionalKey(PeonBoxRefusalCode),
+    boxState: Schema.optionalKey(PeonState),
+  }
 ) {
   override get message() {
     return this.reason;

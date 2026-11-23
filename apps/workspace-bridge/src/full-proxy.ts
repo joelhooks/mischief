@@ -1,8 +1,20 @@
 import { defineContract } from "@mischief/capability/contract";
 import { implement } from "@mischief/capability/implement";
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
-import { Context, Effect, Layer, Redacted, Ref, Schema, Stream } from "effect";
+import {
+  Clock,
+  Console,
+  Context,
+  Effect,
+  Layer,
+  Redacted,
+  Ref,
+  Schema,
+  Stream,
+} from "effect";
 import type { Scope } from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
+import type { HttpClientError } from "effect/http";
 import {
   HttpClient,
   HttpClientRequest,
@@ -54,6 +66,7 @@ export class FullProxy extends Context.Service<
       FullProxy,
       Effect.gen(function* makeFullProxy() {
         const client = yield* HttpClient.HttpClient;
+        const random = yield* SecureRandom.SecureRandom;
         const count = yield* Ref.make(0);
 
         const endpoint = yield* Effect.try({
@@ -81,9 +94,11 @@ export class FullProxy extends Context.Service<
         const forward = Effect.fn("FullProxy.forward")(function* forward(
           input: typeof Input.Type
         ) {
+          const { model } = input.body;
+
           if (
-            !Schema.is(Schema.String)(input.body.model) ||
-            !config.models.includes(input.body.model)
+            !Schema.is(Schema.String)(model) ||
+            !config.models.includes(model)
           ) {
             return yield* refusal(
               `Model is not in MISCHIEF_PEON_FULL_MODELS; unapproved pool use would charge the wrong account. Select one of ${config.models.join(", ")} and retry.`,
@@ -134,6 +149,37 @@ export class FullProxy extends Context.Service<
             )
           );
 
+          const requestId = yield* random.uuidV4();
+          const began = yield* Clock.currentTimeMillis;
+
+          const route = input.target.startsWith("/v1/messages")
+            ? "/v1/messages"
+            : "/v1/responses";
+
+          const reportFailure = Effect.fnUntraced(function* reportFailure(
+            failure:
+              | { readonly upstreamStatus: number }
+              | {
+                  readonly errorClass: HttpClientError.HttpClientErrorReason["_tag"];
+                }
+          ) {
+            const now = yield* Clock.currentTimeMillis;
+
+            yield* Console.error(
+              JSON.stringify({
+                event: "peon_upstream_transport_error",
+                model,
+                route,
+                durationMs: Math.max(0, now - began),
+                requestId,
+                ...failure,
+              })
+            );
+          });
+
+          const transportFailure = (error: HttpClientError.HttpClientError) =>
+            reportFailure({ errorClass: error.reason._tag });
+
           const response = yield* client
             .execute(
               HttpClientRequest.post(
@@ -143,11 +189,13 @@ export class FullProxy extends Context.Service<
                 HttpClientRequest.setHeaders({
                   authorization: `Bearer ${Redacted.value(config.key)}`,
                   "x-api-key": Redacted.value(config.key),
+                  "x-mischief-request-id": requestId,
                 }),
                 HttpClientRequest.bodyJsonUnsafe(input.body)
               )
             )
             .pipe(
+              Effect.tapError(transportFailure),
               Effect.mapError(() =>
                 refusal(
                   "Full proxy upstream is unavailable. Check the host provider and retry the peon prompt.",
@@ -156,11 +204,21 @@ export class FullProxy extends Context.Service<
               )
             );
 
+          const upstreamFailed = response.status >= 500;
+
+          if (upstreamFailed) {
+            yield* reportFailure({ upstreamStatus: response.status });
+          }
+
+          const stream = upstreamFailed
+            ? response.stream
+            : response.stream.pipe(Stream.tapError(transportFailure));
+
           const contentType =
             response.headers["content-type"] ?? "application/octet-stream";
 
           if (response.status >= 400) {
-            yield* collectBytes(response.stream, 64 * 1024).pipe(
+            yield* collectBytes(stream, 64 * 1024).pipe(
               Effect.mapError(() =>
                 refusal(
                   "Upstream error exceeded 64 KiB; returning it could exhaust the host. Inspect provider health and retry.",
@@ -185,7 +243,7 @@ export class FullProxy extends Context.Service<
           }
 
           return {
-            body: response.stream.pipe(
+            body: stream.pipe(
               Stream.mapError(() =>
                 refusal(
                   "Provider stream was interrupted. Inspect the peon session before retrying the prompt.",
@@ -200,7 +258,7 @@ export class FullProxy extends Context.Service<
 
         return FullProxy.of({ forward });
       })
-    );
+    ).pipe(Layer.provide(SecureRandom.layerWebCrypto));
 }
 
 const forwardFullModel = implement(

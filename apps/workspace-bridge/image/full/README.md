@@ -72,6 +72,8 @@ The long-lived container is `mischief-peon-box-<peonId>`. It runs `sleep infinit
 
 The manager sends cache, config and state writes beneath `/home/peon`: `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `npm_config_cache`, `npm_config_prefix`, `PNPM_HOME`, `npm_config_store_dir`, `PIP_CACHE_DIR`, `PYTHONUSERBASE`, `COREPACK_HOME`, `CLAUDE_CONFIG_DIR` and `PI_CODING_AGENT_DIR`. Claude auto-update is disabled. Tools cannot install into the image's global directories; use the home prefix or the workspace.
 
+At container creation, the manager sets `GIT_AUTHOR_*` and `GIT_COMMITTER_*` to `shitratgit[bot] <286405550+shitratgit[bot]@users.noreply.github.com>`. This applies to new boxes, clones, and hibernated boxes when they resume into a newly created container. Restarting the manager does not change an existing container's environment. The box gets no signing key; the desk still publishes.
+
 The container uses `mischief-peon-boxes`, `mischief-peon-boxes.slice`, and explicit DNS servers `1.1.1.1` and `9.9.9.9`. Docker's default resolver forwards to the LAN router and leaks LAN names; the explicit DNS arguments avoid that path. The host network rule and slice must already exist. This packet does not create or change them.
 
 A short preparation container runs from the same pinned image, with no network, a read-only root, only the CHOWN capability, and only that peon's directory mounted. It assigns uid 65534 and the manager's gid, and grants group access. Without it the peon cannot write the checkout; without the manager gid the manager cannot snapshot or delete the files. The helper runs again before copying, snapshotting or deleting a box because full tools can create restrictive modes.

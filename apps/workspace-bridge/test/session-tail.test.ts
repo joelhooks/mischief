@@ -276,7 +276,7 @@ it.effect("tail strips invisible controls before redacting whole secrets", () =>
     const { fs, home, tail } = yield* runRoute();
 
     const invisibleControls =
-      "\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069\u200B\u200C\u200D\u200E\u200F\uFEFF";
+      "\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069\u200B\u200C\u200D\u200E\u200F\uFEFF\u2060\u2061\u2062\u2063\u2064\u00AD\u061C\u180E";
 
     const markedText = Array.from(
       invisibleControls,
@@ -284,6 +284,7 @@ it.effect("tail strips invisible controls before redacting whole secrets", () =>
     ).join(" ");
 
     const splitSecret = ["s", "\u200B", "k-", "a".repeat(24)].join("");
+    const joinedSecret = ["s", "\u2060", "k-", "b".repeat(24)].join("");
     const jwtHeader = ["ey", "J", "hbGciOiJIUzI1NiJ9"].join("");
     const jwt = [jwtHeader, "e30", "fake-signature"].join(".");
     const unsignedJwt = [jwtHeader, "e30", ""].join(".");
@@ -291,7 +292,7 @@ it.effect("tail strips invisible controls before redacting whole secrets", () =>
     const assistant = previewRecord("assistant", [
       {
         type: "text",
-        text: `${markedText}\n${splitSecret} ${jwt} ${unsignedJwt} done`,
+        text: `${markedText} a\u2065b\n${splitSecret} ${joinedSecret} ${jwt} ${unsignedJwt} done`,
       },
       {
         type: "toolCall",
@@ -308,7 +309,7 @@ it.effect("tail strips invisible controls before redacting whole secrets", () =>
       status: "tail",
       entries: [
         {
-          text: `${Array.from(invisibleControls, () => "ab").join(" ")}\n[redacted] [redacted] [redacted] done`,
+          text: `${Array.from(invisibleControls, () => "ab").join(" ")} a\u2065b\n[redacted] [redacted] [redacted] [redacted] done`,
           toolCalls: [{ name: "bash", args: '{"command":"check [redacted]"}' }],
         },
       ],

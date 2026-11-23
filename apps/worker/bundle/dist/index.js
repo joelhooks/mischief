@@ -57792,7 +57792,7 @@ var stripControls = (value) => {
   let start = 0;
   for (let index3 = 0; index3 < value.length; index3 += 1) {
     const code = codeAt(value, index3);
-    if (code < 32 && code !== 9 && code !== 10 || code >= 127 && code <= 159 || code >= 8203 && code <= 8207 || code >= 8234 && code <= 8238 || code >= 8294 && code <= 8297 || code === 65279) {
+    if (code < 32 && code !== 9 && code !== 10 || code >= 127 && code <= 159 || code >= 8203 && code <= 8207 || code >= 8234 && code <= 8238 || code === 173 || code === 1564 || code === 6158 || code >= 8288 && code <= 8297 && code !== 8293 || code === 65279) {
       out.push(value.slice(start, index3));
       start = endControl(value, index3);
       index3 = start - 1;

@@ -100,7 +100,10 @@ const stripControls = (value: string) => {
       (code >= 127 && code <= 159) ||
       (code >= 0x20_0b && code <= 0x20_0f) ||
       (code >= 0x20_2a && code <= 0x20_2e) ||
-      (code >= 0x20_66 && code <= 0x20_69) ||
+      code === 0xad ||
+      code === 0x06_1c ||
+      code === 0x18_0e ||
+      (code >= 0x20_60 && code <= 0x20_69 && code !== 0x20_65) ||
       code === 0xfe_ff
     ) {
       out.push(value.slice(start, index));

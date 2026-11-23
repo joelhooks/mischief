@@ -390,6 +390,368 @@ it.effect("commits as the bot in a spawned box", () =>
 );
 
 it.effect(
+  "park archives changed history and chains the latest hibernation receipt",
+  () =>
+    Effect.gen(function* parkHistory() {
+      const fs = yield* FileSystem.FileSystem;
+      const fixture = yield* custodyFixture;
+      yield* Effect.gen(function* history() {
+        const boxes = yield* Boxes;
+        const peonId = "park-history";
+        const home = `${fixture.root}/boxes/${peonId}/home`;
+        const primary = `${fixture.roots.primary}/${peonId}`;
+
+        const park = (action: "suspend" | "hibernate", requestId: string) =>
+          boxes.act({ action, peonId, requestId });
+
+        yield* boxes.create({
+          peonId,
+          requestId: "create",
+          template: fixture.template,
+        });
+        yield* fs.writeFileString(`${home}/incidental.jsonl`, "first\n");
+        const first = yield* park("suspend", "first");
+        expect(first).toMatchObject({
+          state: "suspended",
+          parkExport: "exported",
+        });
+        const initial = yield* fs.readDirectory(primary);
+        expect(initial).toHaveLength(1);
+        expect(yield* park("suspend", "unchanged")).toEqual({
+          state: "suspended",
+          parkExport: "unchanged",
+        });
+        expect(yield* fs.readDirectory(primary)).toEqual(initial);
+
+        yield* fs.writeFileString(
+          `${home}/incidental.jsonl`,
+          "first\nsecond\n"
+        );
+        const grown = yield* park("suspend", "grown");
+        expect(grown).toMatchObject({
+          parkExport: "exported",
+          exportReceipt: { previousReceiptId: first.exportReceipt?.id },
+        });
+        expect(
+          yield* fs.readFileString(
+            `${fixture.roots.primary}/${grown.exportReceipt?.id}/incidental.jsonl`
+          )
+        ).toBe("first\nsecond\n");
+
+        yield* fs.remove(
+          `${fixture.roots.primary}/${grown.exportReceipt?.id}/RECEIPT.json`
+        );
+        const repaired = yield* park("suspend", "repair");
+        expect(repaired).toMatchObject({
+          parkExport: "exported",
+          exportReceipt: { previousReceiptId: grown.exportReceipt?.id },
+        });
+        expect(repaired.exportReceipt?.id).not.toBe(grown.exportReceipt?.id);
+        expect(yield* park("hibernate", "unchanged-hibernate")).toMatchObject({
+          state: "hibernated",
+          parkExport: "unchanged",
+        });
+        expect(yield* fs.readDirectory(primary)).toHaveLength(3);
+        yield* boxes.act({ action: "resume", peonId, requestId: "wake" });
+
+        yield* fs.writeFileString(`${home}/incidental.jsonl`, "first\n");
+        const hibernated = yield* park("hibernate", "hibernate");
+        const predecessor = repaired.exportReceipt?.id ?? "";
+        expect(hibernated).toMatchObject({
+          state: "hibernated",
+          parkExport: "exported",
+          exportReceipt: { previousReceiptId: predecessor },
+        });
+        const latest = hibernated.exportReceipt?.id ?? "";
+
+        const manifest = yield* Schema.decodeEffect(
+          Schema.fromJsonString(ManifestSchema)
+        )(
+          yield* fs.readFileString(
+            `${fixture.roots.primary}/${latest}/manifest.json`
+          )
+        );
+
+        expect(manifest.observed_at).toBe("1970-01-01T00:00:00.000Z");
+        expect(manifest.created_at).not.toBe(manifest.observed_at);
+        expect(yield* fs.exists(home)).toBe(false);
+        expect(yield* park("hibernate", "hibernate")).toEqual(hibernated);
+        expect(yield* park("hibernate", "hibernate-again")).toEqual({
+          state: "hibernated",
+          snapshot: hibernated.snapshot,
+          parkExport: "unchanged",
+        });
+        expect(yield* fs.readDirectory(primary)).toHaveLength(4);
+
+        yield* fixture.replicate(latest);
+
+        const destroy = () =>
+          boxes.act({
+            action: "destroy",
+            peonId,
+            requestId: "delete",
+            discardWorkspace: true,
+          });
+
+        const link = `"previous_receipt_id":"${predecessor}"`;
+
+        for (const [root, mismatchTag] of [
+          [fixture.roots.primary, "ReceiptMismatch"],
+          [fixture.roots.replica, "ReplicaMismatch"],
+        ] as const) {
+          for (const name of ["manifest.json", "RECEIPT.json"]) {
+            const file = `${root}/${latest}/${name}`;
+            const original = yield* fs.readFileString(file);
+            expect(original).toContain(link);
+            yield* fs.writeFileString(
+              file,
+              original.replace(
+                link,
+                `"previous_receipt_id":"${first.exportReceipt?.id}"`
+              )
+            );
+            expect((yield* Effect.flip(destroy()))._tag).toBe(mismatchTag);
+            yield* fs.writeFileString(file, original);
+          }
+        }
+
+        expect(yield* destroy()).toMatchObject({
+          state: "destroyed",
+          exportReceipt: { id: latest, replicaState: "verified" },
+        });
+        expect(yield* fs.readDirectory(primary)).toHaveLength(4);
+        expect(
+          yield* fs.readFileString(
+            `${fixture.roots.primary}/${predecessor}/incidental.jsonl`
+          )
+        ).toBe("first\nsecond\n");
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
+
+it.effect(
+  "custody failures leave boxes parked and retry on the next park or destroy",
+  () =>
+    Effect.gen(function* retryParkHistory() {
+      const fs = yield* FileSystem.FileSystem;
+      const fixture = yield* custodyFixture;
+      yield* Effect.gen(function* retry() {
+        const boxes = yield* Boxes;
+        const offline = `${fixture.roots.primary}-offline`;
+
+        for (const action of ["suspend", "hibernate"] as const) {
+          const peonId = `retry-${action}`;
+          const state = action === "suspend" ? "suspended" : "hibernated";
+
+          const park = (requestId: string) =>
+            boxes.act({ action, peonId, requestId });
+
+          yield* boxes.create({
+            peonId,
+            requestId: "create",
+            template: fixture.template,
+          });
+          yield* fs.writeFileString(
+            `${fixture.root}/boxes/${peonId}/home/cut.jsonl`,
+            "recover me\n"
+          );
+          yield* fs.rename(fixture.roots.primary, offline);
+          const failed = yield* park("offline");
+          expect(failed).toMatchObject({ parkExport: "failed", state });
+          expect(failed.exportReceipt).toBeUndefined();
+          expect(yield* boxes.inspect(peonId)).toMatchObject({
+            state,
+            processes: 0,
+          });
+          yield* fs.rename(offline, fixture.roots.primary);
+          expect(yield* park("offline")).toEqual(failed);
+
+          if (action === "suspend") {
+            expect(yield* park("retry")).toMatchObject({
+              parkExport: "exported",
+            });
+          } else {
+            const destroy = () =>
+              boxes.act({
+                action: "destroy",
+                requestId: "delete",
+                peonId,
+                discardWorkspace: true,
+              });
+
+            const pending = yield* Effect.flip(destroy());
+            expect(pending._tag).toBe("ReplicaPending");
+
+            const id = Predicate.isTagged(pending, "ReplicaPending")
+              ? pending.archiveId
+              : "";
+
+            expect(
+              yield* fs.readFileString(
+                `${fixture.roots.primary}/${id}/cut.jsonl`
+              )
+            ).toBe("recover me\n");
+            yield* fixture.replicate(id);
+            expect(yield* destroy()).toMatchObject({
+              state: "destroyed",
+              exportReceipt: { id },
+            });
+          }
+        }
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
+
+it.effect("park times out a hung archive without keeping the box busy", () =>
+  Effect.gen(function* hungArchive() {
+    const fixture = yield* custodyFixture;
+    const entered = yield* Deferred.make<undefined>();
+    const cancelled = yield* Deferred.make<undefined>();
+    const disk = yield* ArchivePort.pipe(Effect.provide(fixture.disk));
+
+    const hanging = Layer.succeed(ArchivePort, {
+      ...disk,
+      open: Deferred.succeed(entered, undefined).pipe(
+        Effect.andThen(Effect.never),
+        Effect.onInterrupt(() => Deferred.succeed(cancelled, undefined))
+      ),
+    });
+
+    yield* Effect.gen(function* park() {
+      const boxes = yield* Boxes;
+      const peonId = "timed-park";
+
+      const suspend = () =>
+        boxes.act({ action: "suspend", peonId, requestId: "sleep" });
+
+      yield* boxes.create({
+        peonId,
+        template: fixture.template,
+        requestId: "create",
+      });
+      const parking = yield* Effect.forkChild(suspend());
+      yield* Deferred.await(entered);
+      expect(yield* boxes.inspect(peonId)).toMatchObject({
+        state: "suspended",
+        processes: 0,
+      });
+      yield* TestClock.adjust("1 second");
+      const receipt = yield* Fiber.join(parking);
+      expect(receipt).toEqual({
+        state: "suspended",
+        parkExport: "failed",
+        parkExportFailure: "timeout",
+      });
+      expect(yield* Deferred.isDone(cancelled)).toBe(true);
+      expect(yield* suspend()).toEqual(receipt);
+      expect(
+        yield* boxes.act({ action: "resume", peonId, requestId: "wake" })
+      ).toMatchObject({ state: "idle" });
+    }).pipe(
+      Effect.provide(
+        Boxes.layer({ ...fixture.config, parkArchiveTimeout: "1 second" }).pipe(
+          Layer.provide(hanging)
+        )
+      ),
+      Effect.provideService(Runner, fixture.runner)
+    );
+  }).pipe(
+    Effect.provide(
+      boxRunnerLayer().pipe(
+        Layer.provideMerge(
+          Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+        )
+      )
+    )
+  )
+);
+
+it.effect(
+  "without custody, park records a no-op and destroy still refuses",
+  () =>
+    Effect.gen(function* parkWithoutCustody() {
+      const fixture = yield* custodyFixture;
+      yield* Effect.gen(function* disabled() {
+        const boxes = yield* Boxes;
+        const peonId = "custody-off";
+        yield* boxes.create({
+          peonId,
+          requestId: "create",
+          template: fixture.template,
+        });
+        expect(
+          yield* boxes.act({ action: "suspend", requestId: "sleep", peonId })
+        ).toEqual({ state: "suspended", parkExport: "disabled" });
+
+        const hibernated = yield* boxes.act({
+          action: "hibernate",
+          requestId: "snapshot",
+          peonId,
+        });
+
+        expect(hibernated).toMatchObject({
+          state: "hibernated",
+          parkExport: "disabled",
+        });
+        expect(hibernated.exportReceipt).toBeUndefined();
+
+        const denied = yield* Effect.flip(
+          boxes.act({
+            action: "destroy",
+            requestId: "delete",
+            peonId,
+            discardWorkspace: true,
+          })
+        );
+
+        expect(denied._tag).toBe("CustodyMissing");
+        expect(yield* boxes.inspect(peonId)).toMatchObject({
+          state: "hibernated",
+        });
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.disabled))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
+);
+
+it.effect(
   "destroy requires two verified custody copies of the current stopped session set",
   () =>
     Effect.gen(function* dualCustody() {
@@ -606,17 +968,6 @@ it.effect(
           )).message
         ).toContain("Pi agent directory is missing");
         yield* fs.rename(`${home}/.pi/agent-held`, `${home}/.pi/agent`);
-        yield* fs.writeFileString(managed, `${original}new raw bytes\n`);
-        expect(
-          (yield* Effect.flip(
-            boxes.act({
-              action: "destroy",
-              peonId,
-              requestId: "changed-source",
-            })
-          )).message
-        ).toContain("Session inventory changed");
-        yield* fs.writeFileString(managed, original);
         const mirrorFile = `${fixture.roots.replica}/${proof.id}/session.jsonl`;
         yield* fs.writeFileString(
           mirrorFile,
@@ -721,7 +1072,7 @@ it.effect(
 );
 
 it.effect(
-  "a crash after put leaves an incoming zero-session inventory that cannot authorize destroy",
+  "a hibernate crash before publish leaves a parked snapshot that destroy exports again",
   () =>
     Effect.gen(function* crashAfterPut() {
       const fs = yield* FileSystem.FileSystem;
@@ -731,6 +1082,7 @@ it.effect(
       const crash = Layer.succeed(
         ArchivePort,
         ArchivePort.of({
+          ...disk,
           open: disk.open.pipe(
             Effect.map((archive) => ({
               ...archive,
@@ -756,7 +1108,7 @@ it.effect(
         });
 
         const attempt = yield* Effect.forkChild(
-          boxes.act({ action: "export", peonId, requestId: "cut" })
+          boxes.act({ action: "hibernate", peonId, requestId: "cut" })
         );
 
         expect(Exit.isFailure(yield* Fiber.await(attempt))).toBe(true);
@@ -772,32 +1124,37 @@ it.effect(
 
       yield* Effect.gen(function* recoveredExport() {
         const boxes = yield* Boxes;
-        expect(
-          (yield* Effect.flip(
-            boxes.act({ action: "destroy", peonId, requestId: "refused" })
-          )).status
-        ).toBe(409);
+        expect(yield* boxes.inspect(peonId)).toMatchObject({
+          state: "hibernated",
+          processes: 0,
+        });
         yield* TestClock.adjust(1000);
 
-        const exported = yield* Schema.decodeUnknownEffect(Export)(
-          yield* boxes.act({ action: "export", peonId, requestId: "cut" })
-        );
-
-        expect(
-          yield* fs.readFileString(exported.exportReceipt.location)
-        ).toContain('"sessions":0');
-        yield* fixture.replicate(exported.exportReceipt.id);
-        expect(
-          yield* fs.readFileString(exported.exportReceipt.mirror)
-        ).toContain('"sessions":0');
-        expect(
-          yield* boxes.act({
+        const destroy = () =>
+          boxes.act({
             action: "destroy",
             peonId,
             discardWorkspace: true,
             requestId: "recovered-delete",
-          })
-        ).toMatchObject({ state: "destroyed" });
+          });
+
+        const pending = yield* Effect.flip(destroy());
+        expect(pending._tag).toBe("ReplicaPending");
+
+        const id = Predicate.isTagged(pending, "ReplicaPending")
+          ? pending.archiveId
+          : "";
+
+        expect(
+          yield* fs.readFileString(
+            `${fixture.roots.primary}/${id}/RECEIPT.json`
+          )
+        ).toContain('"sessions":0');
+        yield* fixture.replicate(id);
+        expect(yield* destroy()).toMatchObject({
+          state: "destroyed",
+          exportReceipt: { id, replicaState: "verified" },
+        });
       }).pipe(
         Effect.provide(after),
         Effect.provideService(Runner, fixture.runner)
@@ -827,8 +1184,10 @@ it.effect(
       const delayed = Layer.succeed(
         ArchivePort,
         ArchivePort.of({
+          ...disk,
           open: disk.open.pipe(
             Effect.map((archive) => ({
+              ...archive,
               put: (
                 manifest: Parameters<typeof archive.put>[0],
                 files: Parameters<typeof archive.put>[1]
@@ -837,7 +1196,6 @@ it.effect(
                   Effect.andThen(Deferred.await(releasePut)),
                   Effect.andThen(archive.put(manifest, files))
                 ),
-              readBack: archive.readBack,
             }))
           ),
         })
@@ -1416,7 +1774,7 @@ it.effect.each(["live", "snapshot"])(
 );
 
 it.effect(
-  "derived files skipped by either inventory block whole-box destroy until verified again",
+  "destroy refuses skipped history and refreshes custody after repair and growth",
   () =>
     Effect.gen(function* reconcileDerived() {
       const fs = yield* FileSystem.FileSystem;
@@ -1436,15 +1794,28 @@ it.effect(
         );
         yield* fs.symlink(fixture.root, root);
 
-        const exported = yield* Schema.decodeUnknownEffect(Export)(
-          yield* boxes.act({ action: "export", peonId })
-        );
+        const suspend = (requestId: string) =>
+          boxes.act({ action: "suspend", peonId, requestId });
+
+        const exported = yield* suspend("initial");
+        expect(exported).toMatchObject({
+          state: "suspended",
+          parkExport: "incomplete",
+        });
+        const initial = exported.exportReceipt?.id ?? "";
 
         const manifest = yield* fs.readFileString(
-          `${fixture.roots.primary}/${exported.exportReceipt.id}/manifest.json`
+          `${fixture.roots.primary}/${initial}/manifest.json`
         );
 
         expect(manifest).toContain('"path":".claude/projects"');
+        expect(yield* suspend("again")).toEqual({
+          state: "suspended",
+          parkExport: "unchanged",
+        });
+        expect(
+          yield* fs.readDirectory(`${fixture.roots.primary}/${peonId}`)
+        ).toHaveLength(1);
 
         const remove = (requestId: string) =>
           boxes.act({
@@ -1459,26 +1830,44 @@ it.effect(
         yield* fs.remove(root);
         yield* fs.makeDirectory(root, { mode: 0o770 });
         yield* fs.writeFileString(`${root}/raw.jsonl`, "{}\n");
-        expect((yield* Effect.flip(remove("stale")))._tag).toBe(
-          "CustodyIncomplete"
-        );
-        yield* TestClock.adjust(1000);
-        yield* boxes.act({ action: "export", peonId });
+        const repaired = yield* Effect.flip(remove("repaired"));
+        expect(repaired._tag).toBe("ReplicaPending");
+
+        const repairedId = Predicate.isTagged(repaired, "ReplicaPending")
+          ? repaired.archiveId
+          : "";
+
+        expect(repairedId).not.toBe(initial);
+        yield* fixture.replicate(repairedId);
+
         yield* fs.writeFileString(
           `${root}/raw.jsonl`,
-          "changed derived bytes\n"
+          "changed derived bytes\n",
+          { flag: "a" }
         );
-        expect((yield* Effect.flip(remove("changed")))._tag).toBe(
-          "ReceiptMismatch"
-        );
-        yield* TestClock.adjust(1000);
+        const changed = yield* Effect.flip(remove("changed"));
+        expect(changed._tag).toBe("ReplicaPending");
 
-        const verified = yield* Schema.decodeUnknownEffect(Export)(
-          yield* boxes.act({ action: "export", peonId })
-        );
+        const latestId = Predicate.isTagged(changed, "ReplicaPending")
+          ? changed.archiveId
+          : "";
 
-        yield* fixture.replicate(verified.exportReceipt.id);
-        expect((yield* remove("verified")).state).toBe("destroyed");
+        expect(latestId).not.toBe(repairedId);
+        expect(
+          yield* fs.readFileString(
+            `${fixture.roots.primary}/${latestId}/.claude/projects/raw.jsonl`
+          )
+        ).toBe("{}\nchanged derived bytes\n");
+        expect(yield* fs.exists(`${root}/raw.jsonl`)).toBe(true);
+        yield* fixture.replicate(latestId);
+        expect(yield* remove("verified")).toMatchObject({
+          state: "destroyed",
+          exportReceipt: {
+            id: latestId,
+            previousReceiptId: repairedId,
+            replicaState: "verified",
+          },
+        });
       }).pipe(
         Effect.provide(
           Boxes.layer(fixture.config).pipe(Layer.provide(fixture.disk))

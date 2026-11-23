@@ -34,6 +34,7 @@ import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
 import { nextState } from "./machine.js";
 import { promptPi, requireText } from "./pi.js";
+import { PromptFailed } from "./prompt-failed.js";
 import { Metadata, PeonId, Result, Tombstone } from "./protocol.js";
 import type { BoxMetadata, Action, Create } from "./protocol.js";
 import { ReceiptMismatch } from "./receipt-mismatch.js";
@@ -180,6 +181,7 @@ export class Boxes extends Context.Service<
       | CustodyMissing
       | CustodyIncomplete
       | DestroyInProgress
+      | PromptFailed
       | ReceiptMismatch
       | ReplicaMismatch
       | ReplicaPending
@@ -1397,9 +1399,10 @@ export class Boxes extends Context.Service<
           return tombstone;
         });
 
-        const request = Effect.fn("Boxes.request")(function* request(
+        const request = Effect.fn("Boxes.request")(function* request<E>(
           id: string,
           requestId: string,
+          committedFailure: (error: BridgeFailure) => E,
           operation: Effect.Effect<
             typeof Result.Type,
             BridgeFailure | PlatformError.PlatformError
@@ -1433,7 +1436,7 @@ export class Boxes extends Context.Service<
             }
 
             if (receipt.error !== undefined) {
-              return yield* receipt.error;
+              return yield* Effect.fail(committedFailure(receipt.error));
             }
 
             return yield* refusal(
@@ -1451,7 +1454,7 @@ export class Boxes extends Context.Service<
             Effect.matchEffect({
               onFailure: (error) =>
                 writeJson(file, { error, requestId }).pipe(
-                  Effect.andThen(Effect.fail(error))
+                  Effect.andThen(Effect.fail(committedFailure(error)))
                 ),
               onSuccess: (result) =>
                 writeJson(file, { requestId, result }).pipe(Effect.as(result)),
@@ -1468,6 +1471,7 @@ export class Boxes extends Context.Service<
               request(
                 id,
                 input.requestId,
+                (error) => error,
                 Effect.gen(function* createBox() {
                   if (yield* fs.exists(metadataPath(id))) {
                     return yield* refusal(
@@ -1629,6 +1633,13 @@ export class Boxes extends Context.Service<
               request(
                 id,
                 requestId,
+                (error) =>
+                  input.action === "prompt"
+                    ? new PromptFailed({
+                        message: error.message,
+                        status: error.status,
+                      })
+                    : error,
                 Effect.gen(function* actBox() {
                   let box = yield* load(id);
 

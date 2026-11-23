@@ -56856,6 +56856,7 @@ var PeonBoxRefusalCode = Schema4.Literals([
   "CustodyMissing",
   "CustodyIncomplete",
   "DestroyInProgress",
+  "PromptFailed",
   "ReceiptMismatch",
   "ReplicaPending",
   "ReplicaMismatch",
@@ -85021,6 +85022,7 @@ var nextStep = {
   CustodyMissing: "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete: "Recover the skipped session files, then retry destroyPeon.",
   DestroyInProgress: "Retry destroyPeon with the original workspace disposition.",
+  PromptFailed: "The prompt finished with an error. Use inspectPeon to check the fault, then promptPeon with a new requestId when ready.",
   ReceiptMismatch: "Ask the Mischief operator to check the protected archive before retrying destroyPeon.",
   ReplicaPending: "The replica copy hasn't verified yet; retry destroyPeon after it has.",
   ReplicaMismatch: "Ask the Mischief operator to repair and verify the replica before retrying destroyPeon.",
@@ -85492,11 +85494,14 @@ var peonHost = ({
       return yield* fault;
     }
     const refused3 = fault.code !== void 0;
-    const state3 = refused3 || stored2.report.state === "destroyed" ? stored2.report.state : peonTransition(stored2.report.state, "BOX_LOST");
+    const promptFinished = fault.code === "PromptFailed" && stored2.pending.kind === "prompt" && stored2.report.state === "running";
+    const settled2 = promptFinished ? yield* move(stored2, "TURN_DONE") : stored2;
+    const state3 = refused3 || settled2.report.state === "destroyed" ? settled2.report.state : peonTransition(settled2.report.state, "BOX_LOST");
     const faulted = {
-      ...stored2,
-      pending: refused3 ? null : stored2.pending,
-      report: { ...stored2.report, fault: fault.reason, state: state3 }
+      ...settled2,
+      idleAt: promptFinished ? settled2.report.updatedAt : settled2.idleAt,
+      pending: refused3 ? null : settled2.pending,
+      report: { ...settled2.report, fault: fault.reason, state: state3 }
     };
     yield* commit(faulted);
     if (state3 !== "destroyed") {

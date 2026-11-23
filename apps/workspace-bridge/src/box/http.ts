@@ -13,6 +13,7 @@ import { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
 import { Boxes } from "./manager.js";
+import { PromptFailed } from "./prompt-failed.js";
 import { Action, ActionBody, Create, PeonId, Result } from "./protocol.js";
 import { ReceiptMismatch } from "./receipt-mismatch.js";
 import { ReplicaMismatch } from "./replica-mismatch.js";
@@ -41,6 +42,7 @@ const actOnBox = implement(
       CustodyMissing,
       CustodyIncomplete,
       DestroyInProgress,
+      PromptFailed,
       ReceiptMismatch,
       ReplicaMismatch,
       ReplicaPending,
@@ -213,6 +215,7 @@ const route = (key: Redacted.Redacted) =>
           disposition: failure.disposition,
           retained: failure.retained,
         }),
+      PromptFailed: (failure) => taggedFailure(failure, {}),
       ReplicaPending: (failure) =>
         taggedFailure(failure, { archiveId: failure.archiveId }),
       ReplicaMismatch: (failure) =>

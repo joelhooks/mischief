@@ -495,15 +495,23 @@ export const peonHost = ({
 
     const refused = fault.code !== undefined;
 
+    const promptFinished =
+      fault.code === "PromptFailed" &&
+      stored.pending.kind === "prompt" &&
+      stored.report.state === "running";
+
+    const settled = promptFinished ? yield* move(stored, "TURN_DONE") : stored;
+
     const state =
-      refused || stored.report.state === "destroyed"
-        ? stored.report.state
-        : peonTransition(stored.report.state, "BOX_LOST");
+      refused || settled.report.state === "destroyed"
+        ? settled.report.state
+        : peonTransition(settled.report.state, "BOX_LOST");
 
     const faulted = {
-      ...stored,
-      pending: refused ? null : stored.pending,
-      report: { ...stored.report, fault: fault.reason, state },
+      ...settled,
+      idleAt: promptFinished ? settled.report.updatedAt : settled.idleAt,
+      pending: refused ? null : settled.pending,
+      report: { ...settled.report, fault: fault.reason, state },
     };
 
     yield* commit(faulted);

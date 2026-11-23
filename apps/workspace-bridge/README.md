@@ -10,6 +10,10 @@ With the feature enabled, `POST /v1/desks/{encoded-name}/wake` accepts `{ "messa
 
 Operators can sign `POST /inspectDeskWake` with `sh.mschf.mischief.inspectDeskWake` and the configured operator DID, then send `{ "name": "example/desk" }`. The Worker accepts only the typed `sh.mschf.ratking.desk.wake` record from `MISCHIEF_DESK_WAKE_SENDER`. The worker's local mail schema is a compatibility copy until the Rat King pin includes `packages/lexicon/src/desk.wake.ts` from Rat King `567a1c7`. The recorded sequence is diagnostic only; the Postbox cursor belongs to a different mailbox.
 
+## Box prompt receipts
+
+The box manager records each prompt result or error under its request ID in host-owned metadata. A committed error returns `PromptFailed` with the original message, including on replay of receipts written before that code existed. The worker clears the pending turn and records the fault without marking the box lost. Inspect the peon, then use a new request ID for the next turn. A receipt that only says the request began still returns an uncoded 409: reconcile it before attempting new work, because the old prompt may have run tools.
+
 ## Workspace deployment
 
 These definitions do not create a Docker network, slice, firewall rule or unit, and the units are not registered with the infrastructure stack. Local image builds do not prove peon-network execution or live provider behavior; those proofs remain rollout work.

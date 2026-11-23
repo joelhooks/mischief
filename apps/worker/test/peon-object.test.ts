@@ -122,6 +122,66 @@ it.live(
   30_000
 );
 
+it.live(
+  "a committed prompt failure and its replay do not block a new turn",
+  () =>
+    Effect.gen(function* failedTurn() {
+      const world = yield* prepare(200, [], undefined, { peons: true });
+      yield* start(world);
+
+      const peonId = "worker-a";
+
+      const spawned = yield* post(world, "spawnPeon", {
+        peonId,
+        template: "full",
+        overrides: { workspace },
+      });
+
+      expect(spawned.status).toBe(200);
+
+      for (const attempt of ["fresh", "replay"]) {
+        const failure = yield* post(world, "promptPeon", {
+          peonId,
+          requestId: "failed-turn",
+          text: "fail-this-turn",
+        });
+
+        expect(failure.status, attempt).toBe(422);
+        expect(failure.body, attempt).toMatchObject({ code: "PromptFailed" });
+        const stored = yield* report(world);
+
+        expect(stored.fault).toContain("The provider is unavailable.");
+        expect(stored).toMatchObject({
+          lastTurn: null,
+          pending: null,
+          state: "idle",
+        });
+      }
+
+      const next = yield* post(world, "promptPeon", {
+        peonId,
+        requestId: "next-turn",
+        text: "continue",
+      });
+
+      expect(next.status).toBe(200);
+      expect(yield* report(world)).toMatchObject({
+        fault: null,
+        pending: null,
+        state: "idle",
+      });
+
+      const prompts = (yield* readCalls(world)).filter(({ path }) =>
+        path.endsWith("/prompt")
+      );
+
+      expect(prompts).toHaveLength(3);
+      expect(prompts[0]?.requestId).toBe(prompts[1]?.requestId);
+      expect(prompts[2]?.requestId).not.toBe(prompts[1]?.requestId);
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  30_000
+);
+
 const custodyCases = [
   [
     "custody-incomplete",

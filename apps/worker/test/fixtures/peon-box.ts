@@ -99,6 +99,14 @@ const deleteRefusal = (body: typeof RequestBody.Type, exported: boolean) => {
     : Response.json({ error: { code: "ReceiptMismatch" } }, { status: 409 });
 };
 
+const failedPrompt = () =>
+  Response.json(
+    {
+      error: { code: "PromptFailed", message: "The provider is unavailable." },
+    },
+    { status: 503 }
+  );
+
 const custodyMissing = {
   code: "CustodyMissing",
   message:
@@ -239,6 +247,35 @@ export class FakeBox extends DurableObject {
     return null;
   }
 
+  private async promptBox(path: string, key: string, text: string | undefined) {
+    const previous = await this.ctx.storage.get(key);
+
+    if (previous !== undefined) {
+      return previous === "failed-prompt"
+        ? failedPrompt()
+        : Response.json(previous);
+    }
+
+    if (text === "fail-this-turn") {
+      await this.ctx.storage.put(key, "failed-prompt");
+
+      return failedPrompt();
+    }
+
+    const response = fixtureTurn(path);
+    await this.ctx.storage.put(key, response);
+
+    return text === "hold-until-eviction"
+      ? new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode("{"));
+            },
+          })
+        )
+      : Response.json(response);
+  }
+
   override async fetch(request: Request) {
     const path = new URL(request.url).pathname;
 
@@ -272,8 +309,13 @@ export class FakeBox extends DurableObject {
     );
 
     const key = `${path}/${body.requestId}`;
-    const previous = await this.ctx.storage.get(key);
     await this.ctx.storage.put("calls", [...calls, callOf(path, body)]);
+
+    if (path.endsWith("/prompt")) {
+      return await this.promptBox(path, key, body.text);
+    }
+
+    const previous = await this.ctx.storage.get(key);
 
     if (previous !== undefined) {
       return Response.json(previous);
@@ -288,8 +330,6 @@ export class FakeBox extends DurableObject {
         state: "idle",
         workspace: body.template?.workspace ?? {},
       };
-    } else if (path.endsWith("/prompt")) {
-      response = fixtureTurn(path);
     } else if (path.endsWith("/clone")) {
       response = { peonId: body.newPeonId ?? "", state: "suspended" };
     } else if (path.endsWith("/suspend")) {
@@ -325,16 +365,6 @@ export class FakeBox extends DurableObject {
     }
 
     await this.ctx.storage.put(key, response);
-
-    if (path.endsWith("/prompt") && body.text === "hold-until-eviction") {
-      return new Response(
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode("{"));
-          },
-        })
-      );
-    }
 
     return Response.json(response);
   }

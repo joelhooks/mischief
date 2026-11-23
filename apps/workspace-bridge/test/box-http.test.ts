@@ -1,6 +1,14 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer, Redacted, Ref, Schema, Tracer } from "effect";
+import {
+  Effect,
+  Layer,
+  Predicate,
+  Redacted,
+  Ref,
+  Schema,
+  Tracer,
+} from "effect";
 import { HttpBody, HttpClient, HttpRouter } from "effect/http";
 
 import { CustodyMissing } from "../src/box/custody-missing.js";
@@ -8,6 +16,7 @@ import { CustodyIncomplete } from "../src/box/custody-refusal.js";
 import { DestroyInProgress } from "../src/box/destroy-in-progress.js";
 import { boxRoutes } from "../src/box/http.js";
 import { Boxes } from "../src/box/manager.js";
+import { PromptFailed } from "../src/box/prompt-failed.js";
 import { Result } from "../src/box/protocol.js";
 import { ReceiptMismatch } from "../src/box/receipt-mismatch.js";
 import { WorkspaceUnlanded } from "../src/box/workspace-unlanded.js";
@@ -40,6 +49,7 @@ it.effect(
           message: "retry",
           status: 409,
         }),
+        new PromptFailed({ message: "Provider unavailable", status: 503 }),
         new ReceiptMismatch({
           reason: "changed",
           message: "mismatch",
@@ -198,13 +208,21 @@ it.effect(
       ).toBe(200);
 
       for (const failure of refusals) {
-        const response = yield* HttpClient.del("/v1/boxes/peon", {
-          body: HttpBody.jsonUnsafe({
-            requestId: failure._tag,
-            discardWorkspace: true,
-          }),
-          headers,
-        });
+        const response = yield* Predicate.isTagged(failure, "PromptFailed")
+          ? HttpClient.post("/v1/boxes/peon/prompt", {
+              body: HttpBody.jsonUnsafe({
+                requestId: failure._tag,
+                text: "work",
+              }),
+              headers,
+            })
+          : HttpClient.del("/v1/boxes/peon", {
+              body: HttpBody.jsonUnsafe({
+                requestId: failure._tag,
+                discardWorkspace: true,
+              }),
+              headers,
+            });
 
         expect(response.status).toBe(failure.status);
         expect(yield* response.json).toMatchObject({

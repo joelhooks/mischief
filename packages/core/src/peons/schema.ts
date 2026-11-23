@@ -163,6 +163,7 @@ export const PeonBoxRefusalCode = Schema.Literals([
   "CustodyMissing",
   "CustodyIncomplete",
   "DestroyInProgress",
+  "PromptFailed",
   "ReceiptMismatch",
   "ReplicaPending",
   "ReplicaMismatch",

@@ -1,5 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
+import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import {
   Deferred,
   Effect,
@@ -24,6 +25,7 @@ import {
 } from "../src/box/archive.js";
 import { nextState } from "../src/box/machine.js";
 import { Boxes } from "../src/box/manager.js";
+import { PromptFailed } from "../src/box/prompt-failed.js";
 import { PromptResult, Snapshot, State } from "../src/box/protocol.js";
 import type { BoxTemplate } from "../src/box/protocol.js";
 import { receiptKey } from "../src/box/receipt.js";
@@ -2583,16 +2585,18 @@ it.effect(
           requestId: "create",
           template: fixture.template,
         });
-        expect(
-          (yield* Effect.flip(
-            boxes.act({
-              action: "prompt",
-              peonId: "source",
-              requestId: "failed-turn",
-              text: "work",
-            })
-          )).status
-        ).toBe(502);
+
+        const failed = yield* Effect.flip(
+          boxes.act({
+            action: "prompt",
+            peonId: "source",
+            requestId: "failed-turn",
+            text: "work",
+          })
+        );
+
+        expect(failed).toBeInstanceOf(PromptFailed);
+        expect(failed.status).toBe(502);
         expect(yield* boxes.inspect("source")).toMatchObject({
           processes: 0,
           state: "suspended",
@@ -2623,8 +2627,45 @@ it.effect(
           })
         );
 
+        expect(failure).toBeInstanceOf(PromptFailed);
         expect(failure.status).toBe(502);
         expect(yield* Ref.get(calls)).toBe(1);
+
+        const oldFile = `${fixture.root}/metadata/source/requests/${yield* receiptKey("old-turn")}.json`;
+        yield* fs.writeFileString(
+          oldFile,
+          JSON.stringify({
+            requestId: "old-turn",
+            error: new BridgeFailure({
+              message: "Provider unavailable",
+              status: 503,
+            }),
+          })
+        );
+
+        const oldTurn = boxes.act({
+          action: "prompt",
+          peonId: "source",
+          requestId: "old-turn",
+          text: "must not run",
+        });
+
+        const legacy = yield* Effect.flip(oldTurn);
+        expect(legacy).toBeInstanceOf(PromptFailed);
+        expect(legacy.message).toBe("Provider unavailable");
+        expect(legacy.status).toBe(503);
+
+        yield* fs.writeFileString(
+          oldFile,
+          JSON.stringify({ requestId: "old-turn" })
+        );
+
+        const unfinished = yield* Effect.flip(oldTurn);
+        expect(unfinished).toBeInstanceOf(BridgeFailure);
+        expect(unfinished.message).toContain(
+          "began but has no committed result"
+        );
+        expect(unfinished.status).toBe(409);
         expect(
           yield* boxes.create({
             peonId: "source",

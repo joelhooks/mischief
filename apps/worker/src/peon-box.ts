@@ -73,6 +73,8 @@ const nextStep = {
     "Recover the skipped session files, then retry destroyPeon.",
   DestroyInProgress:
     "Retry destroyPeon with the original workspace disposition.",
+  PromptFailed:
+    "The prompt finished with an error. Use inspectPeon to check the fault, then promptPeon with a new requestId when ready.",
   ReceiptMismatch:
     "Ask the Mischief operator to check the protected archive before retrying destroyPeon.",
   ReplicaPending:

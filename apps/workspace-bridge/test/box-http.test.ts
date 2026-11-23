@@ -85,6 +85,8 @@ it.effect(
           Ref.update(calls, (values) => [...values, "inspect"]).pipe(
             Effect.as({ processes: 0, state: "suspended" })
           ),
+        tail: () =>
+          Effect.die("Unexpected tail call in the lifecycle route test"),
       });
 
       yield* HttpRouter.serve(boxRoutes(Redacted.make("box-secret")), {

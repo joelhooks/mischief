@@ -1,5 +1,6 @@
 import { defineContract } from "@mischief/capability/contract";
 import { implement } from "@mischief/capability/implement";
+import { BoxTailResult, PeonTailQuery } from "@mischief/core";
 import { authorized } from "@mischief/model-bridge/auth";
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import { Effect, Layer, Schema } from "effect";
@@ -61,6 +62,20 @@ const inspectBox = implement(
   ({ peonId }) => Boxes.use(({ inspect }) => inspect(peonId))
 );
 
+const TailQuery = Schema.fromJsonString(PeonTailQuery);
+
+const tailBox = implement(
+  defineContract("tailBox", {
+    annotations: { idempotent: true, readOnly: true },
+    description:
+      "Summarize recent managed Pi entries from the box home without starting the box",
+    failure: BridgeFailure,
+    input: Schema.Struct({ peonId: PeonId, ...PeonTailQuery.fields }),
+    output: BoxTailResult,
+  }),
+  ({ peonId, ...query }) => Boxes.use(({ tail }) => tail(peonId, query))
+);
+
 const taggedFailure = (
   failure: {
     readonly _tag: string;
@@ -102,13 +117,13 @@ const route = (key: Redacted.Redacted) =>
     }
 
     const match =
-      /^\/v1\/boxes\/(?<id>[a-z0-9][a-z0-9-]{0,39})(?:\/(?<action>prompt|suspend|resume|hibernate|clone|export))?$/u.exec(
+      /^\/v1\/boxes\/(?<id>[a-z0-9][a-z0-9-]{0,39})(?:\/(?<action>prompt|suspend|resume|hibernate|clone|export|tail))?$/u.exec(
         request.url
       )?.groups;
 
     if (match?.id === undefined) {
       return yield* refusal(
-        "Unknown box route. Use POST /v1/boxes, GET or DELETE /v1/boxes/{id}, or POST /v1/boxes/{id}/{prompt,suspend,resume,hibernate,clone,export}.",
+        "Unknown box route. Use POST /v1/boxes, GET or DELETE /v1/boxes/{id}, or POST /v1/boxes/{id}/{prompt,suspend,resume,hibernate,clone,export,tail}.",
         404
       );
     }
@@ -116,6 +131,26 @@ const route = (key: Redacted.Redacted) =>
     if (request.method === "GET" && match.action === undefined) {
       return HttpServerResponse.jsonUnsafe(
         yield* inspectBox.handler({ peonId: match.id })
+      );
+    }
+
+    if (request.method === "POST" && match.action === "tail") {
+      const query = yield* Schema.decodeUnknownEffect(TailQuery)(
+        yield* readBody,
+        { onExcessProperty: "error" }
+      ).pipe(
+        Effect.mapError(() =>
+          refusal(
+            "Invalid tail body. Supply only entries (1–200) and sinceId (a cursor from a previous tail response)."
+          )
+        )
+      );
+
+      return HttpServerResponse.jsonUnsafe(
+        yield* tailBox.handler({ ...query, peonId: match.id }),
+        {
+          headers: { "cache-control": "no-store" },
+        }
       );
     }
 

@@ -19,5 +19,12 @@ export const peonGranted = (
     Schema.decodeUnknownOption(Schema.fromJsonString(PeonGrants))(
       grants ?? "{}"
     ),
-    (value) => value[owner]?.includes(capability) === true
+    (value) => {
+      const granted = value[owner];
+
+      return (
+        granted?.includes(capability) === true ||
+        (capability === "tailPeon" && granted?.includes("inspectPeon") === true)
+      );
+    }
   );

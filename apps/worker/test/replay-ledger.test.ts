@@ -112,6 +112,7 @@ it("only reads skip the durable ledger: the read-only set names exactly the insp
       "sh.mschf.mischief.listPeons",
       "sh.mschf.mischief.openApi",
       "sh.mschf.mischief.readRun",
+      "sh.mschf.mischief.tailPeon",
     ].toSorted()
   );
 });

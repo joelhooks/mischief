@@ -1,6 +1,13 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { PeonRefused, PeonReport, PeonTombstone } from "@mischief/core";
+import {
+  PeonRefused,
+  PeonReport,
+  PeonTailForbidden,
+  PeonTailNotFound,
+  PeonTombstone,
+  tailPeonContract,
+} from "@mischief/core";
 import { Effect, Layer, Option, Schedule, Schema } from "effect";
 import { FetchHttpClient, HttpClient } from "effect/http";
 
@@ -30,6 +37,84 @@ const report = (world: Workerd) =>
   post(world, "inspectPeon", { peonId: "worker-a" }).pipe(
     Effect.flatMap(({ body }) => Schema.decodeUnknownEffect(PeonReport)(body))
   );
+
+it.live(
+  "tailPeon accepts an existing inspect grant but never reads a foreign or missing peon",
+  () =>
+    Effect.gen(function* tailAccess() {
+      const other = yield* freshCaller("other-tail-reader");
+
+      const world = yield* prepare(200, [other], undefined, {
+        peons: true,
+        peonReaders: [other.did],
+      });
+
+      yield* start(world);
+      const peonId = "tail-owner";
+
+      const spawn = yield* post(world, "spawnPeon", {
+        peonId,
+        template: "full",
+        overrides: { workspace },
+      });
+
+      expect(spawn.status).toBe(200);
+
+      const turn = yield* post(world, "promptPeon", {
+        peonId,
+        text: "test turn",
+        requestId: "first-turn",
+      });
+
+      expect(turn.body).toMatchObject({
+        lastTurn: { output: "I remember the file we wrote" },
+      });
+
+      const before = yield* readCalls(world);
+      const foreign = yield* post(world, "tailPeon", { peonId }, other);
+
+      const missing = yield* post(world, "tailPeon", {
+        peonId: "missing-tail",
+      });
+
+      expect(foreign.status).toBe(403);
+      expect(missing.status).toBe(404);
+
+      const forbidden = yield* Schema.decodeUnknownEffect(PeonTailForbidden)(
+        foreign.body
+      );
+
+      const notFound = yield* Schema.decodeUnknownEffect(PeonTailNotFound)(
+        missing.body
+      );
+
+      expect(forbidden.reason).toContain("Only the owner");
+      expect(notFound.reason).toContain("No peon record");
+      expect(yield* readCalls(world)).toEqual(before);
+
+      const owner = yield* post(world, "tailPeon", { peonId, entries: 1 });
+      expect(owner.status, JSON.stringify(owner.body)).toBe(200);
+
+      const page = yield* Schema.decodeUnknownEffect(tailPeonContract.output)(
+        owner.body
+      );
+
+      expect(page).toMatchObject({
+        entries: [{ bytes: 50, type: "assistant" }],
+        lastTurn: { exit: 0, toolCallCount: 2 },
+        peonId,
+        state: "idle",
+        status: "tail",
+      });
+      expect(JSON.stringify(owner.body)).not.toContain(
+        "I remember the file we wrote"
+      );
+      expect((yield* readCalls(world)).slice(before.length)).toEqual([
+        { path: `/v1/boxes/${peonId}/tail`, requestId: "tail-read" },
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  30_000
+);
 
 const custodyCases = [
   [

@@ -100,7 +100,8 @@ const configOf = (
   jevKey: string | undefined,
   stepKinds: string,
   mailReach: string,
-  boxPort: number | undefined
+  boxPort: number | undefined,
+  peonReaders: readonly string[]
 ) => `using Workerd = import "/workerd/workerd.capnp";
 const config :Workerd.Config = (
   services = [
@@ -137,7 +138,14 @@ const worker :Workerd.Worker = (
     (name = "MISCHIEF_PEON_BOXES", text = "on"),
     (name = "MISCHIEF_BOX_URL", text = "http://192.0.2.1"),
     (name = "MISCHIEF_BOX_KEY", text = "fake-box-key"),
-    (name = "MISCHIEF_PEON_GRANTS", text = ${JSON.stringify(JSON.stringify({ [callers[0]?.id ?? ""]: peonContracts.map(({ name }) => name) }))}),`
+    (name = "MISCHIEF_PEON_GRANTS", text = ${JSON.stringify(
+      JSON.stringify({
+        ...Object.fromEntries(peonReaders.map((did) => [did, ["inspectPeon"]])),
+        [callers[0]?.id ?? ""]: peonContracts.flatMap(({ name }) =>
+          name === "tailPeon" ? [] : [name]
+        ),
+      })
+    )}),`
     }
 
     (name = "MISCHIEF_DID", text = "${MISCHIEF_DID}"),
@@ -174,6 +182,7 @@ export const prepare = (
     readonly mayMail?: readonly string[];
     readonly mailReach?: string;
     readonly peons?: boolean;
+    readonly peonReaders?: readonly string[];
   } = {}
 ) =>
   Effect.gen(function* prepareWorkerd() {
@@ -213,7 +222,8 @@ export const prepare = (
               ? {}
               : { [driver.did]: options.mayMail }
           ),
-        boxPort
+        boxPort,
+        options.peonReaders ?? []
       ) + (boxPort === undefined ? "" : boxConfig)
     );
 

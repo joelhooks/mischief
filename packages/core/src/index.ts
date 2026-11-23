@@ -68,6 +68,17 @@ export {
 
 export { Peons, peonCapabilities } from "./peons/capabilities.js";
 
+export {
+  BoxTailResult,
+  PeonTailContext,
+  PeonTailEntryType,
+  PeonTailForbidden,
+  PeonTailNotFound,
+  PeonTailQuery,
+  peonTailDefaultEntries,
+  tailPeonContract,
+} from "./peons/tail.js";
+
 export { thinkStatus, thinkingCapabilities } from "./thinking/capabilities.js";
 
 export {

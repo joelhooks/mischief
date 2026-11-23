@@ -16,6 +16,7 @@ import {
   suspendPeonContract,
 } from "./contracts.js";
 import type { PeonRefused } from "./schema.js";
+import { tailPeonContract } from "./tail.js";
 
 type Operation<
   C extends {
@@ -37,6 +38,12 @@ export class Peons extends Context.Service<
     readonly clonePeon: Operation<typeof clonePeonContract>;
     readonly destroyPeon: Operation<typeof destroyPeonContract>;
     readonly inspectPeon: Operation<typeof inspectPeonContract>;
+    readonly tailPeon: (
+      input: typeof tailPeonContract.input.Type
+    ) => Effect.Effect<
+      typeof tailPeonContract.output.Type,
+      typeof tailPeonContract.failure.Type
+    >;
     readonly listPeonTemplates: Operation<typeof listPeonTemplatesContract>;
     readonly savePeonTemplate: Operation<typeof savePeonTemplateContract>;
     readonly listPeons: Operation<typeof listPeonsContract>;
@@ -75,6 +82,10 @@ export const inspectPeon = implement(inspectPeonContract, (input) =>
   Peons.use((peons) => peons.inspectPeon(input))
 );
 
+export const tailPeon = implement(tailPeonContract, (input) =>
+  Peons.use((peons) => peons.tailPeon(input))
+);
+
 export const listPeonTemplates = implement(listPeonTemplatesContract, (input) =>
   Peons.use((peons) => peons.listPeonTemplates(input))
 );
@@ -96,6 +107,7 @@ export const peonCapabilities = [
   clonePeon,
   destroyPeon,
   inspectPeon,
+  tailPeon,
   listPeonTemplates,
   savePeonTemplate,
   listPeons,

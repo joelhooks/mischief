@@ -6,6 +6,8 @@ import {
   peonTemplateReference,
   Peons,
   PeonRefused,
+  PeonTailForbidden,
+  PeonTailNotFound,
   PeonTombstone,
 } from "@mischief/core";
 import type { PeonIndexEntry } from "@mischief/core";
@@ -19,6 +21,7 @@ import { assertPeonSpawnable } from "./peon-host.js";
 import { peonRpc } from "./peon-object.js";
 import type { Peon } from "./peon-object.js";
 import { PEON_REGISTRY } from "./peon-state.js";
+import { fetchPeonTail } from "./peon-tail.js";
 import type { Env } from "./plan-run-object.js";
 
 const peonCommandRpc = (operation: () => ReturnType<Peon["command"]>) =>
@@ -176,6 +179,50 @@ export const peonServices = (env: Env, owner: string): Peons["Service"] => {
         );
       }),
     suspendPeon: (input) => command("suspend", input),
+    tailPeon: (input) =>
+      Effect.gen(function* tail() {
+        const { peonId } = input;
+
+        const entry = yield* peonRpc(
+          async () => await registry().lookup(peonId)
+        );
+
+        if (entry === null) {
+          return yield* new PeonTailNotFound({
+            reason:
+              "No peon record exists for this id. Call listPeons and retry tailPeon with an existing id.",
+          });
+        }
+
+        if (entry.owner !== owner) {
+          return yield* new PeonTailForbidden({
+            reason:
+              "Only the owner can view a peon's session activity. Call listPeons to find a peon you own.",
+          });
+        }
+
+        if (entry.state === "destroyed") {
+          return {
+            peonId,
+            state: entry.state,
+            lastTurn: null,
+            reason: "destroyed",
+            status: "not-live",
+          };
+        }
+
+        const { lastTurn, state } = yield* peonRpc(
+          async () => await env.PEON.getByName(peonId).tailContext()
+        );
+
+        if (state === "hibernated" || state === "destroyed") {
+          return { peonId, state, lastTurn, reason: state, status: "not-live" };
+        }
+
+        const page = yield* fetchPeonTail(env, input);
+
+        return { ...page, peonId, state, lastTurn };
+      }),
   });
 };
 

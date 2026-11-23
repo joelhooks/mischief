@@ -199,6 +199,36 @@ export class FakeBox extends DurableObject {
     return Response.json(response);
   }
 
+  private async read(
+    path: string,
+    method: string,
+    calls: readonly CallValue[]
+  ) {
+    if (method === "GET") {
+      return Response.json({
+        bytes: { home: 20, snapshot: 30, work: 10 },
+        container: "box",
+        lastPromptAt: null,
+        state: "idle",
+      });
+    }
+
+    if (method === "POST" && path.endsWith("/tail")) {
+      await this.ctx.storage.put("calls", [
+        ...calls,
+        { path, requestId: "tail-read" },
+      ]);
+
+      return Response.json({
+        entries: [{ bytes: 50, id: "b51", type: "assistant" }],
+        status: "tail",
+        truncated: false,
+      });
+    }
+
+    return null;
+  }
+
   override async fetch(request: Request) {
     const path = new URL(request.url).pathname;
 
@@ -217,13 +247,10 @@ export class FakeBox extends DurableObject {
       );
     }
 
-    if (request.method === "GET") {
-      return Response.json({
-        bytes: { home: 20, snapshot: 30, work: 10 },
-        container: "box",
-        lastPromptAt: null,
-        state: "idle",
-      });
+    const read = await this.read(path, request.method, calls);
+
+    if (read !== null) {
+      return read;
     }
 
     const text = await request.text();

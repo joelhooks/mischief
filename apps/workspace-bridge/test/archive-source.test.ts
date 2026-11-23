@@ -78,6 +78,7 @@ it.effect(
           { path: ".pi/agent/sessions", role: "authoritative" },
           { path: ".claude/projects", role: "derived" },
         ],
+        skipped: [],
         unparsed: [
           ".pi/agent/sessions/empty.jsonl",
           ".pi/agent/sessions/headerless.jsonl",
@@ -112,6 +113,59 @@ it.effect(
       expect(archive.manifest.session_ids).toContain(claudeId);
       expect(archive.manifest.unparsed).not.toContain(path);
       expect(archive.files.checksums).toContain(`${sha256(record)}  ${path}\n`);
+    }).pipe(Effect.provide(NodeServices.layer))
+);
+
+it.effect(
+  "archives only Claude MCP logs and reports other JSONL without following links",
+  () =>
+    Effect.gen(function* cacheCoverage() {
+      const { fs, home, scan } = yield* fixture;
+      const outside = yield* fs.makeTempDirectoryScoped();
+      const mcp = ".cache/claude-cli-nodejs/-work/mcp-logs-custom-tools/nested";
+      const other = ".cache/claude-cli-nodejs/-work/mcp-logs-neighbor.jsonl";
+      const raw = '{"message":"tool output"}\n';
+      yield* fs.makeDirectory(`${home}/${mcp}`, { recursive: true });
+      yield* fs.writeFileString(`${home}/${mcp}/log.jsonl`, raw);
+      yield* fs.writeFileString(`${home}/${mcp}/private.txt`, "not history");
+      yield* fs.writeFileString(`${home}/${other}`, raw);
+      yield* fs.writeFileString(`${outside}/not-in-home.jsonl`, raw);
+      yield* fs.symlink(outside, `${home}/${mcp}/outside`);
+      yield* fs.symlink(`${outside}/not-in-home.jsonl`, `${home}/link.jsonl`);
+
+      const { files, manifest } = yield* scan();
+      expect(manifest.source_roots).toContainEqual({
+        path: ".cache/claude-cli-nodejs",
+        role: "derived",
+      });
+      expect(files.paths).toEqual([`${mcp}/log.jsonl`, "session.jsonl"]);
+      expect(files.checksums).toContain(`${sha256(raw)}  ${mcp}/log.jsonl\n`);
+      expect(manifest.skipped).toEqual([
+        { path: other, reason: "uncovered" },
+        { path: "link.jsonl", reason: "uncovered" },
+      ]);
+    }).pipe(Effect.provide(NodeServices.layer))
+);
+
+it.effect(
+  "a failed read of the managed Pi session is recorded as skipped",
+  () =>
+    Effect.gen(function* unreadableSession() {
+      const { fs, home, scan } = yield* fixture;
+      const session = `${home}/session.jsonl`;
+
+      const { files, manifest } = yield* scan().pipe(
+        Effect.provideService(FileSystem.FileSystem, {
+          ...fs,
+          stream: (file, options) =>
+            fs.stream(file === session ? home : file, options),
+        })
+      );
+
+      expect(files.paths).toEqual([]);
+      expect(manifest.skipped).toEqual([
+        { path: "session.jsonl", reason: "Session path could not be read." },
+      ]);
     }).pipe(Effect.provide(NodeServices.layer))
 );
 

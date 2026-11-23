@@ -36,11 +36,13 @@ const bridge = `${piAgentRoot}/claude-bridge`;
 
 const codexHistory = `${agentDirs.CODEX_HOME}/history.jsonl`;
 
-const derivedRoots = new Set([bridge, claudeProjects]);
+const claudeCache = ".cache/claude-cli-nodejs";
+
+const derivedRoots = new Set([bridge, claudeProjects, claudeCache]);
 
 const singleFiles = new Set([primaryPiSession, codexHistory]);
 
-export const sessionRoots = [
+const sessionRoots = [
   primaryPiSession,
   piSessions,
   bridge,
@@ -48,12 +50,29 @@ export const sessionRoots = [
   `${agentDirs.CODEX_HOME}/sessions`,
   `${agentDirs.CODEX_HOME}/archived_sessions`,
   codexHistory,
+  claudeCache,
 ];
 
 const safeName = /^(?!\.{1,2}$)[A-Za-z0-9._-]+$/u;
 
-const belongs = (relative: string, root: string) =>
-  singleFiles.has(root) ? relative === root : relative.startsWith(`${root}/`);
+const isMcpLog = (relative: string) =>
+  relative.endsWith(".jsonl") &&
+  relative
+    .slice(claudeCache.length + 1)
+    .split("/")
+    .slice(0, -1)
+    .some((directory) => directory.startsWith("mcp-logs"));
+
+const belongs = (relative: string, root: string) => {
+  if (singleFiles.has(root)) {
+    return relative === root;
+  }
+
+  return (
+    relative.startsWith(`${root}/`) &&
+    (root !== claudeCache || isMcpLog(relative))
+  );
+};
 
 const SessionId = Schema.String.check(Schema.isUUID());
 
@@ -293,10 +312,12 @@ export const collectArchive = Effect.fn("Archive.collect")(
     const sessions = new Set<string>();
     const roots: Manifest["source_roots"][number][] = [];
     const unparsed: string[] = [];
-    const skipped: Manifest["skipped"][number][] = [];
+    const skips = new Map<string, Manifest["skipped"][number]>();
 
     const recordSkip = (entry: Manifest["skipped"][number]) => {
-      skipped.push(entry);
+      if (!skips.has(entry.path)) {
+        skips.set(entry.path, entry);
+      }
     };
 
     const visitRoot = Effect.fn("Archive.visitRoot")(function* visitRoot(
@@ -323,6 +344,10 @@ export const collectArchive = Effect.fn("Archive.collect")(
         root,
         (relative, entry) =>
           Effect.gen(function* visitSession() {
+            if (!belongs(relative, root)) {
+              return yield* Effect.void;
+            }
+
             const file = path.join(source, relative);
             const from = prefix + relative;
             const name = prefix + escapePath(relative);
@@ -351,7 +376,9 @@ export const collectArchive = Effect.fn("Archive.collect")(
             const pi =
               root === primaryPiSession || (root === piSessions && jsonl);
 
-            const transcript = jsonl && relative !== codexHistory;
+            const transcript =
+              jsonl && relative !== codexHistory && root !== claudeCache;
+
             const claude = derivedRoots.has(root);
 
             const scanned = yield* scanFile(
@@ -384,11 +411,9 @@ export const collectArchive = Effect.fn("Archive.collect")(
 
             return yield* Effect.void;
           }),
-        derivedRoots.has(root)
-          ? (entry) => {
-              recordSkip({ ...entry, path: prefix + entry.path });
-            }
-          : undefined
+        (entry) => {
+          recordSkip({ ...entry, path: prefix + entry.path });
+        }
       );
 
       return yield* Effect.void;
@@ -419,28 +444,50 @@ export const collectArchive = Effect.fn("Archive.collect")(
       }
 
       for (const root of sessionRoots) {
-        const scan = visitRoot(source, prefix, root);
-        yield* derivedRoots.has(root)
-          ? scan.pipe(
-              Effect.catch((error) =>
-                Effect.sync(() => {
-                  recordSkip({
-                    path: prefix + root,
-                    reason: Predicate.isTagged(error, "ArchiveFailure")
-                      ? error.message
-                      : "Session root could not be read.",
-                  });
-                })
-              )
-            )
-          : scan;
+        yield* visitRoot(source, prefix, root).pipe(
+          Effect.catch((error) => {
+            const noncanonical = Predicate.isTagged(error, "ArchiveFailure");
+
+            if (noncanonical && !derivedRoots.has(root)) {
+              return Effect.fail(error);
+            }
+
+            return Effect.sync(() => {
+              recordSkip({
+                path: prefix + root,
+                reason: noncanonical
+                  ? error.message
+                  : "Session root could not be read.",
+              });
+            });
+          })
+        );
       }
+
+      yield* walkArchive(
+        source,
+        "",
+        (relative) =>
+          Effect.sync(() => {
+            if (
+              relative.endsWith(".jsonl") &&
+              !files.has(prefix + escapePath(relative))
+            ) {
+              recordSkip({ path: prefix + relative, reason: "uncovered" });
+            }
+          }),
+        ({ path: relative, reason }) => {
+          recordSkip({ path: prefix + (relative || "."), reason });
+        }
+      );
     }
 
     if (
       box.lastPromptAt !== null &&
       !sources.has(primaryPiSession) &&
-      !sources.has(snapshotPrefix + primaryPiSession)
+      !sources.has(snapshotPrefix + primaryPiSession) &&
+      !skips.has(primaryPiSession) &&
+      !skips.has(snapshotPrefix + primaryPiSession)
     ) {
       return yield* archiveFailure(
         "Prompted box is missing its managed Pi session. Recover home/session.jsonl before exporting or destroying."
@@ -449,7 +496,10 @@ export const collectArchive = Effect.fn("Archive.collect")(
 
     renamed.sort((a, b) => (a.from < b.from ? -1 : Number(a.from !== b.from)));
     nonData.sort((a, b) => (a.path < b.path ? -1 : Number(a.path !== b.path)));
-    skipped.sort((a, b) => (a.path < b.path ? -1 : Number(a.path !== b.path)));
+
+    const skipped = [...skips.values()].toSorted((a, b) =>
+      a.path < b.path ? -1 : Number(a.path !== b.path)
+    );
 
     const entries = [...files.entries()].toSorted(([a], [b]) =>
       a < b ? -1 : Number(a !== b)

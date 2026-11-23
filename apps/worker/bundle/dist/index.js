@@ -2279,8 +2279,8 @@ var init_shims = __esm({
 
 // ../../node_modules/.pnpm/openai@7.19.0_@aws-sdk+credential-provider-node@3.972.83_@smithy+signature-v4@5.7.2_undici@8.12.4_ws@8.23.0_zod@4.6.5/node_modules/openai/internal/utils/bytes.mjs
 function encodeUTF8(str) {
-  let encoder3;
-  return (encodeUTF8_ ?? (encoder3 = new globalThis.TextEncoder(), encodeUTF8_ = encoder3.encode.bind(encoder3)))(str);
+  let encoder4;
+  return (encodeUTF8_ ?? (encoder4 = new globalThis.TextEncoder(), encodeUTF8_ = encoder4.encode.bind(encoder4)))(str);
 }
 function decodeUTF8(bytes3) {
   let decoder2;
@@ -3574,7 +3574,7 @@ var init_utils = __esm({
 function is_non_nullish_primitive(v) {
   return typeof v === "string" || typeof v === "number" || typeof v === "boolean" || typeof v === "symbol" || typeof v === "bigint";
 }
-function inner_stringify(object2, prefix, generateArrayPrefix, commaRoundTrip, allowEmptyArrays, strictNullHandling, skipNulls, encodeDotInKeys, encoder3, filter, sort, allowDots, serializeDate, format3, formatter, encodeValuesOnly, charset, sideChannel) {
+function inner_stringify(object2, prefix, generateArrayPrefix, commaRoundTrip, allowEmptyArrays, strictNullHandling, skipNulls, encodeDotInKeys, encoder4, filter, sort, allowDots, serializeDate, format3, formatter, encodeValuesOnly, charset, sideChannel) {
   let obj = object2;
   let tmp_sc = sideChannel;
   let step = 0;
@@ -3607,22 +3607,22 @@ function inner_stringify(object2, prefix, generateArrayPrefix, commaRoundTrip, a
   }
   if (obj === null) {
     if (strictNullHandling) {
-      return encoder3 && !encodeValuesOnly ? (
+      return encoder4 && !encodeValuesOnly ? (
         // @ts-expect-error
-        encoder3(prefix, defaults.encoder, charset, "key", format3)
+        encoder4(prefix, defaults.encoder, charset, "key", format3)
       ) : prefix;
     }
     obj = "";
   }
   if (is_non_nullish_primitive(obj) || is_buffer(obj)) {
-    if (encoder3) {
+    if (encoder4) {
       const key_value = encodeValuesOnly ? prefix : (
         // @ts-expect-error
-        encoder3(prefix, defaults.encoder, charset, "key", format3)
+        encoder4(prefix, defaults.encoder, charset, "key", format3)
       );
       return [
         formatter?.(key_value) + "=" + // @ts-expect-error
-        formatter?.(encoder3(obj, defaults.encoder, charset, "value", format3))
+        formatter?.(encoder4(obj, defaults.encoder, charset, "value", format3))
       ];
     }
     return [formatter?.(prefix) + "=" + formatter?.(String(obj))];
@@ -3633,8 +3633,8 @@ function inner_stringify(object2, prefix, generateArrayPrefix, commaRoundTrip, a
   }
   let obj_keys;
   if (generateArrayPrefix === "comma" && isArray(obj)) {
-    if (encodeValuesOnly && encoder3) {
-      obj = maybe_map(obj, encoder3);
+    if (encodeValuesOnly && encoder4) {
+      obj = maybe_map(obj, encoder4);
     }
     obj_keys = [{ value: obj.length > 0 ? obj.join(",") || null : void 0 }];
   } else if (isArray(filter)) {
@@ -3678,7 +3678,7 @@ function inner_stringify(object2, prefix, generateArrayPrefix, commaRoundTrip, a
       skipNulls,
       encodeDotInKeys,
       // @ts-ignore
-      generateArrayPrefix === "comma" && encodeValuesOnly && isArray(obj) ? null : encoder3,
+      generateArrayPrefix === "comma" && encodeValuesOnly && isArray(obj) ? null : encoder4,
       filter,
       sort,
       allowDots,
@@ -8129,21 +8129,21 @@ var init_parser2 = __esm({
       };
       const parseStr = () => {
         const start = index3;
-        let escape2 = false;
+        let escape3 = false;
         index3++;
-        while (index3 < length3 && (jsonString[index3] !== '"' || escape2 && jsonString[index3 - 1] === "\\")) {
-          escape2 = jsonString[index3] === "\\" ? !escape2 : false;
+        while (index3 < length3 && (jsonString[index3] !== '"' || escape3 && jsonString[index3 - 1] === "\\")) {
+          escape3 = jsonString[index3] === "\\" ? !escape3 : false;
           index3++;
         }
         if (jsonString.charAt(index3) === '"') {
           try {
-            return JSON.parse(jsonString.substring(start, ++index3 - Number(escape2)));
+            return JSON.parse(jsonString.substring(start, ++index3 - Number(escape3)));
           } catch (e) {
             throwMalformedError(String(e));
           }
         } else if (Allow.STR & allow) {
           try {
-            return JSON.parse(jsonString.substring(start, index3 - Number(escape2)) + '"');
+            return JSON.parse(jsonString.substring(start, index3 - Number(escape3)) + '"');
           } catch {
             return JSON.parse(jsonString.substring(start, jsonString.lastIndexOf("\\")) + '"');
           }
@@ -22548,21 +22548,21 @@ var require_dist = __commonJS({
       };
       const parseStr = () => {
         const start = index3;
-        let escape2 = false;
+        let escape3 = false;
         index3++;
-        while (index3 < length3 && (jsonString[index3] !== '"' || escape2 && jsonString[index3 - 1] === "\\")) {
-          escape2 = jsonString[index3] === "\\" ? !escape2 : false;
+        while (index3 < length3 && (jsonString[index3] !== '"' || escape3 && jsonString[index3 - 1] === "\\")) {
+          escape3 = jsonString[index3] === "\\" ? !escape3 : false;
           index3++;
         }
         if (jsonString.charAt(index3) == '"') {
           try {
-            return JSON.parse(jsonString.substring(start, ++index3 - Number(escape2)));
+            return JSON.parse(jsonString.substring(start, ++index3 - Number(escape3)));
           } catch (e) {
             throwMalformedError(String(e));
           }
         } else if (options_1.Allow.STR & allow) {
           try {
-            return JSON.parse(jsonString.substring(start, index3 - Number(escape2)) + '"');
+            return JSON.parse(jsonString.substring(start, index3 - Number(escape3)) + '"');
           } catch (e) {
             return JSON.parse(jsonString.substring(start, jsonString.lastIndexOf("\\")) + '"');
           }
@@ -57447,6 +57447,11 @@ var PeonTailNotFound = class extends Schema10.TaggedError()("PeonTailNotFound", 
 
 // ../../packages/core/dist/peons/tail.js
 var peonTailMaxEntries = 200;
+var peonTailEntryBudget = 2048;
+var peonTailPageEntryBudget = 59 * 1024;
+var peonTailArgBudget = 512;
+var peonTailNameBudget = 96;
+var peonTailLastToolLimit = 16;
 var Cursor = Schema11.String.check(Schema11.isPattern(/^b[1-9][0-9]{0,15}$/u));
 var PeonTailQuery = Schema11.Struct({
   entries: Schema11.optionalKey(Schema11.Int.check(Schema11.isBetween({ maximum: peonTailMaxEntries, minimum: 1 }))),
@@ -57459,16 +57464,24 @@ var PeonTailEntryType = Schema11.Literals([
   "assistant",
   "toolResult",
   "compaction",
+  "model_change",
+  "thinking_level_change",
   "blob",
   "other"
 ]);
+var PeonTailEntry = Schema11.Struct({
+  bytes: Schema11.Int.check(Schema11.isGreaterThan(0)),
+  id: Cursor,
+  type: PeonTailEntryType,
+  text: Schema11.optionalKey(Schema11.String.check(Schema11.isMaxLength(peonTailEntryBudget))),
+  toolCalls: Schema11.optionalKey(Schema11.Array(Schema11.Struct({
+    name: Schema11.String.check(Schema11.isMaxLength(peonTailNameBudget)),
+    args: Schema11.String.check(Schema11.isMaxLength(peonTailArgBudget))
+  })).check(Schema11.isMaxLength(peonTailLastToolLimit)))
+});
 var TailPage = Schema11.Struct({
   status: Schema11.Literal("tail"),
-  entries: Schema11.Array(Schema11.Struct({
-    bytes: Schema11.Int.check(Schema11.isGreaterThan(0)),
-    id: Cursor,
-    type: PeonTailEntryType
-  })).check(Schema11.isMaxLength(peonTailMaxEntries)),
+  entries: Schema11.Array(PeonTailEntry).check(Schema11.isMaxLength(peonTailMaxEntries)),
   truncated: Schema11.Boolean
 });
 var NotLive = Schema11.Struct({
@@ -57481,6 +57494,8 @@ var PeonTailContext = Schema11.Struct({
   state: PeonState,
   lastTurn: Schema11.NullOr(Schema11.Struct({
     exit: Schema11.Finite,
+    output: Schema11.optionalKey(Schema11.String.check(Schema11.isMaxLength(peonTailEntryBudget))),
+    toolCalls: Schema11.optionalKey(Schema11.Array(Schema11.String.check(Schema11.isMaxLength(peonTailNameBudget))).check(Schema11.isMaxLength(peonTailLastToolLimit))),
     resumeMs: Schema11.optionalKey(Schema11.Finite),
     toolCallCount: Schema11.Int.check(Schema11.isGreaterThanOrEqualTo(0)),
     usage: PeonUsage,
@@ -57489,7 +57504,7 @@ var PeonTailContext = Schema11.Struct({
 });
 var tailPeonContract = defineContract("tailPeon", {
   annotations: { idempotent: true, readOnly: true },
-  description: "Read recent managed Pi activity as entry types and byte counts, without session text or tool payloads. Pass an entry id as sinceId to see only newer entries. Never wakes a box.",
+  description: "Read recent managed Pi activity, with redacted excerpts of user and assistant text and tool calls. Tool results and private metadata are summarized. Pass an entry id as sinceId to see only newer entries. Never wakes a box.",
   failure: Schema11.Union([PeonRefused, PeonTailNotFound, PeonTailForbidden]),
   input: Schema11.Struct({ peonId: PeonId, ...PeonTailQuery.fields }),
   output: Schema11.Union([
@@ -57707,6 +57722,112 @@ var peonCapabilities = [
   savePeonTemplate,
   listPeons
 ];
+
+// ../../packages/core/dist/peons/tail-sanitize.js
+var escape2 = 27;
+var codeAt = (value, index3) => value.codePointAt(index3) ?? -1;
+var endString = (value, start, osc) => {
+  for (let index3 = start; index3 < value.length; index3 += 1) {
+    const code = codeAt(value, index3);
+    if (code === 156 || osc && code === 7) {
+      return index3 + 1;
+    }
+    if (code === escape2 && codeAt(value, index3 + 1) === 92) {
+      return index3 + 2;
+    }
+  }
+  return value.length;
+};
+var endCsi = (value, start) => {
+  for (let index3 = start; index3 < value.length; index3 += 1) {
+    const code = codeAt(value, index3);
+    if (code === escape2 || code >= 128 && code <= 159) {
+      return index3;
+    }
+    if (code >= 64 && code <= 126) {
+      return index3 + 1;
+    }
+  }
+  return value.length;
+};
+var endEscape = (value, start) => {
+  const introducer = value[start];
+  if (introducer === "[") {
+    return endCsi(value, start + 1);
+  }
+  if (introducer === "]" || introducer === "P" || introducer === "X" || introducer === "^" || introducer === "_") {
+    return endString(value, start + 1, introducer === "]");
+  }
+  let index3 = start;
+  let code = codeAt(value, index3);
+  while (code >= 32 && code <= 47) {
+    index3 += 1;
+    code = codeAt(value, index3);
+  }
+  return code >= 48 && code <= 126 ? index3 + 1 : index3;
+};
+var endControl = (value, index3) => {
+  const code = codeAt(value, index3);
+  switch (code) {
+    case escape2: {
+      return endEscape(value, index3 + 1);
+    }
+    case 155: {
+      return endCsi(value, index3 + 1);
+    }
+    case 144:
+    case 152:
+    case 157:
+    case 158:
+    case 159: {
+      return endString(value, index3 + 1, code === 157);
+    }
+    default: {
+      return index3 + 1;
+    }
+  }
+};
+var stripControls = (value) => {
+  const out = [];
+  let start = 0;
+  for (let index3 = 0; index3 < value.length; index3 += 1) {
+    const code = codeAt(value, index3);
+    if (code < 32 && code !== 9 && code !== 10 || code >= 127 && code <= 159) {
+      out.push(value.slice(start, index3));
+      start = endControl(value, index3);
+      index3 = start - 1;
+    }
+  }
+  out.push(value.slice(start));
+  return out.join("");
+};
+var pemBlock = /-----BEGIN [A-Z0-9][A-Z0-9 -]{0,64}-----[\s\S]*?(?:-----END [A-Z0-9][A-Z0-9 -]{0,64}-----|$)/giu;
+var authorization = /\b(?:proxy-)?authorization\b["']?[ \t]*[:=][^\n]*/giu;
+var bearer = /\bbearer[ \t]+[^\s"'`,;)}\]]+/giu;
+var namedSecret = /\b(?:[\w-]{0,64}model[-_ ]?route[-_ ]?(?:api[-_ ]?)?key|[\w-]{0,64}(?:api[-_ ]?key|token|secret(?:[-_ ]?key)?|password|private[-_ ]?key|database[-_ ]?url))["']?[ \t]*[:=][ \t]*(?:"[^"\n]*"|'[^'\n]*'|[^\s,;)}\]]+)/giu;
+var providerKey = /\b(?:sk-[a-z0-9_-]{8,}|(?:gh[pors]_|github_pat_)[a-z0-9_]{8,}|(?:AKIA|ASIA|AIDA|AROA)[A-Z0-9]{16}|(?:mischief[-_])?model[-_]route[-_](?:[a-z0-9_-]{8,}))/giu;
+var tokenRun = /(?<![A-Za-z0-9+/_-])(?:(?:[a-f0-9]{40,})(?![A-Za-z0-9+/_-])|[A-Za-z0-9+/_-]{40,}={0,2})(?![A-Za-z0-9+/_-])/giu;
+var tokenLike = (value) => /^[a-f0-9]+$/iu.test(value) || /[a-z]/u.test(value) && /[A-Z]/u.test(value) && /\d/u.test(value) || /[+/=]/u.test(value);
+var sanitizeTailText = (value) => stripControls(value).replaceAll(pemBlock, "[redacted]").replaceAll(authorization, "[redacted]").replaceAll(bearer, "[redacted]").replaceAll(namedSecret, "[redacted]").replaceAll(providerKey, "[redacted]").replaceAll(tokenRun, (run2) => tokenLike(run2) ? "[redacted]" : run2);
+var encoder3 = new TextEncoder();
+var tailJsonBytes = (value) => encoder3.encode(value).byteLength;
+var clipTailText = (value, budget) => {
+  if (tailJsonBytes(JSON.stringify(value)) <= budget) {
+    return value;
+  }
+  const parts2 = [];
+  let remaining3 = budget - 5;
+  for (const character of value) {
+    const bytes3 = tailJsonBytes(JSON.stringify(character)) - 2;
+    if (bytes3 > remaining3) {
+      break;
+    }
+    parts2.push(character);
+    remaining3 -= bytes3;
+  }
+  return `${parts2.join("")}\u2026`;
+};
+var previewTailText = (value, budget) => clipTailText(sanitizeTailText(value), budget);
 
 // ../../packages/core/dist/thinking/contracts.js
 import { Schema as Schema14 } from "effect";
@@ -75165,13 +75286,13 @@ function encodeCustom(data, encoders, options2, destination) {
       }
       return quickBytes;
     }
-    const encoder3 = encoders[tokens.type.major];
-    if (encoder3.encodedSize) {
-      const size = encoder3.encodedSize(tokens, options2);
+    const encoder4 = encoders[tokens.type.major];
+    if (encoder4.encodedSize) {
+      const size = encoder4.encodedSize(tokens, options2);
       if (!hasDest) {
         writeTo = new Bl(size);
       }
-      encoder3(writeTo, tokens, options2);
+      encoder4(writeTo, tokens, options2);
       if (writeTo.chunks.length !== 1) {
         throw new Error(`Unexpected error: pre-calculated length for ${tokens} was wrong`);
       }
@@ -85565,7 +85686,9 @@ var safeLastTurn = (turn) => {
   }
   const safe = {
     exit: turn.exit,
+    output: previewTailText(turn.output, peonTailEntryBudget),
     toolCallCount: turn.toolCalls.length,
+    toolCalls: turn.toolCalls.slice(0, peonTailLastToolLimit).map((name) => previewTailText(name, peonTailNameBudget)),
     usage: turn.usage,
     wallMs: turn.wallMs
   };

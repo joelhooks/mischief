@@ -5,33 +5,21 @@ import { open } from "node:fs/promises";
 // @effect-diagnostics-next-line nodeBuiltinImport:off -- The pinned descriptors come from Node's flag-aware open API.
 import type { FileHandle } from "node:fs/promises";
 
-import { peonTailDefaultEntries } from "@mischief/core";
-import type {
-  BoxTailResult,
-  PeonTailEntryType,
-  PeonTailQuery,
+import {
+  peonTailDefaultEntries,
+  peonTailPageEntryBudget,
+  tailJsonBytes,
 } from "@mischief/core";
+import type { BoxTailResult, PeonTailQuery } from "@mischief/core";
 import { Effect, Option, Schema } from "effect";
 
 import { refusal } from "../protocol.js";
 import { primaryPiSession } from "./archive-source.js";
+import { summarizeTailEntry } from "./tail-entry.js";
 
 const scanBytes = 1024 * 1024;
 
-const inspectLineBytes = 2048;
-
 const lineFeed = 10;
-
-const RecordHeader = Schema.fromJsonString(
-  Schema.Struct({
-    type: Schema.String,
-    message: Schema.optionalKey(
-      Schema.Struct({
-        role: Schema.Literals(["assistant", "system", "toolResult", "user"]),
-      })
-    ),
-  })
-);
 
 const IoError = Schema.Struct({ code: Schema.String });
 
@@ -42,26 +30,6 @@ const ioFailure = (error: Option.Option<typeof IoError.Type>) =>
         "Managed Pi session could not be read safely. Check the box home before retrying tailPeon.",
         503
       );
-
-const recordType = (line: Buffer): typeof PeonTailEntryType.Type => {
-  if (line.length > inspectLineBytes) {
-    return "blob";
-  }
-
-  const header = Schema.decodeOption(RecordHeader)(line.toString("utf-8"));
-
-  if (Option.isNone(header)) {
-    return "other";
-  }
-
-  const { type, message } = header.value;
-
-  if (type === "session" || type === "compaction") {
-    return type;
-  }
-
-  return type === "message" ? (message?.role ?? "other") : "other";
-};
 
 type TailPage = Extract<typeof BoxTailResult.Type, { status: "tail" }>;
 
@@ -78,6 +46,7 @@ const summarize = (
 
   const limit = query.entries ?? peonTailDefaultEntries;
   let end = buffer.lastIndexOf(lineFeed);
+  let remaining = peonTailPageEntryBudget;
 
   if (start > 0 && first === 0) {
     return {
@@ -91,11 +60,19 @@ const summarize = (
     const begin = end === 0 ? 0 : buffer.lastIndexOf(lineFeed, end - 1) + 1;
 
     if (end > begin) {
-      entries.push({
-        bytes: end - begin,
-        id: `b${start + end + 1}`,
-        type: recordType(buffer.subarray(begin, end)),
-      });
+      const entry = summarizeTailEntry(
+        buffer.subarray(begin, end),
+        `b${start + end + 1}`
+      );
+
+      const bytes = tailJsonBytes(JSON.stringify(entry)) + 1;
+
+      if (bytes > remaining) {
+        break;
+      }
+
+      entries.push(entry);
+      remaining -= bytes;
     }
 
     end = begin - 1;

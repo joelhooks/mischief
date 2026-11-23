@@ -1,4 +1,11 @@
-import { BoxTailResult, PeonRefused } from "@mischief/core";
+import {
+  BoxTailResult,
+  PeonRefused,
+  peonTailEntryBudget,
+  peonTailLastToolLimit,
+  peonTailNameBudget,
+  previewTailText,
+} from "@mischief/core";
 import type {
   PeonReport,
   PeonTailContext,
@@ -23,7 +30,11 @@ export const safeLastTurn = (
 
   const safe = {
     exit: turn.exit,
+    output: previewTailText(turn.output, peonTailEntryBudget),
     toolCallCount: turn.toolCalls.length,
+    toolCalls: turn.toolCalls
+      .slice(0, peonTailLastToolLimit)
+      .map((name) => previewTailText(name, peonTailNameBudget)),
     usage: turn.usage,
     wallMs: turn.wallMs,
   };

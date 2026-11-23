@@ -58,6 +58,16 @@ const Turn = {
   wallMs: 1,
 };
 
+const fixtureTurn = (path: string) =>
+  path === "/v1/boxes/tail-owner/prompt"
+    ? {
+        ...Turn,
+        output:
+          "I remember the file we wrote. Bearer fake-last-turn-key\u001B]52;c;private-clipboard\u0007",
+        toolCalls: ["edit\u001B[31m", "bash"],
+      }
+    : Turn;
+
 type CallValue = typeof Call.Type;
 
 type MutableCall = { -readonly [K in keyof CallValue]: CallValue[K] };
@@ -279,7 +289,7 @@ export class FakeBox extends DurableObject {
         workspace: body.template?.workspace ?? {},
       };
     } else if (path.endsWith("/prompt")) {
-      response = Turn;
+      response = fixtureTurn(path);
     } else if (path.endsWith("/clone")) {
       response = { peonId: body.newPeonId ?? "", state: "suspended" };
     } else if (path.endsWith("/suspend")) {

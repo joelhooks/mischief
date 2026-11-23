@@ -66,9 +66,11 @@ it.live(
         requestId: "first-turn",
       });
 
-      expect(turn.body).toMatchObject({
-        lastTurn: { output: "I remember the file we wrote" },
-      });
+      const turnReport = yield* Schema.decodeUnknownEffect(PeonReport)(
+        turn.body
+      );
+
+      expect(turnReport.lastTurn?.output).toContain("fake-last-turn-key");
 
       const before = yield* readCalls(world);
       const foreign = yield* post(world, "tailPeon", { peonId }, other);
@@ -101,14 +103,18 @@ it.live(
 
       expect(page).toMatchObject({
         entries: [{ bytes: 50, type: "assistant" }],
-        lastTurn: { exit: 0, toolCallCount: 2 },
+        lastTurn: {
+          exit: 0,
+          toolCallCount: 2,
+          toolCalls: ["edit", "bash"],
+          output: "I remember the file we wrote. [redacted]",
+        },
         peonId,
         state: "idle",
         status: "tail",
       });
-      expect(JSON.stringify(owner.body)).not.toContain(
-        "I remember the file we wrote"
-      );
+      expect(JSON.stringify(owner.body)).not.toContain("fake-last-turn-key");
+      expect(JSON.stringify(owner.body)).not.toContain("private-clipboard");
       expect((yield* readCalls(world)).slice(before.length)).toEqual([
         { path: `/v1/boxes/${peonId}/tail`, requestId: "tail-read" },
       ]);

@@ -11,6 +11,16 @@ export const peonTailDefaultEntries = 30;
 
 const peonTailMaxEntries = 200;
 
+export const peonTailEntryBudget = 2048;
+
+export const peonTailPageEntryBudget = 59 * 1024;
+
+export const peonTailArgBudget = 512;
+
+export const peonTailNameBudget = 96;
+
+export const peonTailLastToolLimit = 16;
+
 const Cursor = Schema.String.check(Schema.isPattern(/^b[1-9][0-9]{0,15}$/u));
 
 export const PeonTailQuery = Schema.Struct({
@@ -29,19 +39,34 @@ export const PeonTailEntryType = Schema.Literals([
   "assistant",
   "toolResult",
   "compaction",
+  "model_change",
+  "thinking_level_change",
   "blob",
   "other",
 ]);
 
+export const PeonTailEntry = Schema.Struct({
+  bytes: Schema.Int.check(Schema.isGreaterThan(0)),
+  id: Cursor,
+  type: PeonTailEntryType,
+  text: Schema.optionalKey(
+    Schema.String.check(Schema.isMaxLength(peonTailEntryBudget))
+  ),
+  toolCalls: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String.check(Schema.isMaxLength(peonTailNameBudget)),
+        args: Schema.String.check(Schema.isMaxLength(peonTailArgBudget)),
+      })
+    ).check(Schema.isMaxLength(peonTailLastToolLimit))
+  ),
+});
+
 const TailPage = Schema.Struct({
   status: Schema.Literal("tail"),
-  entries: Schema.Array(
-    Schema.Struct({
-      bytes: Schema.Int.check(Schema.isGreaterThan(0)),
-      id: Cursor,
-      type: PeonTailEntryType,
-    })
-  ).check(Schema.isMaxLength(peonTailMaxEntries)),
+  entries: Schema.Array(PeonTailEntry).check(
+    Schema.isMaxLength(peonTailMaxEntries)
+  ),
   truncated: Schema.Boolean,
 });
 
@@ -58,6 +83,14 @@ export const PeonTailContext = Schema.Struct({
   lastTurn: Schema.NullOr(
     Schema.Struct({
       exit: Schema.Finite,
+      output: Schema.optionalKey(
+        Schema.String.check(Schema.isMaxLength(peonTailEntryBudget))
+      ),
+      toolCalls: Schema.optionalKey(
+        Schema.Array(
+          Schema.String.check(Schema.isMaxLength(peonTailNameBudget))
+        ).check(Schema.isMaxLength(peonTailLastToolLimit))
+      ),
       resumeMs: Schema.optionalKey(Schema.Finite),
       toolCallCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
       usage: PeonUsage,
@@ -69,7 +102,7 @@ export const PeonTailContext = Schema.Struct({
 export const tailPeonContract = defineContract("tailPeon", {
   annotations: { idempotent: true, readOnly: true },
   description:
-    "Read recent managed Pi activity as entry types and byte counts, without session text or tool payloads. Pass an entry id as sinceId to see only newer entries. Never wakes a box.",
+    "Read recent managed Pi activity, with redacted excerpts of user and assistant text and tool calls. Tool results and private metadata are summarized. Pass an entry id as sinceId to see only newer entries. Never wakes a box.",
   failure: Schema.Union([PeonRefused, PeonTailNotFound, PeonTailForbidden]),
   input: Schema.Struct({ peonId: PeonId, ...PeonTailQuery.fields }),
   output: Schema.Union([

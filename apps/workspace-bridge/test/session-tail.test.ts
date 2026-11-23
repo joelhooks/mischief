@@ -225,6 +225,189 @@ it.effect(
     }).pipe(Effect.provide(NodeServices.layer))
 );
 
+const openAiFixturePrefix = ["sk", "-"].join("");
+
+const pemFixtureLabel = ["PRIVATE", "KEY"].join(" ");
+
+const previewSecrets = {
+  bearer: "fake-short-bearer",
+  auth: "fake-basic-auth",
+  openAi: `${openAiFixturePrefix}${"s".repeat(24)}`,
+  githubPersonal: ["gh", "p_", "a".repeat(36)].join(""),
+  githubOAuth: ["gh", "o_", "b".repeat(36)].join(""),
+  githubInstall: ["gh", "s_", "c".repeat(36)].join(""),
+  githubFineGrained: ["github", "pat", "s".repeat(82)].join("_"),
+  aws: ["AK", "IA", "X".repeat(16)].join(""),
+  pem: "synthetic-pem-row",
+  modelRoute: "mischief-model-route-example-fixture-42",
+  labelledRoute: "synthetic-short-fixture",
+  hex: "e2".repeat(20),
+  base64: "Ab93+_".repeat(8),
+};
+
+const previewPayload = [
+  `Bearer ${previewSecrets.bearer}`,
+  `Authorization: Basic ${previewSecrets.auth}`,
+  previewSecrets.openAi.replace(
+    openAiFixturePrefix,
+    `${openAiFixturePrefix}\u001B[31m`
+  ),
+  previewSecrets.githubPersonal,
+  previewSecrets.githubOAuth,
+  previewSecrets.githubInstall,
+  previewSecrets.githubFineGrained,
+  previewSecrets.aws,
+  `-----BEGIN ${pemFixtureLabel}-----\n${previewSecrets.pem}\n-----END ${pemFixtureLabel}-----`,
+  previewSecrets.modelRoute,
+  `MISCHIEF_MODEL_ROUTE_KEY=${previewSecrets.labelledRoute}`,
+  previewSecrets.hex,
+  previewSecrets.base64,
+  "\u001B]52;c;clipboard-fixture\u0007",
+  "\u009D8;;https://hidden.invalid\u009Clink label\u001B]8;;\u001B\\",
+  "\u001B[\u001B]52;c;nested-clipboard\u0007",
+  "\u001BPprivate-dcs\u001B\\\u001B[12;4Hplain\u0000\u0080\ttext",
+].join("\n");
+
+const previewRecord = (role: "user" | "assistant", content: Schema.Json) =>
+  JSON.stringify({ type: "message", message: { role, content } });
+
+const verboseAssistant = previewRecord("assistant", [
+  { type: "text", text: "work 🛠 ".repeat(400) },
+]);
+
+it.effect(
+  "tail shows redacted conversation and tool previews but never private metadata",
+  () =>
+    Effect.gen(function* preview() {
+      const { fs, home, tail } = yield* runRoute();
+      const user = previewRecord("user", `Please verify.\n${previewPayload}`);
+
+      const assistant = previewRecord("assistant", [
+        { type: "text", text: `Checking the build.\n${previewPayload}` },
+        { type: "thinking", thinking: "private-chain" },
+        {
+          type: "toolCall",
+          name: "bash\u001B[31m",
+          arguments: {
+            command: `pnpm check\n${previewPayload}`,
+            extra: "🛠 ".repeat(300),
+            metadata: { note: "arg-metadata-fixture" },
+          },
+        },
+      ]);
+
+      const protectedRecord = JSON.stringify({
+        type: "message",
+        message: { role: "assistant", content: "hidden-env-message" },
+        details: { env: { PATH: "hidden-env-value" } },
+      });
+
+      const system = JSON.stringify({
+        type: "message",
+        message: { role: "system", content: "hidden-system-prompt" },
+      });
+
+      const model = JSON.stringify({
+        type: "model_change",
+        modelId: "hidden-model-id",
+      });
+
+      yield* fs.writeFileString(
+        `${home}/session.jsonl`,
+        `${[user, assistant, protectedRecord, system, model].join("\n")}\n`
+      );
+
+      const { body, result } = yield* readPage(yield* tail({}));
+      expect(result.status).toBe("tail");
+
+      if (result.status !== "tail") {
+        return;
+      }
+
+      const [
+        userEntry,
+        assistantEntry,
+        protectedEntry,
+        systemEntry,
+        modelEntry,
+      ] = result.entries;
+
+      expect(userEntry?.text).toContain("Please verify.\n[redacted]");
+      expect(assistantEntry?.text).toContain("Checking the build.\n[redacted]");
+      expect(assistantEntry?.text).toContain("link label");
+      expect(assistantEntry?.text).toContain("plain\ttext");
+      const call = assistantEntry?.toolCalls?.[0];
+      const args = call?.args ?? "";
+
+      expect(call?.name).toBe("bash");
+      expect(args).toContain("pnpm check\\n[redacted]");
+      expect(args.endsWith("…")).toBe(true);
+      expect(Buffer.byteLength(args)).toBeLessThanOrEqual(512);
+      expect(args.split("[redacted]")).toHaveLength(
+        Object.keys(previewSecrets).length + 1
+      );
+      expect(assistantEntry?.text?.split("[redacted]")).toHaveLength(
+        Object.keys(previewSecrets).length + 1
+      );
+      expect(protectedEntry).toMatchObject({
+        type: "assistant",
+        bytes: Buffer.byteLength(protectedRecord),
+      });
+      expect(protectedEntry?.text).toBeUndefined();
+      expect(systemEntry?.type).toBe("system");
+      expect(modelEntry?.type).toBe("model_change");
+
+      for (const forbidden of [
+        ...Object.values(previewSecrets),
+        "clipboard-fixture",
+        "hidden.invalid",
+        "nested-clipboard",
+        "private-dcs",
+        "arg-metadata-fixture",
+        "private-chain",
+        "hidden-env-",
+        "hidden-system-prompt",
+        "hidden-model-id",
+        "\\u001b",
+        "\\u009d",
+      ]) {
+        expect(body).not.toContain(forbidden);
+      }
+    }).pipe(Effect.provide(NodeServices.layer))
+);
+
+it.effect(
+  "text previews fit the entry and page wire budgets without splitting UTF-8",
+  () =>
+    Effect.gen(function* textBudgets() {
+      const { fs, home, tail } = yield* runRoute();
+      yield* fs.writeFileString(
+        `${home}/session.jsonl`,
+        `${verboseAssistant}\n`.repeat(100)
+      );
+
+      const { body, result } = yield* readPage(yield* tail({ entries: 100 }));
+      expect(result.status).toBe("tail");
+
+      if (result.status !== "tail") {
+        return;
+      }
+
+      expect(result.truncated).toBe(true);
+      expect(result.entries.length).toBeGreaterThan(1);
+      expect(result.entries.length).toBeLessThan(100);
+      expect(Buffer.byteLength(body)).toBeLessThan(64 * 1024);
+
+      for (const entry of result.entries) {
+        expect(entry.text).toMatch(/^work 🛠 .*…$/u);
+        expect(entry.text).not.toContain("�");
+        expect(Buffer.byteLength(JSON.stringify(entry))).toBeLessThanOrEqual(
+          2048
+        );
+      }
+    }).pipe(Effect.provide(NodeServices.layer))
+);
+
 it.effect(
   "tail refuses caller paths and symlinked session files and never extracts a hibernated snapshot",
   () =>

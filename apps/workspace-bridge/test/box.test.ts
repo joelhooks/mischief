@@ -147,7 +147,24 @@ top) printf 'PID\\n123\\n';;
 exec)
   while [ "\${1#mischief-peon-box-}" = "$1" ]; do shift; done
   id="\${1#mischief-peon-box-}"; shift
-  if [ "$1" = /bin/sh ]; then
+  if [ "$1" = git ]; then
+    grep -qx running '${root}/fake/mischief-peon-box-'"$id"
+    shift
+    base='${root}/boxes/'"$id"
+    env -i PATH=/usr/bin:/bin HOME="$base/home" GIT_CONFIG_NOSYSTEM=1 /bin/sh -eu -c '
+      config="$1"; work="$2"; shift 2
+      previous=""
+      while IFS= read -r arg; do
+        if [ "$previous" = --env ]; then
+          case "$arg" in
+            GIT_AUTHOR_NAME=*|GIT_AUTHOR_EMAIL=*|GIT_COMMITTER_NAME=*|GIT_COMMITTER_EMAIL=*) export "$arg";;
+          esac
+        fi
+        previous="$arg"
+      done < "$config"
+      exec git -C "$work" "$@"
+    ' git '${root}/fake/mischief-peon-box-'"$id"'.args' "$base/work" "$@"
+  elif [ "$1" = /bin/sh ]; then
     boxenv='${root}/fake/mischief-peon-box-'"$id"'.args'
     base='${root}/boxes/'"$id"'/home'
     for key in PI_CODING_AGENT_DIR CLAUDE_CONFIG_DIR CODEX_HOME; do
@@ -321,6 +338,56 @@ const Export = Schema.Struct({
     sha256: Schema.String,
   }),
 });
+
+it.effect("commits as the bot in a spawned box", () =>
+  Effect.gen(function* boxGitIdentity() {
+    const fixture = yield* harness;
+
+    yield* Effect.gen(function* commitInBox() {
+      const boxes = yield* Boxes;
+      yield* boxes.create({
+        peonId: "identity",
+        requestId: "create",
+        template: fixture.template,
+      });
+
+      const git = (args: readonly string[]) =>
+        fixture.runner.run({
+          args: ["exec", "mischief-peon-box-identity", "git", ...args],
+          executable: "docker",
+        });
+
+      const commit = yield* git([
+        "commit",
+        "--allow-empty",
+        "-m",
+        "Identity proof",
+      ]);
+
+      expect(commit.exit, commit.stderr).toBe(0);
+
+      const log = yield* git(["log", "-1", "--format=%an <%ae>%n%cn <%ce>"]);
+      expect(log.stdout.trim()).toEqual(
+        "shitratgit[bot] <286405550+shitratgit[bot]@users.noreply.github.com>\n" +
+          "shitratgit[bot] <286405550+shitratgit[bot]@users.noreply.github.com>"
+      );
+    }).pipe(
+      Effect.provide(
+        Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
+      ),
+      Effect.provideService(Runner, fixture.runner)
+    );
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(
+      boxRunnerLayer().pipe(
+        Layer.provideMerge(
+          Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+        )
+      )
+    )
+  )
+);
 
 it.effect(
   "destroy requires two verified custody copies of the current stopped session set",

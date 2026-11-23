@@ -551,6 +551,9 @@ export class Boxes extends Context.Service<
               })
             );
 
+        const gitName = "shitratgit[bot]";
+        const gitEmail = "286405550+shitratgit[bot]@users.noreply.github.com";
+
         const container = (box: BoxMetadata, start: boolean) =>
           docker([
             "create",
@@ -596,6 +599,10 @@ export class Boxes extends Context.Service<
               "PYTHONUSERBASE=/home/peon/.local",
               "COREPACK_HOME=/home/peon/.cache/corepack",
               "DISABLE_AUTOUPDATER=1",
+              `GIT_AUTHOR_NAME=${gitName}`,
+              `GIT_AUTHOR_EMAIL=${gitEmail}`,
+              `GIT_COMMITTER_NAME=${gitName}`,
+              `GIT_COMMITTER_EMAIL=${gitEmail}`,
               ...Object.entries(agentDirs).map(
                 ([key, value]) => `${key}=/home/peon/${value}`
               ),

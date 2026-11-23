@@ -174,6 +174,7 @@ export const Result = Schema.StructWithRest(
         "incomplete",
       ])
     ),
+    parkExportFailure: Schema.optionalKey(Schema.Literal("timeout")),
   }),
   [Schema.Record(Schema.String, Schema.Unknown)]
 );

@@ -2,6 +2,7 @@ import { hostname } from "node:os";
 
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import {
+  Cause,
   Clock,
   Context,
   Effect,
@@ -12,7 +13,7 @@ import {
   Ref,
   Schema,
 } from "effect";
-import type { PlatformError } from "effect";
+import type { Duration, PlatformError } from "effect";
 import * as Digest from "effect/crypto/Digest";
 
 import { refusal } from "../protocol.js";
@@ -49,6 +50,7 @@ export interface BoxConfig {
   readonly image: string;
   readonly mirrors: Readonly<Record<string, string>>;
   readonly gid: number;
+  readonly parkArchiveTimeout?: Duration.Input;
 }
 
 const Receipt = Schema.Struct({
@@ -109,7 +111,7 @@ type DestroyMarker = NonNullable<BoxMetadata["destroying"]>;
 
 type ArchiveSource = Effect.Success<ReturnType<typeof collectArchive>>;
 
-const latestArchive = (box: BoxMetadata) =>
+const latestImmutableArchive = (box: BoxMetadata) =>
   box.archive?.peon === box.peonId &&
   box.archive.box === containerOf(box.peonId)
     ? box.archive
@@ -119,7 +121,7 @@ const currentArchive = (
   box: BoxMetadata,
   { files, manifest }: ArchiveSource
 ) => {
-  const latest = latestArchive(box);
+  const latest = latestImmutableArchive(box);
 
   return latest?.fingerprint === files.fingerprint &&
     JSON.stringify(latest.skippedEntries ?? []) ===
@@ -955,7 +957,7 @@ export class Boxes extends Context.Service<
             { files, manifest }: ArchiveSource,
             custody: OpenArchive
           ) {
-            const latest = latestArchive(box);
+            const latest = latestImmutableArchive(box);
 
             const receipt = yield* custody
               .put(
@@ -991,12 +993,11 @@ export class Boxes extends Context.Service<
             }
 
             const source = yield* archiveSource(box, row);
-            const complete = source.manifest.skipped.length === 0;
+            const current = currentArchive(box, source);
 
             if (
-              box.state === "suspended" &&
-              complete &&
-              currentArchive(box, source) !== undefined
+              current !== undefined &&
+              (yield* archive.primaryReceiptExists(current))
             ) {
               return { parkExport: "unchanged" } satisfies typeof Result.Type;
             }
@@ -1009,10 +1010,25 @@ export class Boxes extends Context.Service<
 
             return {
               exportReceipt,
-              parkExport: complete ? "exported" : "incomplete",
+              parkExport:
+                source.manifest.skipped.length === 0
+                  ? "exported"
+                  : "incomplete",
             } satisfies typeof Result.Type;
           },
           Effect.scoped,
+          Effect.timeoutOrElse({
+            duration: config.parkArchiveTimeout ?? "5 minutes",
+            orElse: () =>
+              Effect.logWarning(
+                "Park archive timed out; retry on the next park or DELETE"
+              ).pipe(
+                Effect.as({
+                  parkExport: "failed",
+                  parkExportFailure: "timeout",
+                } satisfies typeof Result.Type)
+              ),
+          }),
           Effect.catch(({ _tag }) =>
             Effect.logWarning(
               "Park archive failed; retry on the next park or DELETE"
@@ -1021,10 +1037,13 @@ export class Boxes extends Context.Service<
               Effect.as({ parkExport: "failed" } satisfies typeof Result.Type)
             )
           ),
-          Effect.catchDefect(() =>
+          Effect.catchDefect((defect) =>
             Effect.logError(
               "Park archive defect; retry on the next park or DELETE"
             ).pipe(
+              Effect.annotateLogs({
+                cause: diagnosticOf(Cause.pretty(Cause.die(defect))),
+              }),
               Effect.as({ parkExport: "failed" } satisfies typeof Result.Type)
             )
           )
@@ -1076,7 +1095,7 @@ export class Boxes extends Context.Service<
 
         const proveArchive = Effect.fn("Boxes.proveArchive")(
           function* proveArchive(box: BoxMetadata, custody: OpenArchive) {
-            const receipt = latestArchive(box);
+            const receipt = latestImmutableArchive(box);
 
             if (receipt === undefined) {
               return yield* needsExport(box.peonId);
@@ -1174,7 +1193,7 @@ export class Boxes extends Context.Service<
             const id = original.peonId;
 
             if (original.state === "idle") {
-              if (latestArchive(original) === undefined) {
+              if (latestImmutableArchive(original) === undefined) {
                 return yield* needsExport(id);
               }
 

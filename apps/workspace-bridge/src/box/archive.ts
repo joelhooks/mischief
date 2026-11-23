@@ -58,6 +58,7 @@ export const ManifestSchema = Schema.Struct({
   exporter_version: Schema.Literal("1"),
   files: Schema.Int,
   manifest_sha256: Hash,
+  observed_at: Schema.optionalKey(Schema.String),
   peon_id: ArchiveName,
   previous_receipt_id: Schema.optionalKey(Schema.String),
   repo: Schema.String,
@@ -137,14 +138,16 @@ export const linkManifest = (manifest: Manifest, previous: ArchiveReceipt) => {
         )
       : Option.none();
 
-  return {
-    ...manifest,
-    created_at: Option.match(next, {
-      onNone: () => manifest.created_at,
-      onSome: DateTime.formatIso,
-    }),
-    previous_receipt_id: archiveId(previous),
-  };
+  const createdAt = Option.match(next, {
+    onNone: () => manifest.created_at,
+    onSome: DateTime.formatIso,
+  });
+
+  const linked = { ...manifest, previous_receipt_id: archiveId(previous) };
+
+  return createdAt === manifest.created_at
+    ? linked
+    : { ...linked, created_at: createdAt, observed_at: manifest.created_at };
 };
 
 export const previousReceiptLink = (previousReceiptId: string | undefined) =>
@@ -185,6 +188,9 @@ export class ArchivePort extends Context.Service<
   {
     readonly disabled?: true;
     readonly open: Effect.Effect<OpenArchive, ArchiveFailure | CustodyMissing>;
+    readonly primaryReceiptExists: (
+      receipt: ArchiveReceipt
+    ) => Effect.Effect<boolean, ArchiveFailure>;
   }
 >()("@mischief/workspace-bridge/ArchivePort") {
   static readonly disabled = Layer.succeed(ArchivePort, {
@@ -193,6 +199,7 @@ export class ArchivePort extends Context.Service<
       "archive",
       "Protected archive is not configured. Configure both archive roots before exporting or destroying."
     ),
+    primaryReceiptExists: () => Effect.succeed(false),
   });
 
   static readonly memory = Layer.effect(
@@ -257,7 +264,13 @@ export class ArchivePort extends Context.Service<
         ),
       };
 
-      return ArchivePort.of({ open: Effect.succeed(archive) });
+      return ArchivePort.of({
+        open: Effect.succeed(archive),
+        primaryReceiptExists: (receipt) =>
+          Ref.get(entries).pipe(
+            Effect.map((all) => all.get(archiveId(receipt))?.published === true)
+          ),
+      });
     })
   );
 }

@@ -7,6 +7,7 @@ import {
   Layer,
   Option,
   Path,
+  Predicate,
   Schema,
 } from "effect";
 import type { PlatformError } from "effect";
@@ -692,7 +693,22 @@ export const archiveDiskLayer = (
         })
       );
 
+      const primaryReceiptExists = (receipt: ArchiveReceipt) =>
+        fs
+          .lstat(path.join(layout(roots.primary, receipt).final, receiptName))
+          .pipe(
+            Effect.map((stat) => stat.type === "File"),
+            Effect.catchTag("PlatformError", ({ reason }) =>
+              Predicate.isTagged(reason, "NotFound")
+                ? Effect.succeed(false)
+                : archiveFailure(
+                    "Could not stat the primary archive receipt. Check custody storage and retry."
+                  )
+            )
+          );
+
       return ArchivePort.of({
+        primaryReceiptExists,
         open: prepare.pipe(
           Effect.map((primary) => ({
             put: (manifest: Manifest, files: ArchiveFiles) =>

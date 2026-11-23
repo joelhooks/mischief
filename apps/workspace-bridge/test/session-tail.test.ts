@@ -409,6 +409,28 @@ it.effect(
 );
 
 it.effect(
+  "tail refuses a symlinked box home without reading the target session",
+  () =>
+    Effect.gen(function* symlinkedHome() {
+      const { fs, home, mount, tail } = yield* runRoute();
+      const target = `${mount}/other-home`;
+      const targetText = "Text from the unowned session";
+      yield* fs.rename(home, target);
+      yield* fs.writeFileString(
+        `${target}/session.jsonl`,
+        `${previewRecord("user", targetText)}\n`
+      );
+      yield* fs.symlink(target, home);
+
+      const response = yield* tail({});
+      expect(response.status).toBe(503);
+      expect(yield* Effect.promise(response.text.bind(response))).not.toContain(
+        targetText
+      );
+    }).pipe(Effect.provide(NodeServices.layer))
+);
+
+it.effect(
   "tail refuses caller paths and symlinked session files and never extracts a hibernated snapshot",
   () =>
     Effect.gen(function* confinedTail() {

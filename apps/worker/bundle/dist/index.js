@@ -85556,14 +85556,14 @@ var peonHost = ({
       ) : Effect67.succeed(stored2)
     )
   );
-  const commit = Effect67.fn("Peon.commit")(function* commit2(stored2) {
+  const commit = Effect67.fn("Peon.commit")(function* commit2(stored2, completed) {
     const now = yield* Clock14.currentTimeMillis;
     const at = stored2.pending === null ? peonIdleAlarm(
       stored2.report.state,
       stored2.idleAt,
       stored2.report.resolvedTemplate
     ) : now + guardMs;
-    yield* storage.commit(stored2, at);
+    yield* storage.commit(stored2, at, completed);
   });
   const move = Effect67.fn("Peon.transition")(function* move2(stored2, event) {
     const state3 = peonTransition(stored2.report.state, event);
@@ -85762,19 +85762,11 @@ var peonHost = ({
       usage: turn.usage,
       wallMs: turn.wallMs
     };
-    yield* storage.commit(
-      finished,
-      peonIdleAlarm(
-        finished.report.state,
-        finished.idleAt,
-        finished.report.resolvedTemplate
-      ),
-      {
-        log,
-        requestId: pending.requestId,
-        value: { hash: pending.inputHash, report: report2 }
-      }
-    );
+    yield* commit(finished, {
+      log,
+      requestId: pending.requestId,
+      value: { hash: pending.inputHash, report: report2 }
+    });
     return report2;
   });
   const recordFault = Effect67.fn("Peon.recordFault")(function* recordFault2(fault) {
@@ -85955,19 +85947,30 @@ var peonHost = ({
       yield* commit({ ...attaching, pending });
       return yield* recover;
     }),
-    inspect: requirePeon.pipe(
-      Effect67.flatMap(
-        (stored2) => box.call(stored2.report.peonId, "inspect", void 0, PeonBoxState).pipe(
-          Effect67.map(
-            (measured) => reportWithMeasurements(reportWithPending(stored2), measured)
-          ),
-          Effect67.catchTag(
-            "PeonRefused",
-            () => Effect67.succeed(reportWithPending(stored2))
-          )
-        )
-      )
-    ),
+    inspect: Effect67.gen(function* inspect() {
+      const stored2 = yield* requirePeon;
+      const measured = yield* box.call(stored2.report.peonId, "inspect", void 0, PeonBoxState).pipe(Effect67.orElseSucceed(() => null));
+      if (measured === null) {
+        return reportWithPending(stored2);
+      }
+      const report2 = reportWithMeasurements(stored2.report, measured);
+      const { pending } = stored2;
+      if (pending?.kind !== "suspend" || measured.state !== "suspended") {
+        return reportWithPending({ ...stored2, report: report2 });
+      }
+      const updatedAt = yield* Clock14.currentTimeMillis;
+      const finished = {
+        ...stored2,
+        pending: null,
+        report: { ...report2, fault: null, state: "suspended", updatedAt }
+      };
+      yield* publish2(indexOf(finished.report));
+      yield* commit(finished, {
+        requestId: pending.requestId,
+        value: { hash: pending.inputHash, report: finished.report }
+      });
+      return reportWithPending(finished);
+    }).pipe(Effect67.withSpan("Peon.inspect")),
     inspectStored: requirePeon.pipe(Effect67.map(reportWithPending))
   };
 };
@@ -86180,7 +86183,11 @@ var Peon = class extends DurableObject3 {
   }
   async inspect() {
     return await Effect69.runPromise(
-      this.env.MISCHIEF_PEON_BOXES === "on" ? this.host.inspect : this.host.inspectStored
+      this.env.MISCHIEF_PEON_BOXES === "on" ? this.lock.withPermitsIfAvailable(1)(this.host.inspect).pipe(
+        Effect69.flatMap(
+          (result) => Option51.isSome(result) ? Effect69.succeed(result.value) : this.host.inspectStored
+        )
+      ) : this.host.inspectStored
     );
   }
   async watchContext(owner) {

@@ -348,6 +348,87 @@ printf '%s\\n' '${piOutput}'
   };
 });
 
+it.effect.each(["partial total", "no total"])(
+  "inspects a stopped box when du exits 1 with %s",
+  (measurement) =>
+    Effect.gen(function* inspectStoppedBox() {
+      const fixture = yield* harness;
+      const fs = yield* FileSystem.FileSystem;
+      const peonId = "size-test";
+      const measuredRoot = `${fixture.root}/measurement`;
+      yield* fs.makeDirectory(`${measuredRoot}/private`, { recursive: true });
+      yield* fs.writeFileString(`${measuredRoot}/private/profile`, "profile", {
+        mode: 0o600,
+      });
+
+      const output =
+        measurement === "partial total"
+          ? yield* Effect.acquireUseRelease(
+              fs.chmod(`${measuredRoot}/private`, 0o000),
+              () =>
+                fixture.runner.run({
+                  args: ["-sb", measuredRoot],
+                  executable: "/usr/bin/du",
+                }),
+              () =>
+                fs.chmod(`${measuredRoot}/private`, 0o700).pipe(Effect.orDie)
+            )
+          : { exit: 1, stderr: "", stdout: "" };
+
+      expect(output.exit).toBe(1);
+
+      if (measurement === "partial total") {
+        expect(output.stderr).toContain("Permission denied");
+        expect(output.stdout).toMatch(/^\d+\t/u);
+      }
+
+      const runner = Runner.of({
+        run: (command) =>
+          command.executable === "du" &&
+          command.args[1] === `${fixture.config.root}/${peonId}/home`
+            ? Effect.succeed(output)
+            : fixture.runner.run(command),
+      });
+
+      yield* Effect.gen(function* inspect() {
+        const boxes = yield* Boxes;
+        yield* boxes.create({
+          peonId,
+          requestId: "create",
+          template: fixture.template,
+        });
+        yield* boxes.act({ action: "suspend", peonId, requestId: "suspend" });
+        const report = yield* boxes.inspect(peonId);
+
+        expect(report).toMatchObject({ processes: 0, state: "suspended" });
+
+        if (measurement === "partial total") {
+          expect(report.bytes).toMatchObject({
+            home: Number(output.stdout.split("\t")[0]),
+            snapshot: 0,
+          });
+        } else {
+          expect(report.bytes).toBeNull();
+        }
+      }).pipe(
+        Effect.provide(Boxes.layer(fixture.config)),
+        Effect.provideService(Runner, runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.mergeAll(
+              NodeServices.layer,
+              Digest.layerWebCrypto,
+              ArchivePort.disabled
+            )
+          )
+        )
+      )
+    )
+);
+
 it.effect(
   "browser containers preserve full hardening and mount only a root-attested release",
   () =>

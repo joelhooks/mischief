@@ -1,6 +1,6 @@
 // @effect-diagnostics asyncFunction:off -- The fake box Durable Object's fetch handler is a Promise API.
 import { DurableObject } from "cloudflare:workers";
-import { Effect, Schema } from "effect";
+import { Deferred, Effect, Schema } from "effect";
 
 const RequestBody = Schema.Struct({
   discardWorkspace: Schema.optionalKey(Schema.Literal(true)),
@@ -166,6 +166,19 @@ const refusals = new Map([
 ]);
 
 export class FakeBox extends DurableObject {
+  private readonly releaseStoppedInspect = Deferred.makeUnsafe<undefined>();
+  private stoppedInspects = 0;
+
+  private async writeSuspendRaceState(path: string) {
+    const key = "/v1/boxes/stuck-suspend";
+
+    if (path === `${key}/suspend`) {
+      await this.ctx.storage.put(`${key}/state`, "suspended");
+    } else if (path === `${key}/resume`) {
+      await this.ctx.storage.put(`${key}/state`, "idle");
+    }
+  }
+
   private async deleteRefusal(path: string, body: typeof RequestBody.Type) {
     const denial = refusals.get(path.slice("/v1/boxes/".length));
 
@@ -227,11 +240,40 @@ export class FakeBox extends DurableObject {
     calls: readonly CallValue[]
   ) {
     if (method === "GET") {
+      const state = (await this.ctx.storage.get(`${path}/state`)) ?? "idle";
+
+      if (path === "/v1/boxes/stuck-suspend" && state === "suspended") {
+        this.stoppedInspects += 1;
+
+        if (this.stoppedInspects === 1) {
+          return Response.json(
+            { error: { message: "Host du exited 1" } },
+            { status: 400 }
+          );
+        }
+
+        if (this.stoppedInspects === 2) {
+          await this.ctx.storage.put("calls", [
+            ...calls,
+            { path, requestId: "held-inspect" },
+          ]);
+          await Effect.runPromise(Deferred.await(this.releaseStoppedInspect));
+        }
+
+        return Response.json({
+          bytes: null,
+          container: "box",
+          lastPromptAt: null,
+          processes: 0,
+          state,
+        });
+      }
+
       return Response.json({
         bytes: { home: 20, snapshot: 30, work: 10 },
         container: "box",
         lastPromptAt: null,
-        state: (await this.ctx.storage.get(`${path}/state`)) ?? "idle",
+        state,
       });
     }
 
@@ -293,6 +335,14 @@ export class FakeBox extends DurableObject {
 
     if (path === "/__calls") {
       return Response.json(calls);
+    }
+
+    if (path === "/__release-stopped-inspect") {
+      await Effect.runPromise(
+        Deferred.succeed(this.releaseStoppedInspect, undefined)
+      );
+
+      return new Response(null, { status: 204 });
     }
 
     if (request.headers.get("authorization") !== "Bearer fake-box-key") {
@@ -372,6 +422,7 @@ export class FakeBox extends DurableObject {
       response = { restored: true, state: "idle" };
     }
 
+    await this.writeSuspendRaceState(path);
     await this.ctx.storage.put(key, response);
 
     return Response.json(response);

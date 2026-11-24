@@ -201,7 +201,8 @@ export const peonHost = ({
   );
 
   const commit = Effect.fn("Peon.commit")(function* commit(
-    stored: PeonStoredValue
+    stored: PeonStoredValue,
+    completed?: Completion
   ) {
     const now = yield* Clock.currentTimeMillis;
 
@@ -214,7 +215,7 @@ export const peonHost = ({
           )
         : now + guardMs;
 
-    yield* storage.commit(stored, at);
+    yield* storage.commit(stored, at, completed);
   });
 
   const move = Effect.fn("Peon.transition")(function* move(
@@ -478,19 +479,11 @@ export const peonHost = ({
             wallMs: turn.wallMs,
           };
 
-    yield* storage.commit(
-      finished,
-      peonIdleAlarm(
-        finished.report.state,
-        finished.idleAt,
-        finished.report.resolvedTemplate
-      ),
-      {
-        log,
-        requestId: pending.requestId,
-        value: { hash: pending.inputHash, report },
-      }
-    );
+    yield* commit(finished, {
+      log,
+      requestId: pending.requestId,
+      value: { hash: pending.inputHash, report },
+    });
 
     return report;
   });
@@ -761,18 +754,40 @@ export const peonHost = ({
 
       return yield* recover;
     }),
-    inspect: requirePeon.pipe(
-      Effect.flatMap((stored) =>
-        box.call(stored.report.peonId, "inspect", undefined, PeonBoxState).pipe(
-          Effect.map((measured) =>
-            reportWithMeasurements(reportWithPending(stored), measured)
-          ),
-          Effect.catchTag("PeonRefused", () =>
-            Effect.succeed(reportWithPending(stored))
-          )
-        )
-      )
-    ),
+    inspect: Effect.gen(function* inspect() {
+      const stored = yield* requirePeon;
+
+      const measured = yield* box
+        .call(stored.report.peonId, "inspect", undefined, PeonBoxState)
+        .pipe(Effect.orElseSucceed(() => null));
+
+      if (measured === null) {
+        return reportWithPending(stored);
+      }
+
+      const report = reportWithMeasurements(stored.report, measured);
+      const { pending } = stored;
+
+      if (pending?.kind !== "suspend" || measured.state !== "suspended") {
+        return reportWithPending({ ...stored, report });
+      }
+
+      const updatedAt = yield* Clock.currentTimeMillis;
+
+      const finished: PeonStoredValue = {
+        ...stored,
+        pending: null,
+        report: { ...report, fault: null, state: "suspended", updatedAt },
+      };
+
+      yield* publish(indexOf(finished.report));
+      yield* commit(finished, {
+        requestId: pending.requestId,
+        value: { hash: pending.inputHash, report: finished.report },
+      });
+
+      return reportWithPending(finished);
+    }).pipe(Effect.withSpan("Peon.inspect")),
     inspectStored: requirePeon.pipe(Effect.map(reportWithPending)),
   };
 };

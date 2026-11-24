@@ -69,6 +69,8 @@ const custodyRefusal = Schema.fromJsonString(
 );
 
 const nextStep = {
+  BoxBuildRefused:
+    "Ask the box host operator to fix the pinned Burrow build and receipt, then retry.",
   BoxCapacity:
     "Suspend or destroy a browser box on the host, then retry the refused operation.",
   CustodyMissing:
@@ -187,7 +189,9 @@ const requireSuccess = (
       };
 
       return yield* new PeonRefused(
-        (error.code === "PromptFailed" || error.code === "BoxCapacity") &&
+        (error.code === "PromptFailed" ||
+          error.code === "BoxCapacity" ||
+          error.code === "BoxBuildRefused") &&
           error.state !== undefined
           ? { ...failure, boxState: error.state }
           : failure

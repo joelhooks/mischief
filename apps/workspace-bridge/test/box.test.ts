@@ -8,6 +8,7 @@ import {
   Fiber,
   FileSystem,
   Layer,
+  Option,
   Predicate,
   Ref,
   Schema,
@@ -23,6 +24,7 @@ import {
   ManifestSchema,
   ReadBackResult,
 } from "../src/box/archive.js";
+import { BoxBuildRefused } from "../src/box/box-build-refused.js";
 import { BoxCapacity } from "../src/box/box-capacity.js";
 import { nextState } from "../src/box/machine.js";
 import { Boxes } from "../src/box/manager.js";
@@ -322,43 +324,45 @@ printf '%s\\n' '${piOutput}'
 });
 
 it.effect(
-  "browser containers preserve full hardening and mount only verified release bytes",
+  "browser containers preserve full hardening and mount only a root-attested release",
   () =>
     Effect.gen(function* browserBox() {
       const fixture = yield* harness;
       const fs = yield* FileSystem.FileSystem;
       const browserRoot = `${fixture.root}/browser-builds`;
       const browserImage = `example/browser@sha256:${"b".repeat(64)}`;
-      const source = `${fixture.root}/release`;
-      const archive = `${fixture.root}/release.tar.gz`;
-      yield* fs.makeDirectory(source);
-      yield* fs.writeFileString(`${source}/burrow`, "fixture");
-      yield* checked({
-        args: ["-C", source, "-czf", archive, "."],
-        executable: "tar",
+      const digest = "c".repeat(64);
+      const build = `${browserRoot}/${digest}`;
+      const receipt = `${build}.sha256`;
+
+      const statOverrides = new Map<
+        string,
+        { readonly uid: number; readonly mode: number }
+      >();
+
+      const custodyFs = FileSystem.FileSystem.of({
+        ...fs,
+        lstat: (file) =>
+          fs.lstat(file).pipe(
+            Effect.map((stat) => {
+              const { uid, mode } = statOverrides.get(file) ?? {
+                uid: 0,
+                mode: 0o755,
+              };
+
+              return { ...stat, mode, uid: Option.some(uid) };
+            })
+          ),
       });
 
-      const checksum = yield* checked({
-        args: [archive],
-        executable: "sha256sum",
+      const nonRootRunner = Runner.of({
+        run: (command) =>
+          command.executable === "id"
+            ? Effect.succeed({ exit: 0, stdout: "1000\n" })
+            : fixture.runner.run(command),
       });
 
-      const digest = checksum.split(/\s/u)[0] ?? "";
-      const build = `${browserRoot}/${digest}/unpacked`;
       yield* fs.makeDirectory(build, { recursive: true });
-      yield* fs.rename(
-        archive,
-        `${browserRoot}/${digest}/burrow-linux-x64.tar.gz`
-      );
-      yield* checked({
-        args: [
-          "-C",
-          build,
-          "-xzf",
-          `${browserRoot}/${digest}/burrow-linux-x64.tar.gz`,
-        ],
-        executable: "tar",
-      });
 
       yield* Effect.gen(function* verifyMounts() {
         const boxes = yield* Boxes;
@@ -384,27 +388,38 @@ it.effect(
         expect(full).not.toContain("--shm-size");
         expect(full).not.toContain("PEON_BROWSER_HOSTS=test.example");
 
-        yield* fs.writeFileString(
-          `${browserRoot}/${digest}/burrow-linux-x64.tar.gz`,
-          "tampered"
-        );
-        const mismatch = yield* Effect.flip(create("mismatch", browser));
-        expect(mismatch.message).toContain("differs from its pinned tarball");
-        expect(
-          yield* fs.exists(
-            `${fixture.root}/fake/mischief-peon-box-mismatch.args`
-          )
-        ).toBe(false);
-        yield* checked({
-          args: [
-            "-C",
-            source,
-            "-czf",
-            `${browserRoot}/${digest}/burrow-linux-x64.tar.gz`,
-            ".",
-          ],
-          executable: "tar",
+        const attempt = create("browser", browser);
+
+        const requireRefusal = Effect.gen(function* requireRefusal() {
+          const error = yield* Effect.flip(attempt);
+
+          expect(error).toBeInstanceOf(BoxBuildRefused);
+          expect(error).toMatchObject({ state: "spawned", status: 409 });
+          expect(
+            yield* fs.exists(
+              `${fixture.root}/fake/mischief-peon-box-browser.args`
+            )
+          ).toBe(false);
         });
+
+        yield* requireRefusal;
+        yield* fs.writeFileString(receipt, "d".repeat(64));
+        yield* requireRefusal;
+        yield* fs.writeFileString(receipt, `${digest}\n`);
+
+        for (const file of [receipt, build]) {
+          for (const stat of [
+            { uid: 1000, mode: 0o755 },
+            { uid: 0, mode: 0o775 },
+            { uid: 0, mode: 0o757 },
+          ]) {
+            statOverrides.set(file, stat);
+            yield* requireRefusal;
+          }
+
+          statOverrides.delete(file);
+        }
+
         expect((yield* create("browser", browser)).image).toBe(browserImage);
         const actual = yield* args("browser");
         expect(actual).toContain(browserImage);
@@ -427,13 +442,6 @@ it.effect(
           `type=bind,source=${fixture.root}/boxes/browser/home,target=/home/peon`,
           `type=bind,source=${build},target=/opt/burrow,readonly,bind-recursive=disabled`,
         ]);
-        yield* fs.writeFileString(
-          `${build}/extra`,
-          "not part of the pinned release"
-        );
-        expect(
-          (yield* Effect.flip(create("extra", browser))).message
-        ).toContain("differs from its pinned tarball");
       }).pipe(
         Effect.provide(
           Boxes.layer({
@@ -442,7 +450,8 @@ it.effect(
             browserImage,
           })
         ),
-        Effect.provideService(Runner, fixture.runner)
+        Effect.provideService(FileSystem.FileSystem, custodyFs),
+        Effect.provideService(Runner, nonRootRunner)
       );
     }).pipe(
       Effect.scoped,

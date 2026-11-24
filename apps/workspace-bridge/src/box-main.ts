@@ -12,6 +12,7 @@ import { archiveDiskLayer } from "./box/archive-disk.js";
 import { ArchivePort } from "./box/archive.js";
 import {
   BrowserMaxLive,
+  DEFAULT_BROWSER_BUILD_ROOT,
   DEFAULT_BROWSER_MAX_LIVE,
   boxImagesFromConfig,
   boxStorageFromConfig,
@@ -69,7 +70,7 @@ const program = Effect.gen(function* serveBoxes() {
 
   const browserBuildRoot = yield* Config.String(
     "MISCHIEF_BOX_BROWSER_BUILDS"
-  ).pipe(Config.withDefault(""));
+  ).pipe(Config.withDefault(DEFAULT_BROWSER_BUILD_ROOT));
 
   const config = {
     ...storage,

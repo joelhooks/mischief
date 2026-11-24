@@ -31,10 +31,12 @@ import {
   linkManifest,
 } from "./archive.js";
 import type { OpenArchive } from "./archive.js";
+import type { BoxBuildRefused } from "./box-build-refused.js";
 import { BoxCapacity } from "./box-capacity.js";
 import { browserArgs } from "./browser.js";
 import {
   BoxImages,
+  DEFAULT_BROWSER_BUILD_ROOT,
   DEFAULT_BROWSER_MAX_LIVE,
   floatingImageRefusal,
 } from "./config.js";
@@ -185,13 +187,17 @@ export class Boxes extends Context.Service<
   {
     readonly create: (
       input: typeof Create.Type
-    ) => Effect.Effect<typeof Result.Type, BridgeFailure | BoxCapacity>;
+    ) => Effect.Effect<
+      typeof Result.Type,
+      BridgeFailure | BoxCapacity | BoxBuildRefused
+    >;
     readonly act: (
       input: typeof Action.Type
     ) => Effect.Effect<
       typeof Result.Type,
       | BridgeFailure
       | BoxCapacity
+      | BoxBuildRefused
       | WorkspaceUnlanded
       | CustodyMissing
       | CustodyIncomplete
@@ -650,11 +656,18 @@ export class Boxes extends Context.Service<
         const gitName = "shitratgit[bot]";
         const gitEmail = "286405550+shitratgit[bot]@users.noreply.github.com";
 
-        const launchArgs = (template: BoxMetadata["template"]) =>
-          browserArgs(template, config.browserBuildRoot ?? "").pipe(
+        const launchArgs = (
+          template: BoxMetadata["template"],
+          state?: typeof PeonState.Type
+        ) =>
+          browserArgs(
+            template,
+            config.browserBuildRoot ?? DEFAULT_BROWSER_BUILD_ROOT,
+            managerUid,
+            state
+          ).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-            Effect.provideService(Runner, runner)
+            Effect.provideService(Path.Path, path)
           );
 
         const container = (
@@ -862,7 +875,7 @@ export class Boxes extends Context.Service<
             const restored = sleeping === "hibernated";
 
             if (restored) {
-              const launch = yield* launchArgs(box.template);
+              const launch = yield* launchArgs(box.template, sleeping);
               yield* restore(box, box.peonId);
               yield* container(box, false, launch);
             }
@@ -1502,7 +1515,10 @@ export class Boxes extends Context.Service<
           committedFailure: (error: BridgeFailure) => Effect.Effect<never, E>,
           operation: Effect.Effect<
             typeof Result.Type,
-            BridgeFailure | BoxCapacity | PlatformError.PlatformError
+            | BridgeFailure
+            | BoxCapacity
+            | BoxBuildRefused
+            | PlatformError.PlatformError
           >
         ) {
           const requests = path.join(meta(id), "requests");
@@ -1553,9 +1569,10 @@ export class Boxes extends Context.Service<
                 error
               ): Effect.Effect<
                 never,
-                E | BoxCapacity | PlatformError.PlatformError
+                E | BoxCapacity | BoxBuildRefused | PlatformError.PlatformError
               > =>
-                Predicate.isTagged(error, "BoxCapacity")
+                Predicate.isTagged(error, "BoxCapacity") ||
+                Predicate.isTagged(error, "BoxBuildRefused")
                   ? fs.remove(file).pipe(Effect.andThen(Effect.fail(error)))
                   : writeJson(file, { error, requestId }).pipe(
                       Effect.andThen(committedFailure(error))
@@ -1593,7 +1610,7 @@ export class Boxes extends Context.Service<
                     );
                   }
 
-                  const launch = yield* launchArgs(template);
+                  const launch = yield* launchArgs(template, "spawned");
 
                   const mirror = config.mirrors[template.workspace.repo];
 

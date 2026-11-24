@@ -178,6 +178,7 @@ export const PeonExportReceipt = Schema.Struct({
 });
 
 export const PeonBoxRefusalCode = Schema.Literals([
+  "BoxBuildRefused",
   "BoxCapacity",
   "CustodyMissing",
   "CustodyIncomplete",

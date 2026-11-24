@@ -9,6 +9,7 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { errorResponse, readBody } from "../http.js";
 import { refusal } from "../protocol.js";
+import { BoxBuildRefused } from "./box-build-refused.js";
 import { BoxCapacity } from "./box-capacity.js";
 import { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
@@ -25,7 +26,7 @@ const createBox = implement(
   defineContract("createBox", {
     annotations: { idempotent: true, readOnly: false },
     description: "Create a full peon box at a pinned workspace revision",
-    failure: Schema.Union([BridgeFailure, BoxCapacity]),
+    failure: Schema.Union([BridgeFailure, BoxCapacity, BoxBuildRefused]),
     input: Create,
     output: Result,
   }),
@@ -40,6 +41,7 @@ const actOnBox = implement(
     failure: Schema.Union([
       BridgeFailure,
       BoxCapacity,
+      BoxBuildRefused,
       WorkspaceUnlanded,
       CustodyMissing,
       CustodyIncomplete,
@@ -202,6 +204,11 @@ const route = (key: Redacted.Redacted) =>
   }).pipe(
     Effect.catchTags({
       BridgeFailure: (failure) => Effect.succeed(errorResponse(failure)),
+      BoxBuildRefused: (failure) =>
+        taggedFailure(
+          failure,
+          failure.state === undefined ? {} : { state: failure.state }
+        ),
       BoxCapacity: (failure) =>
         taggedFailure(failure, { state: failure.state }),
       WorkspaceUnlanded: (failure) =>

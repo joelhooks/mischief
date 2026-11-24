@@ -511,7 +511,9 @@ export const peonHost = ({
       stored.report.state === "running";
 
     const reportedState =
-      promptFinished || fault.code === "BoxCapacity"
+      promptFinished ||
+      fault.code === "BoxCapacity" ||
+      fault.code === "BoxBuildRefused"
         ? fault.boxState
         : undefined;
 

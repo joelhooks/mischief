@@ -1,102 +1,89 @@
-import { Effect, FileSystem, Path } from "effect";
+import type { PeonState } from "@mischief/core";
+import { ByteSize, Effect, FileSystem, Option, Path } from "effect";
 
 import { refusal } from "../protocol.js";
-import type { Command } from "../runner.js";
-import { checked } from "../runner.js";
+import { BoxBuildRefused } from "./box-build-refused.js";
 import type { BoxTemplate } from "./protocol.js";
 
-const buildRefusal = () =>
-  refusal(
-    "Burrow release is missing, differs from its pinned tarball, or is outside the configured build root. Publish the verified immutable release under MISCHIEF_BOX_BROWSER_BUILDS, then retry with its exact overrides.browser.burrowSha256.",
-    409
+const rootOwned = (info: FileSystem.File.Info) =>
+  // oxlint-disable-next-line eslint/no-bitwise -- POSIX st_mode encodes group and other write permissions as a bit mask.
+  Option.getOrUndefined(info.uid) === 0 && (info.mode & 0o022) === 0;
+
+const verifyBurrow = Effect.fn("Boxes.verifyBurrow")(function* verifyBurrow(
+  root: string,
+  sha: string,
+  managerUid: string,
+  state: typeof PeonState.Type | undefined
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const build = path.join(root, sha);
+  const receipt = `${build}.sha256`;
+
+  const details = {
+    message:
+      "Burrow build or digest receipt is missing, writable outside root, or does not match the template. Publish the root-owned build and matching .sha256 receipt under MISCHIEF_BOX_BROWSER_BUILDS as a separate operator, then retry.",
+    status: 409,
+  } satisfies Pick<BoxBuildRefused, "message" | "status">;
+
+  const refused = new BoxBuildRefused(
+    state === undefined ? details : { ...details, state }
   );
 
-const runBuildCheck = (command: Command) =>
-  checked(command).pipe(Effect.mapError(buildRefusal));
-
-const archivePaths = (listing: string) => {
-  const paths = new Set<string>();
-
-  for (const entry of listing.split("\n")) {
-    const relative = entry.replace(/^\.\//u, "").replace(/\/$/u, "");
-
-    if (relative !== "" && relative !== ".") {
-      const parts = relative.split("/");
-
-      for (let count = 1; count <= parts.length; count += 1) {
-        paths.add(parts.slice(0, count).join("/"));
-      }
-    }
+  if (
+    !/^[1-9][0-9]*$/u.test(managerUid) ||
+    !path.isAbsolute(root) ||
+    root === "/" ||
+    root !== path.normalize(root) ||
+    root.includes(",")
+  ) {
+    return yield* refused;
   }
 
-  return paths;
-};
+  return yield* Effect.gen(function* verifyRootCustody() {
+    let directory = build;
 
-const verifyBurrow = Effect.fn("Boxes.verifyBurrow")(
-  function* verifyBurrow(root: string, sha: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const release = path.join(root, sha);
-    const archive = path.join(release, "burrow-linux-x64.tar.gz");
-    const build = path.join(release, "unpacked");
+    while (true) {
+      const info = yield* fs.lstat(directory);
+
+      if (info.type !== "Directory" || !rootOwned(info)) {
+        return yield* refused;
+      }
+
+      const parent = path.dirname(directory);
+
+      if (directory === parent) {
+        break;
+      }
+
+      directory = parent;
+    }
+
+    const stat = yield* fs.lstat(receipt);
 
     if (
-      !path.isAbsolute(root) ||
-      root === "/" ||
-      root !== path.normalize(root) ||
-      root.includes(",") ||
-      (yield* fs.realPath(archive)) !== archive ||
-      (yield* fs.realPath(build)) !== build ||
-      (yield* fs.lstat(archive)).type !== "File" ||
-      (yield* fs.lstat(build)).type !== "Directory"
+      stat.type !== "File" ||
+      !rootOwned(stat) ||
+      ByteSize.toBigInt(stat.size) > 65n
     ) {
-      return yield* buildRefusal();
+      return yield* refused;
     }
 
-    const checksum = yield* runBuildCheck({
-      args: ["--", archive],
-      executable: "sha256sum",
-    });
+    const recorded = yield* fs.readFileString(receipt);
 
-    if (checksum.split(/\s/u)[0] !== sha) {
-      return yield* buildRefusal();
+    if (recorded !== sha && recorded !== `${sha}\n`) {
+      return yield* refused;
     }
-
-    const expected = archivePaths(
-      yield* runBuildCheck({
-        args: ["--quoting-style=escape", "-tzf", archive],
-        executable: "tar",
-      })
-    );
-
-    const inventory = yield* runBuildCheck({
-      args: [build, "-mindepth", "1", "-printf", "%P\\0"],
-      executable: "find",
-    });
-
-    const actual = new Set(inventory.split("\0").filter(Boolean));
-
-    if (
-      expected.size === 0 ||
-      expected.size !== actual.size ||
-      [...expected].some((entry) => !actual.has(entry))
-    ) {
-      return yield* buildRefusal();
-    }
-
-    yield* runBuildCheck({
-      args: ["--directory", build, "--compare", "--gzip", "--file", archive],
-      executable: "tar",
-    });
 
     return build;
-  },
-  Effect.catchTag("PlatformError", () => Effect.fail(buildRefusal()))
-);
+  }).pipe(Effect.catchTag("PlatformError", () => Effect.fail(refused)));
+});
 
 export const browserArgs = Effect.fn("Boxes.browserArgs")(function* browserArgs(
   template: BoxTemplate,
-  buildRoot: string
+  buildRoot: string,
+  managerUid: string,
+  state?: typeof PeonState.Type
 ) {
   if ((template.imageKey === "browser") !== (template.browser !== undefined)) {
     return yield* refusal(
@@ -115,7 +102,7 @@ export const browserArgs = Effect.fn("Boxes.browserArgs")(function* browserArgs(
     return args;
   }
 
-  const build = yield* verifyBurrow(buildRoot, burrowSha256);
+  const build = yield* verifyBurrow(buildRoot, burrowSha256, managerUid, state);
 
   return [
     ...args,

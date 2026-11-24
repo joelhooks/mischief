@@ -2,6 +2,8 @@ import { Config, Effect, Schema } from "effect";
 
 import { refusal } from "../protocol.js";
 
+export const DEFAULT_BROWSER_BUILD_ROOT = "/opt/burrow-cells";
+
 export const DEFAULT_BROWSER_MAX_LIVE = 6;
 
 export const BrowserMaxLive = Schema.Int.check(Schema.isGreaterThan(0));

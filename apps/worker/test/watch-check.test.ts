@@ -33,6 +33,37 @@ it.effect("disallows foreign hosts and does not follow redirects to them", () =>
   })
 );
 
+it.effect("identifies an anonymous JSON check to a UA-gated upstream", () =>
+  Effect.gen(function* checksUserAgent() {
+    const get = vi
+      .fn<typeof fetch>()
+      // @effect-diagnostics-next-line asyncFunction:off -- The offline fetch mock implements the platform's Promise API.
+      .mockImplementation(async (_input, init) => {
+        const userAgent = new Headers(init?.headers).get("user-agent");
+
+        return await Promise.resolve(
+          new Response(null, {
+            status: userAgent === null || userAgent === "" ? 403 : 200,
+          })
+        );
+      });
+
+    const result = yield* checkHttp(condition, host, get);
+    expect(result).toMatchObject({
+      detail: "HTTP 200 matched.",
+      outcome: "true",
+    });
+    expect(
+      get.mock.calls.map(([, init]) => [...new Headers(init?.headers)])
+    ).toEqual([
+      [
+        ["accept", "application/json"],
+        ["user-agent", "mischief-watch/1"],
+      ],
+    ]);
+  })
+);
+
 const check = (body: string, status = 200) =>
   checkHttp(
     {

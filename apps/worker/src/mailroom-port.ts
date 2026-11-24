@@ -8,6 +8,15 @@ export interface Sealed {
   readonly messageId: string;
 }
 
+export interface WatchMail {
+  readonly recipient: string;
+  readonly to?: string;
+  readonly cc: readonly string[];
+  readonly summary: string;
+  readonly body: string;
+  readonly thread: string;
+}
+
 export interface Inbound {
   readonly body: string;
   readonly messageId: string;
@@ -40,10 +49,7 @@ export class Mailroom extends Context.Service<
       body: string
     ) => Effect.Effect<Sealed, PostboxFailed>;
     readonly sealWatch?: (
-      to: string,
-      summary: string,
-      body: string,
-      thread: string
+      mail: WatchMail
     ) => Effect.Effect<Sealed, PostboxFailed>;
     readonly sendWatch?: (
       to: string,

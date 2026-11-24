@@ -2,7 +2,8 @@ import { WatchSummary } from "@mischief/core";
 import type { Watch, WatchDefinition, WatchInspection } from "@mischief/core";
 import { Clock, Effect, Option, Result, Schema } from "effect";
 
-import { canonicalName, nameFor, RESERVED } from "./fleet-names.js";
+import { canonicalName, didFor, nameFor, RESERVED } from "./fleet-names.js";
+import type { WatchMail } from "./mailroom-port.js";
 import { hashPeonText } from "./peon-crypto.js";
 import { PostboxFailed } from "./postbox-failed.js";
 import { validateHttp, watchRefusal } from "./watch-check.js";
@@ -24,12 +25,7 @@ interface WatchPorts {
     at: number,
     key: string
   ) => Effect.Effect<boolean>;
-  readonly seal: (
-    delivery: Delivery,
-    summary: string,
-    text: string,
-    messageId: string
-  ) => Effect.Effect<string, PostboxFailed>;
+  readonly seal: (mail: WatchMail) => Effect.Effect<string, PostboxFailed>;
   readonly send: (
     delivery: Delivery,
     envelope: string,
@@ -161,6 +157,37 @@ const deliveriesFor = (
     return { deliveries, firing: { ...firing, downgraded: [...downgraded] } };
   });
 
+const firingAddresses = (
+  notify: WatchValue["notify"],
+  downgraded: readonly string[]
+) => {
+  const addressable = initialDeliveries(notify).filter(({ name }) =>
+    Option.isSome(didFor(name))
+  );
+
+  const cc = addressable.flatMap(({ name, wake }) =>
+    !wake || downgraded.includes(name) ? [name] : []
+  );
+
+  const primary = addressable.find(({ name }) => !cc.includes(name))?.name;
+
+  return { cc, primary };
+};
+
+const mailAddress = (
+  delivery: Delivery,
+  primary: string | undefined,
+  cc: readonly string[]
+) => {
+  if (delivery.ownerNotice) {
+    return { cc: [delivery.name] };
+  }
+
+  const to = delivery.wake ? delivery.name : primary;
+
+  return to === undefined ? { cc } : { cc, to };
+};
+
 const noticeText = (
   record: Checkpoint,
   delivery: Delivery,
@@ -230,12 +257,13 @@ export const watchEngine = (ports: WatchPorts) => {
       ) {
         const delivery = { name: owner.value, ownerNotice: true, wake: false };
         yield* ports
-          .seal(
-            delivery,
-            "Watch expired",
-            `Watch ${watch.watchId} expired with undelivered recipients: ${remaining.join(", ")}.`,
-            firing.messageId
-          )
+          .seal({
+            recipient: delivery.name,
+            cc: [delivery.name],
+            summary: "Watch expired",
+            body: `Watch ${watch.watchId} expired with undelivered recipients: ${remaining.join(", ")}.`,
+            thread: firing.messageId,
+          })
           .pipe(
             Effect.flatMap((envelope) =>
               ports.send(delivery, envelope, at + 10_000)
@@ -282,6 +310,11 @@ export const watchEngine = (ports: WatchPorts) => {
       yield* ports.save(armed);
       const delayed: Delivery[] = [];
 
+      const { cc, primary } = firingAddresses(
+        checkpoint.watch.notify,
+        dispatch.firing.downgraded
+      );
+
       let {
         firing,
       }: { firing: (typeof WatchInspection.Type.firings)[number] } = dispatch;
@@ -318,14 +351,15 @@ export const watchEngine = (ports: WatchPorts) => {
         const sealed =
           delivery.envelope === undefined
             ? yield* ports
-                .seal(
-                  delivery,
-                  delivery.ownerNotice
+                .seal({
+                  ...mailAddress(delivery, primary, cc),
+                  recipient: delivery.name,
+                  summary: delivery.ownerNotice
                     ? "Watch wake budget exceeded"
                     : checkpoint.watch.message.summary,
-                  noticeText(checkpoint, delivery, dispatch),
-                  dispatch.firing.messageId
-                )
+                  body: noticeText(checkpoint, delivery, dispatch),
+                  thread: dispatch.firing.messageId,
+                })
                 .pipe(
                   Effect.timeoutOrElse({
                     duration: expiresAt - now,

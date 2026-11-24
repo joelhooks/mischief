@@ -5,6 +5,7 @@ import * as Arbitrary from "effect/Arbitrary";
 import { TestClock } from "effect/testing";
 import { vi } from "vitest";
 
+import type { WatchMail } from "../src/mailroom-port.js";
 import { reserveWatchWake } from "../src/watch-budget.js";
 import { checkHttp } from "../src/watch-check.js";
 import type { CheckResult } from "../src/watch-check.js";
@@ -55,6 +56,7 @@ const makeWorld = (
   const cursors = new Set<string>();
   const sent: { readonly delivery: Delivery; readonly envelope: string }[] = [];
   const sealed: string[] = [];
+  const sealedMail: WatchMail[] = [];
 
   const budget = new Map([
     ["0/example/desk", usedInitially],
@@ -123,14 +125,15 @@ const makeWorld = (
 
           return proposed.allowed;
         }),
-      seal: (delivery, _watch, text) =>
+      seal: (mail) =>
         Effect.suspend(() => {
-          if (cutAt(delivery.name, "beforeSeal")) {
+          if (cutAt(mail.recipient, "beforeSeal")) {
             return crash;
           }
 
-          const envelope = JSON.stringify([delivery.name, text, sealed.length]);
+          const envelope = JSON.stringify([mail, sealed.length]);
           sealed.push(envelope);
+          sealedMail.push(mail);
 
           return Effect.succeed(envelope);
         }),
@@ -172,6 +175,7 @@ const makeWorld = (
       engine = boot();
     },
     sealed,
+    sealedMail,
     sent,
     stop: (caller: string, state: "done" | "cancelled") =>
       Effect.suspend(() => engine.stop(caller, state)),
@@ -328,6 +332,42 @@ it.effect.prop(
         expect(sends).toHaveLength(point === "afterSend" ? 2 : 1);
         expect(sends).toEqual(sends.map(() => firstPersisted));
       }
+    })
+);
+
+it.effect(
+  "addresses each primary directly and uses the first live primary for quiet copies",
+  () =>
+    Effect.gen(function* addressesWatchFiring() {
+      const world = makeWorld(
+        Array.from({ length: 20 }, (_, i) => `prior-${i}`)
+      );
+
+      const cc = ["example/desk", "copy/desk"];
+
+      yield* world.arm("once", {
+        notify: {
+          to: ["invalid/0desk", "example/desk", "first/desk", "second/desk"],
+          cc: ["copy/desk", "invalid/0copy"],
+        },
+      });
+      yield* world.tick(observed("ready"));
+
+      expect(
+        world.sealedMail
+          .filter(({ recipient }) => !recipient.startsWith("invalid/"))
+          .map(({ recipient, to, cc: copies }) => ({
+            recipient,
+            to,
+            cc: copies,
+          }))
+      ).toEqual([
+        { recipient: "example/desk", to: "first/desk", cc },
+        { recipient: "first/desk", to: "first/desk", cc },
+        { recipient: "second/desk", to: "second/desk", cc },
+        { recipient: "copy/desk", to: "first/desk", cc },
+        { recipient: "watch-test", to: undefined, cc: ["watch-test"] },
+      ]);
     })
 );
 

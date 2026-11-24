@@ -1,5 +1,6 @@
 import {
   base64url,
+  encodePayload,
   ownIdentity,
   prepare,
   unbase64url,
@@ -30,7 +31,7 @@ import type { HttpClient } from "effect/http";
 
 import { canonicalName, didFor, nameFor } from "./fleet-names.js";
 import { Mailroom, SendVerdict } from "./mailroom-port.js";
-import type { Inbound, SendVerdictValue } from "./mailroom-port.js";
+import type { Inbound, SendVerdictValue, WatchMail } from "./mailroom-port.js";
 import { PostboxFailed } from "./postbox-failed.js";
 import type { Inbox, InboxEvent, Letter, Skip } from "./postbox-inbox.js";
 import type { HeldLease, LeaseBook } from "./postbox-lease.js";
@@ -245,8 +246,8 @@ export const openMailroom = (config: MailroomConfig) =>
             Effect.asVoid
           );
 
-    const seal = (to: string, body: string, options?: SealOptions) =>
-      Effect.gen(function* sealFor() {
+    const resolveRecipient = (to: string) =>
+      Effect.gen(function* resolveMailbox() {
         const name = canonicalName(to);
 
         const did = yield* Option.match(didFor(name), {
@@ -263,6 +264,13 @@ export const openMailroom = (config: MailroomConfig) =>
 
         names[did] = name;
 
+        return did;
+      });
+
+    const seal = (to: string, body: string, options?: SealOptions) =>
+      Effect.gen(function* sealFor() {
+        const did = yield* resolveRecipient(to);
+
         const sealed = yield* prepared
           .sealPayload(did, body, options)
           .pipe(Effect.mapError((error) => failed(error.reason)));
@@ -270,6 +278,34 @@ export const openMailroom = (config: MailroomConfig) =>
         return {
           envelope: encodeEnvelope(sealed.envelope),
           messageId: sealed.messageId,
+        };
+      });
+
+    const sealWatch = ({ recipient, ...mail }: WatchMail) =>
+      Effect.gen(function* sealWatchPayload() {
+        const did = yield* resolveRecipient(recipient);
+
+        const payload = yield* encodePayload({
+          ...mail,
+          from: OWN_NAME,
+          kind: "message",
+        }).pipe(Effect.mapError((error) => failed(error.message)));
+
+        const envelope = yield* prepared
+          .seal(did, payload)
+          .pipe(
+            Effect.mapError((error) =>
+              failed(
+                Predicate.isTagged(error, "MailboxClientError")
+                  ? error.reason
+                  : (error.message ?? error.error)
+              )
+            )
+          );
+
+        return {
+          envelope: encodeEnvelope(envelope),
+          messageId: envelope.aad.messageId,
         };
       });
 
@@ -346,8 +382,7 @@ export const openMailroom = (config: MailroomConfig) =>
               seal(to, body, { encrypt: true, replyTo, summary, thread })
             )
           ),
-        sealWatch: (to, summary, body, thread) =>
-          seal(to, body, { summary, thread }),
+        sealWatch,
         sendWatch,
         send,
         surface: (summary, body) => tell(DESK, summary, body),

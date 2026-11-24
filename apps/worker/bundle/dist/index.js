@@ -83909,7 +83909,7 @@ var openMailroom = (config) => Effect56.gen(function* openMailroomFor() {
     Effect56.tap(() => Effect56.sync(() => known.add(did2))),
     Effect56.asVoid
   );
-  const seal5 = (to, body, options2) => Effect56.gen(function* sealFor() {
+  const resolveRecipient = (to) => Effect56.gen(function* resolveMailbox() {
     const name = canonicalName(to);
     const did2 = yield* Option36.match(didFor(name), {
       onNone: () => Effect56.fail(
@@ -83921,10 +83921,33 @@ var openMailroom = (config) => Effect56.gen(function* openMailroomFor() {
     });
     yield* peer(name, did2);
     names3[did2] = name;
+    return did2;
+  });
+  const seal5 = (to, body, options2) => Effect56.gen(function* sealFor() {
+    const did2 = yield* resolveRecipient(to);
     const sealed = yield* prepared.sealPayload(did2, body, options2).pipe(Effect56.mapError((error) => failed2(error.reason)));
     return {
       envelope: encodeEnvelope(sealed.envelope),
       messageId: sealed.messageId
+    };
+  });
+  const sealWatch = ({ recipient, ...mail }) => Effect56.gen(function* sealWatchPayload() {
+    const did2 = yield* resolveRecipient(recipient);
+    const payload2 = yield* encodePayload({
+      ...mail,
+      from: OWN_NAME,
+      kind: "message"
+    }).pipe(Effect56.mapError((error) => failed2(error.message)));
+    const envelope = yield* prepared.seal(did2, payload2).pipe(
+      Effect56.mapError(
+        (error) => failed2(
+          Predicate9.isTagged(error, "MailboxClientError") ? error.reason : error.message ?? error.error
+        )
+      )
+    );
+    return {
+      envelope: encodeEnvelope(envelope),
+      messageId: envelope.aad.messageId
     };
   });
   const send3 = (envelope) => decodeEnvelope(envelope).pipe(
@@ -83989,7 +84012,7 @@ ${body}`).pipe(
           (replyTo) => seal5(to, body, { encrypt: true, replyTo, summary, thread })
         )
       ),
-      sealWatch: (to, summary, body, thread) => seal5(to, body, { summary, thread }),
+      sealWatch,
       sendWatch,
       send: send3,
       surface: (summary, body) => tell(DESK, summary, body),
@@ -85088,13 +85111,13 @@ ${body}`).pipe(Effect63.flatMap(({ envelope }) => mailroom.send(envelope)))
     );
     return { ok: true };
   }
-  async sealWatch(to, summary, body, thread) {
+  async sealWatch(mail) {
     await this.start();
     return await posted2(
       this.sender().pipe(
         Effect63.flatMap(
           ({ layer: layer2 }) => Mailroom.use(
-            ({ sealWatch }) => sealWatch?.(to, summary, body, thread) ?? Effect63.fail(new PostboxFailed({ reason: NOT_WIRED }))
+            ({ sealWatch }) => sealWatch?.(mail) ?? Effect63.fail(new PostboxFailed({ reason: NOT_WIRED }))
           ).pipe(Effect63.provide(layer2))
         )
       )
@@ -88547,7 +88570,15 @@ var checkHttp = Effect81.fn("Watch.checkHttp")(function* checkHttp2(condition, a
   const observed = yield* Effect81.tryPromise({
     catch: () => "HTTP GET failed, timed out or returned an unreadable body within the 64 KB limit.",
     try: async (signal) => await observe(
-      await get(url, { method: "GET", redirect: "manual", signal }),
+      await get(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "mischief-watch/1"
+        },
+        method: "GET",
+        redirect: "manual",
+        signal
+      }),
       expect,
       signal
     )
@@ -88761,6 +88792,23 @@ var deliveriesFor = (ports, watch2, pending, at) => Effect83.gen(function* assig
   }
   return { deliveries, firing: { ...firing, downgraded: [...downgraded] } };
 });
+var firingAddresses = (notify, downgraded) => {
+  const addressable = initialDeliveries(notify).filter(
+    ({ name }) => Option64.isSome(didFor(name))
+  );
+  const cc = addressable.flatMap(
+    ({ name, wake: wake2 }) => !wake2 || downgraded.includes(name) ? [name] : []
+  );
+  const primary = addressable.find(({ name }) => !cc.includes(name))?.name;
+  return { cc, primary };
+};
+var mailAddress = (delivery, primary, cc) => {
+  if (delivery.ownerNotice) {
+    return { cc: [delivery.name] };
+  }
+  const to = delivery.wake ? delivery.name : primary;
+  return to === void 0 ? { cc } : { cc, to };
+};
 var noticeText = (record, delivery, pending) => {
   if (delivery.ownerNotice) {
     return `Watch ${record.watch.watchId} exceeded the daily wake budget for ${pending.firing.downgraded.join(", ")}. Those names received a quiet copy.`;
@@ -88805,12 +88853,13 @@ var watchEngine = (ports) => {
     const remaining3 = firing?.undelivered ?? [];
     if (firing !== null && remaining3.length > 0 && Option64.isSome(owner) && owner.value !== "joel-iphone") {
       const delivery = { name: owner.value, ownerNotice: true, wake: false };
-      yield* ports.seal(
-        delivery,
-        "Watch expired",
-        `Watch ${watch2.watchId} expired with undelivered recipients: ${remaining3.join(", ")}.`,
-        firing.messageId
-      ).pipe(
+      yield* ports.seal({
+        recipient: delivery.name,
+        cc: [delivery.name],
+        summary: "Watch expired",
+        body: `Watch ${watch2.watchId} expired with undelivered recipients: ${remaining3.join(", ")}.`,
+        thread: firing.messageId
+      }).pipe(
         Effect83.flatMap(
           (envelope) => ports.send(delivery, envelope, at + 1e4)
         ),
@@ -88844,6 +88893,10 @@ var watchEngine = (ports) => {
     const armed = { ...guarded, pending: dispatch };
     yield* ports.save(armed);
     const delayed = [];
+    const { cc, primary } = firingAddresses(
+      checkpoint.watch.notify,
+      dispatch.firing.downgraded
+    );
     let {
       firing
     } = dispatch;
@@ -88867,12 +88920,13 @@ var watchEngine = (ports) => {
       }
       const inFlight = { ...delivery, attempts };
       yield* savePending([...delayed, inFlight, ...rest], guarded.nextAt);
-      const sealed = delivery.envelope === void 0 ? yield* ports.seal(
-        delivery,
-        delivery.ownerNotice ? "Watch wake budget exceeded" : checkpoint.watch.message.summary,
-        noticeText(checkpoint, delivery, dispatch),
-        dispatch.firing.messageId
-      ).pipe(
+      const sealed = delivery.envelope === void 0 ? yield* ports.seal({
+        ...mailAddress(delivery, primary, cc),
+        recipient: delivery.name,
+        summary: delivery.ownerNotice ? "Watch wake budget exceeded" : checkpoint.watch.message.summary,
+        body: noticeText(checkpoint, delivery, dispatch),
+        thread: dispatch.firing.messageId
+      }).pipe(
         Effect83.timeoutOrElse({
           duration: expiresAt - now,
           orElse: () => Effect83.fail(
@@ -89114,13 +89168,8 @@ var WatchObject = class extends DurableObject8 {
       const day = DateTime7.formatIsoDateUtc(DateTime7.makeUnsafe(at));
       return await binding.getByName(watchBudgetName(name)).reserveWake(day, key);
     }),
-    seal: (delivery, summary, text, messageId) => postboxCall(
-      async () => await this.env.POSTBOX.getByName(POSTBOX_NAME).sealWatch(
-        delivery.name,
-        summary,
-        text,
-        messageId
-      )
+    seal: (mail) => postboxCall(
+      async () => await this.env.POSTBOX.getByName(POSTBOX_NAME).sealWatch(mail)
     ).pipe(Effect84.map(({ envelope }) => envelope)),
     send: (delivery, envelope, deadline) => postboxCall(
       async () => await this.env.POSTBOX.getByName(POSTBOX_NAME).sendWatch(

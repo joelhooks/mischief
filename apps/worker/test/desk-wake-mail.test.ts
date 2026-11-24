@@ -6,16 +6,20 @@ import {
   encodePayload,
   Identity,
   ownIdentity,
+  PayloadJson,
   prepare,
 } from "@rat-king/mailbox-client";
+import type { OpenedMessage } from "@rat-king/mailbox-client";
 import { Effect, Layer, Logger, Option, Schema } from "effect";
 import { FetchHttpClient, HttpClient } from "effect/http";
 import { vi } from "vitest";
 
 import { routeDeskWake } from "../src/desk-wake-mail.js";
 import type { DeskWake } from "../src/desk-wake-mail.js";
+import { canonicalName } from "../src/fleet-names.js";
 import { Mailroom, SendVerdict } from "../src/mailroom-port.js";
-import { inboundOf, openMailroom } from "../src/mailroom.js";
+import type { WatchMail } from "../src/mailroom-port.js";
+import { decodeEnvelope, inboundOf, openMailroom } from "../src/mailroom.js";
 import { readBatch } from "../src/postbox-inbox.js";
 import type { Letter } from "../src/postbox-inbox.js";
 import { leaseBook } from "../src/postbox-lease.js";
@@ -227,8 +231,19 @@ it.effect(
     )
 );
 
+const isCarbonCopy = (
+  message: OpenedMessage,
+  { to, cc }: typeof PayloadJson.Type,
+  ownName: string
+) =>
+  message.cc !== undefined ||
+  (message.delegatedFor === undefined &&
+    (to === undefined
+      ? cc?.some((name) => canonicalName(name) === ownName) === true
+      : canonicalName(to) !== ownName));
+
 it.effect(
-  "watch mail keeps signed wire bytes after restarting the sender and carries quiet cc intent",
+  "watch mail matches Rat King's packages/ratking-client/src/ratking.ts isCarbonCopy and replays quiet sends unchanged",
   () =>
     Effect.gen(function* watchMailReplay() {
       const sender = yield* mailboxIdentity("mischief-worker");
@@ -271,11 +286,67 @@ it.effect(
 
       const writer = yield* open;
 
-      const { envelope } = yield* Mailroom.use(({ sealWatch }) =>
-        sealWatch === undefined
-          ? Effect.die("Watch sealing is not wired")
-          : sealWatch("watch-demo/desk", "Ready", "Evidence", "watch-firing")
-      ).pipe(Effect.provide(writer.layer));
+      const name = "watch-demo/desk";
+
+      const reader = yield* prepare({
+        endpoint: config.endpoint,
+        own: recipient.own,
+        peers: [sender.document, recipient.document],
+        serviceDid: config.serviceDid,
+      }).pipe(
+        Effect.provide(Layer.merge(webCrypto, FetchHttpClient.layer)),
+        Effect.provideService(FetchHttpClient.Fetch, fakeFetch)
+      );
+
+      const seal = (address: Pick<WatchMail, "to" | "cc">) =>
+        Mailroom.use(({ sealWatch }) =>
+          sealWatch === undefined
+            ? Effect.die("Watch sealing is not wired")
+            : sealWatch({
+                ...address,
+                recipient: name,
+                summary: "Ready",
+                body: "Evidence",
+                thread: "watch-firing",
+              })
+        ).pipe(Effect.provide(writer.layer));
+
+      const inspect = (envelope: string) =>
+        Effect.gen(function* openWatchMail() {
+          const message = yield* decodeEnvelope(envelope).pipe(
+            Effect.flatMap((wire) => reader.open(wire))
+          );
+
+          const address = yield* Schema.decodeEffect(PayloadJson)(message.body);
+
+          return { address, cc: isCarbonCopy(message, address, name) };
+        });
+
+      const quiet = { to: "watch-demo/primary", cc: [name, "watch-demo/copy"] };
+      const { envelope } = yield* seal(quiet);
+      expect(yield* inspect(envelope)).toEqual({
+        address: {
+          ...quiet,
+          from: "mischief/worker",
+          kind: "message",
+          summary: "Ready",
+          body: "Evidence",
+          thread: "watch-firing",
+        },
+        cc: true,
+      });
+
+      const primary = { to: name, cc: ["watch-demo/copy"] };
+      expect(yield* inspect((yield* seal(primary)).envelope)).toMatchObject({
+        address: primary,
+        cc: false,
+      });
+      expect(
+        yield* inspect((yield* seal({ cc: [name] })).envelope)
+      ).toMatchObject({
+        address: { cc: [name] },
+        cc: true,
+      });
 
       const submit = Mailroom.use(({ sendWatch }) =>
         sendWatch === undefined

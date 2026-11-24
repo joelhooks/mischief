@@ -15,6 +15,7 @@ import type {
 } from "@mischief/core";
 import { Clock, Effect, Schema } from "effect";
 
+import { isLegacyStaleResume } from "./peon-box.js";
 import type { PeonBox } from "./peon-box.js";
 import { hashPeonText as hashText } from "./peon-crypto.js";
 import {
@@ -499,6 +500,9 @@ export const peonHost = ({
 
     const refused = fault.code !== undefined;
 
+    const staleResume =
+      stored.pending.kind === "resume" && fault.code === "BoxNetworkStale";
+
     const promptFinished =
       fault.code === "PromptFailed" &&
       stored.pending.kind === "prompt" &&
@@ -516,7 +520,7 @@ export const peonHost = ({
       reportedState ?? (promptFinished ? "idle" : stored.report.state);
 
     const state =
-      refused || observed === "destroyed"
+      (refused && !staleResume) || observed === "destroyed"
         ? observed
         : peonTransition(observed, "BOX_LOST");
 
@@ -528,7 +532,12 @@ export const peonHost = ({
       ...stored,
       idleAt: promptFinished ? updatedAt : stored.idleAt,
       pending: refused ? null : stored.pending,
-      report: { ...stored.report, fault: fault.reason, state, updatedAt },
+      report: {
+        ...stored.report,
+        fault: staleResume ? null : fault.reason,
+        state,
+        updatedAt,
+      },
     };
 
     yield* commit(faulted);
@@ -767,6 +776,23 @@ export const peonHost = ({
 
       const report = reportWithMeasurements(stored.report, measured);
       const { pending } = stored;
+
+      if (
+        pending?.kind === "resume" &&
+        report.state === "suspended" &&
+        measured.state === "suspended" &&
+        isLegacyStaleResume(report.peonId, report.fault)
+      ) {
+        const settled = {
+          ...stored,
+          pending: null,
+          report: { ...report, fault: null },
+        };
+
+        yield* commit(settled);
+
+        return reportWithPending(settled);
+      }
 
       if (pending?.kind !== "suspend" || measured.state !== "suspended") {
         return reportWithPending({ ...stored, report });

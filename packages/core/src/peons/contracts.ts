@@ -12,6 +12,7 @@ import {
   PeonTemplateSelector,
   PeonTemplateVersion,
   PeonTombstone,
+  ResumePeonRefusal,
 } from "./schema.js";
 import { tailPeonContract } from "./tail.js";
 
@@ -62,6 +63,7 @@ export const resumePeonContract = defineContract("resumePeon", {
   ...lifecycle,
   annotations: { idempotent: true },
   description: "Wake a suspended or hibernated box without starting a turn.",
+  failure: ResumePeonRefusal,
 });
 
 export const hibernatePeonContract = defineContract("hibernatePeon", {

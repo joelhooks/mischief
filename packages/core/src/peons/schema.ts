@@ -181,6 +181,7 @@ export const PeonBoxRefusalCode = Schema.Literals([
   "BoxBuildRefused",
   "BoxCapacity",
   "BoxImageMissing",
+  "BoxNetworkStale",
   "CustodyMissing",
   "CustodyIncomplete",
   "DestroyInProgress",
@@ -245,6 +246,23 @@ export class PeonRefused extends Schema.TaggedError<PeonRefused>()(
     return this.reason;
   }
 }
+
+export const ResumePeonRefusal = Schema.Union([
+  Schema.Struct({
+    ...PeonRefused.fields,
+    code: Schema.Literal("BoxNetworkStale"),
+  })
+    .pipe(Schema.decodeTo(PeonRefused))
+    .annotate({ httpApiStatus: 409 }),
+  Schema.Struct({
+    ...PeonRefused.fields,
+    code: Schema.optionalKey(
+      Schema.Literals(
+        PeonBoxRefusalCode.literals.filter((code) => code !== "BoxNetworkStale")
+      )
+    ),
+  }).pipe(Schema.decodeTo(PeonRefused)),
+]);
 
 export const emptyPeonUsage = {
   cacheRead: 0,

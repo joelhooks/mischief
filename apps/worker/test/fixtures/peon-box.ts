@@ -115,18 +115,21 @@ const failedPrompt = () =>
     { status: 503 }
   );
 
+const staleResume = () =>
+  Response.json(
+    {
+      error: {
+        code: "BoxNetworkStale",
+        message:
+          "A browser box must be attached only to the browser network. Recreate or destroy this browser box before retrying.",
+      },
+    },
+    { status: 409 }
+  );
+
 const resumeRefusal = (path: string) => {
   if (path === "/v1/boxes/stale-browser/resume") {
-    return Response.json(
-      {
-        error: {
-          code: "BoxNetworkStale",
-          message:
-            "A browser box must be attached only to the browser network. Recreate or destroy this browser box before retrying.",
-        },
-      },
-      { status: 409 }
-    );
+    return staleResume();
   }
 
   if (path === "/v1/boxes/unavailable-resume/resume") {
@@ -195,6 +198,7 @@ const refusals = new Map([
 
 export class FakeBox extends DurableObject {
   private readonly releaseStoppedInspect = Deferred.makeUnsafe<undefined>();
+  private readonly releaseStaleResume = Deferred.makeUnsafe<undefined>();
   private stoppedInspects = 0;
 
   private async writeLifecycleState(path: string) {
@@ -269,6 +273,13 @@ export class FakeBox extends DurableObject {
   ) {
     if (method === "GET") {
       const state = (await this.ctx.storage.get(`${path}/state`)) ?? "idle";
+
+      if (path === "/v1/boxes/alarm-stale-browser") {
+        await this.ctx.storage.put("calls", [
+          ...calls,
+          { path, requestId: "inspect" },
+        ]);
+      }
 
       if (path === "/v1/boxes/stuck-suspend" && state === "suspended") {
         this.stoppedInspects += 1;
@@ -354,6 +365,23 @@ export class FakeBox extends DurableObject {
       : Response.json(response);
   }
 
+  private async resumeDenial(path: string, calls: readonly CallValue[]) {
+    if (path !== "/v1/boxes/alarm-stale-browser/resume") {
+      return resumeRefusal(path);
+    }
+
+    if (!calls.some((call) => call.path === path)) {
+      return Response.json(
+        { error: "Temporarily unavailable" },
+        { status: 503 }
+      );
+    }
+
+    await Effect.runPromise(Deferred.await(this.releaseStaleResume));
+
+    return staleResume();
+  }
+
   override async fetch(request: Request) {
     const path = new URL(request.url).pathname;
 
@@ -365,10 +393,15 @@ export class FakeBox extends DurableObject {
       return Response.json(calls);
     }
 
-    if (path === "/__release-stopped-inspect") {
-      await Effect.runPromise(
-        Deferred.succeed(this.releaseStoppedInspect, undefined)
-      );
+    const releases = new Map([
+      ["/__release-stopped-inspect", this.releaseStoppedInspect],
+      ["/__release-stale-resume", this.releaseStaleResume],
+    ]);
+
+    const release = releases.get(path);
+
+    if (release !== undefined) {
+      await Effect.runPromise(Deferred.succeed(release, undefined));
 
       return new Response(null, { status: 204 });
     }
@@ -401,7 +434,7 @@ export class FakeBox extends DurableObject {
       return await this.promptBox(path, key, body.text);
     }
 
-    const resumeDenied = resumeRefusal(path);
+    const resumeDenied = await this.resumeDenial(path, calls);
 
     if (resumeDenied !== null) {
       return resumeDenied;

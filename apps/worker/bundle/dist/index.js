@@ -56894,6 +56894,13 @@ var PeonTombstone = Schema4.Struct({
   updatedAt: Schema4.Finite
 });
 var PeonReport = Schema4.Struct({
+  lastSettled: Schema4.optionalKey(Schema4.Struct({
+    at: Schema4.Finite,
+    code: Schema4.Literal("BoxNetworkStale"),
+    kind: Schema4.Literal("resume"),
+    requestId: Schema4.String,
+    settledBy: Schema4.Literals(["drive", "inspect"])
+  })),
   processes: Schema4.optionalKey(Schema4.Finite),
   pending: Schema4.optionalKey(Schema4.NullOr(Schema4.Struct({ kind: Schema4.String, requestId: Schema4.String }))),
   ...PeonIndexEntry.fields,
@@ -84213,6 +84220,9 @@ var PeonStored = Schema93.Struct({
 });
 var PeonCompleted = Schema93.Struct({
   hash: Schema93.String,
+  refusal: Schema93.optionalKey(
+    Schema93.Struct({ code: PeonBoxRefusalCode, reason: Schema93.String })
+  ),
   report: PeonReport
 });
 var PeonBoxState = Schema93.Struct({
@@ -85499,6 +85509,16 @@ var hashPeonText = (text) => Digest10.Digest.use(
 
 // src/peon-host.ts
 var failure4 = (reason) => new PeonRefused({ reason });
+var replayCompletion = (completed, inputHash, requestId3) => {
+  if (completed.hash !== inputHash) {
+    return Effect67.fail(
+      failure4(
+        `requestId ${requestId3} already completed with different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
+      )
+    );
+  }
+  return completed.refusal === void 0 ? Effect67.succeed(completed.report) : Effect67.fail(new PeonRefused(completed.refusal));
+};
 var reportWithPending = (stored2) => ({
   ...stored2.report,
   pending: stored2.pending === null ? null : { kind: stored2.pending.kind, requestId: stored2.pending.requestId }
@@ -85794,6 +85814,31 @@ var peonHost = ({
     });
     return report2;
   });
+  const settleStaleResume = Effect67.fn("Peon.settleStaleResume")(
+    function* settleStaleResume2(stored2, pending, settledBy, reason) {
+      const report2 = {
+        ...stored2.report,
+        fault: null,
+        lastSettled: {
+          at: yield* Clock14.currentTimeMillis,
+          code: "BoxNetworkStale",
+          kind: "resume",
+          requestId: pending.requestId,
+          settledBy
+        }
+      };
+      const settled2 = { ...stored2, pending: null, report: report2 };
+      yield* commit(settled2, {
+        requestId: pending.requestId,
+        value: {
+          hash: pending.inputHash,
+          refusal: { code: "BoxNetworkStale", reason },
+          report: report2
+        }
+      });
+      return settled2;
+    }
+  );
   const recordFault = Effect67.fn("Peon.recordFault")(function* recordFault2(fault) {
     const stored2 = yield* requirePeon;
     if (stored2.pending === null) {
@@ -85817,7 +85862,7 @@ var peonHost = ({
         updatedAt
       }
     };
-    yield* commit(faulted);
+    yield* staleResume ? settleStaleResume(faulted, stored2.pending, "drive", fault.reason) : commit(faulted);
     if (state3 !== "destroyed") {
       yield* publish2(indexOf(faulted.report));
     }
@@ -85836,12 +85881,7 @@ var peonHost = ({
     );
     const completed = yield* storage.completed(requestId3);
     if (completed !== void 0) {
-      if (completed.hash !== inputHash) {
-        return yield* failure4(
-          `requestId ${requestId3} already completed with different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
-        );
-      }
-      return completed.report;
+      return yield* replayCompletion(completed, inputHash, requestId3);
     }
     let stored2 = yield* requirePeon;
     if (stored2.pending !== null) {
@@ -85855,6 +85895,9 @@ var peonHost = ({
       }
       stored2 = { ...stored2, pending: null };
     }
+    const report2 = { ...stored2.report };
+    delete report2.lastSettled;
+    stored2 = { ...stored2, report: report2 };
     if (peonAtTarget(kind, stored2.report.state)) {
       yield* storage.commit(
         stored2,
@@ -85987,12 +86030,12 @@ var peonHost = ({
       const report2 = reportWithMeasurements(stored2.report, measured);
       const { pending } = stored2;
       if (pending?.kind === "resume" && report2.state === "suspended" && measured.state === "suspended" && isLegacyStaleResume(report2.peonId, report2.fault)) {
-        const settled2 = {
-          ...stored2,
-          pending: null,
-          report: { ...report2, fault: null }
-        };
-        yield* commit(settled2);
+        const settled2 = yield* settleStaleResume(
+          { ...stored2, report: report2 },
+          pending,
+          "inspect",
+          `Box ${report2.peonId} resume returned HTTP 409 (BoxNetworkStale). Recreate the browser box or use destroyPeon before retrying.`
+        );
         return reportWithPending(settled2);
       }
       if (pending?.kind !== "suspend" || measured.state !== "suspended") {
@@ -86251,7 +86294,14 @@ var Peon = class extends DurableObject3 {
       await this.ctx.storage.deleteAlarm();
       return;
     }
-    await this.run(this.host.idle());
+    await this.run(
+      this.host.idle().pipe(
+        Effect69.catchTag(
+          "PeonRefused",
+          (refusal3) => refusal3.code === "BoxNetworkStale" ? this.host.inspectStored : Effect69.fail(refusal3)
+        )
+      )
+    );
   }
 };
 

@@ -85,6 +85,24 @@ interface CommandOptions {
 
 const failure = (reason: string) => new PeonRefused({ reason });
 
+const replayCompletion = (
+  completed: typeof PeonCompleted.Type,
+  inputHash: string,
+  requestId: string
+) => {
+  if (completed.hash !== inputHash) {
+    return Effect.fail(
+      failure(
+        `requestId ${requestId} already completed with different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
+      )
+    );
+  }
+
+  return completed.refusal === undefined
+    ? Effect.succeed(completed.report)
+    : Effect.fail(new PeonRefused(completed.refusal));
+};
+
 const reportWithPending = (
   stored: PeonStoredValue
 ): typeof PeonReport.Type => ({
@@ -489,6 +507,40 @@ export const peonHost = ({
     return report;
   });
 
+  const settleStaleResume = Effect.fn("Peon.settleStaleResume")(
+    function* settleStaleResume(
+      stored: PeonStoredValue,
+      pending: typeof PeonPending.Type,
+      settledBy: "drive" | "inspect",
+      reason: string
+    ) {
+      const report = {
+        ...stored.report,
+        fault: null,
+        lastSettled: {
+          at: yield* Clock.currentTimeMillis,
+          code: "BoxNetworkStale",
+          kind: "resume",
+          requestId: pending.requestId,
+          settledBy,
+        } as const,
+      };
+
+      const settled = { ...stored, pending: null, report };
+
+      yield* commit(settled, {
+        requestId: pending.requestId,
+        value: {
+          hash: pending.inputHash,
+          refusal: { code: "BoxNetworkStale", reason },
+          report,
+        },
+      });
+
+      return settled;
+    }
+  );
+
   const recordFault = Effect.fn("Peon.recordFault")(function* recordFault(
     fault: PeonRefused
   ) {
@@ -540,7 +592,9 @@ export const peonHost = ({
       },
     };
 
-    yield* commit(faulted);
+    yield* staleResume
+      ? settleStaleResume(faulted, stored.pending, "drive", fault.reason)
+      : commit(faulted);
 
     if (state !== "destroyed") {
       yield* publish(indexOf(faulted.report));
@@ -570,13 +624,7 @@ export const peonHost = ({
     const completed = yield* storage.completed(requestId);
 
     if (completed !== undefined) {
-      if (completed.hash !== inputHash) {
-        return yield* failure(
-          `requestId ${requestId} already completed with different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
-        );
-      }
-
-      return completed.report;
+      return yield* replayCompletion(completed, inputHash, requestId);
     }
 
     let stored = yield* requirePeon;
@@ -597,6 +645,10 @@ export const peonHost = ({
 
       stored = { ...stored, pending: null };
     }
+
+    const report = { ...stored.report };
+    delete report.lastSettled;
+    stored = { ...stored, report };
 
     if (peonAtTarget(kind, stored.report.state)) {
       yield* storage.commit(
@@ -783,13 +835,12 @@ export const peonHost = ({
         measured.state === "suspended" &&
         isLegacyStaleResume(report.peonId, report.fault)
       ) {
-        const settled = {
-          ...stored,
-          pending: null,
-          report: { ...report, fault: null },
-        };
-
-        yield* commit(settled);
+        const settled = yield* settleStaleResume(
+          { ...stored, report },
+          pending,
+          "inspect",
+          `Box ${report.peonId} resume returned HTTP 409 (BoxNetworkStale). Recreate the browser box or use destroyPeon before retrying.`
+        );
 
         return reportWithPending(settled);
       }

@@ -278,6 +278,16 @@ export class Peon extends DurableObject<Env> {
       return;
     }
 
-    await this.run(this.host.idle());
+    await this.run(
+      this.host
+        .idle()
+        .pipe(
+          Effect.catchTag("PeonRefused", (refusal) =>
+            refusal.code === "BoxNetworkStale"
+              ? this.host.inspectStored
+              : Effect.fail(refusal)
+          )
+        )
+    );
   }
 }

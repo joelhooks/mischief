@@ -237,6 +237,90 @@ it.live(
 );
 
 it.live(
+  "the alarm settles a stale resume once while a racing inspect reads the checkpoint",
+  () =>
+    Effect.gen(function* alarmRace() {
+      const world = yield* prepare(250, [], undefined, { peons: true });
+      yield* start(world);
+
+      const peonId = "alarm-stale-browser";
+      const requestId = "alarm-stale-resume";
+      const input = { peonId, requestId };
+      const path = `/v1/boxes/${peonId}`;
+      const inspect = post(world, "inspectPeon", { peonId });
+
+      const resumes = readCalls(world).pipe(
+        Effect.map((calls) =>
+          calls.filter((call) => call.path === `${path}/resume`)
+        )
+      );
+
+      expect(
+        (yield* post(world, "spawnPeon", {
+          peonId,
+          template: "full",
+          overrides: { workspace },
+        })).status
+      ).toBe(200);
+      expect((yield* post(world, "suspendPeon", { peonId })).status).toBe(200);
+      expect((yield* post(world, "resumePeon", input)).status).toBe(422);
+
+      yield* resumes.pipe(
+        Effect.filterOrFail(
+          (calls) => calls.length === 2,
+          () => "alarm has not reached the manager"
+        ),
+        Effect.retry({ schedule: Schedule.spaced("10 millis"), times: 300 })
+      );
+      const beforeRace = yield* readCalls(world);
+      const racing = yield* inspect;
+      expect(racing.body).toMatchObject({
+        pending: { kind: "resume", requestId },
+      });
+      expect(yield* readCalls(world)).toEqual(beforeRace);
+
+      yield* HttpClient.get(
+        `http://127.0.0.1:${world.boxPort}/__release-stale-resume`
+      );
+
+      const settled = yield* inspect.pipe(
+        Effect.flatMap(({ body }) =>
+          Schema.decodeUnknownEffect(PeonReport)(body)
+        ),
+        Effect.filterOrFail(
+          (current) => current.pending === null,
+          () => "alarm has not settled"
+        ),
+        Effect.retry({ schedule: Schedule.spaced("10 millis"), times: 300 })
+      );
+
+      expect(Schema.is(Schema.Finite)(settled.lastSettled?.at)).toBe(true);
+      expect(settled.lastSettled).toMatchObject({
+        code: "BoxNetworkStale",
+        kind: "resume",
+        requestId,
+        settledBy: "drive",
+      });
+      expect(settled).toMatchObject({ fault: null, state: "suspended" });
+      const replay = yield* post(world, "resumePeon", input);
+      expect(replay.status).toBe(409);
+      expect(replay.body).toMatchObject({ code: "BoxNetworkStale" });
+      const calls = yield* resumes;
+      expect(calls).toHaveLength(2);
+      expect(calls[0]?.requestId).toBe(calls[1]?.requestId);
+      expect((yield* inspect).body).toMatchObject({
+        lastSettled: settled.lastSettled,
+      });
+
+      expect((yield* post(world, "hibernatePeon", { peonId })).status).toBe(
+        200
+      );
+      expect((yield* inspect).body).not.toHaveProperty("lastSettled");
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  30_000
+);
+
+it.live(
   "a 503 on resume keeps the pending intent and retries the same box request",
   () =>
     Effect.gen(function* unavailableResume() {

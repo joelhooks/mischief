@@ -338,7 +338,11 @@ const readAttempt = Schema.decodeUnknownSync(
     Schema.Struct({
       woke: Schema.Boolean,
       envelope: Schema.Struct({
-        aad: Schema.Struct({ recipientDid: Schema.String }),
+        aad: Schema.Struct({
+          expiresAt: Schema.optionalKey(Schema.String),
+          messageId: Schema.String,
+          recipientDid: Schema.String,
+        }),
       }),
     })
   )
@@ -429,6 +433,13 @@ it.live(
       expect(receipt.watch.state).toBe("done");
       expect(mail.attempts).toHaveLength(2);
       expect(mail.attempts[0]).toBe(mail.attempts[1]);
+
+      const aad = mail.attempts.map((body) => readAttempt(body).envelope.aad);
+      expect(aad[0]?.messageId).toBeTruthy();
+      expect(aad[0]?.messageId).toBe(aad[1]?.messageId);
+      expect(aad.every((header) => !Object.hasOwn(header, "expiresAt"))).toBe(
+        true
+      );
       expect(receipt.lastCheck?.outcome).toBe("true");
     }).pipe(Effect.provide(services)),
   20_000

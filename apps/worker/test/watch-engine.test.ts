@@ -399,6 +399,7 @@ it.effect(
       expect((yield* world.inspect).firings[0]?.undelivered).toEqual([
         "example/desk",
       ]);
+      expect(world.sealed).toHaveLength(1);
       expect(new Set(world.sent.map(({ envelope }) => envelope)).size).toBe(1);
     })
 );

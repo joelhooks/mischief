@@ -14,7 +14,7 @@ Early, and dogfooded daily. Today a run executes from the CLI with a file store:
 
 ## Durable watches
 
-In v1, the watch ID and observed cursor determine the logical firing ID. Rat King assigns a separate wire message ID per recipient. Before sending, the worker saves each signed envelope with its wire ID. After a restart, it retries with the exact same signed bytes rather than sealing a new envelope.
+In v1, the watch ID and observed cursor determine the logical firing ID. Rat King assigns a separate wire message ID per recipient. Before sending, the worker saves each signed envelope with its wire ID. After a restart, it retries with the exact same signed bytes rather than sealing a new envelope. The envelope has no `expiresAt`; the watch deadline and retry cap govern when the worker stops sending.
 
 Any caller with the `armWatch` grant can use `listWatches` across owners.
 

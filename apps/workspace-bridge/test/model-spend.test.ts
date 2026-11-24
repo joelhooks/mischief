@@ -1,14 +1,17 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import {
+  Clock,
   ConfigProvider,
   Deferred,
   Effect,
   Exit,
   Fiber,
   Layer,
+  Predicate,
   Redacted,
   Ref,
+  Result,
   Schema,
   Stream,
   Tracer,
@@ -30,7 +33,12 @@ import { boxManagerRoutes } from "../src/box/http.js";
 import { liveBoxId } from "../src/box/live-owner.js";
 import { Boxes } from "../src/box/manager.js";
 import { SpendLedger } from "../src/box/spend-ledger.js";
-import { ADMIT_PATH, RECORD_PATH } from "../src/box/spend-protocol.js";
+import {
+  ADMIT_PATH,
+  RECORD_PATH,
+  SpendAdmission,
+} from "../src/box/spend-protocol.js";
+import type { SpendAdmissionResult } from "../src/box/spend-protocol.js";
 import { FullProxy, fullProxyRoutes } from "../src/full-proxy.js";
 import { managerKey, meterResponse, modelSpend } from "../src/model-spend.js";
 import { refusal } from "../src/protocol.js";
@@ -434,7 +442,75 @@ for (const scenario of ["restart", "persistent"] as const) {
 }
 
 it.effect(
-  "manager timeout covers stalled success and error bodies after headers",
+  "admission recovers from a refused connection, stalled attempt and 503",
+  () =>
+    Effect.gen(function* restartAdmission() {
+      const attempts = yield* Ref.make(0);
+
+      const manager = HttpClient.make((request) =>
+        Effect.gen(function* managerReply() {
+          const attempt = yield* Ref.updateAndGet(
+            attempts,
+            (count) => count + 1
+          );
+
+          if (attempt === 1) {
+            yield* Effect.sleep("250 millis");
+
+            return yield* new HttpClientError.HttpClientError({
+              reason: new HttpClientError.TransportError({
+                request,
+                cause: new Error("fixture connection refused"),
+              }),
+            });
+          }
+
+          if (attempt === 2) {
+            return yield* Effect.never;
+          }
+
+          return HttpClientResponse.fromWeb(
+            request,
+            attempt === 3
+              ? new Response(null, { status: 503 })
+              : Response.json({
+                  status: "metered",
+                  receipt: uuidV4Unsafe(),
+                  outputTokens: 128,
+                })
+          );
+        })
+      );
+
+      const spend = modelSpend(
+        manager,
+        Redacted.make("fixture-manager-bearer"),
+        false
+      );
+
+      const started = yield* Clock.currentTimeMillis;
+
+      const admission = yield* Effect.gen(function* measureAdmission() {
+        const result = yield* spend("192.0.2.15", 12).pipe(Effect.result);
+        const ended = yield* Clock.currentTimeMillis;
+
+        return { result, elapsed: ended - started };
+      }).pipe(Effect.forkScoped);
+
+      yield* TestClock.adjust("4 seconds");
+      expect(admission.pollUnsafe()).toBeDefined();
+      const { result, elapsed } = yield* Fiber.join(admission);
+
+      expect(
+        Result.isFailure(result) ? result.failure : result.success,
+        `Admission ended after ${elapsed} ms`
+      ).toMatchObject({ outputTokens: 128 });
+      expect(yield* Ref.get(attempts)).toBe(4);
+    })
+);
+
+it.effect(
+  "admit bounds a stalled permit by 15 seconds without waiting on a 403 body",
   () =>
     Effect.gen(function* stalledBodies() {
       const client = yield* HttpClient.HttpClient;
@@ -483,11 +559,141 @@ it.effect(
       );
 
       yield* Deferred.await(started);
-      yield* TestClock.adjust("5 seconds");
+      yield* TestClock.adjust("14 seconds");
+      expect(attempts[0]?.pollUnsafe()).toBeUndefined();
+      expect(attempts[1]?.pollUnsafe()).toBeDefined();
+      yield* TestClock.adjust("1 second");
+      expect(attempts[0]?.pollUnsafe()).toBeDefined();
       const errors = yield* Effect.forEach(Fiber.join)(attempts);
-      expect(errors.map((error) => error.status)).toEqual([503, 503]);
+      expect(errors.map((error) => error.status)).toEqual([503, 403]);
     }).pipe(Effect.provide(NodeHttpServer.layerTest))
 );
+
+it.effect(
+  "a lost admit response replays one ledger reservation and its original permit",
+  () =>
+    Effect.gen(function* replayAdmission() {
+      const owner = { imageKey: "browser", peonId: "browser-a" } as const;
+      const ledger = yield* SpendLedger;
+      const attempts = yield* Ref.make<SpendAdmissionResult[]>([]);
+
+      const manager = HttpClient.make((request) =>
+        Effect.gen(function* ledgerReply() {
+          if (!Predicate.isTagged(request.body, "Uint8Array")) {
+            return yield* Effect.die("Expected a JSON admission request");
+          }
+
+          const input = yield* Schema.decodeEffect(
+            Schema.fromJsonString(SpendAdmission)
+          )(new TextDecoder().decode(request.body.body)).pipe(Effect.orDie);
+
+          const permit = yield* ledger
+            .admit(owner, input.tokens, input.outputTokens, input.requestId)
+            .pipe(Effect.orDie);
+
+          const seen = yield* Ref.updateAndGet(attempts, (permits) => [
+            ...permits,
+            permit,
+          ]);
+
+          if (seen.length === 1) {
+            return yield* Effect.never;
+          }
+
+          return HttpClientResponse.fromWeb(request, Response.json(permit));
+        })
+      );
+
+      const spend = modelSpend(
+        manager,
+        Redacted.make("fixture-manager-bearer"),
+        false
+      );
+
+      const admission = yield* spend("192.0.2.15", 12).pipe(Effect.forkScoped);
+      yield* TestClock.adjust("4 seconds");
+      expect(admission.pollUnsafe()).toBeDefined();
+      expect(yield* Fiber.join(admission)).toMatchObject({ outputTokens: 128 });
+
+      const [original, replay, ...extra] = yield* Ref.get(attempts);
+      expect(original).toMatchObject({ status: "metered", outputTokens: 128 });
+      expect(replay).toEqual(original);
+      expect(extra).toHaveLength(0);
+      expect(yield* ledger.admit(owner, 1, 1)).toMatchObject({
+        status: "metered",
+      });
+      expect(yield* ledger.admit(owner, 1, 1)).toEqual({
+        status: "denied",
+        reason: "rate",
+      });
+    }).pipe(
+      Effect.provide(
+        SpendLedger.layer(
+          ":memory:",
+          {
+            browser: {
+              dailyTokens: 200,
+              defaultOutputTokens: 128,
+              ratePerMin: 2,
+            },
+          },
+          () => Effect.void
+        )
+      )
+    )
+);
+
+for (const [label, reply, status, message] of [
+  [
+    "401",
+    () => new Response(new ReadableStream(), { status: 401 }),
+    503,
+    /^The box manager/u,
+  ],
+  [
+    "403",
+    () => new Response(new ReadableStream(), { status: 403 }),
+    403,
+    /^Model requests need/u,
+  ],
+  [
+    "denied",
+    () => Response.json({ status: "denied", reason: "daily" }),
+    429,
+    /^SpendCap:/u,
+  ],
+] as const) {
+  it.effect(`admit fails closed immediately without retry on ${label}`, () =>
+    Effect.gen(function* terminalAdmission() {
+      const calls = yield* Ref.make(0);
+
+      const manager = HttpClient.make((request) =>
+        Ref.update(calls, (count) => count + 1).pipe(
+          Effect.map(() => HttpClientResponse.fromWeb(request, reply()))
+        )
+      );
+
+      const spend = modelSpend(
+        manager,
+        Redacted.make("fixture-manager-bearer"),
+        false
+      );
+
+      const admission = yield* spend("192.0.2.15", 12).pipe(
+        Effect.flip,
+        Effect.forkScoped
+      );
+
+      yield* TestClock.adjust(0);
+      expect(admission.pollUnsafe()).toBeDefined();
+
+      const failure = yield* Fiber.join(admission);
+      expect(failure.status).toBe(status);
+      expect(failure.message).toMatch(message);
+      expect(yield* Ref.get(calls)).toBe(1);
+    })
+  );
+}
 
 it.effect(
   "an SSE EOF without a provider completion does not refund the reservation",

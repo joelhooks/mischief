@@ -85,7 +85,7 @@ it.effect.prop(
                 completed.set(receipt.requestId, receipt.value);
               }
             }),
-          completed: (id) => Effect.sync(() => completed.get(id)),
+          receipt: (id) => Effect.sync(() => completed.get(id)),
           load: Effect.sync(() => stored),
         },
       };

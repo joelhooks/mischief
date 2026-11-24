@@ -321,7 +321,7 @@ it.live(
 );
 
 it.live(
-  "an uncoded spawn 403 settles immediately and leaves the peon destroyable",
+  "an uncoded spawn 400 settles immediately and leaves the peon destroyable",
   () =>
     Effect.gen(function* refusedSpawn() {
       const world = yield* prepare(60_000, [], undefined, { peons: true });
@@ -345,7 +345,7 @@ it.live(
         terminalFault: {
           attempts: 1,
           code: "BoxSpawnRejected",
-          httpStatus: 403,
+          httpStatus: 400,
           kind: "spawn",
           requestId: `spawn/${peonId}`,
         },

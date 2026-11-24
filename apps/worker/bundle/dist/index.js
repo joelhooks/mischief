@@ -85412,7 +85412,7 @@ var isLegacyStaleResume = (peonId, fault) => {
   return Option50.isSome(reply2) && reply2.value.error.code === "BoxNetworkStale";
 };
 var isDefinitiveRefusal = (operation, status, code) => status >= 400 && status < 500 || status >= 500 && operation === "prompt" && code === "PromptFailed" || status === 503 && operation === "spawn" && code === "BoxImageMissing" || status === 503 && (operation === "destroy" || operation === "export") && code === "CustodyMissing";
-var isPermanentSpawnStatus = (operation, status) => operation === "spawn" && status >= 400 && status < 500 && ![408, 425, 429].includes(status);
+var isPermanentSpawnStatus = (operation, status) => operation === "spawn" && [400, 404, 409, 413, 422].includes(status);
 var uncodedBoxRefusal = (operation, response, context, managerCode) => {
   const reason = `${context}: ${response.text.slice(0, 1024)}`;
   if (isPermanentSpawnStatus(operation, response.status)) {

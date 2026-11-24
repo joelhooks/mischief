@@ -195,10 +195,7 @@ const isDefinitiveRefusal = (
     code === "CustodyMissing");
 
 const isPermanentSpawnStatus = (operation: BoxHttpOperation, status: number) =>
-  operation === "spawn" &&
-  status >= 400 &&
-  status < 500 &&
-  ![408, 425, 429].includes(status);
+  operation === "spawn" && [400, 404, 409, 413, 422].includes(status);
 
 const uncodedBoxRefusal = (
   operation: BoxHttpOperation,

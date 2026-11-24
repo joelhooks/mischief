@@ -261,8 +261,8 @@ export class FakeBox extends DurableObject {
   private async spawnBox(body: typeof RequestBody.Type, key: string) {
     if (body.peonId === rejectedSpawn) {
       return Response.json(
-        { error: { message: "Mirror denied access" } },
-        { status: 403 }
+        { error: { message: "Invalid pinned workspace" } },
+        { status: 400 }
       );
     }
 

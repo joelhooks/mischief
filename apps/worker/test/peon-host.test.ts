@@ -443,18 +443,24 @@ it.effect(
     })
 );
 
-it.effect(
-  "an exhausted spawn can retry its fixed ID after the manager recovers",
-  () =>
+it.effect.each([401, 403])(
+  "a spawn refused with HTTP %s can retry its fixed ID after exhaustion",
+  (status) =>
     Effect.gen(function* restartSpawn() {
       const test = fixture(1000);
       const spawn = () => test.host().initialize(entry, template, false);
-      test.fail();
-      yield* spawn().pipe(Effect.flip);
+
+      const denial = yield* requireSuccess(entry.peonId, "spawn", {
+        status,
+        text: "Host configuration denied spawn",
+      }).pipe(Effect.flip);
+
+      test.fail(denial);
+      expect((yield* spawn().pipe(Effect.flip)).code).toBeUndefined();
 
       for (const delay of [1, 2, 4, 4, 4]) {
         yield* TestClock.adjust(`${delay} seconds`);
-        test.fail();
+        test.fail(denial);
         yield* test.host().idle("alarm");
       }
 
@@ -462,6 +468,7 @@ it.effect(
       expect(exhausted.terminalFault).toMatchObject({
         code: "RetryExhausted",
         attempts: 6,
+        httpStatus: status,
         kind: "spawn",
       });
       expect(exhausted.pending).toBeNull();
@@ -481,7 +488,7 @@ it.effect(
         test.calls.filter(({ operation }) => operation === "spawn")
       ).toHaveLength(6);
 
-      test.fail();
+      test.fail(denial);
       const refused = yield* spawn().pipe(Effect.flip);
       expect(refused.code).toBeUndefined();
       expect((yield* test.host().inspectStored).pending).toMatchObject({
@@ -618,7 +625,11 @@ it.effect("alarm logs one structured outcome per actual drive", () =>
 
 it.effect.prop(
   "only permanent uncoded spawn statuses are stamped as immediate rejections",
-  { status: Schema.Literals([400, 403, 408, 425, 429, 500, 503]) },
+  {
+    status: Schema.Literals([
+      400, 401, 403, 404, 408, 409, 413, 418, 422, 425, 429, 500, 503,
+    ]),
+  },
   ({ status }) =>
     Effect.gen(function* spawnStatus() {
       const response = { status, text: "Uncoded manager failure" };
@@ -636,7 +647,9 @@ it.effect.prop(
       ).pipe(Effect.flip);
 
       expect(denial.code).toBe(
-        status === 400 || status === 403 ? "BoxSpawnRejected" : undefined
+        [400, 404, 409, 413, 422].includes(status)
+          ? "BoxSpawnRejected"
+          : undefined
       );
       expect(denial.httpStatus).toBe(status);
       expect(other.code).toBeUndefined();

@@ -11,6 +11,7 @@ import {
   Stream,
   Tracer,
 } from "effect";
+import { uuidV4Unsafe } from "effect/crypto/SecureRandom";
 import {
   FetchHttpClient,
   HttpBody,
@@ -68,6 +69,37 @@ const processLife = Effect.gen(function* () {
 });
 NodeRuntime.runMain(processLife.pipe(Effect.scoped));
 `;
+
+it.live(
+  "the box manager refuses to start when its spend and control keys match",
+  () =>
+    Effect.gen(function* rejectSharedKey() {
+      const key = Redacted.make(uuidV4Unsafe());
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+
+      const manager = yield* spawner.spawn(
+        ChildProcess.make(process.execPath, ["dist/box-main.js"], {
+          env: {
+            MISCHIEF_BOX_KEY: key,
+            MISCHIEF_BOX_SPEND_KEY: key,
+            MISCHIEF_PEON_BOXES: "on",
+          },
+          extendEnv: false,
+        })
+      );
+
+      const output = yield* manager.all.pipe(
+        Stream.decodeText(),
+        Stream.mkString
+      );
+
+      expect(yield* manager.exitCode).toBe(1);
+      expect(output).toContain(
+        "MISCHIEF_BOX_SPEND_KEY must differ from MISCHIEF_BOX_KEY"
+      );
+      expect(output).not.toContain(Redacted.value(key));
+    }).pipe(Effect.provide(NodeServices.layer))
+);
 
 it.live(
   "both real proxy listeners share one file-backed budget after SIGKILL of the manager mid-stream",

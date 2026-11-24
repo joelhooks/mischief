@@ -38,7 +38,8 @@ The generated user units are `mischief-peon-boxes.service` and `mischief-peon-fu
 
 ```dotenv
 MISCHIEF_PEON_BOXES=on
-MISCHIEF_BOX_KEY=<shared worker/manager bearer>
+MISCHIEF_BOX_KEY=<shared worker/manager control bearer>
+MISCHIEF_BOX_SPEND_KEY=<separate manager/proxy spend bearer>
 MISCHIEF_PEON_BOX_IMAGE=<built full image>@sha256:<digest>
 MISCHIEF_BOX_MIRRORS={"owner/repo":"<absolute existing local walgit mirror>"}
 MISCHIEF_BOX_MOUNT=/srv/peon-volume
@@ -51,7 +52,7 @@ The box manager unit has `ConditionPathIsMountPoint` set from `MISCHIEF_BOX_MOUN
 
 The three storage paths must be absolute, disjoint host-owned directories beneath that mountpoint and are required when starting the manager. Startup refuses paths outside the volume or through symlinks before creating storage directories: escaping the cap could fill the shared disk and stop other services. Overlapping roots are refused because deleting one peon could erase request receipts or another peon's snapshots. They have no defaults; startup names every missing path before a box can write into an unintended directory. The paths above are neutral examples. Supply the approved host paths in its private environment file.
 
-The manager listens on `127.0.0.1:28014`. Worker bindings need the same nonempty `MISCHIEF_BOX_KEY` and a reachable `MISCHIEF_BOX_URL`. The sibling worker packet owns those bindings and their caller grants.
+The manager listens on `127.0.0.1:28014`. It requires both keys and refuses startup if they match. Worker bindings need the same nonempty `MISCHIEF_BOX_KEY` and a reachable `MISCHIEF_BOX_URL`, but do not get the spend key.
 
 ### `peon-full-proxy.env`
 
@@ -60,7 +61,7 @@ MISCHIEF_PEON_BOXES=on
 MISCHIEF_PEON_CLIPROXY_URL=<credential-free provider base URL, without /v1>
 MISCHIEF_PEON_CLIPROXY_KEY=<host-only provider key>
 MISCHIEF_PEON_FULL_MODELS=["gpt-6.1-sol","claude-opus-5-5"]
-MISCHIEF_BOX_KEY=<shared host manager bearer>
+MISCHIEF_BOX_SPEND_KEY=<same spend bearer as peon-boxes.env>
 ```
 
 The full proxy listens only on `172.30.212.1:28013`. It forwards POST `/v1/responses` and `/v1/messages`, with optional `?beta=true`. It replaces both credential headers, passes through request fields, feature headers and tools, holds at most eight streams, and reads at most 64 KiB of an upstream error. Metered boxes cannot start deferred Responses work (`background: true`) because the proxy would not see its usage. Returned errors omit the upstream body so a provider cannot echo the host key.
@@ -68,6 +69,10 @@ The full proxy listens only on `172.30.212.1:28013`. It forwards POST `/v1/respo
 Upstream transport failures and HTTP 5xx responses emit one `peon_upstream_transport_error` JSON line on stderr. The line contains the model, route without its query, elapsed milliseconds, status or error class, and the proxy-generated ID sent upstream as `x-mischief-request-id`. It excludes headers, bodies, keys and raw exception text. A 503 from the proxy's own stream limit is not an upstream failure.
 
 No host provider key enters a box. The only model credentials written into a box are the placeholder `proxy` values.
+
+### `peon-proxy.env`
+
+When metering restricted traffic, set `MISCHIEF_PEON_BOXES=on` and the same nonempty `MISCHIEF_BOX_SPEND_KEY` as in `peon-boxes.env`. Remove `MISCHIEF_BOX_KEY` from both `peon-proxy.env` and `peon-full-proxy.env`. Neither proxy needs the control key.
 
 ### Per-box model spend
 
@@ -83,7 +88,7 @@ The proxy stops an active response once observed charges plus outstanding reserv
 
 At 80%, the manager writes one pending outbox entry per peon, threshold and UTC day in the same transaction as the spend update. The drainer emits `peon_spend_alarm`, sends to `peons/desk`, and marks the entry sent only after Rat King accepts it. It retries unsent entries after a failed send or manager restart. A crash after Rat King accepts but before SQLite records the receipt can produce a duplicate notice. Set `MISCHIEF_BOX_SPEND_MAIL_AS` to a dedicated sender whose key is installed on the manager host, and set `MISCHIEF_BOX_SPEND_MAIL_BIN` to the absolute `ratking` executable if it is not on the service PATH. Verify the identity with `ratking whoami --as <sender>`. Inspect `peon_spend_mail_failed` for delivery trouble. Neither signal contains credentials, request bodies or headers.
 
-Deploy the manager and both proxies together before admitting browser boxes. Give the restricted proxy the same `MISCHIEF_BOX_KEY` and set `MISCHIEF_PEON_BOXES=on` there when enabling the pair. To verify the path, use a temporary low canary limit and a managed browser box on the actual Docker network. Confirm both proxy listeners account for the same peon, a spoofed forwarding header does not change the charge, and the next prompt parks with `SpendCap` after a restart. Verify one alarm in manager logs and in `peons/desk`, then restore the intended limits. To roll back, stop browser admission first; do not run browser boxes against a proxy that predates the cap.
+Deploy the manager and both proxies together before admitting browser boxes. The manager accepts the spend bearer only on spend routes and the control bearer only on box-control routes. To verify the path, use a temporary low canary limit and a managed browser box on the actual Docker network. Confirm both proxy listeners account for the same peon, a spoofed forwarding header does not change the charge, and the next prompt parks with `SpendCap` after a restart. Verify one alarm in manager logs and in `peons/desk`, then restore the intended limits. To roll back, stop browser admission first; do not run browser boxes against a proxy that predates the cap.
 
 ## Container and storage contract
 

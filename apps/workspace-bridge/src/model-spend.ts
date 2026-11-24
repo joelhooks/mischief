@@ -1,15 +1,7 @@
 import { isIPv4 } from "node:net";
 
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
-import {
-  Config,
-  Effect,
-  Option,
-  Redacted,
-  Schedule,
-  Schema,
-  Stream,
-} from "effect";
+import { Effect, Option, Redacted, Schedule, Schema, Stream } from "effect";
 import { uuidV4Unsafe } from "effect/crypto/SecureRandom";
 import {
   HttpClientError,
@@ -48,17 +40,7 @@ export type ModelSpend = (
   BridgeFailure
 >;
 
-export const managerKey = Effect.gen(function* modelSpendManagerKey() {
-  const key = yield* Config.Redacted("MISCHIEF_BOX_KEY");
-
-  if (Redacted.value(key).trim() === "") {
-    return yield* refusal(
-      "Set the nonempty MISCHIEF_BOX_KEY shared by the box manager and model proxies."
-    );
-  }
-
-  return key;
-});
+export { spendKeyFromConfig as managerKey } from "./box/spend-key.js";
 
 const OutputLimit = Schema.Int.check(
   Schema.isBetween({ minimum: 1, maximum: 1_000_000_000 })

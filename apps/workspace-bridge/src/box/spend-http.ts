@@ -59,7 +59,7 @@ const authenticated = <A, R>(
 
     if (!authorized(request.headers.authorization ?? "", key)) {
       return yield* refusal(
-        "Only the host model proxies may write the spend ledger. Configure the manager bearer on the proxy and retry.",
+        "Only the host model proxies may write the spend ledger. Set matching nonempty MISCHIEF_BOX_SPEND_KEY values on the box manager and proxy, then retry.",
         401
       );
     }

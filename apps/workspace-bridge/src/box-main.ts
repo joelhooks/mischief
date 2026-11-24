@@ -3,6 +3,7 @@ import {
   NodeRuntime,
   NodeServices,
 } from "@effect/platform-node";
+import { authorized } from "@mischief/model-bridge/auth";
 import { createServer } from "@mischief/model-bridge/server";
 import { Config, Effect, Layer, Path, Redacted, Schema } from "effect";
 import * as Digest from "effect/crypto/Digest";
@@ -17,11 +18,11 @@ import {
   boxImagesFromConfig,
   boxStorageFromConfig,
 } from "./box/config.js";
-import { boxRoutes } from "./box/http.js";
+import { boxManagerRoutes } from "./box/http.js";
 import { Boxes } from "./box/manager.js";
 import { boxRunnerLayer } from "./box/runner.js";
 import { logSpend, notifySpend } from "./box/spend-alarm.js";
-import { spendRoutes } from "./box/spend-http.js";
+import { spendKeyFromConfig } from "./box/spend-key.js";
 import { SpendLedger } from "./box/spend-ledger.js";
 import { SpendLimits } from "./box/spend-protocol.js";
 import { Runner } from "./runner.js";
@@ -41,6 +42,14 @@ const program = Effect.gen(function* serveBoxes() {
   if (Redacted.value(key).trim() === "") {
     return yield* Effect.die(
       "MISCHIEF_BOX_KEY is empty; unauthenticated control would expose full tools. Configure matching host/worker bearer keys and restart."
+    );
+  }
+
+  const spendKey = yield* spendKeyFromConfig;
+
+  if (authorized(`Bearer ${Redacted.value(spendKey)}`, key)) {
+    return yield* Effect.die(
+      "MISCHIEF_BOX_SPEND_KEY must differ from MISCHIEF_BOX_KEY; sharing a key would give model proxies full box control. Generate a separate MISCHIEF_BOX_SPEND_KEY for peon-boxes.env, peon-full-proxy.env and peon-proxy.env, then restart."
     );
   }
 
@@ -130,7 +139,7 @@ const program = Effect.gen(function* serveBoxes() {
   ).pipe(Layer.provide(boxes), Layer.provide(runner));
 
   return yield* Layer.launch(
-    HttpRouter.serve(Layer.merge(boxRoutes(key), spendRoutes(key)), {
+    HttpRouter.serve(boxManagerRoutes({ controlKey: key, spendKey }), {
       disableListenLog: true,
       disableLogger: true,
     }).pipe(

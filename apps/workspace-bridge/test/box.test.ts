@@ -186,10 +186,8 @@ start) printf running > '${root}/fake/'"$1";;
 stop) if [ ! -f '${root}/stop-stuck' ]; then printf stopped > '${root}/fake/'"$1"; fi;;
 rm) for name in "$@"; do case "$name" in mischief-peon-box-*) unlink '${root}/fake/'"$name";; esac; done;;
 inspect)
-  if [ "$2" = '{{with index .NetworkSettings.Networks "mischief-peon-browser"}}attached{{end}}' ]; then
-    if grep -A1 -x -- '--network' '${root}/fake/'"$3"'.args' | grep -qx mischief-peon-browser; then
-      printf attached
-    fi
+  if [ "$2" = '{{range $name, $config := .NetworkSettings.Networks}}{{$name}} {{end}}' ]; then
+    awk 'previous == "--network" { printf "%s ", $0 } { previous = $0 }' '${root}/fake/'"$3"'.args'
     exit 0
   fi
   if [ "$2" != '{{json .State}}' ]; then
@@ -681,10 +679,6 @@ it.effect(
           "points at another Burrow directory"
         );
         yield* fs.writeFileString(
-          savedArgs,
-          originalArgs.replace("mischief-peon-browser", "mischief-peon-boxes")
-        );
-        yield* fs.writeFileString(
           `${fixture.root}/network-inventory`,
           JSON.stringify({
             stale: {
@@ -698,23 +692,33 @@ it.effect(
         ).toBe(403);
 
         const commandLog = `${fixture.root}/commands`;
-        const beforeResume = yield* fs.readFileString(commandLog);
-        const stale = yield* Effect.flip(resume);
 
-        const attempted = (yield* fs.readFileString(commandLog)).slice(
-          beforeResume.length
-        );
+        for (const attachment of [
+          "mischief-peon-boxes",
+          "mischief-peon-browser\n--network\nmischief-peon-boxes",
+        ]) {
+          yield* fs.writeFileString(
+            savedArgs,
+            originalArgs.replace("mischief-peon-browser", attachment)
+          );
+          const beforeResume = yield* fs.readFileString(commandLog);
+          const stale = yield* Effect.flip(resume);
 
-        expect(attempted.split("\n")).not.toContain(
-          "start mischief-peon-box-browser"
-        );
-        expect(stale).toBeInstanceOf(BoxNetworkStale);
-        expect(stale).toMatchObject({ status: 409 });
-        expect(
-          yield* fs.readFileString(
-            `${fixture.root}/fake/mischief-peon-box-browser`
-          )
-        ).toBe("stopped");
+          const attempted = (yield* fs.readFileString(commandLog)).slice(
+            beforeResume.length
+          );
+
+          expect(attempted.split("\n")).not.toContain(
+            "start mischief-peon-box-browser"
+          );
+          expect(stale).toBeInstanceOf(BoxNetworkStale);
+          expect(stale).toMatchObject({ status: 409 });
+          expect(
+            yield* fs.readFileString(
+              `${fixture.root}/fake/mischief-peon-box-browser`
+            )
+          ).toBe("stopped");
+        }
 
         yield* fs.writeFileString(savedArgs, originalArgs);
         expect((yield* resume).state).toBe("idle");

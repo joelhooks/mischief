@@ -952,6 +952,32 @@ export class Boxes extends Context.Service<
           return { args, baseUrl, network, peonId: box.peonId };
         });
 
+        const startContainer = Effect.fnUntraced(function* startContainer(
+          peonId: string,
+          network: BoxNetwork
+        ) {
+          const name = containerOf(peonId);
+
+          if (network === BROWSER_BOX_NETWORK) {
+            const attachment = yield* docker([
+              "inspect",
+              "--format",
+              "{{range $name, $config := .NetworkSettings.Networks}}{{$name}} {{end}}",
+              name,
+            ]);
+
+            if (attachment.trim() !== BROWSER_BOX_NETWORK) {
+              return yield* new BoxNetworkStale({
+                message:
+                  "A browser box must be attached only to the browser network. Recreate or destroy this browser box before retrying.",
+                status: 409,
+              });
+            }
+          }
+
+          return yield* docker(["start", name]).pipe(Effect.asVoid);
+        });
+
         const container = Effect.fnUntraced(function* container(
           { args, baseUrl, network, peonId }: PreparedContainer,
           start: boolean
@@ -973,7 +999,7 @@ export class Boxes extends Context.Service<
           yield* docker(args);
 
           if (start) {
-            yield* docker(["start", containerOf(peonId)]);
+            yield* startContainer(peonId, network);
           }
         });
 
@@ -1102,23 +1128,6 @@ export class Boxes extends Context.Service<
           const sleeping =
             box.state === "hibernated" ? "hibernated" : "suspended";
 
-          if (sleeping === "suspended" && box.template.imageKey === "browser") {
-            const attachment = yield* docker([
-              "inspect",
-              "--format",
-              `{{with index .NetworkSettings.Networks "${BROWSER_BOX_NETWORK}"}}attached{{end}}`,
-              containerOf(box.peonId),
-            ]);
-
-            if (attachment.trim() !== "attached") {
-              return yield* new BoxNetworkStale({
-                message:
-                  "This stopped browser box is not attached to the browser network. Recreate or destroy this browser box instead of resuming it.",
-                status: 409,
-              });
-            }
-          }
-
           const launch = yield* launchArgs(box.template, sleeping);
 
           const prepared =
@@ -1149,7 +1158,7 @@ export class Boxes extends Context.Service<
               }
             }
 
-            yield* docker(["start", containerOf(box.peonId)]);
+            yield* startContainer(box.peonId, networkFor(box.template));
 
             if (!(yield* ready(box.peonId)).Running) {
               return yield* refusal(

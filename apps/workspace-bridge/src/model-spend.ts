@@ -153,7 +153,7 @@ const isTransientManagerFailure = (
 ): error is typeof TRANSIENT_MANAGER_FAILURE =>
   error === TRANSIENT_MANAGER_FAILURE;
 
-const workspacePeer = (peer: string) => {
+const legacyWorkspacePeer = (peer: string) => {
   const address = ipv4Peer(peer);
 
   return (
@@ -225,7 +225,7 @@ export const modelSpend = (
     requestBytes: number,
     outputTokens?: number
   ) {
-    if (restricted && workspacePeer(peer)) {
+    if (restricted && legacyWorkspacePeer(peer)) {
       return yield* Effect.undefined;
     }
 

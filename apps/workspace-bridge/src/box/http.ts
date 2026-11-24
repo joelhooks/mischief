@@ -11,7 +11,10 @@ import { errorResponse, readBody } from "../http.js";
 import { refusal } from "../protocol.js";
 import { BoxBuildRefused } from "./box-build-refused.js";
 import { BoxCapacity } from "./box-capacity.js";
+import { BoxDnsRefused } from "./box-dns-refused.js";
 import { BoxImageMissing } from "./box-image-missing.js";
+import { BoxNetworkStale } from "./box-network-stale.js";
+import { BoxNetworkUnavailable } from "./box-network-unavailable.js";
 import { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
@@ -32,7 +35,10 @@ const createBox = implement(
       BridgeFailure,
       BoxCapacity,
       BoxBuildRefused,
+      BoxDnsRefused,
       BoxImageMissing,
+      BoxNetworkStale,
+      BoxNetworkUnavailable,
     ]),
     input: Create,
     output: Result,
@@ -49,7 +55,10 @@ const actOnBox = implement(
       BridgeFailure,
       BoxCapacity,
       BoxBuildRefused,
+      BoxDnsRefused,
       BoxImageMissing,
+      BoxNetworkStale,
+      BoxNetworkUnavailable,
       WorkspaceUnlanded,
       CustodyMissing,
       CustodyIncomplete,
@@ -217,8 +226,12 @@ const route = (key: Redacted.Redacted) =>
           failure,
           failure.state === undefined ? {} : { state: failure.state }
         ),
+      BoxDnsRefused: (failure) => taggedFailure(failure, {}),
       BoxImageMissing: (failure) =>
         taggedFailure(failure, { state: failure.state }),
+      BoxNetworkStale: (failure) => taggedFailure(failure, {}),
+      BoxNetworkUnavailable: (failure) =>
+        taggedFailure(failure, { network: failure.network }),
       BoxCapacity: (failure) =>
         taggedFailure(failure, { state: failure.state }),
       WorkspaceUnlanded: (failure) =>

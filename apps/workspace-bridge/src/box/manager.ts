@@ -34,7 +34,12 @@ import {
 import type { OpenArchive } from "./archive.js";
 import { BoxBuildRefused } from "./box-build-refused.js";
 import { BoxCapacity } from "./box-capacity.js";
+import { checkBoxCreateDns } from "./box-dns-refused.js";
+import type { BoxDnsRefused } from "./box-dns-refused.js";
 import { BoxImageMissing } from "./box-image-missing.js";
+import { BoxNetworkStale } from "./box-network-stale.js";
+import { BoxNetworkUnavailable } from "./box-network-unavailable.js";
+import { rewriteBrowserProviders } from "./browser-provider.js";
 import { browserArgs } from "./browser.js";
 import {
   BoxImages,
@@ -46,12 +51,17 @@ import type { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
 import {
+  BOX_GATEWAY,
   BOX_NETWORK,
+  BROWSER_BOX_GATEWAY,
+  BROWSER_BOX_NETWORK,
+  boxNetworkForPeer,
   changesBoxNetwork,
   containerOf,
   ipv4Peer,
   liveBoxInventory,
 } from "./live-owner.js";
+import type { BoxNetwork } from "./live-owner.js";
 import { nextState } from "./machine.js";
 import { promptPi, requireText } from "./pi.js";
 import { PromptFailed } from "./prompt-failed.js";
@@ -80,7 +90,13 @@ export interface BoxConfig {
   readonly parkArchiveTimeout?: Duration.Input;
 }
 
-type RetryableBoxRefusal = BoxBuildRefused | BoxCapacity | BoxImageMissing;
+type RetryableBoxRefusal =
+  | BoxBuildRefused
+  | BoxCapacity
+  | BoxDnsRefused
+  | BoxImageMissing
+  | BoxNetworkStale
+  | BoxNetworkUnavailable;
 
 const Receipt = Schema.Struct({
   error: Schema.optionalKey(BridgeFailure),
@@ -101,6 +117,20 @@ const DNS_WITHOUT_LAN_ROUTER_FORWARDING = [
 ];
 
 const BROWSER_LABEL = "sh.mischief.box.image-key=browser";
+
+const networkFor = (template: BoxMetadata["template"]) =>
+  template.imageKey === "browser" ? BROWSER_BOX_NETWORK : BOX_NETWORK;
+
+const modelBaseUrl = (network: BoxNetwork) =>
+  network === BROWSER_BOX_NETWORK
+    ? `http://${BROWSER_BOX_GATEWAY}:28013`
+    : `http://${BOX_GATEWAY}:28013`;
+
+const unmanagedPeer = () =>
+  refusal(
+    "Model requests need a live managed box on a box network. Resume a managed peon and retry.",
+    403
+  );
 
 const decodeDuBytes = Schema.decodeUnknownOption(
   Schema.NumberFromString.check(
@@ -262,8 +292,10 @@ export class Boxes extends Context.Service<
             ? execute({ args, executable: "docker" })
             : execute({ args, executable: "docker", input });
 
-        let endpoints: Effect.Success<ReturnType<typeof liveBoxInventory>> =
-          new Map();
+        const endpoints = new Map<
+          BoxNetwork,
+          Effect.Success<ReturnType<typeof liveBoxInventory>>
+        >();
 
         const docker = (args: readonly string[], input?: string) =>
           changesBoxNetwork(args)
@@ -465,48 +497,59 @@ export class Boxes extends Context.Service<
           );
         });
 
-        const refreshEndpoints = runDocker([
-          "network",
-          "inspect",
-          "--format",
-          "{{json .Containers}}",
-          BOX_NETWORK,
-        ]).pipe(
-          Effect.flatMap(liveBoxInventory),
-          Effect.timeoutOrElse({
-            duration: "3 seconds",
-            orElse: () =>
-              Effect.fail(
-                refusal(
-                  "Docker box inventory timed out. Inspect Docker on the manager and retry.",
-                  503
-                )
-              ),
-          }),
-          Effect.mapError(() =>
-            refusal(
-              "Docker box inventory is unavailable. Inspect Docker on the manager and retry promptPeon.",
-              503
+        const refreshOwners = Effect.fnUntraced(function* refreshOwners(
+          network: BoxNetwork
+        ) {
+          const current = yield* runDocker([
+            "network",
+            "inspect",
+            "--format",
+            "{{json .Containers}}",
+            network,
+          ]).pipe(
+            Effect.flatMap(liveBoxInventory),
+            Effect.timeout("3 seconds"),
+            Effect.mapError(() =>
+              refusal(
+                `Docker box inventory for ${network} is unavailable. Inspect Docker on the manager and retry promptPeon.`,
+                503
+              )
             )
-          )
-        );
-
-        const refreshOwners = Effect.gen(function* refreshOwners() {
-          const current = yield* refreshEndpoints;
+          );
 
           for (const [peer, owner] of owners) {
-            if (current.get(peer)?.containerId !== owner.containerId) {
+            if (
+              boxNetworkForPeer(peer) === network &&
+              current.get(peer)?.containerId !== owner.containerId
+            ) {
               owners.delete(peer);
             }
           }
 
-          endpoints = current;
+          endpoints.set(network, current);
+
+          return current;
         });
 
-        yield* refreshOwners.pipe(Effect.ignore);
+        const boxNetworks: readonly BoxNetwork[] = [
+          BOX_NETWORK,
+          BROWSER_BOX_NETWORK,
+        ];
+
+        yield* Effect.forEach(
+          boxNetworks,
+          (network) => refreshOwners(network).pipe(Effect.ignore),
+          { concurrency: 2, discard: true }
+        );
 
         const ownerAt = Effect.fn("Boxes.ownerAt")(
           function* ownerAt(peer: string) {
+            const network = boxNetworkForPeer(peer);
+
+            if (network === undefined) {
+              return yield* unmanagedPeer();
+            }
+
             const address = ipv4Peer(peer);
             const cached = owners.get(address);
 
@@ -514,20 +557,30 @@ export class Boxes extends Context.Service<
               return { peonId: cached.peonId, imageKey: cached.imageKey };
             }
 
-            if (!endpoints.has(address)) {
-              yield* refreshOwners;
-            }
+            const known = endpoints.get(network);
 
-            const endpoint = endpoints.get(address);
+            const current =
+              known !== undefined && known.has(address)
+                ? known
+                : yield* refreshOwners(network);
+
+            const endpoint = current.get(address);
 
             if (endpoint === undefined) {
-              return yield* refusal(
-                "Model requests need a live managed box on the box network. Resume a managed peon and retry.",
-                403
-              );
+              return yield* unmanagedPeer();
             }
 
             const box = yield* load(endpoint.peonId);
+
+            if (
+              box.template.imageKey === "browser" &&
+              network !== BROWSER_BOX_NETWORK
+            ) {
+              return yield* refusal(
+                "Model requests from browser boxes on the shared network are refused. Recreate the browser box on its dedicated network before retrying.",
+                403
+              );
+            }
 
             const owner = {
               peonId: box.peonId,
@@ -788,23 +841,54 @@ export class Boxes extends Context.Service<
             Effect.provideService(Path.Path, path)
           );
 
-        const container = (
+        const requireBoxNetwork = (network: BoxNetwork) =>
+          runDocker([
+            "network",
+            "inspect",
+            "--format",
+            "{{.Name}}",
+            network,
+          ]).pipe(
+            Effect.asVoid,
+            Effect.mapError(
+              () =>
+                new BoxNetworkUnavailable({
+                  message: `Docker could not confirm network ${network}. The host owner must create it if missing. Verify it on the manager, then retry the same request.`,
+                  network,
+                  status: 503,
+                })
+            )
+          );
+
+        interface PreparedContainer {
+          readonly args: readonly string[];
+          readonly baseUrl: string;
+          readonly network: BoxNetwork;
+          readonly peonId: string;
+        }
+
+        const prepareContainer = Effect.fnUntraced(function* prepareContainer(
           box: BoxMetadata,
-          start: boolean,
           launch: readonly string[]
-        ) =>
-          docker([
+        ): Effect.fn.Return<PreparedContainer, BoxDnsRefused> {
+          const network = networkFor(box.template);
+          const browser = network === BROWSER_BOX_NETWORK;
+          const baseUrl = modelBaseUrl(network);
+
+          const args = [
             "create",
             "--name",
             containerOf(box.peonId),
             "--network",
-            BOX_NETWORK,
+            network,
             "--cgroup-parent",
             "mischief-peon-boxes.slice",
             "--read-only",
             "--tmpfs",
             `/tmp:rw,nosuid,nodev,size=${box.template.limits.tmp}`,
-            ...DNS_WITHOUT_LAN_ROUTER_FORWARDING,
+            ...(browser
+              ? ["--dns", BROWSER_BOX_GATEWAY]
+              : DNS_WITHOUT_LAN_ROUTER_FORWARDING),
             "--cap-drop",
             "ALL",
             "--security-opt",
@@ -846,28 +930,78 @@ export class Boxes extends Context.Service<
               ),
             ].flatMap((value) => ["--env", value]),
             "--env",
-            "ANTHROPIC_BASE_URL=http://172.30.212.1:28013",
+            `ANTHROPIC_BASE_URL=${baseUrl}`,
             "--env",
             "ANTHROPIC_AUTH_TOKEN=proxy",
             "--env",
-            "OPENAI_BASE_URL=http://172.30.212.1:28013/v1",
+            `OPENAI_BASE_URL=${baseUrl}/v1`,
             "--mount",
             `type=bind,source=${work(box.peonId)},target=/work`,
             "--mount",
             `type=bind,source=${home(box.peonId)},target=/home/peon`,
             ...launch,
-            ...(box.template.imageKey === "browser"
-              ? ["--label", BROWSER_LABEL]
-              : []),
+            ...(browser ? ["--label", BROWSER_LABEL] : []),
             "--entrypoint",
             "/bin/sleep",
             box.image,
             "infinity",
-          ]).pipe(
-            Effect.andThen(
-              start ? docker(["start", containerOf(box.peonId)]) : Effect.void
-            )
-          );
+          ];
+
+          yield* checkBoxCreateDns(network, args);
+
+          return { args, baseUrl, network, peonId: box.peonId };
+        });
+
+        const startContainer = Effect.fnUntraced(function* startContainer(
+          peonId: string,
+          network: BoxNetwork
+        ) {
+          const name = containerOf(peonId);
+
+          if (network === BROWSER_BOX_NETWORK) {
+            const attachment = yield* docker([
+              "inspect",
+              "--format",
+              "{{range $name, $config := .NetworkSettings.Networks}}{{$name}} {{end}}",
+              name,
+            ]);
+
+            if (attachment.trim() !== BROWSER_BOX_NETWORK) {
+              return yield* new BoxNetworkStale({
+                message:
+                  "A browser box must be attached only to the browser network. Recreate or destroy this browser box before retrying.",
+                status: 409,
+              });
+            }
+          }
+
+          return yield* docker(["start", name]).pipe(Effect.asVoid);
+        });
+
+        const container = Effect.fnUntraced(function* container(
+          { args, baseUrl, network, peonId }: PreparedContainer,
+          start: boolean
+        ) {
+          if (network === BROWSER_BOX_NETWORK) {
+            const rewritten = yield* rewriteBrowserProviders(
+              base(peonId),
+              baseUrl
+            ).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path)
+            );
+
+            if (rewritten) {
+              yield* owned(peonId);
+            }
+          }
+
+          yield* docker(args);
+
+          if (start) {
+            yield* startContainer(peonId, network);
+          }
+        });
 
         const size = Effect.fn("Boxes.size")(function* size(
           directory: string,
@@ -994,14 +1128,18 @@ export class Boxes extends Context.Service<
           const sleeping =
             box.state === "hibernated" ? "hibernated" : "suspended";
 
+          const launch = yield* launchArgs(box.template, sleeping);
+
+          const prepared =
+            sleeping === "hibernated"
+              ? yield* prepareContainer(box, launch.args)
+              : undefined;
+
           return yield* Effect.gen(function* wakeBrowserOrFull() {
-            const restored = sleeping === "hibernated";
-
-            const launch = yield* launchArgs(box.template, sleeping);
-
-            if (restored) {
+            if (prepared !== undefined) {
+              yield* requireBoxNetwork(prepared.network);
               yield* restore(box, box.peonId);
-              yield* container(box, false, launch.args);
+              yield* container(prepared, false);
             } else if (launch.build !== undefined) {
               const mounted = yield* docker([
                 "inspect",
@@ -1020,7 +1158,7 @@ export class Boxes extends Context.Service<
               }
             }
 
-            yield* docker(["start", containerOf(box.peonId)]);
+            yield* startContainer(box.peonId, networkFor(box.template));
 
             if (!(yield* ready(box.peonId)).Running) {
               return yield* refusal(
@@ -1046,7 +1184,7 @@ export class Boxes extends Context.Service<
 
             yield* save(updated);
 
-            return { box: updated, restored };
+            return { box: updated, restored: prepared !== undefined };
           }).pipe(withBrowserCapacity(box.template, box.peonId, sleeping));
         });
 
@@ -1710,7 +1848,10 @@ export class Boxes extends Context.Service<
               > =>
                 Predicate.isTagged(error, "BoxCapacity") ||
                 Predicate.isTagged(error, "BoxBuildRefused") ||
-                Predicate.isTagged(error, "BoxImageMissing")
+                Predicate.isTagged(error, "BoxDnsRefused") ||
+                Predicate.isTagged(error, "BoxImageMissing") ||
+                Predicate.isTagged(error, "BoxNetworkStale") ||
+                Predicate.isTagged(error, "BoxNetworkUnavailable")
                   ? fs.remove(file).pipe(Effect.andThen(Effect.fail(error)))
                   : writeJson(file, { error, requestId }).pipe(
                       Effect.andThen(committedFailure(error))
@@ -1752,105 +1893,6 @@ export class Boxes extends Context.Service<
 
                   const launch = yield* launchArgs(template, "spawned");
 
-                  const mirror = config.mirrors[template.workspace.repo];
-
-                  if (mirror === undefined || !path.isAbsolute(mirror)) {
-                    return yield* refusal(
-                      "No local walgit mirror is configured for this repo. Add its absolute mirror path to MISCHIEF_BOX_MIRRORS, then retry create.",
-                      403
-                    );
-                  }
-
-                  yield* fs.makeDirectory(base(id), {
-                    mode: 0o770,
-                    recursive: true,
-                  });
-                  yield* execute({
-                    args: [
-                      "clone",
-                      "--local",
-                      "--no-hardlinks",
-                      "--no-checkout",
-                      "--",
-                      mirror,
-                      work(id),
-                    ],
-                    executable: "git",
-                  });
-                  yield* execute({
-                    args: [
-                      "-C",
-                      work(id),
-                      "checkout",
-                      "--detach",
-                      template.workspace.sha,
-                    ],
-                    executable: "git",
-                  });
-
-                  const actual = yield* execute({
-                    args: ["-C", work(id), "rev-parse", "HEAD"],
-                    executable: "git",
-                  });
-
-                  if (actual.trim() !== template.workspace.sha) {
-                    return yield* refusal(
-                      "Git checkout differs from the pinned sha; using it would run the wrong code. Repair the local mirror and retry create.",
-                      409
-                    );
-                  }
-
-                  yield* execute({
-                    args: ["-C", work(id), "remote", "remove", "origin"],
-                    executable: "git",
-                  });
-
-                  const agent = path.join(
-                    home(id),
-                    agentDirs.PI_CODING_AGENT_DIR
-                  );
-
-                  yield* fs.makeDirectory(agent, {
-                    mode: 0o770,
-                    recursive: true,
-                  });
-                  yield* fs.writeFileString(
-                    path.join(home(id), "append-system.md"),
-                    [template.system, template.warm?.contract]
-                      .filter((value) => value !== undefined)
-                      .join("\n\n"),
-                    { mode: 0o660 }
-                  );
-
-                  for (const doc of template.warm?.docs ?? []) {
-                    const target = path.join(home(id), "warm", doc.path);
-                    yield* fs.makeDirectory(path.dirname(target), {
-                      mode: 0o770,
-                      recursive: true,
-                    });
-                    yield* fs.writeFileString(target, doc.text, {
-                      mode: 0o660,
-                    });
-                  }
-
-                  yield* fs.writeFileString(
-                    path.join(agent, "claude-bridge.json"),
-                    JSON.stringify({
-                      provider: {
-                        env: {
-                          ANTHROPIC_AUTH_TOKEN: "proxy",
-                          ANTHROPIC_BASE_URL: "http://172.30.212.1:28013",
-                        },
-                        pathToClaudeCodeExecutable: "/usr/local/bin/claude",
-                        plan: "max",
-                      },
-                    }),
-                    { mode: 0o660 }
-                  );
-
-                  yield* prepareTree(id);
-                  yield* owned(id, true);
-
                   const box: BoxMetadata = {
                     image,
                     lastPromptAt: null,
@@ -1859,16 +1901,120 @@ export class Boxes extends Context.Service<
                     template,
                   };
 
-                  yield* container(box, true, launch.args);
-                  yield* save(box);
+                  const prepared = yield* prepareContainer(box, launch.args);
 
-                  return {
-                    image,
-                    peonId: id,
-                    state: "idle",
-                    workspace: template.workspace,
-                  };
-                }).pipe(withBrowserCapacity(template, id, "spawned"))
+                  return yield* Effect.gen(function* spawnPreparedBox() {
+                    const mirror = config.mirrors[template.workspace.repo];
+
+                    if (mirror === undefined || !path.isAbsolute(mirror)) {
+                      return yield* refusal(
+                        "No local walgit mirror is configured for this repo. Add its absolute mirror path to MISCHIEF_BOX_MIRRORS, then retry create.",
+                        403
+                      );
+                    }
+
+                    yield* requireBoxNetwork(prepared.network);
+                    yield* fs.makeDirectory(base(id), {
+                      mode: 0o770,
+                      recursive: true,
+                    });
+                    yield* execute({
+                      args: [
+                        "clone",
+                        "--local",
+                        "--no-hardlinks",
+                        "--no-checkout",
+                        "--",
+                        mirror,
+                        work(id),
+                      ],
+                      executable: "git",
+                    });
+                    yield* execute({
+                      args: [
+                        "-C",
+                        work(id),
+                        "checkout",
+                        "--detach",
+                        template.workspace.sha,
+                      ],
+                      executable: "git",
+                    });
+
+                    const actual = yield* execute({
+                      args: ["-C", work(id), "rev-parse", "HEAD"],
+                      executable: "git",
+                    });
+
+                    if (actual.trim() !== template.workspace.sha) {
+                      return yield* refusal(
+                        "Git checkout differs from the pinned sha; using it would run the wrong code. Repair the local mirror and retry create.",
+                        409
+                      );
+                    }
+
+                    yield* execute({
+                      args: ["-C", work(id), "remote", "remove", "origin"],
+                      executable: "git",
+                    });
+
+                    const agent = path.join(
+                      home(id),
+                      agentDirs.PI_CODING_AGENT_DIR
+                    );
+
+                    yield* fs.makeDirectory(agent, {
+                      mode: 0o770,
+                      recursive: true,
+                    });
+                    yield* fs.writeFileString(
+                      path.join(home(id), "append-system.md"),
+                      [template.system, template.warm?.contract]
+                        .filter((value) => value !== undefined)
+                        .join("\n\n"),
+                      { mode: 0o660 }
+                    );
+
+                    for (const doc of template.warm?.docs ?? []) {
+                      const target = path.join(home(id), "warm", doc.path);
+                      yield* fs.makeDirectory(path.dirname(target), {
+                        mode: 0o770,
+                        recursive: true,
+                      });
+                      yield* fs.writeFileString(target, doc.text, {
+                        mode: 0o660,
+                      });
+                    }
+
+                    yield* fs.writeFileString(
+                      path.join(agent, "claude-bridge.json"),
+                      JSON.stringify({
+                        provider: {
+                          env: {
+                            ANTHROPIC_AUTH_TOKEN: "proxy",
+                            ANTHROPIC_BASE_URL: prepared.baseUrl,
+                          },
+                          pathToClaudeCodeExecutable: "/usr/local/bin/claude",
+                          plan: "max",
+                        },
+                      }),
+                      { mode: 0o660 }
+                    );
+
+                    yield* prepareTree(id);
+                    yield* owned(id, true);
+
+                    yield* container(prepared, true);
+                    yield* save(box);
+
+                    return {
+                      image,
+                      peonId: id,
+                      state: "idle",
+                      workspace: template.workspace,
+                    };
+                  }).pipe(withBrowserCapacity(template, id, "spawned"));
+                })
               )
             );
           },
@@ -2120,6 +2266,18 @@ export class Boxes extends Context.Service<
                   }
 
                   const launch = yield* launchArgs(box.template);
+
+                  const clone: BoxMetadata = {
+                    image: box.image,
+                    lastPromptAt: box.lastPromptAt,
+                    peonId: target,
+                    state: "suspended",
+                    template: box.template,
+                  };
+
+                  const prepared = yield* prepareContainer(clone, launch.args);
+
+                  yield* requireBoxNetwork(prepared.network);
                   yield* fs.makeDirectory(meta(target), {
                     mode: 0o700,
                     recursive: true,
@@ -2145,15 +2303,7 @@ export class Boxes extends Context.Service<
                     yield* owned(target);
                   }
 
-                  const clone: BoxMetadata = {
-                    image: box.image,
-                    lastPromptAt: box.lastPromptAt,
-                    peonId: target,
-                    state: "suspended",
-                    template: box.template,
-                  };
-
-                  yield* container(clone, false, launch.args);
+                  yield* container(prepared, false);
                   yield* save(clone);
 
                   return { peonId: target, state: "suspended" };

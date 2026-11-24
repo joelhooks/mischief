@@ -255,6 +255,52 @@ for (const surface of ["full", "restricted"] as const) {
 }
 
 it.effect(
+  "full and browser peers use managed admission, not the legacy workspace exemption",
+  () =>
+    Effect.gen(function* browserSpend() {
+      const unexpected = HttpClient.make(() =>
+        Effect.die("Admission must not call the manager without a key")
+      );
+
+      const withoutManager = modelSpend(unexpected, undefined, true);
+
+      expect(yield* withoutManager("::ffff:172.30.211.7", 32)).toBeUndefined();
+
+      for (const peer of [
+        "172.30.212.7",
+        "172.30.212.1",
+        "172.30.213.7",
+        "172.30.213.1",
+        "172.30.211.1",
+        "192.0.2.7",
+      ]) {
+        expect((yield* Effect.flip(withoutManager(peer, 32))).status).toBe(403);
+      }
+
+      const manager = HttpClient.make((request) =>
+        Effect.succeed(
+          HttpClientResponse.fromWeb(
+            request,
+            Response.json({
+              outputTokens: 80,
+              receipt: uuidV4Unsafe(),
+              status: "metered",
+            })
+          )
+        )
+      );
+
+      for (const restricted of [true, false]) {
+        const admit = modelSpend(manager, Redacted.make("fixture"), restricted);
+
+        for (const peer of ["::ffff:172.30.212.7", "::ffff:172.30.213.7"]) {
+          expect(yield* admit(peer, 32)).toMatchObject({ outputTokens: 80 });
+        }
+      }
+    })
+);
+
+it.effect(
   "maps only a unique network endpoint with a managed name (including IPv4-mapped sockets)",
   () =>
     Effect.gen(function* liveIdentity() {

@@ -38,6 +38,8 @@ import {
 import { BoxBuildRefused } from "../src/box/box-build-refused.js";
 import { BoxCapacity } from "../src/box/box-capacity.js";
 import { BoxImageMissing } from "../src/box/box-image-missing.js";
+import { BoxNetworkStale } from "../src/box/box-network-stale.js";
+import { BoxNetworkUnavailable } from "../src/box/box-network-unavailable.js";
 import { nextState } from "../src/box/machine.js";
 import { Boxes } from "../src/box/manager.js";
 import { PromptFailed } from "../src/box/prompt-failed.js";
@@ -68,6 +70,27 @@ const template: BoxTemplate = {
   workspace: { repo: "example/review", sha },
 };
 
+const fullProxyUrl = "http://172.30.212.1:28013";
+
+const browserProxyUrl = "http://172.30.213.1:28013";
+
+const modelFixture = (baseUrl: string) => ({
+  providers: {
+    peon: { baseUrl: `${baseUrl}/v1`, models: [{ id: "sol" }] },
+    unrelated: { baseUrl: `${fullProxyUrl}/v1` },
+  },
+});
+
+const fullModels = JSON.stringify(modelFixture(fullProxyUrl));
+
+const claudeFixture = (baseUrl: string) => ({
+  provider: {
+    env: { ANTHROPIC_AUTH_TOKEN: "proxy", ANTHROPIC_BASE_URL: baseUrl },
+    pathToClaudeCodeExecutable: "/usr/local/bin/claude",
+    plan: "max",
+  },
+});
+
 const harness = Effect.gen(function* harness() {
   const fs = yield* FileSystem.FileSystem;
 
@@ -80,6 +103,7 @@ const harness = Effect.gen(function* harness() {
   yield* fs.makeDirectory(`${root}/bin`);
   yield* fs.makeDirectory(`${root}/fake`);
   yield* fs.writeFileString(`${root}/network-inventory`, "{}");
+  yield* fs.writeFileString(`${root}/browser-network-inventory`, "{}");
 
   const script = `#!/bin/sh
 set -eu
@@ -142,6 +166,10 @@ run)
     exit 0
   fi
   test "$user" = 0:1000
+  case "$*" in
+    *'cp /opt/peon/models.json'*)
+      printf '%s\\n' '${fullModels}' > "$box/home/.pi/agent/models.json";;
+  esac
   if find "$box" -type d ! -perm 0770 | grep -q .; then
     printf 'partial ownership transfer\\n' > '${root}/partial-root-owned'
     printf 'group cannot traverse box directories\\n' >&2
@@ -158,6 +186,10 @@ start) printf running > '${root}/fake/'"$1";;
 stop) if [ ! -f '${root}/stop-stuck' ]; then printf stopped > '${root}/fake/'"$1"; fi;;
 rm) for name in "$@"; do case "$name" in mischief-peon-box-*) unlink '${root}/fake/'"$name";; esac; done;;
 inspect)
+  if [ "$2" = '{{range $name, $config := .NetworkSettings.Networks}}{{$name}} {{end}}' ]; then
+    awk 'previous == "--network" { printf "%s ", $0 } { previous = $0 }' '${root}/fake/'"$3"'.args'
+    exit 0
+  fi
   if [ "$2" != '{{json .State}}' ]; then
     grep '^type=bind,source=.*target=/opt/burrow,readonly,bind-recursive=disabled$' '${root}/fake/'"$3"'.args' |
       cut -d, -f2 | cut -d= -f2-
@@ -181,8 +213,20 @@ ps)
     if [ "$2" = --filter ] && [ "$3" = "name=^/$name$" ]; then printf '%s\\n' "$name"; fi
   done;;
 network)
-  test "$*" = 'inspect --format {{json .Containers}} mischief-peon-boxes'
-  cat '${root}/network-inventory';;
+  test "$1" = inspect
+  test "$2" = --format
+  case "$4" in
+    mischief-peon-boxes) inventory='${root}/network-inventory';;
+    mischief-peon-browser)
+      if [ -f '${root}/browser-network-missing' ]; then exit 1; fi
+      inventory='${root}/browser-network-inventory';;
+    *) exit 1;;
+  esac
+  case "$3" in
+    '{{json .Containers}}') cat "$inventory";;
+    '{{.Name}}') printf '%s\\n' "$4";;
+    *) exit 1;;
+  esac;;
 top) printf 'PID\\n123\\n';;
 exec)
   while [ "\${1#mischief-peon-box-}" = "$1" ]; do shift; done
@@ -491,6 +535,20 @@ it.effect(
         yield* create("full", fixture.template);
         const full = yield* args("full");
         expect(full).toContain(image);
+        expect(full[full.indexOf("--network") + 1]).toBe("mischief-peon-boxes");
+        expect(full.filter((_, index) => full[index - 1] === "--dns")).toEqual([
+          "1.1.1.1",
+          "9.9.9.9",
+        ]);
+        expect(full).toContain(`ANTHROPIC_BASE_URL=${fullProxyUrl}`);
+        expect(full).toContain(`OPENAI_BASE_URL=${fullProxyUrl}/v1`);
+        const fullAgent = `${fixture.root}/boxes/full/home/.pi/agent`;
+        expect(yield* fs.readFileString(`${fullAgent}/models.json`)).toBe(
+          `${fullModels}\n`
+        );
+        expect(
+          yield* fs.readFileString(`${fullAgent}/claude-bridge.json`)
+        ).toBe(JSON.stringify(claudeFixture(fullProxyUrl)));
         expect(full).not.toContain("--shm-size");
         expect(full).not.toContain("PEON_BROWSER_HOSTS=test.example");
 
@@ -540,6 +598,14 @@ it.effect(
         expect((yield* create("browser", browser)).image).toBe(browserImage);
         const actual = yield* args("browser");
         expect(actual).toContain(browserImage);
+        expect(actual[actual.indexOf("--network") + 1]).toBe(
+          "mischief-peon-browser"
+        );
+        expect(
+          actual.filter((_, index) => actual[index - 1] === "--dns")
+        ).toEqual(["172.30.213.1"]);
+        expect(actual).toContain(`ANTHROPIC_BASE_URL=${browserProxyUrl}`);
+        expect(actual).toContain(`OPENAI_BASE_URL=${browserProxyUrl}/v1`);
         expect(actual).toContain("/tmp:rw,nosuid,nodev,size=2g");
         expect(actual).toContain("--read-only");
         expect(actual).toContain("ALL");
@@ -612,6 +678,48 @@ it.effect(
         expect((yield* Effect.flip(resume)).message).toContain(
           "points at another Burrow directory"
         );
+        yield* fs.writeFileString(
+          `${fixture.root}/network-inventory`,
+          JSON.stringify({
+            stale: {
+              IPv4Address: "172.30.212.19/24",
+              Name: "mischief-peon-box-browser",
+            },
+          })
+        );
+        expect(
+          (yield* Effect.flip(boxes.ownerAt("172.30.212.19"))).status
+        ).toBe(403);
+
+        const commandLog = `${fixture.root}/commands`;
+
+        for (const attachment of [
+          "mischief-peon-boxes",
+          "mischief-peon-browser\n--network\nmischief-peon-boxes",
+        ]) {
+          yield* fs.writeFileString(
+            savedArgs,
+            originalArgs.replace("mischief-peon-browser", attachment)
+          );
+          const beforeResume = yield* fs.readFileString(commandLog);
+          const stale = yield* Effect.flip(resume);
+
+          const attempted = (yield* fs.readFileString(commandLog)).slice(
+            beforeResume.length
+          );
+
+          expect(attempted.split("\n")).not.toContain(
+            "start mischief-peon-box-browser"
+          );
+          expect(stale).toBeInstanceOf(BoxNetworkStale);
+          expect(stale).toMatchObject({ status: 409 });
+          expect(
+            yield* fs.readFileString(
+              `${fixture.root}/fake/mischief-peon-box-browser`
+            )
+          ).toBe("stopped");
+        }
+
         yield* fs.writeFileString(savedArgs, originalArgs);
         expect((yield* resume).state).toBe("idle");
       }).pipe(
@@ -754,6 +862,28 @@ it.effect(
         template: browser,
       };
 
+      const agent = (id: string) =>
+        `${fixture.root}/boxes/${id}/home/.pi/agent`;
+
+      const decodeJson = Schema.decodeEffect(
+        Schema.fromJsonString(Schema.Json)
+      );
+
+      const assertBrowserProviders = Effect.fnUntraced(
+        function* assertBrowserProviders(id: string) {
+          expect(
+            yield* fs
+              .readFileString(`${agent(id)}/models.json`)
+              .pipe(Effect.flatMap(decodeJson))
+          ).toEqual(modelFixture(browserProxyUrl));
+          expect(
+            yield* fs
+              .readFileString(`${agent(id)}/claude-bridge.json`)
+              .pipe(Effect.flatMap(decodeJson))
+          ).toEqual(claudeFixture(browserProxyUrl));
+        }
+      );
+
       const withoutImage = yield* Boxes.use(({ create }) =>
         Effect.flip(create(original))
       ).pipe(
@@ -766,7 +896,36 @@ it.effect(
 
       yield* Effect.gen(function* createOnA() {
         const boxes = yield* Boxes;
+        const marker = `${fixture.root}/browser-network-missing`;
+
+        yield* fs.writeFileString(marker, "missing");
+
+        const absent = yield* Effect.flip(boxes.create(original));
+        expect(absent).toBeInstanceOf(BoxNetworkUnavailable);
+        expect(absent).toMatchObject({
+          network: "mischief-peon-browser",
+          status: 503,
+        });
+        expect(absent.message).toMatch(
+          /mischief-peon-browser.*host owner must create/u
+        );
+
+        const commands = yield* fs.readFileString(`${fixture.root}/commands`);
+
+        expect(commands).not.toMatch(/^(?:create|run|start) /mu);
+        yield* fs.remove(marker);
+
         expect((yield* boxes.create(original)).image).toBe(digestA);
+        yield* assertBrowserProviders(original.peonId);
+
+        yield* fs.writeFileString(
+          `${agent(original.peonId)}/models.json`,
+          fullModels
+        );
+        yield* fs.writeFileString(
+          `${agent(original.peonId)}/claude-bridge.json`,
+          JSON.stringify(claudeFixture(fullProxyUrl))
+        );
 
         const parked = yield* boxes.act({
           action: "hibernate",
@@ -810,10 +969,43 @@ it.effect(
             `${fixture.root}/fake/mischief-peon-box-${id}.args`
           );
 
-          expect(args.trimEnd().split("\n").slice(-2)).toEqual([
-            digestA,
-            "infinity",
-          ]);
+          const lines = args.trimEnd().split("\n");
+          expect(lines[lines.indexOf("--network") + 1]).toBe(
+            "mischief-peon-browser"
+          );
+          expect(lines.slice(-2)).toEqual([digestA, "infinity"]);
+          yield* assertBrowserProviders(id);
+        }
+
+        yield* boxes.create({
+          ...original,
+          peonId: "plain",
+          template: fixture.template,
+        });
+        yield* boxes.act({
+          action: "hibernate",
+          peonId: "plain",
+          requestId: "hibernate",
+        });
+        yield* boxes.act({
+          action: "clone",
+          peonId: "plain",
+          newPeonId: "plain-copy",
+          requestId: "clone",
+        });
+        yield* boxes.act({
+          action: "resume",
+          peonId: "plain",
+          requestId: "resume",
+        });
+
+        for (const id of ["plain", "plain-copy"]) {
+          expect(yield* fs.readFileString(`${agent(id)}/models.json`)).toBe(
+            `${fullModels}\n`
+          );
+          expect(
+            yield* fs.readFileString(`${agent(id)}/claude-bridge.json`)
+          ).toBe(JSON.stringify(claudeFixture(fullProxyUrl)));
         }
       }).pipe(
         Effect.provide(
@@ -3417,15 +3609,15 @@ it.effect(
           JSON.stringify({
             endpoint: {
               Name: "mischief-peon-box-spend-test",
-              IPv4Address: "192.0.2.7/24",
+              IPv4Address: "172.30.212.7/24",
             },
           })
         );
-        expect(yield* boxes.ownerAt("192.0.2.7")).toEqual({
+        expect(yield* boxes.ownerAt("172.30.212.7")).toEqual({
           peonId: "spend-test",
           imageKey: "full",
         });
-        expect((yield* Effect.flip(boxes.ownerAt("192.0.2.8"))).status).toBe(
+        expect((yield* Effect.flip(boxes.ownerAt("172.30.212.8"))).status).toBe(
           403
         );
 
@@ -3506,11 +3698,11 @@ it.live(
 
       const inventory = (containerId: string, peonId: string) =>
         fs.writeFileString(
-          `${fixture.root}/network-inventory`,
+          `${fixture.root}/browser-network-inventory`,
           JSON.stringify({
             [containerId]: {
               Name: `mischief-peon-box-${peonId}`,
-              IPv4Address: "192.0.2.12/24",
+              IPv4Address: "172.30.213.12/24",
             },
           })
         );
@@ -3522,19 +3714,33 @@ it.live(
           boxes.create({
             peonId,
             requestId: "create",
-            template: fixture.template,
+            template: {
+              ...fixture.template,
+              browser: { hosts: ["qa.example.test"] },
+              imageKey: "browser",
+            },
           });
 
         yield* launch("old-owner");
         yield* inventory("container-before", "old-owner");
-        expect(yield* boxes.ownerAt("192.0.2.12")).toMatchObject({
+        expect(yield* boxes.ownerAt("172.30.213.12")).toEqual({
+          imageKey: "browser",
           peonId: "old-owner",
         });
+
+        for (const peer of [
+          "172.30.213.1",
+          "172.30.212.1",
+          "172.30.211.12",
+          "192.0.2.12",
+        ]) {
+          expect((yield* Effect.flip(boxes.ownerAt(peer))).status).toBe(403);
+        }
 
         yield* Ref.set(stalled, true);
         expect(
           yield* boxes
-            .ownerAt("::ffff:192.0.2.12")
+            .ownerAt("::ffff:172.30.213.12")
             .pipe(Effect.timeout("1 second"))
         ).toMatchObject({ peonId: "old-owner" });
         yield* Ref.set(stalled, false);
@@ -3548,12 +3754,15 @@ it.live(
         });
         yield* launch("new-owner");
         yield* inventory("container-after", "new-owner");
-        expect(yield* boxes.ownerAt("192.0.2.12")).toMatchObject({
+        expect(yield* boxes.ownerAt("172.30.213.12")).toMatchObject({
           peonId: "new-owner",
         });
       }).pipe(
         Effect.provide(
-          Boxes.layer(fixture.config).pipe(
+          Boxes.layer({
+            ...fixture.config,
+            browserImage: `example/browser@sha256:${"b".repeat(64)}`,
+          }).pipe(
             Layer.provide(
               Layer.merge(ArchivePort.memory, Layer.succeed(Runner, runner))
             )

@@ -2,6 +2,10 @@ import { Config, Effect, Schema } from "effect";
 
 import { refusal } from "../protocol.js";
 
+export const DEFAULT_BROWSER_MAX_LIVE = 6;
+
+export const BrowserMaxLive = Schema.Int.check(Schema.isGreaterThan(0));
+
 const ImageReference = Schema.String.check(
   Schema.isPattern(/^[a-z0-9][^\s]*@sha256:[0-9a-f]{64}$/u)
 );

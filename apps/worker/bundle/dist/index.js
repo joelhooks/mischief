@@ -56861,6 +56861,7 @@ var PeonExportReceipt = Schema4.Struct({
   replicaState: Schema4.optionalKey(Schema4.Literals(["pending", "verified"]))
 });
 var PeonBoxRefusalCode = Schema4.Literals([
+  "BoxCapacity",
   "CustodyMissing",
   "CustodyIncomplete",
   "DestroyInProgress",
@@ -85042,6 +85043,7 @@ var custodyRefusal = Schema100.fromJsonString(
   })
 );
 var nextStep = {
+  BoxCapacity: "Suspend or destroy a browser box on the host, then retry the refused operation.",
   CustodyMissing: "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete: "Recover the skipped session files, then retry destroyPeon.",
   DestroyInProgress: "Retry destroyPeon with the original workspace disposition.",
@@ -85112,7 +85114,7 @@ var requireSuccess = (peonId, operation, response) => Effect65.gen(function* che
       reason: `${prefix}${details}${suffix}`
     };
     return yield* new PeonRefused(
-      error.code === "PromptFailed" && error.state !== void 0 ? { ...failure6, boxState: error.state } : failure6
+      (error.code === "PromptFailed" || error.code === "BoxCapacity") && error.state !== void 0 ? { ...failure6, boxState: error.state } : failure6
     );
   }
   return yield* new PeonRefused({
@@ -85530,7 +85532,8 @@ var peonHost = ({
     }
     const refused3 = fault.code !== void 0;
     const promptFinished = fault.code === "PromptFailed" && stored2.pending.kind === "prompt" && stored2.report.state === "running";
-    const observed = promptFinished ? fault.boxState ?? "idle" : stored2.report.state;
+    const reportedState = promptFinished || fault.code === "BoxCapacity" ? fault.boxState : void 0;
+    const observed = reportedState ?? (promptFinished ? "idle" : stored2.report.state);
     const state3 = refused3 || observed === "destroyed" ? observed : peonTransition(observed, "BOX_LOST");
     const updatedAt = promptFinished ? yield* Clock13.currentTimeMillis : stored2.report.updatedAt;
     const faulted = {
@@ -85645,6 +85648,9 @@ var peonHost = ({
           return yield* failure4(
             "Peon owner differs from its registry reservation; refusing to expose another caller's workspace. Use a fresh peonId with spawnPeon."
           );
+        }
+        if (existing.report.state === "spawned" && existing.pending === null) {
+          return yield* begin("spawn", `spawn/${entry3.peonId}`, "SPAWN");
         }
         return yield* recover;
       }

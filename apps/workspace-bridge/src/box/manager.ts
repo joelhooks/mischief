@@ -14,6 +14,7 @@ import {
   Predicate,
   Ref,
   Schema,
+  Semaphore,
 } from "effect";
 import type { Duration, PlatformError } from "effect";
 import * as Digest from "effect/crypto/Digest";
@@ -30,8 +31,13 @@ import {
   linkManifest,
 } from "./archive.js";
 import type { OpenArchive } from "./archive.js";
+import { BoxCapacity } from "./box-capacity.js";
 import { browserArgs } from "./browser.js";
-import { BoxImages, floatingImageRefusal } from "./config.js";
+import {
+  BoxImages,
+  DEFAULT_BROWSER_MAX_LIVE,
+  floatingImageRefusal,
+} from "./config.js";
 import type { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
@@ -56,6 +62,7 @@ export interface BoxConfig {
   readonly image: string;
   readonly browserImage?: string | undefined;
   readonly browserBuildRoot?: string;
+  readonly browserMaxLive?: number;
   readonly mirrors: Readonly<Record<string, string>>;
   readonly gid: number;
   readonly parkArchiveTimeout?: Duration.Input;
@@ -78,6 +85,8 @@ const DNS_WITHOUT_LAN_ROUTER_FORWARDING = [
   "--dns",
   "9.9.9.9",
 ];
+
+const BROWSER_LABEL = "sh.mischief.box.image-key=browser";
 
 const containerOf = (id: string) => `mischief-peon-box-${id}`;
 
@@ -176,12 +185,13 @@ export class Boxes extends Context.Service<
   {
     readonly create: (
       input: typeof Create.Type
-    ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
+    ) => Effect.Effect<typeof Result.Type, BridgeFailure | BoxCapacity>;
     readonly act: (
       input: typeof Action.Type
     ) => Effect.Effect<
       typeof Result.Type,
       | BridgeFailure
+      | BoxCapacity
       | WorkspaceUnlanded
       | CustodyMissing
       | CustodyIncomplete
@@ -224,6 +234,48 @@ export class Boxes extends Context.Service<
           input === undefined
             ? execute({ args, executable: "docker" })
             : execute({ args, executable: "docker", input });
+
+        const admission = yield* Semaphore.make(1);
+        const maxLive = config.browserMaxLive ?? DEFAULT_BROWSER_MAX_LIVE;
+
+        const withBrowserCapacity =
+          (
+            template: BoxMetadata["template"],
+            id: string,
+            state: typeof BoxCapacity.fields.state.Type
+          ) =>
+          <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+            template.imageKey === "browser"
+              ? admission.withPermit(
+                  Effect.gen(function* admitBrowser() {
+                    const output = yield* docker([
+                      "ps",
+                      "--filter",
+                      `label=${BROWSER_LABEL}`,
+                      "--format",
+                      "{{.Names}}",
+                    ]);
+
+                    const live = output
+                      .split("\n")
+                      .map((name) => name.trim())
+                      .filter(Boolean);
+
+                    if (
+                      !live.includes(containerOf(id)) &&
+                      live.length >= maxLive
+                    ) {
+                      return yield* new BoxCapacity({
+                        message: `This host already has ${maxLive} running browser boxes. Suspend or destroy one, then retry spawnPeon, resumePeon or promptPeon.`,
+                        state,
+                        status: 429,
+                      });
+                    }
+
+                    return yield* effect;
+                  })
+                )
+              : effect;
 
         const base = (id: string) => path.join(config.root, id);
         const meta = (id: string) => path.join(config.metadata, id);
@@ -673,6 +725,9 @@ export class Boxes extends Context.Service<
             "--mount",
             `type=bind,source=${home(box.peonId)},target=/home/peon`,
             ...launch,
+            ...(box.template.imageKey === "browser"
+              ? ["--label", BROWSER_LABEL]
+              : []),
             "--entrypoint",
             "/bin/sleep",
             box.image,
@@ -799,41 +854,47 @@ export class Boxes extends Context.Service<
           }
 
           const state = yield* nextState(box.state, "RESUME");
-          const restored = box.state === "hibernated";
 
-          if (restored) {
-            const launch = yield* launchArgs(box.template);
-            yield* restore(box, box.peonId);
-            yield* container(box, false, launch);
-          }
+          const sleeping =
+            box.state === "hibernated" ? "hibernated" : "suspended";
 
-          yield* docker(["start", containerOf(box.peonId)]);
+          return yield* Effect.gen(function* wakeBrowserOrFull() {
+            const restored = sleeping === "hibernated";
 
-          if (!(yield* ready(box.peonId)).Running) {
-            return yield* refusal(
-              "Docker start did not leave the box running. Inspect its exit state, then retry resume.",
-              503
-            );
-          }
+            if (restored) {
+              const launch = yield* launchArgs(box.template);
+              yield* restore(box, box.peonId);
+              yield* container(box, false, launch);
+            }
 
-          const { snapshot, ...metadata } = box;
+            yield* docker(["start", containerOf(box.peonId)]);
 
-          const updated =
-            snapshot === undefined
-              ? { ...metadata, state }
-              : {
-                  ...metadata,
-                  state,
-                  snapshot: {
-                    bytes: snapshot.bytes,
-                    path: snapshot.path,
-                    sha256: snapshot.sha256,
-                  },
-                };
+            if (!(yield* ready(box.peonId)).Running) {
+              return yield* refusal(
+                "Docker start did not leave the box running. Inspect its exit state, then retry resume.",
+                503
+              );
+            }
 
-          yield* save(updated);
+            const { snapshot, ...metadata } = box;
 
-          return { box: updated, restored };
+            const updated =
+              snapshot === undefined
+                ? { ...metadata, state }
+                : {
+                    ...metadata,
+                    state,
+                    snapshot: {
+                      bytes: snapshot.bytes,
+                      path: snapshot.path,
+                      sha256: snapshot.sha256,
+                    },
+                  };
+
+            yield* save(updated);
+
+            return { box: updated, restored };
+          }).pipe(withBrowserCapacity(box.template, box.peonId, sleeping));
         });
 
         const containerPresent = (id: string) =>
@@ -1441,7 +1502,7 @@ export class Boxes extends Context.Service<
           committedFailure: (error: BridgeFailure) => Effect.Effect<never, E>,
           operation: Effect.Effect<
             typeof Result.Type,
-            BridgeFailure | PlatformError.PlatformError
+            BridgeFailure | BoxCapacity | PlatformError.PlatformError
           >
         ) {
           const requests = path.join(meta(id), "requests");
@@ -1488,10 +1549,17 @@ export class Boxes extends Context.Service<
               Effect.fail(hostFailure(error))
             ),
             Effect.matchEffect({
-              onFailure: (error) =>
-                writeJson(file, { error, requestId }).pipe(
-                  Effect.andThen(committedFailure(error))
-                ),
+              onFailure: (
+                error
+              ): Effect.Effect<
+                never,
+                E | BoxCapacity | PlatformError.PlatformError
+              > =>
+                Predicate.isTagged(error, "BoxCapacity")
+                  ? fs.remove(file).pipe(Effect.andThen(Effect.fail(error)))
+                  : writeJson(file, { error, requestId }).pipe(
+                      Effect.andThen(committedFailure(error))
+                    ),
               onSuccess: (result) =>
                 writeJson(file, { requestId, result }).pipe(Effect.as(result)),
             })
@@ -1643,7 +1711,7 @@ export class Boxes extends Context.Service<
                     state: "idle",
                     workspace: template.workspace,
                   };
-                })
+                }).pipe(withBrowserCapacity(template, id, "spawned"))
               )
             );
           },

@@ -23,6 +23,7 @@ import {
   ManifestSchema,
   ReadBackResult,
 } from "../src/box/archive.js";
+import { BoxCapacity } from "../src/box/box-capacity.js";
 import { nextState } from "../src/box/machine.js";
 import { Boxes } from "../src/box/manager.js";
 import { PromptFailed } from "../src/box/prompt-failed.js";
@@ -141,6 +142,16 @@ inspect)
   shift; shift
   if grep -qx running '${root}/fake/'"$1"; then printf '{"Running":true,"Pid":123}'; else printf '{"Running":false,"Pid":0}'; fi;;
 ps)
+  if [ "$1" = --filter ] && [ "$2" = label=sh.mischief.box.image-key=browser ]; then
+    for status in '${root}/fake/'mischief-peon-box-*; do
+      case "$status" in *.args) continue;; esac
+      [ -f "$status" ] || continue
+      if grep -qx running "$status" && grep -qx 'sh.mischief.box.image-key=browser' "$status.args"; then
+        printf '%s\\n' "\${status##*/}"
+      fi
+    done
+    exit 0
+  fi
   for file in '${root}/fake/'*; do
     name="\${file##*/}"
     if [ "$2" = --filter ] && [ "$3" = "name=^/$name$" ]; then printf '%s\\n' "$name"; fi
@@ -431,6 +442,86 @@ it.effect(
             browserImage,
           })
         ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.mergeAll(
+          boxRunnerLayer().pipe(Layer.provideMerge(NodeServices.layer)),
+          Digest.layerWebCrypto,
+          ArchivePort.disabled
+        )
+      )
+    )
+);
+
+it.effect(
+  "six live browser boxes fill the host quota and suspension frees a slot for spawn or resume",
+  () =>
+    Effect.gen(function* browserCapacity() {
+      const fixture = yield* harness;
+      const browserImage = `example/browser@sha256:${"b".repeat(64)}`;
+
+      yield* Effect.gen(function* admit() {
+        const boxes = yield* Boxes;
+
+        const browser: BoxTemplate = {
+          ...fixture.template,
+          browser: { hosts: ["qa.example.test"] },
+          imageKey: "browser",
+        };
+
+        const spawn = (peonId: string, selected: BoxTemplate = browser) =>
+          boxes.create({ peonId, requestId: "spawn", template: selected });
+
+        const ids = [
+          "browser-a",
+          "browser-b",
+          "browser-c",
+          "browser-d",
+          "browser-e",
+          "browser-f",
+        ];
+
+        const started = yield* Effect.forEach(ids, (id) => spawn(id), {
+          concurrency: "unbounded",
+        });
+
+        expect(started.map((box) => box.image)).toEqual(
+          Array.from({ length: 6 }, () => browserImage)
+        );
+        expect((yield* spawn("full", fixture.template)).image).toBe(image);
+        const refusedCreate = yield* Effect.flip(spawn("browser-g"));
+
+        expect(refusedCreate).toBeInstanceOf(BoxCapacity);
+        expect(refusedCreate).toMatchObject({ status: 429, state: "spawned" });
+
+        yield* boxes.act({
+          action: "suspend",
+          peonId: "browser-a",
+          requestId: "suspend",
+        });
+        expect((yield* spawn("browser-g")).state).toBe("idle");
+
+        const wake = boxes.act({
+          action: "resume",
+          peonId: "browser-a",
+          requestId: "resume",
+        });
+
+        const refusedWake = yield* Effect.flip(wake);
+
+        expect(refusedWake).toBeInstanceOf(BoxCapacity);
+        expect(refusedWake).toMatchObject({ status: 429, state: "suspended" });
+        yield* boxes.act({
+          action: "suspend",
+          peonId: "browser-g",
+          requestId: "suspend",
+        });
+        expect((yield* wake).state).toBe("idle");
+      }).pipe(
+        Effect.provide(Boxes.layer({ ...fixture.config, browserImage })),
         Effect.provideService(Runner, fixture.runner)
       );
     }).pipe(

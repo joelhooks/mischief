@@ -10,7 +10,12 @@ import { HttpRouter } from "effect/http";
 
 import { archiveDiskLayer } from "./box/archive-disk.js";
 import { ArchivePort } from "./box/archive.js";
-import { boxImagesFromConfig, boxStorageFromConfig } from "./box/config.js";
+import {
+  BrowserMaxLive,
+  DEFAULT_BROWSER_MAX_LIVE,
+  boxImagesFromConfig,
+  boxStorageFromConfig,
+} from "./box/config.js";
 import { boxRoutes } from "./box/http.js";
 import { Boxes } from "./box/manager.js";
 import { boxRunnerLayer } from "./box/runner.js";
@@ -69,6 +74,10 @@ const program = Effect.gen(function* serveBoxes() {
   const config = {
     ...storage,
     browserBuildRoot,
+    browserMaxLive: yield* Config.schema(
+      BrowserMaxLive,
+      "MISCHIEF_BOX_BROWSER_MAX_LIVE"
+    ).pipe(Config.withDefault(DEFAULT_BROWSER_MAX_LIVE)),
     gid,
     image: images.full,
     browserImage: images.browser,

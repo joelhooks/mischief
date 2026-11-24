@@ -69,6 +69,8 @@ const custodyRefusal = Schema.fromJsonString(
 );
 
 const nextStep = {
+  BoxCapacity:
+    "Suspend or destroy a browser box on the host, then retry the refused operation.",
   CustodyMissing:
     "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete:
@@ -185,7 +187,8 @@ const requireSuccess = (
       };
 
       return yield* new PeonRefused(
-        error.code === "PromptFailed" && error.state !== undefined
+        (error.code === "PromptFailed" || error.code === "BoxCapacity") &&
+          error.state !== undefined
           ? { ...failure, boxState: error.state }
           : failure
       );

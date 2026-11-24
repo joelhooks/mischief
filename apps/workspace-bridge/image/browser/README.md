@@ -17,6 +17,8 @@ Use `spawnPeon` with `template: { "name": "browser", "version": 1 }`, a pinned `
 
 The browser gets 4 CPUs for browser plus build work, and 4 GiB RAM as a starting ceiling. Burrow measured about 1 GiB per instance; 4 GiB is not a promise that every build and test matrix fits. The 1024 PID ceiling includes Chrome’s renderer, utility and other process threads as well as the agent and app under test. `--disable-dev-shm-usage` directs Chrome’s shared-memory files to `/tmp`; the 2 GiB tmpfs leaves room for those files, temporary profiles and screenshots without enlarging `/dev/shm`. Tmpfs consumption still competes for the container’s memory budget. The CPU, PID and tmp ceilings are starting values, not measured saturation points.
 
+The manager admits at most six running browser boxes by default. Six at the 4 GiB ceiling reserve at most 24 GiB of the shared 48 GiB box slice for browsers; CPU remains shared and can throttle under concurrent builds. Set the operator-only `MISCHIEF_BOX_BROWSER_MAX_LIVE` if host measurements support a different ceiling. Full boxes do not count against it. A spawn or wake at the ceiling returns HTTP 429 with code `BoxCapacity`; suspend or destroy a browser box, then retry the refused operation.
+
 ## Isolation and browser launch
 
 The default Docker seccomp profile stays in place. The browser process runs as UID 65534 with all capabilities dropped, no-new-privileges, and a read-only root. The image’s `peon-browser` launcher applies one named `--no-sandbox` flag only to browser launches. Docker is the sandbox here: a renderer exploit can exercise the same access as the agent inside the container. If Chromium crashes on a blocked syscall, record the syscall and report it; do not loosen seccomp.

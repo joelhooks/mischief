@@ -510,9 +510,13 @@ export const peonHost = ({
       stored.pending.kind === "prompt" &&
       stored.report.state === "running";
 
-    const observed = promptFinished
-      ? (fault.boxState ?? "idle")
-      : stored.report.state;
+    const reportedState =
+      promptFinished || fault.code === "BoxCapacity"
+        ? fault.boxState
+        : undefined;
+
+    const observed =
+      reportedState ?? (promptFinished ? "idle" : stored.report.state);
 
     const state =
       refused || observed === "destroyed"
@@ -685,6 +689,10 @@ export const peonHost = ({
           return yield* failure(
             "Peon owner differs from its registry reservation; refusing to expose another caller's workspace. Use a fresh peonId with spawnPeon."
           );
+        }
+
+        if (existing.report.state === "spawned" && existing.pending === null) {
+          return yield* begin("spawn", `spawn/${entry.peonId}`, "SPAWN");
         }
 
         return yield* recover;

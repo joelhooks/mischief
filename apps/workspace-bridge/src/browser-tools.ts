@@ -30,6 +30,14 @@ const isArray = Schema.is(ArrayValue);
 
 const isResponsesTool = Schema.is(ResponsesTool);
 
+const isDataUrl = Schema.is(
+  Schema.String.check(Schema.isPattern(/^data:[^,]*,/u))
+);
+
+const isUrlOrFileRefField = Schema.is(
+  Schema.Literals(["url", "file_id", "file_url"])
+);
+
 type BodyValue = (typeof ObjectValue.Type)[string];
 
 const fieldKind = (value: BodyValue) => {
@@ -59,7 +67,7 @@ const fieldKind = (value: BodyValue) => {
 const refuse = (field: string, received: string) =>
   new BrowserToolRefused({
     field,
-    message: `Refused ${field} (${JSON.stringify(received)}): browser boxes accept only client-defined function tools. Remove that field or select a declared client tool and retry.`,
+    message: `Refused ${field} (${JSON.stringify(received)}): browser boxes accept only client-defined function tools. Remove that field, use inline asset data, or select a declared client tool and retry.`,
     received,
     status: 403,
   });
@@ -92,6 +100,88 @@ const messagesTranscript = new Set([
   "tool_use",
   "tool_result",
 ]);
+
+const assetReferenceRefusal = (
+  body: typeof ObjectValue.Type,
+  tools: typeof ArrayValue.Type
+) => {
+  const declaredTools = new Set(tools);
+
+  const stack: { readonly path: string; readonly value: BodyValue }[] = [
+    { path: "", value: body },
+  ];
+
+  while (stack.length > 0) {
+    const entry = stack.pop();
+
+    if (entry === undefined) {
+      break;
+    }
+
+    const { path, value } = entry;
+
+    if (isArray(value)) {
+      for (let index = value.length - 1; index >= 0; index -= 1) {
+        stack.push({ path: `${path}[${index}]`, value: value[index] });
+      }
+    } else if (isObject(value)) {
+      const { source } = value;
+
+      if (
+        isObject(source) &&
+        (source.type === "url" || source.type === "file")
+      ) {
+        return refuseType(
+          path === "" ? "source.type" : `${path}.source.type`,
+          source.type
+        );
+      }
+
+      for (const [key, child] of Object.entries(value)) {
+        const field = path === "" ? key : `${path}.${key}`;
+
+        if (
+          isUrlOrFileRefField(key) ||
+          (key === "image_url" && !isDataUrl(child))
+        ) {
+          return refuse(field, fieldKind(child));
+        }
+
+        if (
+          !declaredTools.has(value) ||
+          (key !== "parameters" && key !== "input_schema")
+        ) {
+          stack.push({ path: field, value: child });
+        }
+      }
+    }
+  }
+
+  return null;
+};
+
+const inlineAssetRefusal = (path: string, block: typeof ObjectValue.Type) => {
+  const { image_url: imageUrl, source, type } = block;
+
+  if (type === "input_image" && !isDataUrl(imageUrl)) {
+    return refuse(`${path}.image_url`, fieldKind(imageUrl));
+  }
+
+  if (type === "image" || type === "document") {
+    if (!isObject(source)) {
+      return refuse(`${path}.source`, fieldKind(source));
+    }
+
+    if (
+      source.type !== "base64" &&
+      !(type === "document" && source.type === "text")
+    ) {
+      return refuseType(`${path}.source.type`, source.type);
+    }
+  }
+
+  return null;
+};
 
 const transcriptRefusal = (
   body: typeof ObjectValue.Type,
@@ -127,6 +217,12 @@ const transcriptRefusal = (
           : !Predicate.isString(value.type) || !types.has(value.type)
       ) {
         return refuseType(`${path}.type`, value.type);
+      }
+
+      const assetRefusal = inlineAssetRefusal(path, value);
+
+      if (assetRefusal !== null) {
+        return assetRefusal;
       }
 
       for (const key of ["output", "content"]) {
@@ -250,6 +346,8 @@ export const browserToolRefusal = (
   }
 
   return (
-    choiceRefusal(body, tools, messages) ?? transcriptRefusal(body, messages)
+    choiceRefusal(body, tools, messages) ??
+    assetReferenceRefusal(body, tools) ??
+    transcriptRefusal(body, messages)
   );
 };

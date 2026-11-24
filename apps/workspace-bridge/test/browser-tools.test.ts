@@ -107,7 +107,91 @@ const refused = (
   type: string
 ) => ({ body, field, route, type });
 
+const assetUrl = "https://asset.invalid/fixture";
+
+const messageBlock = (block: Schema.Json) => ({
+  messages: [{ content: [block], role: "user" }],
+});
+
+const responseBlock = (block: Schema.Json) => ({
+  input: [{ content: [block], role: "user" }],
+});
+
 const cases = [
+  ...["image", "document"].map((type) =>
+    refused(
+      messages,
+      messageBlock({ type, source: { type: "url", url: assetUrl } }),
+      "messages[0].content[0].source.type",
+      "url"
+    )
+  ),
+  refused(
+    responses,
+    responseBlock({ type: "input_image", image_url: assetUrl }),
+    "input[0].content[0].image_url",
+    "string"
+  ),
+  refused(
+    responses,
+    responseBlock({ type: "input_image", file_id: "fixture-file" }),
+    "input[0].content[0].file_id",
+    "string"
+  ),
+  refused(
+    responses,
+    responseBlock({
+      type: "input_image",
+      image_url: "DATA:image/png;base64,eA==",
+    }),
+    "input[0].content[0].image_url",
+    "string"
+  ),
+  refused(
+    responses,
+    responseBlock({ type: "input_image", image_url: "data:missing-comma" }),
+    "input[0].content[0].image_url",
+    "string"
+  ),
+  refused(
+    responses,
+    responseBlock({ type: "input_file", file_url: assetUrl }),
+    "input[0].content[0].file_url",
+    "string"
+  ),
+  refused(
+    messages,
+    messageBlock({ type: "image", source: { type: "Base64" } }),
+    "messages[0].content[0].source.type",
+    "Base64"
+  ),
+  refused(
+    messages,
+    messageBlock({
+      type: "document",
+      source: { type: "content", content: [] },
+    }),
+    "messages[0].content[0].source.type",
+    "content"
+  ),
+  refused(
+    messages,
+    messageBlock({ type: "text", source: { type: "file" } }),
+    "messages[0].content[0].source.type",
+    "file"
+  ),
+  refused(
+    messages,
+    messageBlock({ type: "image", source: { type: "base64", url: assetUrl } }),
+    "messages[0].content[0].source.url",
+    "string"
+  ),
+  refused(
+    responses,
+    responseBlock({ type: "input_text", extra: { url: assetUrl } }),
+    "input[0].content[0].extra.url",
+    "string"
+  ),
   ...[
     "web_search",
     "file_search",
@@ -349,6 +433,39 @@ it.effect(
             tool_choice: { type: "auto" },
           },
         },
+        {
+          route: messages,
+          body: messageBlock({
+            type: "document",
+            source: { type: "text", media_type: "text/plain", data: assetUrl },
+          }),
+        },
+        {
+          route: messages,
+          body: messageBlock({
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: "application/pdf",
+              data: "eA==",
+            },
+          }),
+        },
+        {
+          route: responses,
+          body: {
+            tools: [
+              {
+                type: "function",
+                name: "visit",
+                parameters: {
+                  type: "object",
+                  properties: { url: { type: "string" } },
+                },
+              },
+            ],
+          },
+        },
       ];
 
       const wires = [];
@@ -368,9 +485,9 @@ it.effect(
     }).pipe(Effect.scoped)
 );
 
-for (const { body, route, version } of piCaptures) {
+for (const { body, image, route, version } of piCaptures) {
   it.effect(
-    `forwards the pi-ai ${version} ${route} capture with its client tool intact`,
+    `forwards the pi-ai ${version} ${route} ${image === true ? "inline image" : "text"} capture with its client tool intact`,
     () =>
       Effect.gen(function* capturedPiRequest() {
         const { admissions, connect, seen } = yield* harness;

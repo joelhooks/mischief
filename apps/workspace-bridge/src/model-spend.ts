@@ -4,11 +4,11 @@ import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import { Effect, Option, Redacted, Schedule, Schema, Stream } from "effect";
 import { uuidV4Unsafe } from "effect/crypto/SecureRandom";
 import {
+  HttpClient,
   HttpClientError,
   HttpClientRequest,
   HttpServerResponse,
 } from "effect/http";
-import type { HttpClient } from "effect/http";
 
 import { ipv4Peer } from "./box/live-owner.js";
 import {
@@ -169,40 +169,56 @@ export const modelSpend = (
   restricted: boolean
 ): ModelSpend => {
   const post = <A>(
-    path: string,
+    path: typeof ADMIT_PATH | typeof RECORD_PATH,
     body: Schema.Json,
     key: Redacted.Redacted,
     schema: Schema.Decoder<A>
-  ) =>
-    client
-      .execute(
-        HttpClientRequest.post(`http://127.0.0.1:28014${path}`).pipe(
-          HttpClientRequest.bearerToken(Redacted.value(key)),
-          HttpClientRequest.bodyJsonUnsafe(body)
-        )
-      )
-      .pipe(
-        Effect.mapError(managerTransportFailure),
-        Effect.flatMap((response) =>
-          response.status === 200
-            ? response.text.pipe(
-                Effect.mapError(transientManagerFailure),
-                Effect.flatMap((reply) =>
-                  Schema.decodeEffect(Schema.fromJsonString(schema))(
-                    reply
-                  ).pipe(Effect.mapError(managerUnavailable))
-                )
+  ) => {
+    const request = HttpClientRequest.post(
+      `http://127.0.0.1:28014${path}`
+    ).pipe(
+      HttpClientRequest.bearerToken(Redacted.value(key)),
+      HttpClientRequest.bodyJsonUnsafe(body)
+    );
+
+    const admitting = path === ADMIT_PATH;
+
+    const attempt = (
+      admitting
+        ? HttpClient.withScope(client).execute(request)
+        : client.execute(request)
+    ).pipe(
+      Effect.mapError(managerTransportFailure),
+      Effect.flatMap((response) => {
+        if (response.status === 200) {
+          return response.text.pipe(
+            Effect.mapError(transientManagerFailure),
+            Effect.flatMap((reply) =>
+              Schema.decodeEffect(Schema.fromJsonString(schema))(reply).pipe(
+                Effect.mapError(managerUnavailable)
               )
-            : response.text.pipe(
-                Effect.ignore,
-                Effect.andThen(Effect.fail(managerHttpFailure(response.status)))
-              )
-        ),
-        Effect.timeoutOrElse({
-          duration: "5 seconds",
-          orElse: () => Effect.fail(managerUnavailable()),
-        })
-      );
+            )
+          );
+        }
+
+        const failure = Effect.fail(managerHttpFailure(response.status));
+
+        return admitting
+          ? failure
+          : response.text.pipe(Effect.ignore, Effect.andThen(failure));
+      })
+    );
+
+    return Effect.scoped(attempt).pipe(
+      Effect.timeoutOrElse({
+        duration: admitting ? "2 seconds" : "5 seconds",
+        orElse: () =>
+          Effect.fail(
+            admitting ? transientManagerFailure() : managerUnavailable()
+          ),
+      })
+    );
+  };
 
   return Effect.fn("ModelSpend.admit")(function* admit(
     peer: string,

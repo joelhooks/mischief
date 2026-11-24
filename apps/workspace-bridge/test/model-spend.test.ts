@@ -1,6 +1,16 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer, Redacted, Ref, Schema, Stream, Tracer } from "effect";
+import {
+  Deferred,
+  Effect,
+  Fiber,
+  Layer,
+  Redacted,
+  Ref,
+  Schema,
+  Stream,
+  Tracer,
+} from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import {
   HttpBody,
@@ -8,7 +18,9 @@ import {
   HttpClientRequest,
   HttpClientResponse,
   HttpRouter,
+  HttpServerResponse,
 } from "effect/http";
+import { TestClock } from "effect/testing";
 
 import { liveBoxId } from "../src/box/live-owner.js";
 import { Boxes } from "../src/box/manager.js";
@@ -99,7 +111,13 @@ for (const surface of ["full", "restricted"] as const) {
 
         const ledger = SpendLedger.layer(
           ":memory:",
-          { browser: { dailyTokens: 1000, ratePerMin: 20 } },
+          {
+            browser: {
+              dailyTokens: 1000,
+              defaultOutputTokens: 128,
+              ratePerMin: 1,
+            },
+          },
           () => Effect.void
         );
 
@@ -132,6 +150,19 @@ for (const surface of ["full", "restricted"] as const) {
 
         expect(forged.status).toBe(401);
         yield* forged.text;
+
+        if (surface === "full") {
+          const background = yield* client.post("/v1/responses", {
+            body: HttpBody.jsonUnsafe({
+              background: true,
+              model: "gpt-6.1-sol",
+            }),
+          });
+
+          expect(background.status).toBe(403);
+          yield* background.text;
+          expect(yield* Ref.get(called)).toBe(0);
+        }
 
         const post = () =>
           client.post("/v1/responses", {
@@ -239,8 +270,10 @@ it.effect.prop(
 
       const metered = meterResponse(
         {
-          record: (tokens) =>
-            Ref.update(readings, (values) => [...values, tokens]),
+          record: (tokens, settled) =>
+            settled
+              ? Effect.void
+              : Ref.update(readings, (values) => [...values, tokens]),
         },
         80,
         "text/event-stream",
@@ -253,6 +286,87 @@ it.effect.prop(
       const charges = yield* Ref.get(readings);
       expect(charges.at(-1)).toBe(1000);
       expect(charges.filter((charge) => charge === 1000)).toHaveLength(1);
+    })
+);
+
+it.effect(
+  "manager timeout covers stalled success and error bodies after headers",
+  () =>
+    Effect.gen(function* stalledBodies() {
+      const client = yield* HttpClient.HttpClient;
+      const started = yield* Deferred.make<true>();
+      const openBodies = yield* Ref.make(0);
+
+      const bodyOpened = Ref.updateAndGet(
+        openBodies,
+        (count) => count + 1
+      ).pipe(
+        Effect.flatMap((count) =>
+          count === 2
+            ? Deferred.succeed(started, true).pipe(Effect.asVoid)
+            : Effect.void
+        )
+      );
+
+      const stall = (status: number) =>
+        HttpServerResponse.stream(
+          Stream.make(new TextEncoder().encode("{")).pipe(
+            Stream.concat(
+              Stream.fromEffect(bodyOpened.pipe(Effect.andThen(Effect.never)))
+            )
+          ),
+          { status, contentType: "application/json" }
+        );
+
+      yield* HttpRouter.serve(
+        Layer.merge(
+          HttpRouter.add("POST", "/ok", stall(200)),
+          HttpRouter.add("POST", "/err", stall(403))
+        ),
+        { disableListenLog: true, disableLogger: true }
+      ).pipe(Layer.build);
+
+      const attempts = yield* Effect.forEach(["/ok", "/err"], (path) =>
+        Effect.forkScoped(
+          modelSpend(
+            HttpClient.mapRequestInput(client, (request) =>
+              HttpClientRequest.setUrl(request, path)
+            ),
+            Redacted.make("fixture-manager-bearer"),
+            false
+          )("192.0.2.15", 12).pipe(Effect.flip)
+        )
+      );
+
+      yield* Deferred.await(started);
+      yield* TestClock.adjust("5 seconds");
+      const errors = yield* Effect.forEach(Fiber.join)(attempts);
+      expect(errors.map((error) => error.status)).toEqual([503, 503]);
+    }).pipe(Effect.provide(NodeHttpServer.layerTest))
+);
+
+it.effect(
+  "an SSE EOF without a provider completion does not refund the reservation",
+  () =>
+    Effect.gen(function* incompleteStream() {
+      const transitions = yield* Ref.make<boolean[]>([]);
+
+      const data = new TextEncoder().encode(
+        frame({ type: "response.output_text.delta", delta: "unfinished" })
+      );
+
+      const stream = meterResponse(
+        {
+          record: (_tokens, settled) =>
+            Ref.update(transitions, (seen) => [...seen, settled]),
+        },
+        8,
+        "text/event-stream",
+        Stream.make(data)
+      );
+
+      yield* Stream.runDrain(stream);
+      expect(yield* Ref.get(transitions)).toEqual([false]);
     })
 );
 

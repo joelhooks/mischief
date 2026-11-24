@@ -19,6 +19,7 @@ const UsageFrame = Schema.fromJsonString(
     ...WithUsage.fields,
     message: Schema.optionalKey(WithUsage),
     response: Schema.optionalKey(WithUsage),
+    type: Schema.optionalKey(Schema.String),
   })
 );
 
@@ -32,7 +33,10 @@ class UsageFrames {
   private frame: string | undefined = "";
   private input = 0;
   private output = 0;
-  private total = 0;
+  private total: number | undefined;
+  private inputReported = false;
+  private outputReported = false;
+  private terminal = false;
   private cacheWrite = 0;
   private cacheRead = 0;
 
@@ -49,13 +53,24 @@ class UsageFrames {
       return;
     }
 
+    this.terminal ||= [
+      "response.completed",
+      "response.incomplete",
+      "message_stop",
+    ].some((event) => decoded.value.type === event);
+
     for (const usage of [
       decoded.value.usage,
       decoded.value.message?.usage,
       decoded.value.response?.usage,
     ]) {
       if (usage !== undefined) {
-        this.total = Math.max(this.total, usage.total_tokens ?? 0);
+        if (usage.total_tokens !== undefined) {
+          this.total = Math.max(this.total ?? 0, usage.total_tokens);
+        }
+
+        this.inputReported ||= usage.input_tokens !== undefined;
+        this.outputReported ||= usage.output_tokens !== undefined;
         this.input = Math.max(this.input, usage.input_tokens ?? 0);
         this.output = Math.max(this.output, usage.output_tokens ?? 0);
         this.cacheWrite = Math.max(
@@ -138,18 +153,33 @@ class UsageFrames {
     this.flush();
   }
 
-  tokens(requestBytes: number, responseBytes: number) {
-    const input = Math.max(
-      estimatedTokens(requestBytes),
-      this.input + this.cacheWrite + this.cacheRead
-    );
+  complete() {
+    return this.sse && this.terminal;
+  }
+
+  tokens(requestBytes: number, responseBytes: number, settled: boolean) {
+    const reportedInput = this.input + this.cacheWrite + this.cacheRead;
+    const estimateInput = estimatedTokens(requestBytes);
+    const estimateOutput = estimatedTokens(responseBytes);
+
+    if (settled) {
+      return (
+        this.total ??
+        (this.inputReported ? reportedInput : estimateInput) +
+          (this.outputReported ? this.output : estimateOutput)
+      );
+    }
 
     return Math.max(
-      this.total,
-      input + Math.max(this.output, estimatedTokens(responseBytes))
+      this.total ?? 0,
+      Math.max(reportedInput, estimateInput) +
+        Math.max(this.output, estimateOutput)
     );
   }
 }
 
+export const isEventStream = (contentType: string) =>
+  contentType.toLowerCase().startsWith("text/event-stream");
+
 export const usageFrames = (contentType: string) =>
-  new UsageFrames(contentType.toLowerCase().startsWith("text/event-stream"));
+  new UsageFrames(isEventStream(contentType));

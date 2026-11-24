@@ -15,6 +15,7 @@ import {
   RECORD_PATH,
   SpendAdmission,
   SpendPermit,
+  SpendProgress,
   SpendReading,
 } from "./spend-protocol.js";
 
@@ -27,10 +28,10 @@ const admit = implement(
     input: SpendAdmission,
     output: SpendPermit,
   }),
-  ({ peer, tokens }) =>
+  ({ peer, tokens, outputTokens }) =>
     Boxes.use(({ ownerAt }) => ownerAt(peer)).pipe(
       Effect.flatMap((owner) =>
-        SpendLedger.use((ledger) => ledger.admit(owner, tokens))
+        SpendLedger.use((ledger) => ledger.admit(owner, tokens, outputTokens))
       )
     )
 );
@@ -42,7 +43,7 @@ const record = implement(
       "Record a trusted proxy's cumulative upstream observation against its admitted model call",
     failure: BridgeFailure,
     input: SpendReading,
-    output: Schema.Void,
+    output: SpendProgress,
   }),
   (reading) => SpendLedger.use((ledger) => ledger.record(reading))
 );
@@ -103,9 +104,7 @@ export const spendRoutes = (key: Redacted.Redacted) =>
             Effect.mapError(invalid)
           );
 
-          yield* record.handler(input);
-
-          return HttpServerResponse.empty({ status: 204 });
+          return HttpServerResponse.jsonUnsafe(yield* record.handler(input));
         })
       )
     )

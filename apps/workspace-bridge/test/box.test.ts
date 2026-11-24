@@ -1,4 +1,7 @@
-import { NodeServices } from "@effect/platform-node";
+import { normalizeContext } from "@earendil-works/pi-ai";
+import type { Model } from "@earendil-works/pi-ai";
+import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
+import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import {
@@ -10,11 +13,19 @@ import {
   Layer,
   Option,
   Predicate,
+  Redacted,
   Ref,
   Schema,
+  Stream,
 } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import * as Digest from "effect/crypto/Digest";
+import {
+  HttpClient,
+  HttpClientRequest,
+  HttpClientResponse,
+  HttpRouter,
+} from "effect/http";
 import { TestClock } from "effect/testing";
 
 import { archiveDiskLayer } from "../src/box/archive-disk.js";
@@ -34,7 +45,10 @@ import { PromptResult, Snapshot, State } from "../src/box/protocol.js";
 import type { BoxTemplate } from "../src/box/protocol.js";
 import { receiptKey } from "../src/box/receipt.js";
 import { boxRunnerLayer } from "../src/box/runner.js";
-import { spendMessage } from "../src/box/spend-protocol.js";
+import { SpendLedger } from "../src/box/spend-ledger.js";
+import { spendMessage, spendReading } from "../src/box/spend-protocol.js";
+import { FullProxy, fullProxyRoutes } from "../src/full-proxy.js";
+import { refusal } from "../src/protocol.js";
 import { checked, Runner } from "../src/runner.js";
 import { image, piOutput, sha } from "./fixtures.js";
 
@@ -265,19 +279,6 @@ printf '%s\\n' '{}' > "$CODEX_HOME/history.jsonl"
 printf 'changed by tool\\n' > '${root}/boxes/'"$id"'/work/result.txt'
 if [ "$input" = 'fail after writing history' ]; then
   exit 7
-fi
-if [ "$input" = 'capped model turn' ]; then
-  printf '%s\\n' '${JSON.stringify({
-    type: "message_end",
-    message: {
-      content: [],
-      errorMessage: spendMessage("daily"),
-      role: "assistant",
-      stopReason: "error",
-      usage: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
-    },
-  })}'
-  exit 1
 fi
 if [ "$input" = 'large event stream' ]; then
   printf '%s\\n' '{"type":"tool_execution_start","toolName":"inspect"}'
@@ -3202,11 +3203,123 @@ it.effect("a 33 MiB tool event does not consume the reply budget", () =>
 );
 
 it.effect(
-  "the manager maps the live Docker address to host metadata and parks a SpendCap prompt through PromptFailed",
+  "real Pi Responses SDK parks the box on both a streamed SpendCap and HTTP 429, preserving the source Docker mapping",
   () =>
     Effect.gen(function* spendCapPrompt() {
       const fixture = yield* harness;
       const fs = yield* FileSystem.FileSystem;
+      const ledger = yield* SpendLedger;
+      const upstreamCalls = yield* Ref.make(0);
+      const capFailure = refusal(spendMessage("daily"), 429);
+
+      const upstream = HttpClient.make((request) =>
+        Ref.update(upstreamCalls, (count) => count + 1).pipe(
+          Effect.as(
+            HttpClientResponse.fromWeb(
+              request,
+              new Response(
+                `data: ${JSON.stringify({ type: "response.completed", response: { usage: { total_tokens: 1200 } } })}\n\n`,
+                { headers: { "content-type": "text/event-stream" } }
+              )
+            )
+          )
+        )
+      );
+
+      yield* HttpRouter.serve(fullProxyRoutes, {
+        disableListenLog: true,
+        disableLogger: true,
+      }).pipe(
+        Layer.provide(
+          FullProxy.layer({
+            key: Redacted.make("fixture-model-bearer"),
+            models: ["gpt-6.1-sol"],
+            upstream: "http://provider.example.invalid",
+            spend: Effect.fnUntraced(
+              function* testBoxAdmission(_peer, bytes, requested) {
+                const permit = yield* ledger.admit(
+                  { imageKey: "browser", peonId: "spend-test" },
+                  Math.ceil(bytes / 4),
+                  requested
+                );
+
+                if (permit.status !== "metered") {
+                  return yield* capFailure;
+                }
+
+                return {
+                  outputTokens: permit.outputTokens,
+                  record: (tokens, settled) =>
+                    ledger
+                      .record(spendReading(permit.receipt, tokens, settled))
+                      .pipe(
+                        Effect.flatMap(({ allowed }) =>
+                          allowed ? Effect.void : Effect.fail(capFailure)
+                        )
+                      ),
+                };
+              }
+            ),
+          }).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, upstream)))
+        ),
+        Layer.build
+      );
+      const client = yield* HttpClient.HttpClient;
+      const endpoint = yield* client.preprocess(HttpClientRequest.get("/v1"));
+
+      const model: Model<"openai-responses"> = {
+        api: "openai-responses",
+        baseUrl: endpoint.url,
+        contextWindow: 500_000,
+        cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
+        id: "gpt-6.1-sol",
+        input: ["text"],
+        maxTokens: 128,
+        name: "Fixture Responses",
+        provider: "peon",
+        reasoning: false,
+      };
+
+      const pi = Runner.of({
+        run: Effect.fnUntraced(function* runPrompt(command) {
+          if (
+            command.input !== "capped model turn" ||
+            command.consumeStdout === undefined
+          ) {
+            return yield* fixture.runner.run(command);
+          }
+
+          const events = openAIResponsesApi().streamSimple(
+            model,
+            normalizeContext({
+              messages: [
+                { content: command.input, role: "user", timestamp: 0 },
+              ],
+            }),
+            { apiKey: "proxy", maxRetries: 0, maxTokens: 128 }
+          );
+
+          const assistant = yield* Effect.promise(events.result.bind(events));
+          expect(assistant.stopReason).toBe("error");
+          expect(assistant.errorMessage).toContain("SpendCap");
+          yield* command
+            .consumeStdout(
+              Stream.make(
+                new TextEncoder().encode(
+                  `${JSON.stringify({ type: "message_end", message: assistant })}\n`
+                )
+              )
+            )
+            .pipe(
+              Effect.catchTag("PlatformError", () =>
+                Effect.fail(refusal("Could not persist the fixture Pi event."))
+              )
+            );
+
+          return { exit: 1, stdout: "" };
+        }),
+      });
+
       yield* Effect.gen(function* managedBox() {
         const boxes = yield* Boxes;
         yield* boxes.create({
@@ -3231,21 +3344,25 @@ it.effect(
           403
         );
 
-        const prompt = boxes.act({
-          action: "prompt",
-          peonId: "spend-test",
-          requestId: "capped",
-          text: "capped model turn",
-        });
+        for (const requestId of ["stream-overage", "before-headers"]) {
+          const prompt = boxes.act({
+            action: "prompt",
+            peonId: "spend-test",
+            requestId,
+            text: "capped model turn",
+          });
 
-        const failure = yield* Effect.flip(prompt);
-        expect(failure).toBeInstanceOf(PromptFailed);
-        expect(failure).toMatchObject({ status: 429, state: "suspended" });
-        expect(failure.message).toContain("SpendCap");
-        expect(yield* Effect.flip(prompt)).toMatchObject({
-          status: 429,
-          state: "suspended",
-        });
+          const failure = yield* Effect.flip(prompt);
+          expect(failure).toBeInstanceOf(PromptFailed);
+          expect(failure).toMatchObject({ status: 429, state: "suspended" });
+          expect(failure.message).toContain("SpendCap");
+          expect(yield* Effect.flip(prompt)).toMatchObject({
+            status: 429,
+            state: "suspended",
+          });
+        }
+
+        expect(yield* Ref.get(upstreamCalls)).toBe(1);
         expect(yield* boxes.inspect("spend-test")).toMatchObject({
           processes: 0,
           state: "suspended",
@@ -3262,13 +3379,21 @@ it.effect(
         Effect.provide(
           Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
         ),
-        Effect.provideService(Runner, fixture.runner)
+        Effect.provideService(Runner, pi)
       );
     }).pipe(
       Effect.provide(
-        boxRunnerLayer().pipe(
-          Layer.provideMerge(
-            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+        Layer.mergeAll(
+          SpendLedger.layer(
+            ":memory:",
+            { browser: { dailyTokens: 1000, ratePerMin: 20 } },
+            () => Effect.void
+          ),
+          NodeHttpServer.layerTest,
+          boxRunnerLayer().pipe(
+            Layer.provideMerge(
+              Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+            )
           )
         )
       )

@@ -30,7 +30,12 @@ import {
   measuredEncoding,
   measuredRequest,
   meterResponse,
+  ModelBodySchema,
   modelHeaders,
+  modelWire,
+  outputKeyFor,
+  prepareMeteredResponse,
+  preserveSpendCap,
   preserveSpendFailure,
   proxyFailureResponse,
   socketPeer,
@@ -39,7 +44,7 @@ import type { ModelSpend } from "./model-spend.js";
 import { refusal } from "./protocol.js";
 import { collectBytes } from "./runner.js";
 
-const MessageBody = Schema.Record(Schema.String, Schema.Unknown);
+const MessageBody = ModelBodySchema;
 
 const ClientTools = Schema.Array(
   Schema.Struct({
@@ -486,7 +491,7 @@ export class Proxy extends Context.Service<
 
           const wire = requestWire(request, messages);
 
-          const requestBytes = Buffer.byteLength(wire);
+          const outputKey = outputKeyFor(messages);
 
           for (const delay of [0, 2000, 4000, 8000]) {
             if (delay > 0) {
@@ -496,14 +501,23 @@ export class Proxy extends Context.Service<
             const meter = yield* admitModel(
               config.spend,
               request.peer,
-              requestBytes
+              Buffer.byteLength(wire),
+              request.body,
+              outputKey
+            );
+
+            const outboundWire = modelWire(
+              wire,
+              request.body,
+              outputKey,
+              meter
             );
 
             const outbound = upstreamRequest(
               upstream,
               request,
               config.key,
-              wire
+              outboundWire
             );
 
             const send = (
@@ -552,20 +566,25 @@ export class Proxy extends Context.Service<
 
             const accounted = meterResponse(
               meter,
-              requestBytes,
+              Buffer.byteLength(outboundWire),
               contentType,
-              response.stream
+              response.stream,
+              messages
             );
 
             if (response.status < 400) {
               return withMessagesHeaders(
                 {
-                  body: accounted.pipe(
-                    Stream.mapError(
-                      preserveSpendFailure(
-                        refusal(
-                          `The ${provider} stream was interrupted (status ${response.status}). Check the upstream and resume the think.`,
-                          503
+                  body: yield* prepareMeteredResponse(
+                    meter,
+                    contentType,
+                    accounted.pipe(
+                      Stream.mapError(
+                        preserveSpendFailure(
+                          refusal(
+                            `The ${provider} stream was interrupted (status ${response.status}). Check the upstream and resume the think.`,
+                            503
+                          )
                         )
                       )
                     )
@@ -580,10 +599,12 @@ export class Proxy extends Context.Service<
             }
 
             const bytes = yield* collectBytes(accounted, 64 * 1024).pipe(
-              Effect.mapError(() =>
-                refusal(
-                  `The ${provider} upstream returned an unreadable error or exceeded the 64 KiB error cap (status ${response.status}). Check the upstream and retry.`,
-                  503
+              Effect.mapError(
+                preserveSpendCap(
+                  refusal(
+                    `The ${provider} upstream returned an unreadable error or exceeded the 64 KiB error cap (status ${response.status}). Check the upstream and retry.`,
+                    503
+                  )
                 )
               )
             );

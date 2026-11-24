@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, FileSystem, Ref, Schema } from "effect";
+import { Deferred, Effect, FileSystem, Ref, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import { TestClock } from "effect/testing";
 
@@ -11,7 +11,7 @@ import { SpendLimits } from "../src/box/spend-protocol.js";
 const browser = { imageKey: "browser", peonId: "browser-a" } as const;
 
 it.effect(
-  "retains admitted and streamed spend, plus the alarm latch, across manager restarts and resets them by UTC day",
+  "retains admitted and streamed spend across manager restarts and resets it by UTC day",
   () =>
     Effect.gen(function* restart() {
       const fs = yield* FileSystem.FileSystem;
@@ -20,13 +20,17 @@ it.effect(
         prefix: "model-spend-test-",
       });
 
-      const alarms = yield* Ref.make<SpendAlarm[]>([]);
-
       const layer = () =>
         SpendLedger.layer(
           `${dir}/spend.sqlite`,
-          { browser: { dailyTokens: 100, ratePerMin: 20 } },
-          (alarm) => Ref.update(alarms, (events) => [...events, alarm])
+          {
+            browser: {
+              dailyTokens: 100,
+              defaultOutputTokens: 1,
+              ratePerMin: 20,
+            },
+          },
+          () => Effect.void
         );
 
       yield* TestClock.setTime(86_399_000);
@@ -42,7 +46,6 @@ it.effect(
         }
 
         yield* ledger.record({ receipt: permit.receipt, tokens: 79 });
-        expect(yield* Ref.get(alarms)).toEqual([]);
         yield* ledger.record({ receipt: permit.receipt, tokens: 80 });
 
         return permit.receipt;
@@ -56,7 +59,7 @@ it.effect(
           status: "denied",
           reason: "daily",
         });
-        expect((yield* ledger.admit(browser, 20)).status).toBe("metered");
+        expect((yield* ledger.admit(browser, 19)).status).toBe("metered");
         expect(yield* ledger.admit(browser, 0)).toEqual({
           status: "denied",
           reason: "daily",
@@ -70,26 +73,13 @@ it.effect(
         expect(
           (yield* ledger.admit({ ...browser, peonId: "browser-b" }, 1)).status
         ).toBe("metered");
-        expect(yield* Ref.get(alarms)).toEqual([
-          {
-            day: 0,
-            limit: 100,
-            metric: "daily",
-            peonId: browser.peonId,
-            used: 80,
-          },
-        ]);
-
         yield* TestClock.adjust(1000);
         yield* ledger.record({ receipt, tokens: 200 });
-        expect((yield* ledger.admit(browser, 100)).status).toBe("metered");
+        expect((yield* ledger.admit(browser, 99)).status).toBe("metered");
         expect(yield* ledger.admit(browser, 1)).toEqual({
           status: "denied",
           reason: "daily",
         });
-        expect((yield* Ref.get(alarms)).map((alarm) => alarm.day)).toEqual([
-          0, 1,
-        ]);
       }).pipe(Effect.provide(layer()));
     }).pipe(Effect.provide(NodeServices.layer))
 );
@@ -152,6 +142,148 @@ it.effect.prop(
         yield* TestClock.adjust(1);
         expect((yield* ledger.admit(browser, 1)).status).toBe("metered");
       }).pipe(Effect.provide(layer()));
+    }).pipe(Effect.provide(NodeServices.layer))
+);
+
+it.effect.prop(
+  "concurrent attempts reserve input and output atomically, settle refunds capacity, and live ceiling includes outstanding claims",
+  {
+    calls: Arbitrary.schema(
+      Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: 12 }))
+    ),
+  },
+  ({ calls }) =>
+    Effect.gen(function* reserveAndRefund() {
+      const limits = { browser: { dailyTokens: calls * 100, ratePerMin: 100 } };
+      yield* Effect.gen(function* exerciseLedger() {
+        const ledger = yield* SpendLedger;
+
+        const permits = yield* Effect.all(
+          Array.from({ length: calls * 2 }, () =>
+            ledger.admit(browser, 10, 90)
+          ),
+          { concurrency: "unbounded" }
+        );
+
+        const accepted = permits.filter(
+          (permit) => permit.status === "metered"
+        );
+
+        expect(accepted).toHaveLength(calls);
+        const [first, second] = accepted;
+
+        if (first === undefined || second === undefined) {
+          return yield* Effect.die("Expected at least two durable holds");
+        }
+
+        expect(
+          yield* ledger.record({
+            receipt: first.receipt,
+            tokens: 100 + calls * 10,
+          })
+        ).toEqual({ allowed: true });
+        expect(
+          yield* ledger.record({
+            receipt: first.receipt,
+            tokens: 101 + calls * 10,
+          })
+        ).toEqual({ allowed: false });
+        expect(
+          yield* ledger.record({
+            receipt: second.receipt,
+            tokens: 1,
+            settled: true,
+          })
+        ).toEqual({ allowed: true });
+        expect(
+          yield* ledger.record({
+            receipt: second.receipt,
+            tokens: 1,
+            settled: true,
+          })
+        ).toEqual({ allowed: true });
+        const remaining = 98 - calls * 10;
+
+        if (remaining > 1) {
+          expect((yield* ledger.admit(browser, 1, remaining - 1)).status).toBe(
+            "metered"
+          );
+        }
+
+        expect(yield* ledger.admit(browser, 1, 1)).toEqual({
+          status: "denied",
+          reason: "daily",
+        });
+
+        return yield* Effect.void;
+      }).pipe(
+        Effect.provide(SpendLedger.layer(":memory:", limits, () => Effect.void))
+      );
+    })
+);
+
+it.effect(
+  "a committed crossing survives shutdown before log or send and drains once on restart",
+  () =>
+    Effect.gen(function* pendingAlarm() {
+      const fs = yield* FileSystem.FileSystem;
+
+      const dir = yield* fs.makeTempDirectoryScoped({
+        prefix: "spend-outbox-",
+      });
+
+      const file = `${dir}/outbox.sqlite`;
+      const limits = { browser: { dailyTokens: 100, ratePerMin: 100 } };
+      const logging = yield* Deferred.make<true>();
+      const delivered = yield* Deferred.make<true>();
+      const logs = yield* Ref.make<SpendAlarm[]>([]);
+      const sends = yield* Ref.make<SpendAlarm[]>([]);
+      yield* Effect.gen(function* firstManager() {
+        const ledger = yield* SpendLedger;
+        expect((yield* ledger.admit(browser, 80, 1)).status).toBe("metered");
+        yield* Deferred.await(logging);
+      }).pipe(
+        Effect.provide(
+          SpendLedger.layer(
+            file,
+            limits,
+            () => Effect.die("Delivery cannot begin before logging"),
+            () =>
+              Deferred.succeed(logging, true).pipe(Effect.andThen(Effect.never))
+          )
+        )
+      );
+
+      const layer = () =>
+        SpendLedger.layer(
+          file,
+          limits,
+          (alarm) =>
+            Ref.update(sends, (all) => [...all, alarm]).pipe(
+              Effect.andThen(Deferred.succeed(delivered, true)),
+              Effect.asVoid
+            ),
+          (alarm) => Ref.update(logs, (all) => [...all, alarm])
+        );
+
+      yield* Deferred.await(delivered).pipe(
+        Effect.andThen(TestClock.adjust(1)),
+        Effect.provide(layer())
+      );
+      yield* TestClock.adjust(1).pipe(Effect.provide(layer()));
+
+      const expected = [
+        {
+          day: 0,
+          limit: 100,
+          metric: "daily",
+          peonId: browser.peonId,
+          used: 80,
+        },
+      ];
+
+      expect(yield* Ref.get(logs)).toEqual(expected);
+      expect(yield* Ref.get(sends)).toEqual(expected);
     }).pipe(Effect.provide(NodeServices.layer))
 );
 

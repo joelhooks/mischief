@@ -3,27 +3,37 @@ import { isIPv4 } from "node:net";
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import { Config, Effect, Option, Redacted, Schema, Stream } from "effect";
 import { HttpClientRequest, HttpServerResponse } from "effect/http";
-import type { HttpClient } from "effect/http";
+import type { HttpClient, HttpClientError } from "effect/http";
 
 import { ipv4Peer } from "./box/live-owner.js";
 import {
   ADMIT_PATH,
   RECORD_PATH,
   SpendPermit,
+  SpendProgress,
   spendMessage,
+  spendReading,
 } from "./box/spend-protocol.js";
 import { errorResponse } from "./http.js";
-import { estimatedTokens, usageFrames } from "./model-usage.js";
+import { estimatedTokens, isEventStream, usageFrames } from "./model-usage.js";
 import { refusal } from "./protocol.js";
+import { collectBytes } from "./runner.js";
 
 export interface ModelMeter {
-  readonly record: (tokens: number) => Effect.Effect<void, BridgeFailure>;
+  readonly record: (
+    tokens: number,
+    settled: boolean
+  ) => Effect.Effect<void, BridgeFailure>;
 }
 
 export type ModelSpend = (
   peer: string,
-  requestBytes: number
-) => Effect.Effect<ModelMeter | undefined, BridgeFailure>;
+  requestBytes: number,
+  outputTokens?: number
+) => Effect.Effect<
+  (ModelMeter & { readonly outputTokens: number }) | undefined,
+  BridgeFailure
+>;
 
 export const managerKey = Effect.gen(function* modelSpendManagerKey() {
   const key = yield* Config.Redacted("MISCHIEF_BOX_KEY");
@@ -37,11 +47,50 @@ export const managerKey = Effect.gen(function* modelSpendManagerKey() {
   return key;
 });
 
-export const admitModel = (
+const OutputLimit = Schema.Int.check(
+  Schema.isBetween({ minimum: 1, maximum: 1_000_000_000 })
+);
+
+export const ModelBodySchema = Schema.Record(Schema.String, Schema.Unknown);
+
+type ModelBody = typeof ModelBodySchema.Type;
+
+type OutputKey = "max_tokens" | "max_output_tokens";
+
+export const admitModel = Effect.fnUntraced(function* admitRequest(
   spend: ModelSpend | undefined,
   peer: string | undefined,
-  bytes: number
-) => spend?.(peer ?? "", bytes) ?? Effect.undefined;
+  bytes: number,
+  body: ModelBody,
+  outputKey: OutputKey
+) {
+  if (spend === undefined) {
+    return yield* Effect.undefined;
+  }
+
+  const requested = body[outputKey];
+
+  if (requested !== undefined && !Schema.is(OutputLimit)(requested)) {
+    return yield* refusal(
+      "Model output ceiling must be a positive integer. Correct max_tokens or max_output_tokens and retry."
+    );
+  }
+
+  return yield* spend(peer ?? "", bytes, requested);
+});
+
+export const outputKeyFor = (messages: boolean) =>
+  messages ? "max_tokens" : "max_output_tokens";
+
+export const modelWire = (
+  wire: string,
+  body: ModelBody,
+  outputKey: OutputKey,
+  meter: { readonly outputTokens: number } | undefined
+) =>
+  meter !== undefined && body[outputKey] === undefined
+    ? JSON.stringify({ ...body, [outputKey]: meter.outputTokens })
+    : wire;
 
 export const measuredRequest = (
   request: HttpClientRequest.HttpClientRequest,
@@ -97,7 +146,12 @@ export const modelSpend = (
   manager: Redacted.Redacted | undefined,
   restricted: boolean
 ): ModelSpend => {
-  const post = (path: string, body: Schema.Json, key: Redacted.Redacted) =>
+  const post = <A>(
+    path: string,
+    body: Schema.Json,
+    key: Redacted.Redacted,
+    schema: Schema.Decoder<A>
+  ) =>
     client
       .execute(
         HttpClientRequest.post(`http://127.0.0.1:28014${path}`).pipe(
@@ -107,6 +161,23 @@ export const modelSpend = (
       )
       .pipe(
         Effect.mapError(managerUnavailable),
+        Effect.flatMap((response) =>
+          response.status === 200
+            ? response.json.pipe(
+                Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+                Effect.mapError(managerUnavailable)
+              )
+            : response.text.pipe(
+                Effect.ignore,
+                Effect.andThen(
+                  Effect.fail(
+                    response.status === 403
+                      ? unidentified()
+                      : managerUnavailable()
+                  )
+                )
+              )
+        ),
         Effect.timeoutOrElse({
           duration: "5 seconds",
           orElse: () => Effect.fail(managerUnavailable()),
@@ -115,7 +186,8 @@ export const modelSpend = (
 
   return Effect.fn("ModelSpend.admit")(function* admit(
     peer: string,
-    requestBytes: number
+    requestBytes: number,
+    outputTokens?: number
   ) {
     if (restricted && workspacePeer(peer)) {
       return yield* Effect.undefined;
@@ -125,26 +197,13 @@ export const modelSpend = (
       return yield* unidentified();
     }
 
-    const response = yield* post(
+    const input = { peer, tokens: estimatedTokens(requestBytes) };
+
+    const permit = yield* post(
       ADMIT_PATH,
-      { peer, tokens: estimatedTokens(requestBytes) },
-      manager
-    );
-
-    if (response.status !== 200) {
-      return yield* response.text.pipe(
-        Effect.ignore,
-        Effect.andThen(
-          Effect.fail(
-            response.status === 403 ? unidentified() : managerUnavailable()
-          )
-        )
-      );
-    }
-
-    const permit = yield* response.json.pipe(
-      Effect.flatMap(Schema.decodeUnknownEffect(SpendPermit)),
-      Effect.mapError(managerUnavailable)
+      outputTokens === undefined ? input : { ...input, outputTokens },
+      manager,
+      SpendPermit
     );
 
     if (permit.status === "denied") {
@@ -156,64 +215,158 @@ export const modelSpend = (
     }
 
     return {
-      record: (tokens: number) =>
-        post(RECORD_PATH, { receipt: permit.receipt, tokens }, manager).pipe(
-          Effect.flatMap((result) =>
-            result.status === 204
+      outputTokens: permit.outputTokens,
+      record: (tokens: number, settled: boolean) =>
+        post(
+          RECORD_PATH,
+          spendReading(permit.receipt, tokens, settled),
+          manager,
+          SpendProgress
+        ).pipe(
+          Effect.flatMap(({ allowed }) =>
+            allowed
               ? Effect.void
-              : result.text.pipe(
-                  Effect.ignore,
-                  Effect.andThen(Effect.fail(managerUnavailable()))
-                )
+              : Effect.fail(refusal(spendMessage("daily"), 429))
           )
         ),
     };
   });
 };
 
+const isSpendCap = <E>(failure: E): failure is E & BridgeFailure =>
+  Schema.is(BridgeFailure)(failure) &&
+  failure.status === 429 &&
+  failure.message.startsWith("SpendCap:");
+
+export const preserveSpendCap =
+  (fallback: BridgeFailure) =>
+  (cause: BridgeFailure | HttpClientError.HttpClientError) =>
+    isSpendCap(cause) ? cause : fallback;
+
+const cappedFrame = (failure: BridgeFailure, messages: boolean) => {
+  const error = {
+    code: "SpendCap",
+    type: "rate_limit_error",
+    message: failure.message,
+  };
+
+  const frame = messages
+    ? { type: "error", error }
+    : { ...error, type: "error", param: null };
+
+  return new TextEncoder().encode(
+    `event: error\ndata: ${JSON.stringify(frame)}\n\n`
+  );
+};
+
+const frameEnd = (bytes: Uint8Array) => {
+  const wire = Buffer.from(
+    bytes.buffer,
+    bytes.byteOffset,
+    bytes.byteLength
+  ).toString("latin1");
+
+  let end = 0;
+
+  for (const match of wire.matchAll(/\r?\n\r?\n/gu)) {
+    end = match.index + match[0].length;
+  }
+
+  return end;
+};
+
 export const meterResponse = <E>(
   meter: ModelMeter | undefined,
   requestBytes: number,
   contentType: string,
-  stream: Stream.Stream<Uint8Array, E>
+  stream: Stream.Stream<Uint8Array, E>,
+  messages = false
 ) =>
   meter === undefined
     ? stream
     : Stream.suspend(() => {
         const usage = usageFrames(contentType);
+        const sse = isEventStream(contentType);
         let bytes = 0;
         let charged = estimatedTokens(requestBytes);
+        let pending = Buffer.alloc(0);
+        let settled = false;
 
-        const record = Effect.fnUntraced(function* record() {
-          const tokens = usage.tokens(requestBytes, bytes);
-
-          if (tokens > charged) {
-            yield* meter.record(tokens);
-            charged = tokens;
+        const settle = Effect.gen(function* settleUsage() {
+          if (!settled) {
+            yield* meter.record(usage.tokens(requestBytes, bytes, true), true);
+            settled = true;
           }
         });
 
+        const observe = Effect.fnUntraced(function* observe(chunk: Uint8Array) {
+          usage.push(chunk);
+          bytes += chunk.byteLength;
+
+          if (usage.complete()) {
+            yield* settle;
+          } else {
+            const tokens = usage.tokens(requestBytes, bytes, false);
+
+            if (tokens > charged) {
+              yield* meter.record(tokens, false);
+              charged = tokens;
+            }
+          }
+
+          if (!sse) {
+            return chunk;
+          }
+
+          const joined = Buffer.concat([pending, chunk]);
+          const end = frameEnd(joined);
+          pending = joined.subarray(end);
+
+          if (pending.byteLength > 4 * 1024 * 1024) {
+            return yield* refusal(
+              "Provider event exceeded 4 MiB without a frame boundary. Inspect the provider and retry promptPeon.",
+              502
+            );
+          }
+
+          return joined.subarray(0, end);
+        });
+
+        const finish = Effect.gen(function* settleModelSpend() {
+          usage.end();
+
+          if (!sse || usage.complete()) {
+            yield* settle;
+          }
+
+          return pending;
+        });
+
+        const frameOrFail = (cause: E | BridgeFailure) =>
+          sse && isSpendCap(cause)
+            ? Stream.make(cappedFrame(cause, messages))
+            : Stream.fail(cause);
+
         return stream.pipe(
-          Stream.tap((chunk) =>
-            Effect.suspend(() => {
-              usage.push(chunk);
-              bytes += chunk.byteLength;
-
-              return record();
-            })
-          ),
-          Stream.onEnd(
-            Effect.suspend(() => {
-              usage.end();
-
-              return record();
-            })
-          )
+          Stream.mapEffect(observe),
+          Stream.concat(Stream.fromEffect(finish)),
+          Stream.catch(frameOrFail)
         );
       });
 
+export const prepareMeteredResponse = <E>(
+  meter: ModelMeter | undefined,
+  contentType: string,
+  stream: Stream.Stream<Uint8Array, E>
+) =>
+  meter === undefined || isEventStream(contentType)
+    ? Effect.succeed(stream)
+    : collectBytes(stream, 8 * 1024 * 1024).pipe(
+        Effect.map((bytes) => Stream.make(bytes))
+      );
+
 export const proxyFailureResponse = (failure: BridgeFailure) =>
-  failure.status === 429 && failure.message.startsWith("SpendCap:")
+  isSpendCap(failure)
     ? HttpServerResponse.jsonUnsafe(
         {
           type: "error",

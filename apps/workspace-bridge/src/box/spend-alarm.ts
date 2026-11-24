@@ -1,7 +1,11 @@
 import { Console, Effect } from "effect";
 
+import { refusal } from "../protocol.js";
 import { checked, Runner } from "../runner.js";
 import type { SpendAlarm } from "./spend-ledger.js";
+
+export const logSpend = (alarm: SpendAlarm) =>
+  Console.error(JSON.stringify({ event: "peon_spend_alarm", ...alarm }));
 
 export const notifySpend = (
   runner: Runner["Service"],
@@ -9,9 +13,6 @@ export const notifySpend = (
   executable: string
 ) =>
   Effect.fnUntraced(function* deliverAlarm(alarm: SpendAlarm) {
-    const payload = JSON.stringify({ event: "peon_spend_alarm", ...alarm });
-    yield* Console.error(payload);
-
     const window =
       alarm.metric === "rate" ? "rolling-minute requests" : "daily tokens";
 
@@ -32,7 +33,13 @@ export const notifySpend = (
     }).pipe(
       Effect.provideService(Runner, runner),
       Effect.timeout("15 seconds"),
-      Effect.catch(() =>
+      Effect.mapError(() =>
+        refusal(
+          "Rat King did not confirm the spend alert. Inspect the manager's sender and mailbox connection; the outbox will retry.",
+          503
+        )
+      ),
+      Effect.tapError(() =>
         Console.error(
           JSON.stringify({
             event: "peon_spend_mail_failed",
@@ -41,8 +48,6 @@ export const notifySpend = (
             day: alarm.day,
           })
         )
-      ),
-      Effect.interruptible,
-      Effect.forkDetach
+      )
     );
   });

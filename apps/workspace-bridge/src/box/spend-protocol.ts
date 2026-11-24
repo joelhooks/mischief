@@ -21,7 +21,11 @@ const BoxOwnerSchema = Schema.Struct({
 
 export type BoxOwner = typeof BoxOwnerSchema.Type;
 
-const Limits = Schema.Struct({ dailyTokens: Positive, ratePerMin: Positive });
+const Limits = Schema.Struct({
+  dailyTokens: Positive,
+  defaultOutputTokens: Schema.optionalKey(Positive),
+  ratePerMin: Positive,
+});
 
 export const SpendLimits = Schema.Struct({
   browser: Limits.pipe(
@@ -39,11 +43,16 @@ const Receipt = Schema.String.check(Schema.isUUID());
 export const SpendAdmission = Schema.Struct({
   peer: Schema.String,
   tokens: Counter,
+  outputTokens: Schema.optionalKey(Positive),
 });
 
 export const SpendPermit = Schema.Union([
   Schema.Struct({ status: Schema.Literal("uncapped") }),
-  Schema.Struct({ status: Schema.Literal("metered"), receipt: Receipt }),
+  Schema.Struct({
+    status: Schema.Literal("metered"),
+    receipt: Receipt,
+    outputTokens: Positive,
+  }),
   Schema.Struct({
     status: Schema.Literal("denied"),
     reason: Schema.Literals(["rate", "daily"]),
@@ -55,7 +64,20 @@ export type SpendAdmissionResult = typeof SpendPermit.Type;
 export const SpendReading = Schema.Struct({
   receipt: Receipt,
   tokens: Counter,
+  settled: Schema.optionalKey(Schema.Literal(true)),
 });
+
+export const SpendProgress = Schema.Struct({ allowed: Schema.Boolean });
+
+export const spendReading = (
+  receipt: string,
+  tokens: number,
+  settled: boolean
+): typeof SpendReading.Type => {
+  const reading = { receipt, tokens };
+
+  return settled ? { ...reading, settled: true } : reading;
+};
 
 export const spendMessage = (reason: "rate" | "daily") =>
   reason === "rate"

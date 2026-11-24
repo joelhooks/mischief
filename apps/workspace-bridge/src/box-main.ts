@@ -20,7 +20,7 @@ import {
 import { boxRoutes } from "./box/http.js";
 import { Boxes } from "./box/manager.js";
 import { boxRunnerLayer } from "./box/runner.js";
-import { notifySpend } from "./box/spend-alarm.js";
+import { logSpend, notifySpend } from "./box/spend-alarm.js";
 import { spendRoutes } from "./box/spend-http.js";
 import { SpendLedger } from "./box/spend-ledger.js";
 import { SpendLimits } from "./box/spend-protocol.js";
@@ -123,7 +123,8 @@ const program = Effect.gen(function* serveBoxes() {
       return SpendLedger.layer(
         path.join(config.metadata, "model-spend.sqlite"),
         limits,
-        notifySpend(host, sender, ratking)
+        notifySpend(host, sender, ratking),
+        logSpend
       );
     })
   ).pipe(Layer.provide(boxes), Layer.provide(runner));

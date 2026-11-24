@@ -1,0 +1,208 @@
+[
+  {
+    "version": "0.86.1",
+    "route": "/v1/responses",
+    "body": {
+      "model": "gpt-6.1-sol",
+      "input": [
+        {
+          "role": "developer",
+          "content": "Review the requested file."
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Read the fixture."
+            }
+          ]
+        }
+      ],
+      "stream": true,
+      "prompt_cache_key": "fixture-session",
+      "store": false,
+      "max_output_tokens": 128000,
+      "tools": [
+        {
+          "type": "function",
+          "name": "read",
+          "description": "Read a file",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": ["path"]
+          }
+        }
+      ],
+      "reasoning": {
+        "effort": "medium",
+        "summary": "auto"
+      },
+      "include": ["reasoning.encrypted_content"]
+    }
+  },
+  {
+    "version": "0.86.1",
+    "route": "/v1/messages",
+    "body": {
+      "model": "claude-opus-5-5",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Read the fixture.",
+              "cache_control": {
+                "type": "ephemeral"
+              }
+            }
+          ]
+        }
+      ],
+      "max_tokens": 128000,
+      "stream": true,
+      "system": [
+        {
+          "type": "text",
+          "text": "Review the requested file.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ],
+      "tools": [
+        {
+          "name": "read",
+          "description": "Read a file",
+          "eager_input_streaming": true,
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": ["path"]
+          },
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ],
+      "thinking": {
+        "type": "enabled",
+        "budget_tokens": 8192,
+        "display": "summarized"
+      }
+    }
+  },
+  {
+    "version": "1.3.1-main.73f8de8",
+    "route": "/v1/responses",
+    "body": {
+      "model": "gpt-6.1-sol",
+      "input": [
+        {
+          "role": "developer",
+          "content": "Review the requested file."
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Read the fixture."
+            }
+          ]
+        }
+      ],
+      "stream": true,
+      "prompt_cache_key": "fixture-session",
+      "store": false,
+      "max_output_tokens": 128000,
+      "tools": [
+        {
+          "type": "function",
+          "name": "read",
+          "description": "Read a file",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": ["path"]
+          }
+        }
+      ],
+      "reasoning": {
+        "effort": "medium",
+        "summary": "auto"
+      },
+      "include": ["reasoning.encrypted_content"]
+    }
+  },
+  {
+    "version": "1.3.1-main.73f8de8",
+    "route": "/v1/messages",
+    "body": {
+      "model": "claude-opus-5-5",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Read the fixture.",
+              "cache_control": {
+                "type": "ephemeral"
+              }
+            }
+          ]
+        }
+      ],
+      "max_tokens": 128000,
+      "stream": true,
+      "system": [
+        {
+          "type": "text",
+          "text": "Review the requested file.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ],
+      "tools": [
+        {
+          "name": "read",
+          "description": "Read a file",
+          "eager_input_streaming": true,
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": ["path"]
+          },
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ],
+      "thinking": {
+        "type": "enabled",
+        "budget_tokens": 8192,
+        "display": "summarized"
+      }
+    }
+  }
+]

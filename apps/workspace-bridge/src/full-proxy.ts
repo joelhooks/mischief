@@ -23,6 +23,8 @@ import {
   HttpServerResponse,
 } from "effect/http";
 
+import { BROWSER_BOX_NETWORK, boxNetworkForPeer } from "./box/live-owner.js";
+import { BrowserToolRefused, browserToolRefusal } from "./browser-tools.js";
 import { readBody } from "./http.js";
 import {
   admitModel,
@@ -62,6 +64,8 @@ const Output = Schema.Struct({
   status: Schema.Int,
 });
 
+const FullProxyFailure = Schema.Union([BridgeFailure, BrowserToolRefused]);
+
 export interface FullProxyConfig {
   readonly key: Redacted.Redacted;
   readonly models: readonly string[];
@@ -74,7 +78,11 @@ export class FullProxy extends Context.Service<
   {
     readonly forward: (
       input: typeof Input.Type
-    ) => Effect.Effect<typeof Output.Type, BridgeFailure, Scope.Scope>;
+    ) => Effect.Effect<
+      typeof Output.Type,
+      typeof FullProxyFailure.Type,
+      Scope.Scope
+    >;
   }
 >()("@mischief/workspace-bridge/FullProxy") {
   static readonly layer = (config: FullProxyConfig) =>
@@ -120,6 +128,16 @@ export class FullProxy extends Context.Service<
               `Model is not in MISCHIEF_PEON_FULL_MODELS; unapproved pool use would charge the wrong account. Select one of ${config.models.join(", ")} and retry.`,
               403
             );
+          }
+
+          const messages = input.target.startsWith("/v1/messages");
+
+          if (boxNetworkForPeer(input.peer ?? "") === BROWSER_BOX_NETWORK) {
+            const rejected = browserToolRefusal(input.body, messages);
+
+            if (rejected !== null) {
+              return yield* rejected;
+            }
           }
 
           yield* Effect.acquireRelease(
@@ -168,9 +186,7 @@ export class FullProxy extends Context.Service<
           const requestId = yield* random.uuidV4();
           const began = yield* Clock.currentTimeMillis;
 
-          const route = input.target.startsWith("/v1/messages")
-            ? "/v1/messages"
-            : "/v1/responses";
+          const route = messages ? "/v1/messages" : "/v1/responses";
 
           const reportFailure = Effect.fnUntraced(function* reportFailure(
             failure:
@@ -322,7 +338,7 @@ const forwardFullModel = implement(
     annotations: { idempotent: false, readOnly: true },
     description:
       "Forward full peon model requests with host-only provider credentials",
-    failure: BridgeFailure,
+    failure: FullProxyFailure,
     input: Input,
     output: Output,
   }),
@@ -364,9 +380,24 @@ const route = Effect.gen(function* fullProxyRoute() {
     status: result.status,
   });
 }).pipe(
-  Effect.catchTag("BridgeFailure", (failure) =>
-    Effect.succeed(proxyFailureResponse(failure))
-  )
+  Effect.catchTags({
+    BridgeFailure: (failure) => Effect.succeed(proxyFailureResponse(failure)),
+    BrowserToolRefused: ({ _tag: code, field, message, received, status }) =>
+      Effect.succeed(
+        HttpServerResponse.jsonUnsafe(
+          {
+            error: {
+              code,
+              field,
+              message,
+              received,
+              type: "workspace_bridge_error",
+            },
+          },
+          { status }
+        )
+      ),
+  })
 );
 
 export const fullProxyRoutes = Layer.mergeAll(

@@ -38,6 +38,7 @@ import {
 import { BoxBuildRefused } from "../src/box/box-build-refused.js";
 import { BoxCapacity } from "../src/box/box-capacity.js";
 import { BoxImageMissing } from "../src/box/box-image-missing.js";
+import { BoxNetworkStale } from "../src/box/box-network-stale.js";
 import { BoxNetworkUnavailable } from "../src/box/box-network-unavailable.js";
 import { nextState } from "../src/box/machine.js";
 import { Boxes } from "../src/box/manager.js";
@@ -185,6 +186,12 @@ start) printf running > '${root}/fake/'"$1";;
 stop) if [ ! -f '${root}/stop-stuck' ]; then printf stopped > '${root}/fake/'"$1"; fi;;
 rm) for name in "$@"; do case "$name" in mischief-peon-box-*) unlink '${root}/fake/'"$name";; esac; done;;
 inspect)
+  if [ "$2" = '{{with index .NetworkSettings.Networks "mischief-peon-browser"}}attached{{end}}' ]; then
+    if grep -A1 -x -- '--network' '${root}/fake/'"$3"'.args' | grep -qx mischief-peon-browser; then
+      printf attached
+    fi
+    exit 0
+  fi
   if [ "$2" != '{{json .State}}' ]; then
     grep '^type=bind,source=.*target=/opt/burrow,readonly,bind-recursive=disabled$' '${root}/fake/'"$3"'.args' |
       cut -d, -f2 | cut -d= -f2-
@@ -673,6 +680,42 @@ it.effect(
         expect((yield* Effect.flip(resume)).message).toContain(
           "points at another Burrow directory"
         );
+        yield* fs.writeFileString(
+          savedArgs,
+          originalArgs.replace("mischief-peon-browser", "mischief-peon-boxes")
+        );
+        yield* fs.writeFileString(
+          `${fixture.root}/network-inventory`,
+          JSON.stringify({
+            stale: {
+              IPv4Address: "172.30.212.19/24",
+              Name: "mischief-peon-box-browser",
+            },
+          })
+        );
+        expect(
+          (yield* Effect.flip(boxes.ownerAt("172.30.212.19"))).status
+        ).toBe(403);
+
+        const commandLog = `${fixture.root}/commands`;
+        const beforeResume = yield* fs.readFileString(commandLog);
+        const stale = yield* Effect.flip(resume);
+
+        const attempted = (yield* fs.readFileString(commandLog)).slice(
+          beforeResume.length
+        );
+
+        expect(attempted.split("\n")).not.toContain(
+          "start mischief-peon-box-browser"
+        );
+        expect(stale).toBeInstanceOf(BoxNetworkStale);
+        expect(stale).toMatchObject({ status: 409 });
+        expect(
+          yield* fs.readFileString(
+            `${fixture.root}/fake/mischief-peon-box-browser`
+          )
+        ).toBe("stopped");
+
         yield* fs.writeFileString(savedArgs, originalArgs);
         expect((yield* resume).state).toBe("idle");
       }).pipe(
@@ -3562,15 +3605,15 @@ it.effect(
           JSON.stringify({
             endpoint: {
               Name: "mischief-peon-box-spend-test",
-              IPv4Address: "172.30.211.7/24",
+              IPv4Address: "172.30.212.7/24",
             },
           })
         );
-        expect(yield* boxes.ownerAt("172.30.211.7")).toEqual({
+        expect(yield* boxes.ownerAt("172.30.212.7")).toEqual({
           peonId: "spend-test",
           imageKey: "full",
         });
-        expect((yield* Effect.flip(boxes.ownerAt("172.30.211.8"))).status).toBe(
+        expect((yield* Effect.flip(boxes.ownerAt("172.30.212.8"))).status).toBe(
           403
         );
 
@@ -3681,7 +3724,12 @@ it.live(
           peonId: "old-owner",
         });
 
-        for (const peer of ["172.30.213.1", "172.30.211.1", "192.0.2.12"]) {
+        for (const peer of [
+          "172.30.213.1",
+          "172.30.212.1",
+          "172.30.211.12",
+          "192.0.2.12",
+        ]) {
           expect((yield* Effect.flip(boxes.ownerAt(peer))).status).toBe(403);
         }
 

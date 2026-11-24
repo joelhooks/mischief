@@ -255,7 +255,7 @@ for (const surface of ["full", "restricted"] as const) {
 }
 
 it.effect(
-  "browser peers use managed admission, not the workspace exemption",
+  "full and browser peers use managed admission, not the legacy workspace exemption",
   () =>
     Effect.gen(function* browserSpend() {
       const unexpected = HttpClient.make(() =>
@@ -267,6 +267,8 @@ it.effect(
       expect(yield* withoutManager("::ffff:172.30.211.7", 32)).toBeUndefined();
 
       for (const peer of [
+        "172.30.212.7",
+        "172.30.212.1",
         "172.30.213.7",
         "172.30.213.1",
         "172.30.211.1",
@@ -290,9 +292,10 @@ it.effect(
 
       for (const restricted of [true, false]) {
         const admit = modelSpend(manager, Redacted.make("fixture"), restricted);
-        expect(yield* admit("::ffff:172.30.213.7", 32)).toMatchObject({
-          outputTokens: 80,
-        });
+
+        for (const peer of ["::ffff:172.30.212.7", "::ffff:172.30.213.7"]) {
+          expect(yield* admit(peer, 32)).toMatchObject({ outputTokens: 80 });
+        }
       }
     })
 );

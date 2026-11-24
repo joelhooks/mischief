@@ -7,6 +7,8 @@ import { PeonId } from "./protocol.js";
 
 export const BOX_NETWORK = "mischief-peon-boxes";
 
+export const BOX_GATEWAY = "172.30.212.1";
+
 export const BROWSER_BOX_NETWORK = "mischief-peon-browser";
 
 export const BROWSER_BOX_GATEWAY = "172.30.213.1";
@@ -38,11 +40,14 @@ export const boxNetworkForPeer = (peer: string): BoxNetwork | undefined => {
     return undefined;
   }
 
-  if (address.startsWith("172.30.211.") && address !== "172.30.211.1") {
+  if (address.startsWith(BOX_GATEWAY.slice(0, -1)) && address !== BOX_GATEWAY) {
     return BOX_NETWORK;
   }
 
-  if (address.startsWith("172.30.213.") && address !== BROWSER_BOX_GATEWAY) {
+  if (
+    address.startsWith(BROWSER_BOX_GATEWAY.slice(0, -1)) &&
+    address !== BROWSER_BOX_GATEWAY
+  ) {
     return BROWSER_BOX_NETWORK;
   }
 

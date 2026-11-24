@@ -37,6 +37,7 @@ import { BoxCapacity } from "./box-capacity.js";
 import { checkBoxCreateDns } from "./box-dns-refused.js";
 import type { BoxDnsRefused } from "./box-dns-refused.js";
 import { BoxImageMissing } from "./box-image-missing.js";
+import { BoxNetworkStale } from "./box-network-stale.js";
 import { BoxNetworkUnavailable } from "./box-network-unavailable.js";
 import { rewriteBrowserProviders } from "./browser-provider.js";
 import { browserArgs } from "./browser.js";
@@ -50,6 +51,7 @@ import type { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
 import {
+  BOX_GATEWAY,
   BOX_NETWORK,
   BROWSER_BOX_GATEWAY,
   BROWSER_BOX_NETWORK,
@@ -93,6 +95,7 @@ type RetryableBoxRefusal =
   | BoxCapacity
   | BoxDnsRefused
   | BoxImageMissing
+  | BoxNetworkStale
   | BoxNetworkUnavailable;
 
 const Receipt = Schema.Struct({
@@ -121,7 +124,7 @@ const networkFor = (template: BoxMetadata["template"]) =>
 const modelBaseUrl = (network: BoxNetwork) =>
   network === BROWSER_BOX_NETWORK
     ? `http://${BROWSER_BOX_GATEWAY}:28013`
-    : "http://172.30.212.1:28013";
+    : `http://${BOX_GATEWAY}:28013`;
 
 const unmanagedPeer = () =>
   refusal(
@@ -568,6 +571,16 @@ export class Boxes extends Context.Service<
             }
 
             const box = yield* load(endpoint.peonId);
+
+            if (
+              box.template.imageKey === "browser" &&
+              network !== BROWSER_BOX_NETWORK
+            ) {
+              return yield* refusal(
+                "Model requests from browser boxes on the shared network are refused. Recreate the browser box on its dedicated network before retrying.",
+                403
+              );
+            }
 
             const owner = {
               peonId: box.peonId,
@@ -1088,6 +1101,23 @@ export class Boxes extends Context.Service<
 
           const sleeping =
             box.state === "hibernated" ? "hibernated" : "suspended";
+
+          if (sleeping === "suspended" && box.template.imageKey === "browser") {
+            const attachment = yield* docker([
+              "inspect",
+              "--format",
+              `{{with index .NetworkSettings.Networks "${BROWSER_BOX_NETWORK}"}}attached{{end}}`,
+              containerOf(box.peonId),
+            ]);
+
+            if (attachment.trim() !== "attached") {
+              return yield* new BoxNetworkStale({
+                message:
+                  "This stopped browser box is not attached to the browser network. Recreate or destroy this browser box instead of resuming it.",
+                status: 409,
+              });
+            }
+          }
 
           const launch = yield* launchArgs(box.template, sleeping);
 
@@ -1811,6 +1841,7 @@ export class Boxes extends Context.Service<
                 Predicate.isTagged(error, "BoxBuildRefused") ||
                 Predicate.isTagged(error, "BoxDnsRefused") ||
                 Predicate.isTagged(error, "BoxImageMissing") ||
+                Predicate.isTagged(error, "BoxNetworkStale") ||
                 Predicate.isTagged(error, "BoxNetworkUnavailable")
                   ? fs.remove(file).pipe(Effect.andThen(Effect.fail(error)))
                   : writeJson(file, { error, requestId }).pipe(

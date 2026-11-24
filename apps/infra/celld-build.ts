@@ -1,12 +1,12 @@
 import { prepareDeployment } from "@rat-king/alchemy-nest";
 import type { Declaration } from "@rat-king/alchemy-nest";
-import { Effect, Path } from "effect";
+import { Effect, Path, Schema } from "effect";
 
 import { peonVars } from "./peon-config.ts";
 
 export const INSTANCE = "mischief";
 
-export const declaration: typeof Declaration.Type = {
+const declaration: typeof Declaration.Type = {
   compatibility_date: "2026-09-01",
   compatibility_flags: [],
   durable_objects: {
@@ -43,6 +43,7 @@ export interface BuildInput {
   readonly opusBridgeUrl?: string | undefined;
   readonly thinker: Thinker;
   readonly version: string;
+  readonly watchHttpHosts?: string | undefined;
   readonly workspace?:
     | {
         readonly mode: "off" | "on";
@@ -61,6 +62,20 @@ const thinkerVars = (thinker: Thinker): Record<string, string> =>
     ? { MISCHIEF_CLIPROXY_URL: thinker.url, MISCHIEF_MODEL: "cliproxy" }
     : { MISCHIEF_MODEL: "faux" };
 
+const browserLaunchHostname =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
+
+const WatchHttpHosts = Schema.String.check(
+  Schema.makeFilter(
+    (hosts) =>
+      hosts.split(",").every((host) => browserLaunchHostname.test(host)),
+    {
+      message:
+        "Set MISCHIEF_WATCH_HTTP_HOSTS to a comma-separated list of exact lowercase hostnames (e.g. api.example.invalid,status.example.invalid). Each hostname needs at least two labels and a last label starting with a letter. Do not use IP literals, spaces, wildcards, schemes, ports or paths. Unset the variable to disable HTTP watches. Then retry the plan.",
+    }
+  )
+);
+
 export const buildWorker = ({
   callers,
   mailReach = "{}",
@@ -74,9 +89,15 @@ export const buildWorker = ({
   opusBridgeUrl,
   thinker,
   version,
+  watchHttpHosts,
   workspace,
 }: BuildInput) =>
   Effect.gen(function* buildMischiefWorker() {
+    const hosts =
+      watchHttpHosts === undefined
+        ? undefined
+        : yield* Schema.decodeEffect(WatchHttpHosts)(watchHttpHosts);
+
     const path = yield* Path.Path;
 
     const peons = yield* peonVars;
@@ -107,28 +128,16 @@ export const buildWorker = ({
             MISCHIEF_WORKSPACE_REPOS: workspace.repos,
           };
 
-    const deskWakeDeclaration: typeof Declaration.Type =
-      deskWakeSender === undefined
-        ? declaration
-        : {
-            ...declaration,
-            durable_objects: {
-              bindings: [
-                ...declaration.durable_objects.bindings,
-                { class_name: "DeskWaker", name: "DESK_WAKER" },
-              ],
-            },
-            migrations: [
-              ...declaration.migrations,
-              { new_sqlite_classes: ["DeskWaker"], tag: "v6-desk-waker" },
-            ],
-          };
-
     const workerVars: typeof workspaceVars & {
       MISCHIEF_OPUS_BRIDGE_URL?: string;
       MISCHIEF_DESK_WAKE?: string;
       MISCHIEF_DESK_WAKE_SENDER?: string;
+      MISCHIEF_WATCH_HTTP_HOSTS?: string;
     } = { ...workspaceVars };
+
+    if (hosts !== undefined) {
+      workerVars.MISCHIEF_WATCH_HTTP_HOSTS = hosts;
+    }
 
     if (opusBridgeUrl !== undefined && opusBridgeUrl.trim() !== "") {
       workerVars.MISCHIEF_OPUS_BRIDGE_URL = opusBridgeUrl;
@@ -141,7 +150,25 @@ export const buildWorker = ({
 
     return yield* prepareDeployment(
       entry ?? path.resolve(import.meta.dirname, "../worker/src/worker.ts"),
-      deskWakeDeclaration,
+      {
+        ...declaration,
+        durable_objects: {
+          bindings: [
+            ...declaration.durable_objects.bindings,
+            ...(deskWakeSender === undefined
+              ? []
+              : [{ class_name: "DeskWaker", name: "DESK_WAKER" }]),
+            { class_name: "WatchObject", name: "WATCH" },
+          ],
+        },
+        migrations: [
+          ...declaration.migrations,
+          ...(deskWakeSender === undefined
+            ? []
+            : [{ new_sqlite_classes: ["DeskWaker"], tag: "v6-desk-waker" }]),
+          { new_sqlite_classes: ["WatchObject"], tag: "v7-watch" },
+        ],
+      },
       { commit, vars: workerVars, version }
     );
   });

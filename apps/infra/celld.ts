@@ -149,6 +149,10 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         );
       }
 
+      const watchHttpHosts = yield* Config.String(
+        "MISCHIEF_WATCH_HTTP_HOSTS"
+      ).pipe(Config.withDefault(""));
+
       const prepared = yield* buildWorker({
         callers,
         commit,
@@ -161,6 +165,7 @@ export const celldStack = (hostServices: Layer.Layer<HostShell>) =>
         peonGrants,
         thinker,
         version,
+        watchHttpHosts: watchHttpHosts === "" ? undefined : watchHttpHosts,
         workspace: Option.getOrUndefined(workspace),
       });
 

@@ -3,6 +3,7 @@ import {
   PeonIndexEntry,
   PeonExportReceipt,
   PeonRefused,
+  PeonTemplate,
   peonIdleAlarm,
   peonTransition,
 } from "@mischief/core";
@@ -10,7 +11,6 @@ import type {
   PeonEvent,
   PeonPromptLog,
   PeonReport,
-  PeonTemplate,
   PeonTurn,
 } from "@mischief/core";
 import { Clock, Console, Effect, Schema } from "effect";
@@ -25,14 +25,14 @@ import {
   PeonBoxTurn,
 } from "./peon-state.js";
 import type {
-  PeonCompleted,
   PeonPending,
+  PeonRequestReceipt,
   PeonStoredValue,
 } from "./peon-state.js";
 
-interface Completion {
+interface StoredReceipt {
   readonly requestId: string;
-  readonly value: typeof PeonCompleted.Type;
+  readonly value: typeof PeonRequestReceipt.Type;
   readonly log?: typeof PeonPromptLog.Type | undefined;
 }
 
@@ -41,11 +41,11 @@ export interface PeonPersistence {
   readonly commit: (
     stored: PeonStoredValue,
     alarm: number | null,
-    completed?: Completion
+    receipt?: StoredReceipt
   ) => Effect.Effect<void>;
-  readonly completed: (
+  readonly receipt: (
     requestId: string
-  ) => Effect.Effect<typeof PeonCompleted.Type | undefined>;
+  ) => Effect.Effect<typeof PeonRequestReceipt.Type | undefined>;
 }
 
 export interface PeonHostOptions {
@@ -129,22 +129,30 @@ const logRedrive = (
     })
   );
 
-const replayCompletion = (
-  completed: typeof PeonCompleted.Type,
+const replayReceipt = (
+  receipt: typeof PeonRequestReceipt.Type | undefined,
   inputHash: string,
   requestId: string
 ) => {
-  if (completed.hash !== inputHash) {
+  if (receipt === undefined) {
+    return Effect.succeed(undefined);
+  }
+
+  if (receipt.hash !== inputHash) {
     return Effect.fail(
       failure(
-        `requestId ${requestId} already completed with different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
+        `requestId ${requestId} already recorded different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
       )
     );
   }
 
-  return completed.refusal === undefined
-    ? Effect.succeed(completed.report)
-    : Effect.fail(new PeonRefused(completed.refusal));
+  if ("retryable" in receipt) {
+    return Effect.succeed(undefined);
+  }
+
+  return receipt.refusal === undefined
+    ? Effect.succeed(receipt.report)
+    : Effect.fail(new PeonRefused(receipt.refusal));
 };
 
 const reportWithPending = (
@@ -172,16 +180,27 @@ const reportWithMeasurements = (
   return measuredReport;
 };
 
-const idleAlarm = (stored: PeonStoredValue) =>
-  stored.report.terminalFault === undefined
-    ? peonIdleAlarm(
-        stored.report.state,
-        stored.idleAt,
-        stored.report.resolvedTemplate
-      )
-    : null;
+const idleAlarm = (stored: PeonStoredValue) => {
+  const terminalKind = stored.report.terminalFault?.kind;
+
+  if (
+    terminalKind === "spawn" ||
+    terminalKind === "suspend" ||
+    terminalKind === "hibernate"
+  ) {
+    return null;
+  }
+
+  return peonIdleAlarm(
+    stored.report.state,
+    stored.idleAt,
+    stored.report.resolvedTemplate
+  );
+};
 
 const indexOf = Schema.decodeUnknownSync(PeonIndexEntry);
+
+const sameTemplate = Schema.toEquivalence(PeonTemplate);
 
 const acknowledgedStates = {
   destroy: "destroyed",
@@ -274,7 +293,7 @@ export const peonHost = ({
 
   const commit = Effect.fn("Peon.commit")(function* commit(
     stored: PeonStoredValue,
-    completed?: Completion
+    receipt?: StoredReceipt
   ) {
     const now = yield* Clock.currentTimeMillis;
 
@@ -283,7 +302,7 @@ export const peonHost = ({
         ? idleAlarm(stored)
         : (stored.pending.retryAt ?? now + guardMs);
 
-    yield* storage.commit(stored, at, completed);
+    yield* storage.commit(stored, at, receipt);
   });
 
   const move = Effect.fn("Peon.transition")(function* move(
@@ -627,7 +646,10 @@ export const peonHost = ({
       { ...stored, pending: null, report },
       {
         requestId: pending.requestId,
-        value: { hash: pending.inputHash, refusal, report },
+        value:
+          code === "BoxSpawnRejected"
+            ? { hash: pending.inputHash, refusal, report }
+            : { hash: pending.inputHash, retryable: true },
       }
     );
     yield* publish(indexOf(report));
@@ -793,10 +815,14 @@ export const peonHost = ({
       })
     );
 
-    const completed = yield* storage.completed(requestId);
+    const replayed = yield* replayReceipt(
+      yield* storage.receipt(requestId),
+      inputHash,
+      requestId
+    );
 
-    if (completed !== undefined) {
-      return yield* replayCompletion(completed, inputHash, requestId);
+    if (replayed !== undefined) {
+      return replayed;
     }
 
     let stored = yield* requirePeon;
@@ -920,14 +946,36 @@ export const peonHost = ({
         }
 
         const requestId = `spawn/${entry.peonId}`;
-        const completed = yield* storage.completed(requestId);
+        const receipt = yield* storage.receipt(requestId);
 
-        if (completed?.refusal !== undefined) {
-          return yield* new PeonRefused(completed.refusal);
+        if (
+          receipt !== undefined &&
+          "refusal" in receipt &&
+          receipt.refusal !== undefined
+        ) {
+          return yield* new PeonRefused(receipt.refusal);
         }
 
-        if (existing.report.state === "spawned" && existing.pending === null) {
-          return yield* begin("spawn", requestId, "SPAWN");
+        if (existing.pending === null) {
+          const { state } = existing.report;
+
+          if (state === "spawned") {
+            return yield* begin("spawn", requestId, "SPAWN");
+          }
+
+          if (
+            state === "suspended" &&
+            receipt !== undefined &&
+            "retryable" in receipt
+          ) {
+            if (!sameTemplate(template, existing.report.resolvedTemplate)) {
+              return yield* failure(
+                `Peon ${entry.peonId} already recorded different spawn input. Retry with the original template and overrides, or call spawnPeon with a fresh peonId.`
+              );
+            }
+
+            return yield* begin("spawn", requestId, "RESUME");
+          }
         }
 
         return yield* recover();

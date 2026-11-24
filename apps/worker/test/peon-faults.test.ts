@@ -5,7 +5,7 @@ import { Effect, Schema } from "effect";
 import type { PeonBox } from "../src/peon-box.js";
 import { peonHost } from "../src/peon-host.js";
 import type { PeonHostOptions } from "../src/peon-host.js";
-import type { PeonCompleted, PeonStoredValue } from "../src/peon-state.js";
+import type { PeonRequestReceipt, PeonStoredValue } from "../src/peon-state.js";
 
 it.effect.prop(
   "every failed lifecycle call parks suspended and can resume its intent or be explicitly destroyed",
@@ -17,7 +17,7 @@ it.effect.prop(
     Effect.gen(function* faulted() {
       let stored: PeonStoredValue | undefined;
       let failNext = false;
-      const completed = new Map<string, typeof PeonCompleted.Type>();
+      const completed = new Map<string, typeof PeonRequestReceipt.Type>();
 
       const states = {
         destroy: "destroyed",
@@ -85,7 +85,7 @@ it.effect.prop(
                 completed.set(receipt.requestId, receipt.value);
               }
             }),
-          completed: (id) => Effect.sync(() => completed.get(id)),
+          receipt: (id) => Effect.sync(() => completed.get(id)),
           load: Effect.sync(() => stored),
         },
       };

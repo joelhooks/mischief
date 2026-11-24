@@ -84251,6 +84251,10 @@ var PeonCompleted = Schema93.Struct({
   ),
   report: PeonReport
 });
+var PeonRequestReceipt = Schema93.Union([
+  PeonCompleted,
+  Schema93.Struct({ hash: Schema93.String, retryable: Schema93.Literal(true) })
+]);
 var PeonBoxState = Schema93.Struct({
   processes: PeonReport.fields.processes,
   bytes: PeonReport.fields.bytes,
@@ -85585,15 +85589,21 @@ var logRedrive = (peonId, pending, refusal3) => Console.log(
     requestId: pending.requestId
   })
 );
-var replayCompletion = (completed, inputHash, requestId3) => {
-  if (completed.hash !== inputHash) {
+var replayReceipt = (receipt, inputHash, requestId3) => {
+  if (receipt === void 0) {
+    return Effect67.succeed(void 0);
+  }
+  if (receipt.hash !== inputHash) {
     return Effect67.fail(
       failure4(
-        `requestId ${requestId3} already completed with different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
+        `requestId ${requestId3} already recorded different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
       )
     );
   }
-  return completed.refusal === void 0 ? Effect67.succeed(completed.report) : Effect67.fail(new PeonRefused(completed.refusal));
+  if ("retryable" in receipt) {
+    return Effect67.succeed(void 0);
+  }
+  return receipt.refusal === void 0 ? Effect67.succeed(receipt.report) : Effect67.fail(new PeonRefused(receipt.refusal));
 };
 var reportWithPending = (stored2) => ({
   ...stored2.report,
@@ -85608,12 +85618,19 @@ var reportWithMeasurements = (report2, measured) => {
   }
   return measuredReport;
 };
-var idleAlarm = (stored2) => stored2.report.terminalFault === void 0 ? peonIdleAlarm(
-  stored2.report.state,
-  stored2.idleAt,
-  stored2.report.resolvedTemplate
-) : null;
+var idleAlarm = (stored2) => {
+  const terminalKind = stored2.report.terminalFault?.kind;
+  if (terminalKind === "spawn" || terminalKind === "suspend" || terminalKind === "hibernate") {
+    return null;
+  }
+  return peonIdleAlarm(
+    stored2.report.state,
+    stored2.idleAt,
+    stored2.report.resolvedTemplate
+  );
+};
 var indexOf = Schema103.decodeUnknownSync(PeonIndexEntry);
+var sameTemplate = Schema103.toEquivalence(PeonTemplate);
 var acknowledgedStates = {
   destroy: "destroyed",
   hibernate: "hibernated",
@@ -85682,10 +85699,10 @@ var peonHost = ({
       ) : Effect67.succeed(stored2)
     )
   );
-  const commit = Effect67.fn("Peon.commit")(function* commit2(stored2, completed) {
+  const commit = Effect67.fn("Peon.commit")(function* commit2(stored2, receipt) {
     const now = yield* Clock14.currentTimeMillis;
     const at = stored2.pending === null ? idleAlarm(stored2) : stored2.pending.retryAt ?? now + guardMs;
-    yield* storage.commit(stored2, at, completed);
+    yield* storage.commit(stored2, at, receipt);
   });
   const move = Effect67.fn("Peon.transition")(function* move2(stored2, event) {
     const state3 = peonTransition(stored2.report.state, event);
@@ -85937,7 +85954,7 @@ var peonHost = ({
       { ...stored2, pending: null, report: report2 },
       {
         requestId: pending.requestId,
-        value: { hash: pending.inputHash, refusal: refusal3, report: report2 }
+        value: code === "BoxSpawnRejected" ? { hash: pending.inputHash, refusal: refusal3, report: report2 } : { hash: pending.inputHash, retryable: true }
       }
     );
     yield* publish2(indexOf(report2));
@@ -86030,9 +86047,13 @@ var peonHost = ({
         discardWorkspace: options2.discardWorkspace
       })
     );
-    const completed = yield* storage.completed(requestId3);
-    if (completed !== void 0) {
-      return yield* replayCompletion(completed, inputHash, requestId3);
+    const replayed = yield* replayReceipt(
+      yield* storage.receipt(requestId3),
+      inputHash,
+      requestId3
+    );
+    if (replayed !== void 0) {
+      return replayed;
     }
     let stored2 = yield* requirePeon;
     if (stored2.pending !== null) {
@@ -86116,12 +86137,23 @@ var peonHost = ({
           );
         }
         const requestId4 = `spawn/${entry3.peonId}`;
-        const completed = yield* storage.completed(requestId4);
-        if (completed?.refusal !== void 0) {
-          return yield* new PeonRefused(completed.refusal);
+        const receipt = yield* storage.receipt(requestId4);
+        if (receipt !== void 0 && "refusal" in receipt && receipt.refusal !== void 0) {
+          return yield* new PeonRefused(receipt.refusal);
         }
-        if (existing.report.state === "spawned" && existing.pending === null) {
-          return yield* begin("spawn", requestId4, "SPAWN");
+        if (existing.pending === null) {
+          const { state: state3 } = existing.report;
+          if (state3 === "spawned") {
+            return yield* begin("spawn", requestId4, "SPAWN");
+          }
+          if (state3 === "suspended" && receipt !== void 0 && "retryable" in receipt) {
+            if (!sameTemplate(template, existing.report.resolvedTemplate)) {
+              return yield* failure4(
+                `Peon ${entry3.peonId} already recorded different spawn input. Retry with the original template and overrides, or call spawnPeon with a fresh peonId.`
+              );
+            }
+            return yield* begin("spawn", requestId4, "RESUME");
+          }
         }
         return yield* recover();
       }
@@ -86352,11 +86384,11 @@ var Peon = class extends DurableObject3 {
             await (alarm === null ? transaction.deleteAlarm() : transaction.setAlarm(alarm));
           });
         }),
-        completed: (requestId3) => Effect69.promise(
+        receipt: (requestId3) => Effect69.promise(
           async () => await ctx.storage.get(`request:${requestId3}`)
         ).pipe(
           Effect69.map(
-            (value) => value === void 0 ? void 0 : Schema104.decodeUnknownSync(PeonCompleted)(value)
+            (value) => value === void 0 ? void 0 : Schema104.decodeUnknownSync(PeonRequestReceipt)(value)
           )
         ),
         load: Effect69.promise(async () => await ctx.storage.get("peon")).pipe(

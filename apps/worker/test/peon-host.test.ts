@@ -12,8 +12,8 @@ import type {
 import { requireSuccess } from "../src/peon-box.js";
 import { peonHost } from "../src/peon-host.js";
 import type { PeonHostOptions } from "../src/peon-host.js";
-import { PeonStored } from "../src/peon-state.js";
-import type { PeonCompleted, PeonStoredValue } from "../src/peon-state.js";
+import { PeonRequestReceipt, PeonStored } from "../src/peon-state.js";
+import type { PeonStoredValue } from "../src/peon-state.js";
 
 const template = {
   ...fullPeonTemplate,
@@ -44,7 +44,7 @@ const fixture = (guardMs = 30_000) => {
   let crashOnCompletion = false;
   let nextFault: PeonRefused | undefined;
   let boxState = "idle";
-  const results = new Map<string, typeof PeonCompleted.Type>();
+  const results = new Map<string, typeof PeonRequestReceipt.Type>();
   const boxResults = new Map<string, unknown>();
 
   const calls: {
@@ -162,7 +162,7 @@ const fixture = (guardMs = 30_000) => {
         at: number | null,
         completed?: {
           readonly requestId: string;
-          readonly value: typeof PeonCompleted.Type;
+          readonly value: typeof PeonRequestReceipt.Type;
         }
       ) =>
         Effect.gen(function* commit() {
@@ -181,8 +181,16 @@ const fixture = (guardMs = 30_000) => {
 
           return yield* Effect.void;
         }),
-      completed: (requestId: string) =>
-        Effect.sync(() => results.get(requestId)),
+      receipt: (requestId: string) =>
+        Effect.suspend(() => {
+          const receipt = results.get(requestId);
+
+          return receipt === undefined
+            ? Effect.succeed(undefined)
+            : Schema.decodeEffect(PeonRequestReceipt)(
+                structuredClone(receipt)
+              ).pipe(Effect.orDie);
+        }),
       load: Effect.suspend(() =>
         stored === undefined
           ? Effect.succeed(undefined)
@@ -371,24 +379,150 @@ it.effect.prop(
           requestId,
         },
       });
-      expect(test.alarm()).toBeNull();
+      expect(test.alarm()).toBe(template.hibernateAfter);
 
       yield* TestClock.adjust("2 days");
-      yield* test.host().idle("alarm");
-
-      const replay = yield* resume().pipe(Effect.flip);
-      expect(replay.code).toBe("RetryExhausted");
+      expect((yield* test.host().idle("alarm")).state).toBe("hibernated");
       expect(
         test.calls.filter(({ operation }) => operation === "resume")
       ).toEqual(calls);
+
+      const resumed = yield* resume();
+      expect(resumed.state).toBe("idle");
+      expect(resumed).not.toHaveProperty("terminalFault");
+
+      const afterRetry = test.calls.filter(
+        ({ operation }) => operation === "resume"
+      );
+
+      expect(afterRetry).toHaveLength(7);
+      expect(new Set(afterRetry.map(({ body }) => body?.requestId)).size).toBe(
+        1
+      );
+    })
+);
+
+it.effect(
+  "an exhausted prompt still binds the request ID to its original text after hibernation",
+  () =>
+    Effect.gen(function* retryPrompt() {
+      const test = fixture(1000);
+      const requestId = "retryable-prompt";
+
+      const prompt = (text: string) =>
+        test.host().command("prompt", requestId, "PROMPT", { text });
+
+      yield* test.host().initialize(entry, template, false);
+      test.fail();
+      yield* prompt("Original text").pipe(Effect.flip);
+
+      for (const delay of [1, 2, 4, 4, 4]) {
+        yield* TestClock.adjust(`${delay} seconds`);
+        test.fail();
+        yield* test.host().idle("alarm");
+      }
+
+      yield* TestClock.adjust("2 days");
+      expect((yield* test.host().idle("alarm")).state).toBe("hibernated");
+
+      const before = test.calls.length;
+      const conflict = yield* prompt("Different text").pipe(Effect.flip);
+      expect(conflict.reason).toContain("different input");
+      expect(test.calls).toHaveLength(before);
+
+      expect((yield* prompt("Original text")).lastTurn?.output).toBe(
+        turn.output
+      );
+
+      const calls = test.calls.filter(
+        ({ operation }) => operation === "prompt"
+      );
+
+      expect(calls).toHaveLength(7);
+      expect(new Set(calls.map(({ body }) => body?.requestId)).size).toBe(1);
+    })
+);
+
+it.effect(
+  "an exhausted spawn can retry its fixed ID after the manager recovers",
+  () =>
+    Effect.gen(function* restartSpawn() {
+      const test = fixture(1000);
+      const spawn = () => test.host().initialize(entry, template, false);
+      test.fail();
+      yield* spawn().pipe(Effect.flip);
+
+      for (const delay of [1, 2, 4, 4, 4]) {
+        yield* TestClock.adjust(`${delay} seconds`);
+        test.fail();
+        yield* test.host().idle("alarm");
+      }
+
+      const exhausted = yield* test.host().inspectStored;
+      expect(exhausted.terminalFault).toMatchObject({
+        code: "RetryExhausted",
+        attempts: 6,
+        kind: "spawn",
+      });
+      expect(exhausted.pending).toBeNull();
       expect(test.alarm()).toBeNull();
 
-      const fresh = yield* test
+      const conflict = yield* test
         .host()
-        .command("resume", "fresh-resume", "RESUME");
+        .initialize(
+          entry,
+          { ...template, hibernateAfter: template.hibernateAfter + 1 },
+          false
+        )
+        .pipe(Effect.flip);
 
-      expect(fresh.state).toBe("idle");
-      expect(fresh).not.toHaveProperty("terminalFault");
+      expect(conflict.reason).toContain("different spawn input");
+      expect(
+        test.calls.filter(({ operation }) => operation === "spawn")
+      ).toHaveLength(6);
+
+      test.fail();
+      const refused = yield* spawn().pipe(Effect.flip);
+      expect(refused.code).toBeUndefined();
+      expect((yield* test.host().inspectStored).pending).toMatchObject({
+        kind: "spawn",
+        requestId: `spawn/${entry.peonId}`,
+      });
+      expect(test.alarm()).toBe((yield* Clock.currentTimeMillis) + 1000);
+
+      yield* TestClock.adjust("1 second");
+      expect((yield* test.host().idle("alarm")).state).toBe("idle");
+      const calls = test.calls.filter(({ operation }) => operation === "spawn");
+      expect(calls).toHaveLength(8);
+      expect(new Set(calls.map(({ body }) => body?.requestId)).size).toBe(1);
+    })
+);
+
+it.effect(
+  "exhausting automatic suspension leaves no timer that could restart it",
+  () =>
+    Effect.gen(function* exhaustedSuspend() {
+      const test = fixture(1000);
+      yield* test.host().initialize(entry, template, false);
+      yield* TestClock.adjust("60 seconds");
+      test.fail();
+      yield* test.host().idle("alarm").pipe(Effect.flip);
+
+      for (const delay of [1, 2, 4, 4, 4]) {
+        yield* TestClock.adjust(`${delay} seconds`);
+        test.fail();
+        yield* test.host().idle("alarm");
+      }
+
+      expect((yield* test.host().inspectStored).terminalFault).toMatchObject({
+        code: "RetryExhausted",
+        kind: "suspend",
+      });
+      expect(test.alarm()).toBeNull();
+      const before = test.calls.length;
+      yield* TestClock.adjust("2 days");
+      yield* test.host().idle("alarm");
+      expect(test.calls).toHaveLength(before);
     })
 );
 

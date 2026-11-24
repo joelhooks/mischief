@@ -10,6 +10,7 @@ import {
   Effect,
   FileSystem,
   Layer,
+  Option,
   Path,
   Predicate,
   Ref,
@@ -100,6 +101,13 @@ const DNS_WITHOUT_LAN_ROUTER_FORWARDING = [
 ];
 
 const BROWSER_LABEL = "sh.mischief.box.image-key=browser";
+
+const decodeDuBytes = Schema.decodeUnknownOption(
+  Schema.NumberFromString.check(
+    Schema.isInt(),
+    Schema.isGreaterThanOrEqualTo(0)
+  )
+);
 
 const diagnosticOf = (stderr: string | undefined) =>
   (stderr ?? "No helper stderr")
@@ -861,26 +869,31 @@ export class Boxes extends Context.Service<
             )
           );
 
-        const size = Effect.fn("Boxes.size")(function* size(directory: string) {
+        const size = Effect.fn("Boxes.size")(function* size(
+          directory: string,
+          policy: "advisory" | "strict"
+        ) {
           if (!(yield* fs.exists(directory))) {
             return 0;
           }
 
-          const text = yield* execute({
-            args: ["-sb", directory],
-            executable: "du",
-          });
+          const command = { args: ["-sb", directory], executable: "du" };
 
-          const bytes = Number(text.split(/\s/u)[0]);
+          const text =
+            policy === "advisory"
+              ? (yield* runner.run(command)).stdout
+              : yield* execute(command);
 
-          if (!Number.isSafeInteger(bytes) || bytes < 0) {
+          const bytes = decodeDuBytes(/^\d+(?=\t)/u.exec(text)?.[0]);
+
+          if (Option.isNone(bytes)) {
             return yield* refusal(
               "Host du returned an invalid storage measurement. Check host coreutils and inspect the box again.",
               503
             );
           }
 
-          return bytes;
+          return bytes.value;
         });
 
         const hash = Effect.fn("Boxes.hash")(function* hash(file: string) {
@@ -1496,7 +1509,7 @@ export class Boxes extends Context.Service<
             const workspace = yield* authorizeWorkspace(box, input, canonical);
 
             const bytesFreed =
-              (yield* size(base(id))) +
+              (yield* size(base(id), "strict")) +
               (retainSnapshot ? 0 : (snapshot?.bytes ?? 0));
 
             const marker = {
@@ -2193,11 +2206,11 @@ export class Boxes extends Context.Service<
             }
 
             return {
-              bytes: {
-                home: yield* size(home(id)),
-                snapshot: box.snapshot?.bytes ?? 0,
-                work: yield* size(work(id)),
-              },
+              bytes: yield* Effect.all({
+                home: size(home(id), "advisory"),
+                snapshot: Effect.succeed(box.snapshot?.bytes ?? 0),
+                work: size(work(id), "advisory"),
+              }).pipe(Effect.orElseSucceed(() => null)),
               container: ["hibernated", "destroyed"].includes(box.state)
                 ? null
                 : containerOf(id),

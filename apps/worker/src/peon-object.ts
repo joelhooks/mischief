@@ -233,7 +233,15 @@ export class Peon extends DurableObject<Env> {
   async inspect(): Promise<typeof PeonReport.Type> {
     return await Effect.runPromise(
       this.env.MISCHIEF_PEON_BOXES === "on"
-        ? this.host.inspect
+        ? this.lock
+            .withPermitsIfAvailable(1)(this.host.inspect)
+            .pipe(
+              Effect.flatMap((result) =>
+                Option.isSome(result)
+                  ? Effect.succeed(result.value)
+                  : this.host.inspectStored
+              )
+            )
         : this.host.inspectStored
     );
   }

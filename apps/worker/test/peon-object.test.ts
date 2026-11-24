@@ -8,7 +8,7 @@ import {
   PeonTombstone,
   tailPeonContract,
 } from "@mischief/core";
-import { Effect, Layer, Option, Schedule, Schema } from "effect";
+import { Effect, Fiber, Layer, Option, Schedule, Schema } from "effect";
 import { FetchHttpClient, HttpClient } from "effect/http";
 
 import { freshCaller, kill, post, prepare, start } from "./workerd.js";
@@ -347,6 +347,72 @@ const untilReport = (world: Workerd, state: string) =>
     ),
     Effect.retry({ schedule: Schedule.spaced("25 millis"), times: 200 })
   );
+
+it.live(
+  "a stopped box settles a pending suspend without racing a newer resume",
+  () =>
+    Effect.gen(function* reconcileSuspend() {
+      const world = yield* prepare(60_000, [], undefined, { peons: true });
+      yield* start(world);
+      const peonId = "stuck-suspend";
+      const suspend = { peonId, requestId: "sleep" };
+      const resume = { peonId, requestId: "wake" };
+      const inspect = post(world, "inspectPeon", { peonId });
+
+      const spawned = yield* post(world, "spawnPeon", {
+        overrides: { workspace },
+        peonId,
+        template: "full",
+      });
+
+      expect(spawned.status).toBe(200);
+      expect((yield* post(world, "suspendPeon", suspend)).status).toBe(422);
+
+      const reconciling = yield* inspect.pipe(Effect.forkScoped);
+      yield* readCalls(world).pipe(
+        Effect.filterOrFail(
+          (calls) =>
+            calls.some(({ requestId }) => requestId === "held-inspect"),
+          () => "box has not observed the stopped container"
+        ),
+        Effect.retry({ schedule: Schedule.spaced("10 millis"), times: 200 })
+      );
+
+      const busy = yield* inspect;
+      expect(busy.body).toMatchObject({
+        pending: { kind: "suspend", requestId: "sleep" },
+      });
+      const raced = yield* post(world, "resumePeon", resume);
+      expect(raced.status).toBe(422);
+      expect(JSON.stringify(raced.body)).toContain("concurrent turn");
+
+      yield* HttpClient.get(
+        `http://127.0.0.1:${world.boxPort}/__release-stopped-inspect`
+      );
+      expect((yield* Fiber.join(reconciling)).body).toMatchObject({
+        bytes: null,
+        pending: null,
+        processes: 0,
+        state: "suspended",
+      });
+      const resumed = yield* post(world, "resumePeon", resume);
+      expect(resumed.status).toBe(200);
+      expect(resumed.body).toMatchObject({ state: "idle" });
+      expect((yield* post(world, "suspendPeon", suspend)).body).toMatchObject({
+        state: "suspended",
+      });
+      expect((yield* inspect).body).toMatchObject({
+        pending: null,
+        state: "idle",
+      });
+      expect(
+        (yield* readCalls(world)).filter(({ path }) =>
+          path.endsWith("/suspend")
+        )
+      ).toHaveLength(1);
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  30_000
+);
 
 it.live(
   "a workerd eviction mid-prompt resumes the original request from its alarm without double accounting",

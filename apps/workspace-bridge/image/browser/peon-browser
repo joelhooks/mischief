@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+
+flags="${PEON_BROWSER_EGRESS_FLAGS:-}"
+if [ -z "$flags" ]; then
+  printf '%s\n' 'PEON_BROWSER_EGRESS_FLAGS is empty. Spawn browser@1 with a nonempty overrides.browser.hosts list.' >&2
+  exit 2
+fi
+
+container_sandbox_flag='--no-sandbox'
+tmpfs_shared_memory_flag='--disable-dev-shm-usage'
+if [ "${1:-}" = --launch-flags ]; then
+  printf '%s\n' "$container_sandbox_flag" "$tmpfs_shared_memory_flag" "$flags"
+else
+  set -f
+  IFS='
+'
+  exec /usr/bin/chromium "$@" "$container_sandbox_flag" "$tmpfs_shared_memory_flag" $flags
+fi

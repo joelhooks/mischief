@@ -40,7 +40,7 @@ const fixture = () => {
   let stored: PeonStoredValue | undefined;
   let alarm: number | null = null;
   let crashOnCompletion = false;
-  let failNext = false;
+  let nextFault: PeonRefused | undefined;
   let boxState = "idle";
   const results = new Map<string, typeof PeonCompleted.Type>();
   const boxResults = new Map<string, unknown>();
@@ -89,12 +89,11 @@ const fixture = () => {
 
         calls.push({ body, operation });
 
-        if (failNext) {
-          failNext = false;
+        if (nextFault !== undefined) {
+          const fault = nextFault;
+          nextFault = undefined;
 
-          return yield* new PeonRefused({
-            reason: "Box disappeared; inspectPeon before retrying",
-          });
+          return yield* fault;
         }
 
         const key = `${operation}/${body?.requestId}`;
@@ -192,14 +191,48 @@ const fixture = () => {
     crash: () => {
       crashOnCompletion = true;
     },
-    fail: () => {
-      failNext = true;
+    fail: (
+      fault = new PeonRefused({
+        reason: "Box disappeared; inspectPeon before retrying",
+      })
+    ) => {
+      nextFault = fault;
     },
     host: () => peonHost(options),
     read: () => stored,
     replies,
   };
 };
+
+const capacityFault = (boxState: "spawned" | "hibernated") =>
+  new PeonRefused({
+    code: "BoxCapacity",
+    boxState,
+    reason: "All browser slots are occupied",
+  });
+
+it.effect(
+  "a coded capacity refusal clears pending and lets the same spawn and resume retry",
+  () =>
+    Effect.gen(function* capacity() {
+      const test = fixture();
+
+      test.fail(capacityFault("spawned"));
+      const spawn = () => test.host().initialize(entry, template, false);
+      expect((yield* Effect.flip(spawn())).code).toBe("BoxCapacity");
+      expect(test.read()?.report.state).toBe("spawned");
+      expect(test.read()?.pending).toBeNull();
+      expect((yield* spawn()).state).toBe("idle");
+
+      yield* test.host().command("hibernate", "hibernate", "HIBERNATE");
+      test.fail(capacityFault("hibernated"));
+      const wake = () => test.host().command("resume", "resume", "RESUME");
+      expect((yield* Effect.flip(wake())).code).toBe("BoxCapacity");
+      expect(test.read()?.report.state).toBe("hibernated");
+      expect(test.read()?.pending).toBeNull();
+      expect((yield* wake()).state).toBe("idle");
+    })
+);
 
 it.effect(
   "an interrupted prompt replays the same box request and accounts usage once",

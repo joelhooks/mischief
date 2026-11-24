@@ -88,6 +88,16 @@ export const builtinPeonTemplates: readonly (typeof PeonTemplateVersion.Type)[] 
       template: { ...fullPeonTemplate, restriction: "read-only" },
       version: 1,
     },
+    {
+      extends: { name: "full", version: 1 },
+      name: "browser",
+      template: {
+        ...fullPeonTemplate,
+        imageKey: "browser",
+        limits: { cpus: 4, memory: "4g", pids: 1024, tmp: "2g" },
+      },
+      version: 1,
+    },
     ...peonCatalog.entries.map((entry) => ({
       extends: { name: "full", version: 1 },
       name: entry.template,

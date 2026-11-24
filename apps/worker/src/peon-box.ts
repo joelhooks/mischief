@@ -69,6 +69,12 @@ const custodyRefusal = Schema.fromJsonString(
 );
 
 const nextStep = {
+  BoxBuildRefused:
+    "Ask the box host operator to fix the pinned Burrow build and receipt, then retry.",
+  BoxCapacity:
+    "Suspend or destroy a browser box on the host, then retry the refused operation.",
+  BoxImageMissing:
+    "Ask the box host operator to configure the browser image, then retry.",
   CustodyMissing:
     "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete:
@@ -149,7 +155,7 @@ const jsonObject = Schema.fromJsonString(
   Schema.Record(Schema.String, Schema.Json)
 );
 
-const requireSuccess = (
+export const requireSuccess = (
   peonId: string,
   operation: BoxHttpOperation,
   response: { readonly status: number; readonly text: string }
@@ -185,7 +191,11 @@ const requireSuccess = (
       };
 
       return yield* new PeonRefused(
-        error.code === "PromptFailed" && error.state !== undefined
+        (error.code === "PromptFailed" ||
+          error.code === "BoxCapacity" ||
+          error.code === "BoxBuildRefused" ||
+          error.code === "BoxImageMissing") &&
+          error.state !== undefined
           ? { ...failure, boxState: error.state }
           : failure
       );

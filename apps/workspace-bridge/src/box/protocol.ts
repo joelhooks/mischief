@@ -1,3 +1,4 @@
+import { PeonTemplate } from "@mischief/core";
 import { Effect, Schema } from "effect";
 
 import {
@@ -16,6 +17,8 @@ export const RequestId = Schema.String.check(
 );
 
 export const Template = Schema.Struct({
+  browser: PeonTemplate.fields.browser,
+  imageKey: PeonTemplate.fields.imageKey,
   limits: Schema.Struct({
     cpus: Schema.Finite.check(Schema.isGreaterThan(0)),
     memory: Schema.String.check(Schema.isPattern(/^[1-9][0-9]*[bkmg]$/u)),

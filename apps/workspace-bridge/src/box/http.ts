@@ -9,6 +9,9 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { errorResponse, readBody } from "../http.js";
 import { refusal } from "../protocol.js";
+import { BoxBuildRefused } from "./box-build-refused.js";
+import { BoxCapacity } from "./box-capacity.js";
+import { BoxImageMissing } from "./box-image-missing.js";
 import { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
@@ -24,7 +27,12 @@ const createBox = implement(
   defineContract("createBox", {
     annotations: { idempotent: true, readOnly: false },
     description: "Create a full peon box at a pinned workspace revision",
-    failure: BridgeFailure,
+    failure: Schema.Union([
+      BridgeFailure,
+      BoxCapacity,
+      BoxBuildRefused,
+      BoxImageMissing,
+    ]),
     input: Create,
     output: Result,
   }),
@@ -38,6 +46,9 @@ const actOnBox = implement(
       "Prompt, sleep, wake, copy, export history or destroy a full peon box",
     failure: Schema.Union([
       BridgeFailure,
+      BoxCapacity,
+      BoxBuildRefused,
+      BoxImageMissing,
       WorkspaceUnlanded,
       CustodyMissing,
       CustodyIncomplete,
@@ -200,6 +211,15 @@ const route = (key: Redacted.Redacted) =>
   }).pipe(
     Effect.catchTags({
       BridgeFailure: (failure) => Effect.succeed(errorResponse(failure)),
+      BoxBuildRefused: (failure) =>
+        taggedFailure(
+          failure,
+          failure.state === undefined ? {} : { state: failure.state }
+        ),
+      BoxImageMissing: (failure) =>
+        taggedFailure(failure, { state: failure.state }),
+      BoxCapacity: (failure) =>
+        taggedFailure(failure, { state: failure.state }),
       WorkspaceUnlanded: (failure) =>
         taggedFailure(failure, {
           dirtyPaths: failure.dirtyPaths,

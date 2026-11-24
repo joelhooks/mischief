@@ -56764,7 +56764,14 @@ var Limits = Schema4.Struct({
   pids: Positive,
   tmp: Schema4.String.check(Schema4.isPattern(/^[1-9][0-9]*[bkmg]$/u)).pipe(Schema4.withDecodingDefaultKey(Effect3.succeed("1g")))
 });
+var ImageKey = Schema4.Literals(["full", "browser"]);
+var BrowserLaunch = Schema4.Struct({
+  hosts: Schema4.Array(Schema4.String.check(Schema4.isPattern(/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/u))).check(Schema4.isMinLength(1)),
+  burrowSha256: Schema4.optionalKey(Schema4.String.check(Schema4.isPattern(/^[0-9a-f]{64}$/u)))
+});
 var PeonTemplate = Schema4.Struct({
+  browser: Schema4.optionalKey(BrowserLaunch),
+  imageKey: Schema4.optionalKey(ImageKey),
   catalogModel: Schema4.optionalKey(Schema4.String),
   cellReady: Schema4.optionalKey(Schema4.Boolean),
   hibernateAfter: Positive,
@@ -56783,6 +56790,7 @@ var PeonTemplate = Schema4.Struct({
   workspace: Schema4.optional(PeonWorkspace)
 });
 var PeonOverrides = Schema4.Struct({
+  browser: Schema4.optionalKey(BrowserLaunch),
   cellReady: Schema4.optionalKey(Schema4.Boolean),
   hibernateAfter: Schema4.optionalKey(Positive),
   limits: Schema4.optionalKey(Schema4.Struct({
@@ -56853,6 +56861,9 @@ var PeonExportReceipt = Schema4.Struct({
   replicaState: Schema4.optionalKey(Schema4.Literals(["pending", "verified"]))
 });
 var PeonBoxRefusalCode = Schema4.Literals([
+  "BoxBuildRefused",
+  "BoxCapacity",
+  "BoxImageMissing",
   "CustodyMissing",
   "CustodyIncomplete",
   "DestroyInProgress",
@@ -57363,6 +57374,16 @@ var builtinPeonTemplates = [
     extends: { name: "full", version: 1 },
     name: "read-only",
     template: { ...fullPeonTemplate, restriction: "read-only" },
+    version: 1
+  },
+  {
+    extends: { name: "full", version: 1 },
+    name: "browser",
+    template: {
+      ...fullPeonTemplate,
+      imageKey: "browser",
+      limits: { cpus: 4, memory: "4g", pids: 1024, tmp: "2g" }
+    },
     version: 1
   },
   ...peonCatalog.entries.map((entry3) => ({
@@ -85024,6 +85045,9 @@ var custodyRefusal = Schema100.fromJsonString(
   })
 );
 var nextStep = {
+  BoxBuildRefused: "Ask the box host operator to fix the pinned Burrow build and receipt, then retry.",
+  BoxCapacity: "Suspend or destroy a browser box on the host, then retry the refused operation.",
+  BoxImageMissing: "Ask the box host operator to configure the browser image, then retry.",
   CustodyMissing: "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete: "Recover the skipped session files, then retry destroyPeon.",
   DestroyInProgress: "Retry destroyPeon with the original workspace disposition.",
@@ -85094,7 +85118,7 @@ var requireSuccess = (peonId, operation, response) => Effect65.gen(function* che
       reason: `${prefix}${details}${suffix}`
     };
     return yield* new PeonRefused(
-      error.code === "PromptFailed" && error.state !== void 0 ? { ...failure6, boxState: error.state } : failure6
+      (error.code === "PromptFailed" || error.code === "BoxCapacity" || error.code === "BoxBuildRefused" || error.code === "BoxImageMissing") && error.state !== void 0 ? { ...failure6, boxState: error.state } : failure6
     );
   }
   return yield* new PeonRefused({
@@ -85251,6 +85275,13 @@ var assertPeonSpawnable = (template) => {
       )
     );
   }
+  if (template.imageKey === "browser" !== (template.browser !== void 0)) {
+    return Effect67.fail(
+      failure4(
+        "Browser boxes need a nonempty list of exact test hostnames. Set overrides.browser.hosts when spawning browser@1; omit overrides.browser for other templates."
+      )
+    );
+  }
   if (template.workspace === void 0) {
     return Effect67.fail(
       failure4(
@@ -85332,6 +85363,8 @@ var peonHost = ({
       case "spawn": {
         const resolved = stored2.report.resolvedTemplate;
         const template = {
+          browser: resolved.browser,
+          imageKey: resolved.imageKey,
           limits: resolved.limits,
           model: resolved.model,
           system: resolved.system,
@@ -85503,7 +85536,8 @@ var peonHost = ({
     }
     const refused3 = fault.code !== void 0;
     const promptFinished = fault.code === "PromptFailed" && stored2.pending.kind === "prompt" && stored2.report.state === "running";
-    const observed = promptFinished ? fault.boxState ?? "idle" : stored2.report.state;
+    const reportedState = promptFinished || fault.code === "BoxCapacity" || fault.code === "BoxBuildRefused" || fault.code === "BoxImageMissing" ? fault.boxState : void 0;
+    const observed = reportedState ?? (promptFinished ? "idle" : stored2.report.state);
     const state3 = refused3 || observed === "destroyed" ? observed : peonTransition(observed, "BOX_LOST");
     const updatedAt = promptFinished ? yield* Clock13.currentTimeMillis : stored2.report.updatedAt;
     const faulted = {
@@ -85618,6 +85652,9 @@ var peonHost = ({
           return yield* failure4(
             "Peon owner differs from its registry reservation; refusing to expose another caller's workspace. Use a fresh peonId with spawnPeon."
           );
+        }
+        if (existing.report.state === "spawned" && existing.pending === null) {
+          return yield* begin("spawn", `spawn/${entry3.peonId}`, "SPAWN");
         }
         return yield* recover;
       }

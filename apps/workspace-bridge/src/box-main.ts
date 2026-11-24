@@ -10,7 +10,13 @@ import { HttpRouter } from "effect/http";
 
 import { archiveDiskLayer } from "./box/archive-disk.js";
 import { ArchivePort } from "./box/archive.js";
-import { boxStorageFromConfig } from "./box/config.js";
+import {
+  BrowserMaxLive,
+  DEFAULT_BROWSER_BUILD_ROOT,
+  DEFAULT_BROWSER_MAX_LIVE,
+  boxImagesFromConfig,
+  boxStorageFromConfig,
+} from "./box/config.js";
 import { boxRoutes } from "./box/http.js";
 import { Boxes } from "./box/manager.js";
 import { boxRunnerLayer } from "./box/runner.js";
@@ -60,10 +66,22 @@ const program = Effect.gen(function* serveBoxes() {
       ? ArchivePort.disabled
       : archiveDiskLayer({ checkerHost, replica, primary });
 
+  const images = yield* boxImagesFromConfig;
+
+  const browserBuildRoot = yield* Config.String(
+    "MISCHIEF_BOX_BROWSER_BUILDS"
+  ).pipe(Config.withDefault(DEFAULT_BROWSER_BUILD_ROOT));
+
   const config = {
     ...storage,
+    browserBuildRoot,
+    browserMaxLive: yield* Config.schema(
+      BrowserMaxLive,
+      "MISCHIEF_BOX_BROWSER_MAX_LIVE"
+    ).pipe(Config.withDefault(DEFAULT_BROWSER_MAX_LIVE)),
     gid,
-    image: yield* Config.String("MISCHIEF_PEON_BOX_IMAGE"),
+    image: images.full,
+    browserImage: images.browser,
     mirrors: yield* Schema.decodeUnknownEffect(
       Schema.fromJsonString(Schema.Record(Schema.String, Schema.String))
     )(yield* Config.String("MISCHIEF_BOX_MIRRORS")),

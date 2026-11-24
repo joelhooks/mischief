@@ -88547,7 +88547,15 @@ var checkHttp = Effect81.fn("Watch.checkHttp")(function* checkHttp2(condition, a
   const observed = yield* Effect81.tryPromise({
     catch: () => "HTTP GET failed, timed out or returned an unreadable body within the 64 KB limit.",
     try: async (signal) => await observe(
-      await get(url, { method: "GET", redirect: "manual", signal }),
+      await get(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "mischief-watch/1"
+        },
+        method: "GET",
+        redirect: "manual",
+        signal
+      }),
       expect,
       signal
     )

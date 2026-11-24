@@ -8,6 +8,7 @@ import { Postbox } from "./postbox-object.js";
 import { registeredCallables } from "./registered-callables.js";
 import { Schedule } from "./schedule-object.js";
 import { ServiceTokenLedger } from "./service-tokens.js";
+import { WatchObject } from "./watch-object.js";
 import worker from "./worker-handler.js";
 
 export interface PlanRunWorkerOptions {
@@ -22,5 +23,6 @@ export const planRunWorker = ({ callables }: PlanRunWorkerOptions) => ({
   Postbox,
   Schedule,
   ServiceTokenLedger,
+  WatchObject,
   default: worker,
 });

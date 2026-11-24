@@ -14,6 +14,7 @@
           "effect/FileSystem",
           "effect/Path",
           "effect/http-api/HttpApiBuilder",
+          "effect/http-api/OpenApi",
           "effect/http/FetchHttpClient",
           "effect/http/HttpClient",
           "effect/http/HttpClientRequest",

@@ -28,6 +28,7 @@ export const PeonPending = Schema.Struct({
 
 export const PeonStored = Schema.Struct({
   idleAt: Schema.Finite,
+  lastTurnId: Schema.optionalKey(Schema.String),
   pending: Schema.NullOr(PeonPending),
   report: PeonReport,
 });

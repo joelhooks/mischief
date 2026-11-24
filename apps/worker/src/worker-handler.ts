@@ -1,5 +1,9 @@
 // @effect-diagnostics asyncFunction:off -- the Worker's fetch handler is a Promise API.
-import { peonCapabilityNames, submitMailReachReason } from "@mischief/core";
+import {
+  peonCapabilityNames,
+  submitMailReachReason,
+  watchCapabilityNames,
+} from "@mischief/core";
 import { mischiefApiSpec } from "@mischief/plan-run";
 import { Documents, staticResolver } from "@rat-king/mailbox-client/auth";
 import type { DocumentsValue } from "@rat-king/mailbox-client/auth";
@@ -21,6 +25,7 @@ import { authenticate, NSID_PREFIX } from "./service-auth.js";
 import type { AuthRefused } from "./service-auth.js";
 import { thinkStatusHttp } from "./think-status-http.js";
 import { thinkTelemetry } from "./think-telemetry.js";
+import { serveWatch, watchApiSpec } from "./watch-http.js";
 
 const NOT_CONFIGURED =
   "this Mischief host has no MISCHIEF_DID or no valid MISCHIEF_CALLERS (a JSON array of the allowed callers' DID documents), so it serves nobody. Ask the Mischief desk (pi-durable/desk) to deploy it with both";
@@ -42,12 +47,12 @@ declare const __BUNDLE_VERSION__: string;
 
 const VERSION_PATH = "/.well-known/rat-king/version";
 
+const isVersionRequest = (request: Request) =>
+  request.method === "GET" && new URL(request.url).pathname === VERSION_PATH;
+
 export default {
   async fetch(request: Request, env: Env) {
-    if (
-      request.method === "GET" &&
-      new URL(request.url).pathname === VERSION_PATH
-    ) {
+    if (isVersionRequest(request)) {
       return Response.json({
         commit: __BUNDLE_COMMIT__,
         version: __BUNDLE_VERSION__,
@@ -84,11 +89,25 @@ export default {
     }
 
     if (request.method === "GET" && pathname === "/openapi.json") {
-      return Response.json(mischiefApiSpec());
+      const base = mischiefApiSpec();
+      const watch = watchApiSpec();
+
+      return Response.json({
+        ...base,
+        paths: { ...base.paths, ...watch.paths },
+        components: {
+          ...base.components,
+          schemas: { ...base.components.schemas, ...watch.components.schemas },
+        },
+      });
     }
 
     if (capability === "inspectDeskWake") {
       return await serveDeskWake(request, env, caller.success.iss);
+    }
+
+    if (watchCapabilityNames.has(capability)) {
+      return await serveWatch(request, env, caller.success.iss);
     }
 
     if (peonCapabilityNames.has(capability)) {

@@ -39,6 +39,17 @@ export class Mailroom extends Context.Service<
       summary: string,
       body: string
     ) => Effect.Effect<Sealed, PostboxFailed>;
+    readonly sealWatch?: (
+      to: string,
+      summary: string,
+      body: string,
+      thread: string
+    ) => Effect.Effect<Sealed, PostboxFailed>;
+    readonly sendWatch?: (
+      to: string,
+      envelope: string,
+      wake: boolean
+    ) => Effect.Effect<SendVerdictValue, PostboxFailed>;
     readonly send: (envelope: string) => Effect.Effect<SendVerdictValue>;
     readonly surface: (summary: string, body: string) => Effect.Effect<void>;
     readonly tell: (

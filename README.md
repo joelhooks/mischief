@@ -12,6 +12,12 @@ Mischief started from the [rat-stack](https://github.com/joelhooks/rat-stack) te
 
 Early, and dogfooded daily. Today a run executes from the CLI with a file store: plans validate and compile, steps journal before their effects, and a run survives kills mid-step without redoing finished work. Agent turns run on Pi Durable against a real model, judges gate work (including inside parallel branches), and mail goes out and comes back over Rat King, exactly once across crashes. Next: replaying a revised plan from its journal, forking agent sessions, and the `PlanRun` Durable Object on celld and Cloudflare.
 
+## Durable watches
+
+In v1, the watch ID and observed cursor determine the logical firing ID. Rat King assigns a separate wire message ID per recipient. Before sending, the worker saves each signed envelope with its wire ID. After a restart, it retries with the exact same signed bytes rather than sealing a new envelope. The envelope has no `expiresAt`; the watch deadline and retry cap govern when the worker stops sending.
+
+Any caller with the `armWatch` grant can use `listWatches` across owners.
+
 ## Run it
 
 Node `24.18.0` and pnpm `11.3.0` are required.

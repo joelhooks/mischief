@@ -101,19 +101,23 @@ const configOf = (
   stepKinds: string,
   mailReach: string,
   boxPort: number | undefined,
-  peonReaders: readonly string[]
+  peonReaders: readonly string[],
+  watchOwners: readonly string[] | undefined,
+  watchMail: { readonly port: number; readonly identity: string } | undefined
 ) => `using Workerd = import "/workerd/workerd.capnp";
 const config :Workerd.Config = (
   services = [
     (name = "main", worker = .worker),
     (name = "disk", disk = (path = "${dir}/do", writable = true)),
     ${boxPort === undefined ? "" : '(name = "box", worker = .boxWorker),'}
+    ${watchMail === undefined ? "" : `(name = "watch-mail", external = (address = "127.0.0.1:${watchMail.port}", http = ())),`}
   ],
   sockets = [(name = "http", address = "127.0.0.1:${port}", http = (), service = "main")${boxPort === undefined ? "" : `, (name = "box", address = "127.0.0.1:${boxPort}", http = (), service = "box")`}],
 );
 const worker :Workerd.Worker = (
   modules = [(name = "worker.js", esModule = embed "worker.js")],
   compatibilityDate = "2026-09-01",
+  ${watchMail === undefined ? "" : 'globalOutbound = "watch-mail",'}
   ${boxPort === undefined ? "" : 'globalOutbound = "box",'}
   durableObjectNamespaces = [
     (className = "PlanRun", uniqueKey = "mischief-plan-run", enableSql = true),
@@ -121,6 +125,7 @@ const worker :Workerd.Worker = (
     (className = "Postbox", uniqueKey = "mischief-postbox", enableSql = true),
     (className = "Schedule", uniqueKey = "mischief-schedule", enableSql = true),
     (className = "CallerThinks", uniqueKey = "mischief-caller-thinks", enableSql = true),
+    ${watchOwners === undefined ? "" : '(className = "WatchObject", uniqueKey = "mischief-watch", enableSql = true),'}
     ${boxPort === undefined ? "" : '(className = "Peon", uniqueKey = "mischief-peon", enableSql = true), (className = "PeonTemplates", uniqueKey = "mischief-peon-templates", enableSql = true),'}
   ],
   durableObjectStorage = (localDisk = "disk"),
@@ -130,6 +135,7 @@ const worker :Workerd.Worker = (
     (name = "POSTBOX", durableObjectNamespace = "Postbox"),
     (name = "SCHEDULE", durableObjectNamespace = "Schedule"),
     (name = "CALLER_THINKS", durableObjectNamespace = "CallerThinks"),
+    ${watchOwners === undefined ? "" : '(name = "WATCH", durableObjectNamespace = "WatchObject"), (name = "MISCHIEF_WATCH_HTTP_HOSTS", text = "checks.example.invalid"),'}
     ${
       boxPort === undefined
         ? ""
@@ -137,17 +143,30 @@ const worker :Workerd.Worker = (
     (name = "PEON_TEMPLATES", durableObjectNamespace = "PeonTemplates"),
     (name = "MISCHIEF_PEON_BOXES", text = "on"),
     (name = "MISCHIEF_BOX_URL", text = "http://192.0.2.1"),
-    (name = "MISCHIEF_BOX_KEY", text = "fake-box-key"),
+    (name = "MISCHIEF_BOX_KEY", text = "fake-box-key"),`
+    }
     (name = "MISCHIEF_PEON_GRANTS", text = ${JSON.stringify(
       JSON.stringify({
         ...Object.fromEntries(peonReaders.map((did) => [did, ["inspectPeon"]])),
-        [callers[0]?.id ?? ""]: peonContracts.flatMap(({ name }) =>
-          name === "tailPeon" ? [] : [name]
+        ...Object.fromEntries(
+          (watchOwners ?? []).map((did) => [did, ["armWatch"]])
         ),
+        [callers[0]?.id ?? ""]: [
+          ...peonContracts.flatMap(({ name }) =>
+            name === "tailPeon" ? [] : [name]
+          ),
+          ...(watchOwners === undefined ? [] : ["armWatch"]),
+        ],
       })
-    )}),`
-    }
+    )}),
 
+    ${
+      watchMail === undefined
+        ? ""
+        : `(name = "MISCHIEF_MAILBOX_URL", text = "https://mail.example.invalid"),
+    (name = "MISCHIEF_MAILBOX_DID", text = "did:web:mail.example.invalid"),
+    (name = "MISCHIEF_IDENTITY", text = ${JSON.stringify(watchMail.identity)}),`
+    }
     (name = "MISCHIEF_DID", text = "${MISCHIEF_DID}"),
     (name = "MISCHIEF_CALLERS", text = ${JSON.stringify(JSON.stringify(callers))}),
     (name = "MISCHIEF_MAIL_REACH", text = ${JSON.stringify(mailReach)}),
@@ -183,6 +202,8 @@ export const prepare = (
     readonly mailReach?: string;
     readonly peons?: boolean;
     readonly peonReaders?: readonly string[];
+    readonly watchOwners?: readonly string[];
+    readonly watchMail?: { readonly port: number; readonly identity: string };
   } = {}
 ) =>
   Effect.gen(function* prepareWorkerd() {
@@ -223,7 +244,9 @@ export const prepare = (
               : { [driver.did]: options.mayMail }
           ),
         boxPort,
-        options.peonReaders ?? []
+        options.peonReaders ?? [],
+        options.watchOwners,
+        options.watchMail
       ) + (boxPort === undefined ? "" : boxConfig)
     );
 

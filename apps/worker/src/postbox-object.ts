@@ -2,7 +2,7 @@
 import { webCrypto } from "@mischief/plan-run";
 import { Identity } from "@rat-king/mailbox-client";
 import { DurableObject } from "cloudflare:workers";
-import { Effect, Exit, Layer, Option, Schema, Scope } from "effect";
+import { Clock, Effect, Exit, Layer, Option, Schema, Scope } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 import { withDeadline } from "./call-deadline.js";
@@ -300,6 +300,66 @@ export class Postbox extends DurableObject<Env> {
     );
 
     return { ok: true as const };
+  }
+
+  async sealWatch(to: string, summary: string, body: string, thread: string) {
+    await this.start();
+
+    return await posted(
+      this.sender().pipe(
+        Effect.flatMap(({ layer }) =>
+          Mailroom.use(
+            ({ sealWatch }) =>
+              sealWatch?.(to, summary, body, thread) ??
+              Effect.fail(new PostboxFailed({ reason: NOT_WIRED }))
+          ).pipe(Effect.provide(layer))
+        )
+      )
+    );
+  }
+
+  async sendWatch(
+    to: string,
+    envelope: string,
+    wake: boolean,
+    deadline: number
+  ) {
+    return await posted(
+      this.sender().pipe(
+        Effect.flatMap(({ layer }) =>
+          Mailroom.use(({ sendWatch }) =>
+            Effect.gen(function* sendBeforeDeadline() {
+              const remaining = deadline - (yield* Clock.currentTimeMillis);
+
+              if (remaining <= 0) {
+                return "refused" as const;
+              }
+
+              return yield* (
+                sendWatch?.(to, envelope, wake) ??
+                Effect.fail(new PostboxFailed({ reason: NOT_WIRED }))
+              ).pipe(
+                Effect.map(
+                  SendVerdict.match({
+                    Accepted: () => "accepted" as const,
+                    Conflict: () => "accepted" as const,
+                    Refused: () => "refused" as const,
+                    Uncertain: () => "uncertain" as const,
+                  })
+                ),
+                Effect.timeoutOrElse({
+                  duration: remaining,
+                  orElse: () => Effect.succeed("uncertain" as const),
+                })
+              );
+            })
+          ).pipe(
+            Effect.map((verdict) => ({ verdict })),
+            Effect.provide(layer)
+          )
+        )
+      )
+    );
   }
 
   async send(envelope: string) {

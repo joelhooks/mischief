@@ -68,10 +68,13 @@ import type { Postbox } from "./postbox-object.js";
 import type { Schedule } from "./schedule-object.js";
 import type { ServiceTokenLedger } from "./service-tokens.js";
 import { dedupeKey, utcDay, warnText } from "./think-tally.js";
+import type { WatchObject } from "./watch-object.js";
 
 const TELEMETRY_DESK = "pi-durable/desk";
 
 export interface Env {
+  readonly WATCH?: DurableObjectNamespace<WatchObject>;
+  readonly MISCHIEF_WATCH_HTTP_HOSTS?: string;
   readonly DESK_WAKER?: DurableObjectNamespace<DeskWaker>;
   readonly MISCHIEF_DESK_WAKE?: string;
   readonly MISCHIEF_DESK_WAKE_SENDER?: string;

@@ -28,10 +28,12 @@ const admit = implement(
     input: SpendAdmission,
     output: SpendPermit,
   }),
-  ({ peer, tokens, outputTokens }) =>
+  ({ peer, tokens, outputTokens, requestId }) =>
     Boxes.use(({ ownerAt }) => ownerAt(peer)).pipe(
       Effect.flatMap((owner) =>
-        SpendLedger.use((ledger) => ledger.admit(owner, tokens, outputTokens))
+        SpendLedger.use((ledger) =>
+          ledger.admit(owner, tokens, outputTokens, requestId)
+        )
       )
     )
 );

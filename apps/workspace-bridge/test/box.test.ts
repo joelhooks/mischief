@@ -79,6 +79,7 @@ const harness = Effect.gen(function* harness() {
 
   yield* fs.makeDirectory(`${root}/bin`);
   yield* fs.makeDirectory(`${root}/fake`);
+  yield* fs.writeFileString(`${root}/network-inventory`, "{}");
 
   const script = `#!/bin/sh
 set -eu
@@ -3394,6 +3395,92 @@ it.effect(
             Layer.provideMerge(
               Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
             )
+          )
+        )
+      )
+    )
+);
+
+it.live(
+  "owner hits survive a Docker stall, but a manager destroy and launch cannot inherit them",
+  () =>
+    Effect.gen(function* ownerLifecycle() {
+      const fixture = yield* harness;
+      const fs = yield* FileSystem.FileSystem;
+      const stalled = yield* Ref.make(false);
+
+      const runner = Runner.of({
+        run: (command) =>
+          command.executable === "docker" && command.args[0] === "network"
+            ? Ref.get(stalled).pipe(
+                Effect.flatMap((blocked) =>
+                  blocked ? Effect.never : fixture.runner.run(command)
+                )
+              )
+            : fixture.runner.run(command),
+      });
+
+      const inventory = (containerId: string, peonId: string) =>
+        fs.writeFileString(
+          `${fixture.root}/network-inventory`,
+          JSON.stringify({
+            [containerId]: {
+              Name: `mischief-peon-box-${peonId}`,
+              IPv4Address: "192.0.2.12/24",
+            },
+          })
+        );
+
+      yield* Effect.gen(function* rotateOwner() {
+        const boxes = yield* Boxes;
+
+        const launch = (peonId: string) =>
+          boxes.create({
+            peonId,
+            requestId: "create",
+            template: fixture.template,
+          });
+
+        yield* launch("old-owner");
+        yield* inventory("container-before", "old-owner");
+        expect(yield* boxes.ownerAt("192.0.2.12")).toMatchObject({
+          peonId: "old-owner",
+        });
+
+        yield* Ref.set(stalled, true);
+        expect(
+          yield* boxes
+            .ownerAt("::ffff:192.0.2.12")
+            .pipe(Effect.timeout("1 second"))
+        ).toMatchObject({ peonId: "old-owner" });
+        yield* Ref.set(stalled, false);
+
+        yield* boxes.act({ action: "export", peonId: "old-owner" });
+        yield* boxes.act({
+          action: "destroy",
+          peonId: "old-owner",
+          requestId: "destroy",
+          discardWorkspace: true,
+        });
+        yield* launch("new-owner");
+        yield* inventory("container-after", "new-owner");
+        expect(yield* boxes.ownerAt("192.0.2.12")).toMatchObject({
+          peonId: "new-owner",
+        });
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(
+            Layer.provide(
+              Layer.merge(ArchivePort.memory, Layer.succeed(Runner, runner))
+            )
+          )
+        )
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
           )
         )
       )

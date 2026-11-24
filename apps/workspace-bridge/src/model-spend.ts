@@ -1,9 +1,22 @@
 import { isIPv4 } from "node:net";
 
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
-import { Config, Effect, Option, Redacted, Schema, Stream } from "effect";
-import { HttpClientRequest, HttpServerResponse } from "effect/http";
-import type { HttpClient, HttpClientError } from "effect/http";
+import {
+  Config,
+  Effect,
+  Option,
+  Redacted,
+  Schedule,
+  Schema,
+  Stream,
+} from "effect";
+import { uuidV4Unsafe } from "effect/crypto/SecureRandom";
+import {
+  HttpClientError,
+  HttpClientRequest,
+  HttpServerResponse,
+} from "effect/http";
+import type { HttpClient } from "effect/http";
 
 import { ipv4Peer } from "./box/live-owner.js";
 import {
@@ -131,6 +144,33 @@ const unidentified = () =>
     403
   );
 
+const TRANSIENT_MANAGER_FAILURE = "manager-transport";
+
+const transientManagerFailure = (): typeof TRANSIENT_MANAGER_FAILURE =>
+  TRANSIENT_MANAGER_FAILURE;
+
+type ManagerFailure = BridgeFailure | typeof TRANSIENT_MANAGER_FAILURE;
+
+const managerTransportFailure = (
+  error: HttpClientError.HttpClientError
+): ManagerFailure =>
+  error.reason instanceof HttpClientError.TransportError
+    ? TRANSIENT_MANAGER_FAILURE
+    : managerUnavailable();
+
+const managerHttpFailure = (status: number): ManagerFailure => {
+  if (status === 503) {
+    return TRANSIENT_MANAGER_FAILURE;
+  }
+
+  return status === 403 ? unidentified() : managerUnavailable();
+};
+
+const isTransientManagerFailure = (
+  error: ManagerFailure
+): error is typeof TRANSIENT_MANAGER_FAILURE =>
+  error === TRANSIENT_MANAGER_FAILURE;
+
 const workspacePeer = (peer: string) => {
   const address = ipv4Peer(peer);
 
@@ -160,22 +200,20 @@ export const modelSpend = (
         )
       )
       .pipe(
-        Effect.mapError(managerUnavailable),
+        Effect.mapError(managerTransportFailure),
         Effect.flatMap((response) =>
           response.status === 200
-            ? response.json.pipe(
-                Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-                Effect.mapError(managerUnavailable)
+            ? response.text.pipe(
+                Effect.mapError(transientManagerFailure),
+                Effect.flatMap((reply) =>
+                  Schema.decodeEffect(Schema.fromJsonString(schema))(
+                    reply
+                  ).pipe(Effect.mapError(managerUnavailable))
+                )
               )
             : response.text.pipe(
                 Effect.ignore,
-                Effect.andThen(
-                  Effect.fail(
-                    response.status === 403
-                      ? unidentified()
-                      : managerUnavailable()
-                  )
-                )
+                Effect.andThen(Effect.fail(managerHttpFailure(response.status)))
               )
         ),
         Effect.timeoutOrElse({
@@ -197,13 +235,29 @@ export const modelSpend = (
       return yield* unidentified();
     }
 
-    const input = { peer, tokens: estimatedTokens(requestBytes) };
+    const input = {
+      peer,
+      requestId: uuidV4Unsafe(),
+      tokens: estimatedTokens(requestBytes),
+    };
 
     const permit = yield* post(
       ADMIT_PATH,
       outputTokens === undefined ? input : { ...input, outputTokens },
       manager,
       SpendPermit
+    ).pipe(
+      Effect.retry({
+        schedule: Schedule.spaced("250 millis"),
+        while: isTransientManagerFailure,
+      }),
+      Effect.catchIf(isTransientManagerFailure, () =>
+        Effect.fail(managerUnavailable())
+      ),
+      Effect.timeoutOrElse({
+        duration: "15 seconds",
+        orElse: () => Effect.fail(managerUnavailable()),
+      })
     );
 
     if (permit.status === "denied") {
@@ -223,6 +277,9 @@ export const modelSpend = (
           manager,
           SpendProgress
         ).pipe(
+          Effect.catchIf(isTransientManagerFailure, () =>
+            Effect.fail(managerUnavailable())
+          ),
           Effect.flatMap(({ allowed }) =>
             allowed
               ? Effect.void

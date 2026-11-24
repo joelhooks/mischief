@@ -3,6 +3,7 @@ import { expect, it } from "@effect/vitest";
 import {
   Deferred,
   Effect,
+  Exit,
   Fiber,
   Layer,
   Redacted,
@@ -15,6 +16,7 @@ import * as Arbitrary from "effect/Arbitrary";
 import {
   HttpBody,
   HttpClient,
+  HttpClientError,
   HttpClientRequest,
   HttpClientResponse,
   HttpRouter,
@@ -288,6 +290,110 @@ it.effect.prop(
       expect(charges.filter((charge) => charge === 1000)).toHaveLength(1);
     })
 );
+
+for (const scenario of ["restart", "persistent"] as const) {
+  it.effect(
+    `model admission stays closed during a ${scenario} manager outage`,
+    () =>
+      Effect.gen(function* admissionOutage() {
+        const client = yield* HttpClient.HttpClient;
+        const started = yield* Deferred.make<true>();
+        const available = yield* Ref.make(false);
+        const calls = yield* Ref.make(0);
+
+        const manager = HttpClient.make((request) =>
+          Effect.gen(function* managerReply() {
+            yield* Deferred.succeed(started, true);
+
+            if (yield* Ref.get(available)) {
+              return HttpClientResponse.fromWeb(
+                request,
+                Response.json({ status: "uncapped" })
+              );
+            }
+
+            if (scenario === "restart") {
+              return yield* new HttpClientError.HttpClientError({
+                reason: new HttpClientError.TransportError({
+                  request,
+                  cause: new Error("fixture connection refused"),
+                }),
+              });
+            }
+
+            return HttpClientResponse.fromWeb(
+              request,
+              new Response("Manager unavailable", { status: 503 })
+            );
+          })
+        );
+
+        const upstream = HttpClient.make((request) =>
+          Ref.update(calls, (count) => count + 1).pipe(
+            Effect.as(
+              HttpClientResponse.fromWeb(request, Response.json({ ok: true }))
+            )
+          )
+        );
+
+        const config = {
+          key: Redacted.make("fixture-upstream-bearer"),
+          models: ["gpt-6.1-sol"],
+          spend: modelSpend(
+            manager,
+            Redacted.make("fixture-manager-bearer"),
+            false
+          ),
+          upstream: "http://provider.example.invalid",
+        };
+
+        yield* HttpRouter.serve(fullProxyRoutes, {
+          disableListenLog: true,
+          disableLogger: true,
+        }).pipe(
+          Layer.provide(
+            FullProxy.layer(config).pipe(
+              Layer.provide(Layer.succeed(HttpClient.HttpClient, upstream))
+            )
+          ),
+          Layer.build
+        );
+
+        const prompt = yield* client
+          .post("/v1/responses", {
+            body: HttpBody.jsonUnsafe({ input: [], model: "gpt-6.1-sol" }),
+          })
+          .pipe(Effect.forkScoped);
+
+        yield* Deferred.await(started);
+        yield* TestClock.adjust(
+          scenario === "restart" ? "5 seconds" : "14 seconds"
+        );
+        expect(yield* Ref.get(calls)).toBe(0);
+        expect(prompt.pollUnsafe()).toBeUndefined();
+
+        if (scenario === "restart") {
+          yield* Ref.set(available, true);
+        }
+
+        yield* TestClock.adjust("1 second");
+
+        const finished = yield* TestClock.withLive(
+          Fiber.join(prompt).pipe(Effect.timeout("1 second"), Effect.exit)
+        );
+
+        if (Exit.isFailure(finished)) {
+          yield* TestClock.adjust("10 seconds");
+        }
+
+        const response = yield* finished;
+
+        expect(response.status).toBe(scenario === "restart" ? 200 : 503);
+        expect(yield* Ref.get(calls)).toBe(scenario === "restart" ? 1 : 0);
+        yield* response.text;
+      }).pipe(Effect.provide(NodeHttpServer.layerTest))
+  );
+}
 
 it.effect(
   "manager timeout covers stalled success and error bodies after headers",

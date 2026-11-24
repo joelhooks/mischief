@@ -2,6 +2,7 @@ import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Deferred, Effect, FileSystem, Ref, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import { uuidV4Unsafe } from "effect/crypto/SecureRandom";
 import { TestClock } from "effect/testing";
 
 import { SpendLedger } from "../src/box/spend-ledger.js";
@@ -34,10 +35,11 @@ it.effect(
         );
 
       yield* TestClock.setTime(86_399_000);
+      const requestId = uuidV4Unsafe();
 
       const receipt = yield* Effect.gen(function* firstManager() {
         const ledger = yield* SpendLedger;
-        const permit = yield* ledger.admit(browser, 12);
+        const permit = yield* ledger.admit(browser, 12, undefined, requestId);
 
         if (permit.status !== "metered") {
           return yield* Effect.die(
@@ -53,6 +55,21 @@ it.effect(
 
       yield* Effect.gen(function* restartedManager() {
         const ledger = yield* SpendLedger;
+        expect(yield* ledger.admit(browser, 12, undefined, requestId)).toEqual({
+          status: "metered",
+          receipt,
+          outputTokens: 1,
+        });
+        expect(
+          yield* Effect.flip(
+            ledger.admit(
+              { ...browser, peonId: "browser-b" },
+              12,
+              undefined,
+              requestId
+            )
+          )
+        ).toMatchObject({ status: 409 });
         yield* ledger.record({ receipt, tokens: 80 });
         yield* ledger.record({ receipt, tokens: 14 });
         expect(yield* ledger.admit(browser, 21)).toEqual({

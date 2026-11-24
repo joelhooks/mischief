@@ -42,6 +42,7 @@ const Receipt = Schema.String.check(Schema.isUUID());
 
 export const SpendAdmission = Schema.Struct({
   peer: Schema.String,
+  requestId: Schema.optionalKey(Receipt),
   tokens: Counter,
   outputTokens: Schema.optionalKey(Positive),
 });

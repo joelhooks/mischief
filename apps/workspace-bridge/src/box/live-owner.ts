@@ -23,9 +23,8 @@ const Inventory = Schema.fromJsonString(
 
 export const ipv4Peer = (peer: string) => peer.replace(/^::ffff:/iu, "");
 
-export const liveBoxId = Effect.fnUntraced(function* liveBoxId(
-  output: string,
-  peer: string
+export const liveBoxInventory = Effect.fnUntraced(function* liveBoxInventory(
+  output: string
 ) {
   const inventory = yield* Schema.decodeEffect(Inventory)(output.trim()).pipe(
     Effect.mapError(() =>
@@ -36,19 +35,41 @@ export const liveBoxId = Effect.fnUntraced(function* liveBoxId(
     )
   );
 
-  const address = ipv4Peer(peer);
+  const entries = new Map<
+    string,
+    { readonly containerId: string; readonly peonId: string } | undefined
+  >();
 
-  const matches = Object.values(inventory ?? {}).filter(
-    ({ IPv4Address }) =>
-      IPv4Address !== "" && IPv4Address.split("/")[0] === address
-  );
+  for (const [containerId, { IPv4Address, Name }] of Object.entries(
+    inventory ?? {}
+  )) {
+    const [peer] = IPv4Address.split("/");
 
-  const found = matches.length === 1 ? matches[0]?.Name : undefined;
+    if (peer === undefined || peer === "") {
+      continue;
+    }
 
-  const id =
-    found !== undefined && found.startsWith(PREFIX)
-      ? found.slice(PREFIX.length)
+    const peonId = Name.startsWith(PREFIX)
+      ? Name.slice(PREFIX.length)
       : undefined;
 
-  return Schema.is(PeonId)(id) ? id : undefined;
+    entries.set(
+      peer,
+      !entries.has(peer) && Schema.is(PeonId)(peonId)
+        ? { containerId, peonId }
+        : undefined
+    );
+  }
+
+  return entries;
 });
+
+export const liveBoxId = (output: string, peer: string) =>
+  liveBoxInventory(output).pipe(
+    Effect.map((entries) => entries.get(ipv4Peer(peer))?.peonId)
+  );
+
+export const changesBoxNetwork = (args: readonly string[]) =>
+  ["create", "start", "stop", "rm"].some(
+    (operation) => operation === args[0]
+  ) && args.some((arg) => arg.startsWith(PREFIX));

@@ -33,6 +33,11 @@ const StoredRequest = Schema.Struct({
   settled: Schema.Literals([0, 1]),
 });
 
+const StoredAdmission = Schema.Struct({
+  fingerprint: Schema.String,
+  outputTokens: Schema.Int,
+});
+
 const Alarm = Schema.Struct({
   day: Schema.Int,
   peonId: Schema.String,
@@ -61,6 +66,9 @@ const statements = (db: DatabaseSync) => {
     CREATE TABLE IF NOT EXISTS spend_request (
       receipt TEXT PRIMARY KEY, peonId TEXT NOT NULL, day INTEGER NOT NULL,
       began INTEGER NOT NULL, tokens INTEGER NOT NULL, imageKey TEXT NOT NULL
+    ) STRICT;
+    CREATE TABLE IF NOT EXISTS spend_admission (
+      receipt TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, outputTokens INTEGER NOT NULL
     ) STRICT;
     CREATE INDEX IF NOT EXISTS spend_rate ON spend_request(peonId, began);
     CREATE INDEX IF NOT EXISTS spend_request_day ON spend_request(day);
@@ -132,6 +140,13 @@ const statements = (db: DatabaseSync) => {
     update: db.prepare(
       "UPDATE spend_request SET tokens = ?, observed = ?, settled = ? WHERE receipt = ?"
     ),
+    admission: db.prepare(
+      "SELECT fingerprint, outputTokens FROM spend_admission WHERE receipt = ?"
+    ),
+    remember: db.prepare("INSERT INTO spend_admission VALUES (?, ?, ?)"),
+    pruneAdmissions: db.prepare(
+      "DELETE FROM spend_admission WHERE receipt IN (SELECT receipt FROM spend_request WHERE day < ?) OR NOT EXISTS (SELECT 1 FROM spend_request WHERE spend_request.receipt = spend_admission.receipt)"
+    ),
     pruneRequests: db.prepare("DELETE FROM spend_request WHERE day < ?"),
     pruneDays: db.prepare("DELETE FROM spend_day WHERE day < ?"),
     pruneAlarms: db.prepare("DELETE FROM spend_alarm WHERE day < ?"),
@@ -158,7 +173,8 @@ export class SpendLedger extends Context.Service<
     readonly admit: (
       owner: BoxOwner,
       tokens: number,
-      outputTokens?: number
+      outputTokens?: number,
+      requestId?: string
     ) => Effect.Effect<SpendAdmissionResult, BridgeFailure>;
     readonly record: (
       reading: typeof SpendReading.Type
@@ -241,6 +257,7 @@ export class SpendLedger extends Context.Service<
 
               try {
                 if (day > prunedAt) {
+                  sql.pruneAdmissions.run(day - 1);
                   sql.pruneRequests.run(day - 1);
                   sql.pruneDays.run(day - 1);
                   sql.pruneAlarms.run(day - 1);
@@ -275,7 +292,8 @@ export class SpendLedger extends Context.Service<
         const admit = Effect.fn("SpendLedger.admit")(function* admit(
           owner: BoxOwner,
           tokens: number,
-          requested?: number
+          requested?: number,
+          requestId?: string
         ) {
           const cap = limits[owner.imageKey];
 
@@ -287,54 +305,93 @@ export class SpendLedger extends Context.Service<
             requested ?? cap.defaultOutputTokens ?? DEFAULT_OUTPUT_TOKENS;
 
           const { peonId } = owner;
-          const receipt = yield* random.uuidV4();
+          const receipt = requestId ?? (yield* random.uuidV4());
 
-          return yield* transaction<SpendAdmissionResult>((now, day) => {
-            const row = sql.daily.get(day, peonId);
-            const used = row === undefined ? 0 : countOf(row).tokens;
+          const fingerprint = JSON.stringify([
+            peonId,
+            owner.imageKey,
+            tokens,
+            requested,
+          ]);
 
-            if (outputTokens > cap.dailyTokens - used - tokens) {
-              return { status: "denied", reason: "daily" };
+          return yield* transaction<SpendAdmissionResult | undefined>(
+            (now, day) => {
+              const previous = sql.admission.get(receipt);
+
+              if (previous !== undefined) {
+                const stored =
+                  Schema.decodeUnknownSync(StoredAdmission)(previous);
+
+                return stored.fingerprint === fingerprint
+                  ? {
+                      status: "metered",
+                      receipt,
+                      outputTokens: stored.outputTokens,
+                    }
+                  : undefined;
+              }
+
+              const row = sql.daily.get(day, peonId);
+              const used = row === undefined ? 0 : countOf(row).tokens;
+
+              if (outputTokens > cap.dailyTokens - used - tokens) {
+                return { status: "denied", reason: "daily" };
+              }
+
+              const rate = countOf(sql.rate.get(peonId, now - MINUTE)).tokens;
+
+              if (rate >= cap.ratePerMin) {
+                return { status: "denied", reason: "rate" };
+              }
+
+              const reserved = tokens + outputTokens;
+              sql.insert.run(
+                receipt,
+                peonId,
+                day,
+                now,
+                reserved,
+                owner.imageKey,
+                tokens
+              );
+
+              if (requestId !== undefined) {
+                sql.remember.run(receipt, fingerprint, outputTokens);
+              }
+
+              const totals = totalsOf(
+                sql.charge.get(day, peonId, reserved, tokens)
+              );
+
+              warn({
+                day,
+                peonId,
+                metric: "rate",
+                used: rate + 1,
+                limit: cap.ratePerMin,
+              });
+              warn({
+                day,
+                peonId,
+                metric: "daily",
+                used: totals.observed,
+                limit: cap.dailyTokens,
+              });
+
+              return { status: "metered", receipt, outputTokens };
             }
-
-            const rate = countOf(sql.rate.get(peonId, now - MINUTE)).tokens;
-
-            if (rate >= cap.ratePerMin) {
-              return { status: "denied", reason: "rate" };
-            }
-
-            const reserved = tokens + outputTokens;
-            sql.insert.run(
-              receipt,
-              peonId,
-              day,
-              now,
-              reserved,
-              owner.imageKey,
-              tokens
-            );
-
-            const totals = totalsOf(
-              sql.charge.get(day, peonId, reserved, tokens)
-            );
-
-            warn({
-              day,
-              peonId,
-              metric: "rate",
-              used: rate + 1,
-              limit: cap.ratePerMin,
-            });
-            warn({
-              day,
-              peonId,
-              metric: "daily",
-              used: totals.observed,
-              limit: cap.dailyTokens,
-            });
-
-            return { status: "metered", receipt, outputTokens };
-          });
+          ).pipe(
+            Effect.flatMap((result) =>
+              result === undefined
+                ? Effect.fail(
+                    refusal(
+                      "Spend admission changed owner or request during retry. Start a new prompt after confirming the box owner.",
+                      409
+                    )
+                  )
+                : Effect.succeed(result)
+            )
+          );
         });
 
         const record = Effect.fn("SpendLedger.record")(function* record(

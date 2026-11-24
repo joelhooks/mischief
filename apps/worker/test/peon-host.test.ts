@@ -9,9 +9,10 @@ import type {
   PeonBoxRequest,
   PeonBoxOperation,
 } from "../src/peon-box.js";
+import { hashPeonText } from "../src/peon-crypto.js";
 import { peonHost } from "../src/peon-host.js";
 import type { PeonHostOptions } from "../src/peon-host.js";
-import { PeonStored } from "../src/peon-state.js";
+import { PeonRequestReceipt, PeonStored } from "../src/peon-state.js";
 import type { PeonCompleted, PeonStoredValue } from "../src/peon-state.js";
 
 const template = {
@@ -43,8 +44,9 @@ const fixture = () => {
   let crashOnCompletion = false;
   let nextFault: PeonRefused | undefined;
   let boxState = "idle";
-  const results = new Map<string, typeof PeonCompleted.Type>();
+  const results = new Map<string, typeof PeonRequestReceipt.Type>();
   const boxResults = new Map<string, unknown>();
+  const writes: string[] = [];
 
   const calls: {
     readonly operation: string;
@@ -171,6 +173,7 @@ const fixture = () => {
             return yield* Effect.interrupt;
           }
 
+          writes.push(JSON.stringify([next, at, completed]));
           stored = structuredClone(next);
           alarm = at;
 
@@ -180,8 +183,16 @@ const fixture = () => {
 
           return yield* Effect.void;
         }),
-      completed: (requestId: string) =>
-        Effect.sync(() => results.get(requestId)),
+      receipt: (requestId: string) =>
+        Effect.suspend(() => {
+          const receipt = results.get(requestId);
+
+          return receipt === undefined
+            ? Effect.succeed(undefined)
+            : Schema.decodeEffect(PeonRequestReceipt)(
+                structuredClone(receipt)
+              ).pipe(Effect.orDie);
+        }),
       load: Effect.suspend(() =>
         stored === undefined
           ? Effect.succeed(undefined)
@@ -207,9 +218,206 @@ const fixture = () => {
     },
     host: () => peonHost(options),
     read: () => stored,
+    seed: (requestId: string, receipt: typeof PeonRequestReceipt.Type) => {
+      results.set(requestId, receipt);
+    },
+    seedStored: (row: PeonStoredValue) => {
+      stored = row;
+    },
     replies,
+    writes,
   };
 };
+
+it.effect("pre-B rows replay the byte trace recorded on 32e68c9", () =>
+  Effect.gen(function* legacyTrace() {
+    const test = fixture();
+
+    const resumed = () =>
+      test.host().command("resume", "legacy-resume", "RESUME");
+
+    yield* test.host().initialize(entry, template, false);
+    yield* TestClock.adjust("60 seconds");
+    yield* test.host().idle();
+    test.fail(
+      new PeonRefused({
+        code: "BoxNetworkStale",
+        reason: "Stale attachment",
+        boxState: "suspended",
+      })
+    );
+    const refused = yield* resumed().pipe(Effect.flip);
+    const replayed = yield* resumed().pipe(Effect.flip);
+    expect(refused.code).toBe("BoxNetworkStale");
+    expect(replayed.code).toBe("BoxNetworkStale");
+
+    yield* TestClock.adjust("2 days");
+    yield* test.host().idle();
+    yield* test.host().command("prompt", "legacy-prompt", "PROMPT", {
+      text: "Read the workspace",
+    });
+
+    const trace = JSON.stringify({ writes: test.writes, calls: test.calls });
+    expect(yield* hashPeonText(trace)).toBe(
+      "17bbea6bae5b0824c6341ff386d59e4eb016fa1e18f01797b143aea524cc810d"
+    );
+  })
+);
+
+it.effect("decodes B's pending retry fields and terminal faults", () =>
+  Effect.gen(function* rollbackState() {
+    const test = fixture();
+    yield* test.host().initialize(entry, template, false);
+    test.fail();
+    yield* test
+      .host()
+      .command("prompt", "pending-prompt", "PROMPT", {
+        text: "Read the workspace",
+      })
+      .pipe(Effect.flip);
+
+    const row = test.read();
+    const pending = { ...row?.pending, failures: 3, retryAt: 120_000 };
+
+    const terminalFault = {
+      attempts: 6,
+      code: "RetryExhausted",
+      httpStatus: 503,
+      kind: "resume",
+      managerCode: "BoxCapacity",
+      requestId: "old-resume",
+    };
+
+    const stored = {
+      ...row,
+      pending,
+      report: { ...row?.report, terminalFault },
+    };
+
+    expect(yield* Schema.decodeUnknownEffect(PeonStored)(stored)).toMatchObject(
+      { pending, report: { terminalFault } }
+    );
+  })
+);
+
+it.effect.each(["BoxSpawnRejected", "RetryExhausted"] as const)(
+  "replays a B-written %s completion including manager metadata",
+  (code) =>
+    Effect.gen(function* rollbackRefusal() {
+      const test = fixture();
+      const report = yield* test.host().initialize(entry, template, false);
+      const requestId = `spawn/${entry.peonId}`;
+      const hash = yield* hashPeonText(JSON.stringify({ kind: "spawn" }));
+
+      const refusal = {
+        code,
+        httpStatus: 400,
+        managerCode: "BoxCapacity",
+        reason: "Stored manager refusal",
+      } as const;
+
+      test.seed(requestId, {
+        hash,
+        refusal,
+        report: {
+          ...report,
+          terminalFault: { attempts: 1, code, kind: "spawn", requestId },
+        },
+      });
+
+      const before = test.calls.length;
+      expect(
+        yield* test.host().initialize(entry, template, false).pipe(Effect.flip)
+      ).toMatchObject(refusal);
+      expect(test.calls).toHaveLength(before);
+    })
+);
+
+it.effect(
+  "a B-written retryable receipt binds input but does not replay a result",
+  () =>
+    Effect.gen(function* rollbackRetry() {
+      const test = fixture();
+      yield* test.host().initialize(entry, template, false);
+
+      const requestId = "old-prompt";
+      const text = "Read the workspace";
+
+      const hash = yield* hashPeonText(
+        JSON.stringify({ kind: "prompt", text })
+      );
+
+      test.seed(requestId, { hash, retryable: true });
+
+      const prompt = (input: string) =>
+        test.host().command("prompt", requestId, "PROMPT", { text: input });
+
+      const before = test.calls.length;
+      expect(
+        (yield* prompt("Changed input").pipe(Effect.flip)).reason
+      ).toContain("different input");
+      expect(test.calls).toHaveLength(before);
+      expect((yield* prompt(text)).lastTurn?.output).toBe(turn.output);
+      expect(
+        test.calls.slice(before).map(({ operation }) => operation)
+      ).toContain("prompt");
+    })
+);
+
+it.effect(
+  "a parked B spawn retries after rollback without creating retry metadata",
+  () =>
+    Effect.gen(function* rollbackSpawn() {
+      const test = fixture();
+      const report = yield* test.host().initialize(entry, template, false);
+      const requestId = `spawn/${entry.peonId}`;
+      const hash = yield* hashPeonText(JSON.stringify({ kind: "spawn" }));
+      test.seedStored({
+        idleAt: 0,
+        pending: null,
+        report: {
+          ...report,
+          state: "suspended",
+          fault: "RetryExhausted",
+          terminalFault: {
+            attempts: 6,
+            code: "RetryExhausted",
+            kind: "spawn",
+            requestId,
+          },
+        },
+      });
+      test.seed(requestId, { hash, retryable: true });
+
+      const before = test.calls.length;
+
+      const conflict = yield* test
+        .host()
+        .initialize(
+          entry,
+          { ...template, hibernateAfter: template.hibernateAfter + 1 },
+          false
+        )
+        .pipe(Effect.flip);
+
+      expect(conflict.reason).toContain("different spawn input");
+      expect(test.calls).toHaveLength(before);
+
+      expect(
+        (yield* test.host().initialize(entry, template, false)).state
+      ).toBe("idle");
+
+      const requests = test.calls.filter(
+        ({ operation }) => operation === "spawn"
+      );
+
+      expect(requests).toHaveLength(2);
+      expect(new Set(requests.map(({ body }) => body?.requestId)).size).toBe(1);
+      expect(test.writes.join("\n")).not.toMatch(
+        /"(?:failures|retryAt|retryable)":/u
+      );
+    })
+);
 
 const capacityFault = (boxState: "spawned" | "hibernated") =>
   new PeonRefused({

@@ -56893,7 +56893,19 @@ var PeonTombstone = Schema4.Struct({
   template: PeonTemplateRef,
   updatedAt: Schema4.Finite
 });
+var PeonTerminalCode = Schema4.Literals([
+  "BoxSpawnRejected",
+  "RetryExhausted"
+]);
 var PeonReport = Schema4.Struct({
+  terminalFault: Schema4.optionalKey(Schema4.Struct({
+    attempts: Positive,
+    code: PeonTerminalCode,
+    httpStatus: Schema4.optionalKey(Schema4.Int),
+    kind: Schema4.String,
+    managerCode: Schema4.optionalKey(PeonBoxRefusalCode),
+    requestId: Schema4.String
+  })),
   lastSettled: Schema4.optionalKey(Schema4.Struct({
     at: Schema4.Finite,
     code: Schema4.Literal("BoxNetworkStale"),
@@ -56916,7 +56928,9 @@ var PeonReport = Schema4.Struct({
 });
 var PeonRefused = class extends Schema4.TaggedError()("PeonRefused", {
   reason: Schema4.String,
-  code: Schema4.optionalKey(PeonBoxRefusalCode),
+  code: Schema4.optionalKey(Schema4.Union([PeonBoxRefusalCode, PeonTerminalCode])),
+  httpStatus: Schema4.optionalKey(Schema4.Int),
+  managerCode: Schema4.optionalKey(PeonBoxRefusalCode),
   boxState: Schema4.optionalKey(PeonState)
 }) {
   get message() {
@@ -56930,7 +56944,10 @@ var ResumePeonRefusal = Schema4.Union([
   }).pipe(Schema4.decodeTo(PeonRefused)).annotate({ httpApiStatus: 409 }),
   Schema4.Struct({
     ...PeonRefused.fields,
-    code: Schema4.optionalKey(Schema4.Literals(PeonBoxRefusalCode.literals.filter((code) => code !== "BoxNetworkStale")))
+    code: Schema4.optionalKey(Schema4.Union([
+      Schema4.Literals(PeonBoxRefusalCode.literals.filter((code) => code !== "BoxNetworkStale")),
+      PeonTerminalCode
+    ]))
   }).pipe(Schema4.decodeTo(PeonRefused))
 ]);
 var emptyPeonUsage = {
@@ -84207,6 +84224,10 @@ var PeonPending = Schema93.Struct({
   mail: Schema93.optionalKey(Schema93.Boolean),
   newPeonId: Schema93.optional(PeonId),
   requestId: Schema93.String,
+  failures: Schema93.optionalKey(
+    Schema93.Int.check(Schema93.isGreaterThanOrEqualTo(1))
+  ),
+  retryAt: Schema93.optionalKey(Schema93.Finite),
   resumeRequestId: Schema93.String,
   sender: Schema93.optional(Schema93.String),
   text: Schema93.optional(Schema93.String),
@@ -84221,10 +84242,19 @@ var PeonStored = Schema93.Struct({
 var PeonCompleted = Schema93.Struct({
   hash: Schema93.String,
   refusal: Schema93.optionalKey(
-    Schema93.Struct({ code: PeonBoxRefusalCode, reason: Schema93.String })
+    Schema93.Struct({
+      code: PeonRefused.fields.code,
+      httpStatus: PeonRefused.fields.httpStatus,
+      managerCode: PeonRefused.fields.managerCode,
+      reason: PeonRefused.fields.reason
+    })
   ),
   report: PeonReport
 });
+var PeonRequestReceipt = Schema93.Union([
+  PeonCompleted,
+  Schema93.Struct({ hash: Schema93.String, retryable: Schema93.Literal(true) })
+]);
 var PeonBoxState = Schema93.Struct({
   processes: PeonReport.fields.processes,
   bytes: PeonReport.fields.bytes,
@@ -85509,15 +85539,19 @@ var hashPeonText = (text) => Digest10.Digest.use(
 
 // src/peon-host.ts
 var failure4 = (reason) => new PeonRefused({ reason });
-var replayCompletion = (completed, inputHash, requestId3) => {
-  if (completed.hash !== inputHash) {
+var sameTemplate = Schema103.toEquivalence(PeonTemplate);
+var replayReceipt = (receipt, inputHash, requestId3) => {
+  if (receipt.hash !== inputHash) {
     return Effect67.fail(
       failure4(
         `requestId ${requestId3} already completed with different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
       )
     );
   }
-  return completed.refusal === void 0 ? Effect67.succeed(completed.report) : Effect67.fail(new PeonRefused(completed.refusal));
+  if ("retryable" in receipt) {
+    return Effect67.succeed(void 0);
+  }
+  return receipt.refusal === void 0 ? Effect67.succeed(receipt.report) : Effect67.fail(new PeonRefused(receipt.refusal));
 };
 var reportWithPending = (stored2) => ({
   ...stored2.report,
@@ -85879,9 +85913,12 @@ var peonHost = ({
         discardWorkspace: options2.discardWorkspace
       })
     );
-    const completed = yield* storage.completed(requestId3);
-    if (completed !== void 0) {
-      return yield* replayCompletion(completed, inputHash, requestId3);
+    const receipt = yield* storage.receipt(requestId3);
+    if (receipt !== void 0) {
+      const replayed = yield* replayReceipt(receipt, inputHash, requestId3);
+      if (replayed !== void 0) {
+        return replayed;
+      }
     }
     let stored2 = yield* requirePeon;
     if (stored2.pending !== null) {
@@ -85967,8 +86004,28 @@ var peonHost = ({
             "Peon owner differs from its registry reservation; refusing to expose another caller's workspace. Use a fresh peonId with spawnPeon."
           );
         }
-        if (existing.report.state === "spawned" && existing.pending === null) {
-          return yield* begin("spawn", `spawn/${entry3.peonId}`, "SPAWN");
+        const requestId4 = `spawn/${entry3.peonId}`;
+        const receipt = yield* storage.receipt(requestId4);
+        if (receipt !== void 0 && "refusal" in receipt && receipt.refusal !== void 0) {
+          return yield* new PeonRefused(receipt.refusal);
+        }
+        if (existing.pending === null) {
+          const { state: state3, resolvedTemplate } = existing.report;
+          if ((state3 === "spawned" || state3 === "suspended") && receipt !== void 0 && "retryable" in receipt) {
+            if (!sameTemplate(template, resolvedTemplate)) {
+              return yield* failure4(
+                `Peon ${entry3.peonId} already recorded different spawn input. Retry with the original template and overrides, or call spawnPeon with a fresh peonId.`
+              );
+            }
+            return yield* begin(
+              "spawn",
+              requestId4,
+              state3 === "spawned" ? "SPAWN" : "RESUME"
+            );
+          }
+          if (state3 === "spawned") {
+            return yield* begin("spawn", requestId4, "SPAWN");
+          }
         }
         return yield* recover;
       }
@@ -86199,11 +86256,11 @@ var Peon = class extends DurableObject3 {
             await (alarm === null ? transaction.deleteAlarm() : transaction.setAlarm(alarm));
           });
         }),
-        completed: (requestId3) => Effect69.promise(
+        receipt: (requestId3) => Effect69.promise(
           async () => await ctx.storage.get(`request:${requestId3}`)
         ).pipe(
           Effect69.map(
-            (value) => value === void 0 ? void 0 : Schema104.decodeUnknownSync(PeonCompleted)(value)
+            (value) => value === void 0 ? void 0 : Schema104.decodeUnknownSync(PeonRequestReceipt)(value)
           )
         ),
         load: Effect69.promise(async () => await ctx.storage.get("peon")).pipe(

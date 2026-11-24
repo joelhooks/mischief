@@ -6,7 +6,7 @@ import { Effect, Option, Schema, Semaphore } from "effect";
 
 import { peonBox } from "./peon-box.js";
 import { peonHost } from "./peon-host.js";
-import { PEON_REGISTRY, PeonCompleted, PeonStored } from "./peon-state.js";
+import { PEON_REGISTRY, PeonRequestReceipt, PeonStored } from "./peon-state.js";
 import type { PeonPending } from "./peon-state.js";
 import { safeLastTurn } from "./peon-tail.js";
 import type { Env } from "./plan-run-object.js";
@@ -125,14 +125,14 @@ export class Peon extends DurableObject<Env> {
                 : transaction.setAlarm(alarm));
             });
           }),
-        completed: (requestId) =>
+        receipt: (requestId) =>
           Effect.promise(
             async () => await ctx.storage.get(`request:${requestId}`)
           ).pipe(
             Effect.map((value) =>
               value === undefined
                 ? undefined
-                : Schema.decodeUnknownSync(PeonCompleted)(value)
+                : Schema.decodeUnknownSync(PeonRequestReceipt)(value)
             )
           ),
         load: Effect.promise(async () => await ctx.storage.get("peon")).pipe(

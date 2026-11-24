@@ -3,6 +3,7 @@ import {
   PeonIndexEntry,
   PeonExportReceipt,
   PeonRefused,
+  PeonTemplate,
   peonIdleAlarm,
   peonTransition,
 } from "@mischief/core";
@@ -10,7 +11,6 @@ import type {
   PeonEvent,
   PeonPromptLog,
   PeonReport,
-  PeonTemplate,
   PeonTurn,
 } from "@mischief/core";
 import { Clock, Effect, Schema } from "effect";
@@ -27,6 +27,7 @@ import {
 import type {
   PeonCompleted,
   PeonPending,
+  PeonRequestReceipt,
   PeonStoredValue,
 } from "./peon-state.js";
 
@@ -43,9 +44,9 @@ export interface PeonPersistence {
     alarm: number | null,
     completed?: Completion
   ) => Effect.Effect<void>;
-  readonly completed: (
+  readonly receipt: (
     requestId: string
-  ) => Effect.Effect<typeof PeonCompleted.Type | undefined>;
+  ) => Effect.Effect<typeof PeonRequestReceipt.Type | undefined>;
 }
 
 export interface PeonHostOptions {
@@ -85,12 +86,14 @@ interface CommandOptions {
 
 const failure = (reason: string) => new PeonRefused({ reason });
 
-const replayCompletion = (
-  completed: typeof PeonCompleted.Type,
+const sameTemplate = Schema.toEquivalence(PeonTemplate);
+
+const replayReceipt = (
+  receipt: typeof PeonRequestReceipt.Type,
   inputHash: string,
   requestId: string
 ) => {
-  if (completed.hash !== inputHash) {
+  if (receipt.hash !== inputHash) {
     return Effect.fail(
       failure(
         `requestId ${requestId} already completed with different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
@@ -98,9 +101,13 @@ const replayCompletion = (
     );
   }
 
-  return completed.refusal === undefined
-    ? Effect.succeed(completed.report)
-    : Effect.fail(new PeonRefused(completed.refusal));
+  if ("retryable" in receipt) {
+    return Effect.succeed(undefined);
+  }
+
+  return receipt.refusal === undefined
+    ? Effect.succeed(receipt.report)
+    : Effect.fail(new PeonRefused(receipt.refusal));
 };
 
 const reportWithPending = (
@@ -621,10 +628,14 @@ export const peonHost = ({
       })
     );
 
-    const completed = yield* storage.completed(requestId);
+    const receipt = yield* storage.receipt(requestId);
 
-    if (completed !== undefined) {
-      return yield* replayCompletion(completed, inputHash, requestId);
+    if (receipt !== undefined) {
+      const replayed = yield* replayReceipt(receipt, inputHash, requestId);
+
+      if (replayed !== undefined) {
+        return replayed;
+      }
     }
 
     let stored = yield* requirePeon;
@@ -749,8 +760,41 @@ export const peonHost = ({
           );
         }
 
-        if (existing.report.state === "spawned" && existing.pending === null) {
-          return yield* begin("spawn", `spawn/${entry.peonId}`, "SPAWN");
+        const requestId = `spawn/${entry.peonId}`;
+        const receipt = yield* storage.receipt(requestId);
+
+        if (
+          receipt !== undefined &&
+          "refusal" in receipt &&
+          receipt.refusal !== undefined
+        ) {
+          return yield* new PeonRefused(receipt.refusal);
+        }
+
+        if (existing.pending === null) {
+          const { state, resolvedTemplate } = existing.report;
+
+          if (
+            (state === "spawned" || state === "suspended") &&
+            receipt !== undefined &&
+            "retryable" in receipt
+          ) {
+            if (!sameTemplate(template, resolvedTemplate)) {
+              return yield* failure(
+                `Peon ${entry.peonId} already recorded different spawn input. Retry with the original template and overrides, or call spawnPeon with a fresh peonId.`
+              );
+            }
+
+            return yield* begin(
+              "spawn",
+              requestId,
+              state === "spawned" ? "SPAWN" : "RESUME"
+            );
+          }
+
+          if (state === "spawned") {
+            return yield* begin("spawn", requestId, "SPAWN");
+          }
         }
 
         return yield* recover;

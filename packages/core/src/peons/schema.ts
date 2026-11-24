@@ -213,7 +213,22 @@ export const PeonTombstone = Schema.Struct({
   updatedAt: Schema.Finite,
 });
 
+const PeonTerminalCode = Schema.Literals([
+  "BoxSpawnRejected",
+  "RetryExhausted",
+]);
+
 export const PeonReport = Schema.Struct({
+  terminalFault: Schema.optionalKey(
+    Schema.Struct({
+      attempts: Positive,
+      code: PeonTerminalCode,
+      httpStatus: Schema.optionalKey(Schema.Int),
+      kind: Schema.String,
+      managerCode: Schema.optionalKey(PeonBoxRefusalCode),
+      requestId: Schema.String,
+    })
+  ),
   lastSettled: Schema.optionalKey(
     Schema.Struct({
       at: Schema.Finite,
@@ -247,7 +262,11 @@ export class PeonRefused extends Schema.TaggedError<PeonRefused>()(
   "PeonRefused",
   {
     reason: Schema.String,
-    code: Schema.optionalKey(PeonBoxRefusalCode),
+    code: Schema.optionalKey(
+      Schema.Union([PeonBoxRefusalCode, PeonTerminalCode])
+    ),
+    httpStatus: Schema.optionalKey(Schema.Int),
+    managerCode: Schema.optionalKey(PeonBoxRefusalCode),
     boxState: Schema.optionalKey(PeonState),
   }
 ) {
@@ -266,9 +285,14 @@ export const ResumePeonRefusal = Schema.Union([
   Schema.Struct({
     ...PeonRefused.fields,
     code: Schema.optionalKey(
-      Schema.Literals(
-        PeonBoxRefusalCode.literals.filter((code) => code !== "BoxNetworkStale")
-      )
+      Schema.Union([
+        Schema.Literals(
+          PeonBoxRefusalCode.literals.filter(
+            (code) => code !== "BoxNetworkStale"
+          )
+        ),
+        PeonTerminalCode,
+      ])
     ),
   }).pipe(Schema.decodeTo(PeonRefused)),
 ]);

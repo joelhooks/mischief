@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { WatchDefinition } from "@mischief/core";
-import { Clock, Effect, Result, Schema } from "effect";
+import { Clock, Effect, Exit, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import { TestClock } from "effect/testing";
 import { vi } from "vitest";
@@ -38,6 +38,15 @@ const alwaysAccept: (
   delivery: Delivery
 ) => "accepted" | "refused" | "uncertain" = () => "accepted";
 
+const CrashPointSchema = Schema.Literals([
+  "beforeSeal",
+  "beforeSave",
+  "afterSave",
+  "afterSend",
+]);
+
+type CrashPoint = typeof CrashPointSchema.Type;
+
 const makeWorld = (
   usedInitially: readonly string[] = [],
   usedTomorrow: readonly string[] = []
@@ -58,19 +67,46 @@ const makeWorld = (
 
   let checks = 0;
   let result: CheckResult = { detail: "not ready", outcome: "false" };
-  let cut: "seal" | "send" | null = null;
+  const cuts = new Map<string, CrashPoint>();
+  const persisted = new Map<string, string>();
   const crash = Effect.die("simulated power loss");
+
+  const cutAt = (name: string, point: CrashPoint) =>
+    cuts.get(name) === point && cuts.delete(name);
 
   const boot = () =>
     watchEngine({
       load: Effect.sync(() => record),
       save: (checkpoint) =>
-        Effect.sync(() => {
+        Effect.gen(function* save() {
+          const newlySealed = (checkpoint.pending?.deliveries ?? []).flatMap(
+            ({ name, envelope }) =>
+              envelope === undefined || persisted.has(name)
+                ? []
+                : [{ name, envelope }]
+          );
+
+          for (const { name } of newlySealed) {
+            if (cutAt(name, "beforeSave")) {
+              return yield* crash;
+            }
+          }
+
           record = checkpoint;
 
           if (checkpoint.pending !== null) {
             cursors.add(checkpoint.pending.firing.cursor);
           }
+
+          for (const { name, envelope } of newlySealed) {
+            persisted.set(name, envelope);
+
+            if (cutAt(name, "afterSave")) {
+              return yield* crash;
+            }
+          }
+
+          return yield* Effect.void;
         }),
       seen: (cursor) => Effect.sync(() => cursors.has(cursor)),
       check: () =>
@@ -89,9 +125,7 @@ const makeWorld = (
         }),
       seal: (delivery, _watch, text) =>
         Effect.suspend(() => {
-          if (cut === "seal") {
-            cut = null;
-
+          if (cutAt(delivery.name, "beforeSeal")) {
             return crash;
           }
 
@@ -105,9 +139,7 @@ const makeWorld = (
           attempts.push(yield* Clock.currentTimeMillis);
           sent.push({ delivery, envelope });
 
-          if (cut === "send") {
-            cut = null;
-
+          if (cutAt(delivery.name, "afterSend")) {
             return yield* crash;
           }
 
@@ -131,9 +163,10 @@ const makeWorld = (
       sendOutcome = send;
     },
     checks: () => checks,
-    cut: (stage: typeof cut) => {
-      cut = stage;
+    cut: (stage: CrashPoint, name = "example/desk") => {
+      cuts.set(name, stage);
     },
+    persisted,
     inspect: Effect.suspend(() => engine.inspect(owner)),
     reboot: () => {
       engine = boot();
@@ -223,13 +256,13 @@ it.effect(
     Effect.gen(function* preservesEnvelope() {
       const world = makeWorld();
       yield* world.arm("once");
-      world.cut("seal");
+      world.cut("beforeSeal");
       yield* world.tick(observed("result")).pipe(Effect.exit);
       const pending = yield* world.inspect;
       expect(pending.watch.state).toBe("fired");
       expect(world.sent).toHaveLength(0);
       world.reboot();
-      world.cut("send");
+      world.cut("afterSend");
       yield* world.tick(observed("unused")).pipe(Effect.exit);
       expect(world.sent).toHaveLength(1);
       world.reboot();
@@ -242,6 +275,59 @@ it.effect(
         world.sealed[0],
         world.sealed[0],
       ]);
+    })
+);
+
+it.effect.prop(
+  "crashing each recipient at a generated delivery boundary only sends the first persisted bytes",
+  {
+    cuts: Arbitrary.schema(
+      Schema.Tuple([CrashPointSchema, CrashPointSchema, CrashPointSchema])
+    ),
+  },
+  ({ cuts }) =>
+    Effect.gen(function* crashDeliveryModel() {
+      const world = makeWorld();
+
+      const schedule = cuts.map((point, index) => ({
+        name: `crash-${index}/desk`,
+        point,
+      }));
+
+      const recipients = schedule.map(({ name }) => name);
+      yield* world.arm("once", {
+        notify: { to: recipients.slice(0, 2), cc: recipients.slice(2) },
+      });
+
+      for (const { name, point } of schedule) {
+        world.cut(point, name);
+      }
+
+      for (const { name } of schedule) {
+        const interrupted = yield* world
+          .tick(observed("ready"))
+          .pipe(Effect.exit);
+
+        expect(Exit.isFailure(interrupted), name).toBe(true);
+        expect((yield* world.inspect).watch.state).toBe("fired");
+        world.reboot();
+      }
+
+      const receipt = yield* world.tick(observed("ready"));
+      expect(receipt.watch.state).toBe("done");
+      expect(receipt.firings).toHaveLength(1);
+      expect(world.checks()).toBe(1);
+
+      for (const { name, point } of schedule) {
+        const sends = world.sent.flatMap(({ delivery, envelope }) =>
+          delivery.name === name ? [envelope] : []
+        );
+
+        const firstPersisted = world.persisted.get(name);
+        expect(firstPersisted).toBeDefined();
+        expect(sends).toHaveLength(point === "afterSend" ? 2 : 1);
+        expect(sends).toEqual(sends.map(() => firstPersisted));
+      }
     })
 );
 
@@ -278,7 +364,7 @@ it.effect(
 
       yield* TestClock.setTime(dayMs - 60_000 - 5000);
       yield* world.arm();
-      world.cut("send");
+      world.cut("afterSend");
       yield* world.tick(observed("ready")).pipe(Effect.exit);
       world.reboot();
       const receipt = yield* world.tick(observed("unused"));

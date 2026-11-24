@@ -99,6 +99,7 @@ export const WatchFiring = Schema.Struct({
   cursor: Cursor,
   messageId: Schema.String,
   downgraded: Schema.Array(WatchName),
+  undelivered: Schema.optionalKey(Schema.Array(WatchName)),
 });
 
 export const WatchInspection = Schema.Struct({

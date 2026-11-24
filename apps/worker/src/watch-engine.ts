@@ -4,7 +4,7 @@ import { Clock, Effect, Option, Result, Schema } from "effect";
 
 import { canonicalName, nameFor, RESERVED } from "./fleet-names.js";
 import { hashPeonText } from "./peon-crypto.js";
-import type { PostboxFailed } from "./postbox-failed.js";
+import { PostboxFailed } from "./postbox-failed.js";
 import { validateHttp, watchRefusal } from "./watch-check.js";
 import type { CheckResult } from "./watch-check.js";
 import { newCheckpoint, transitionWatch } from "./watch-machine.js";
@@ -26,15 +26,31 @@ interface WatchPorts {
   ) => Effect.Effect<boolean>;
   readonly seal: (
     delivery: Delivery,
-    watch: WatchValue,
+    summary: string,
     text: string,
     messageId: string
   ) => Effect.Effect<string, PostboxFailed>;
   readonly send: (
     delivery: Delivery,
-    envelope: string
-  ) => Effect.Effect<void, PostboxFailed>;
+    envelope: string,
+    deadline: number
+  ) => Effect.Effect<"accepted" | "refused" | "uncertain", PostboxFailed>;
 }
+
+const MAX_ATTEMPTS = 6;
+
+const retryDelay = (attempts: number) => 5000 * 2 ** (attempts - 1);
+
+const undelivered = (
+  firing: (typeof WatchInspection.Type.firings)[number],
+  names: readonly string[]
+) => ({
+  ...firing,
+  undelivered: [...new Set([...(firing.undelivered ?? []), ...names])],
+});
+
+const recipientNames = (deliveries: readonly Delivery[]) =>
+  deliveries.flatMap(({ name, ownerNotice }) => (ownerNotice ? [] : [name]));
 
 export const validateWatch = (
   definition: Definition,
@@ -186,6 +202,50 @@ export const watchEngine = (ports: WatchPorts) => {
       )
     );
 
+  const expire = (checkpoint: Checkpoint, at: number) =>
+    Effect.gen(function* expireWatch() {
+      const { pending, watch } = checkpoint;
+
+      const firing =
+        pending === null
+          ? null
+          : undelivered(
+              pending.firing,
+              recipientNames(
+                pending.deliveries ?? initialDeliveries(watch.notify)
+              )
+            );
+
+      yield* ports.save(
+        transitionWatch(checkpoint, { type: "expire", firing })
+      );
+      const owner = nameFor(watch.owner);
+      const remaining = firing?.undelivered ?? [];
+
+      if (
+        firing !== null &&
+        remaining.length > 0 &&
+        Option.isSome(owner) &&
+        owner.value !== "joel-iphone"
+      ) {
+        const delivery = { name: owner.value, ownerNotice: true, wake: false };
+        yield* ports
+          .seal(
+            delivery,
+            "Watch expired",
+            `Watch ${watch.watchId} expired with undelivered recipients: ${remaining.join(", ")}.`,
+            firing.messageId
+          )
+          .pipe(
+            Effect.flatMap((envelope) =>
+              ports.send(delivery, envelope, at + 10_000)
+            ),
+            Effect.timeoutOption(10_000),
+            Effect.ignore
+          );
+      }
+    });
+
   const deliver = (checkpoint: Checkpoint) =>
     Effect.gen(function* deliverPending() {
       const { pending } = checkpoint;
@@ -196,7 +256,19 @@ export const watchEngine = (ports: WatchPorts) => {
 
       const at = yield* Clock.currentTimeMillis;
 
-      const guarded = { ...checkpoint, nextAt: at + 60_000 };
+      const { expiresAt } = checkpoint.watch;
+
+      if (at >= expiresAt) {
+        yield* expire(checkpoint, at);
+
+        return;
+      }
+
+      const guarded = {
+        ...checkpoint,
+        nextAt: Math.min(expiresAt, at + 5000),
+      };
+
       yield* ports.save(guarded);
 
       const dispatch = yield* deliveriesFor(
@@ -210,51 +282,125 @@ export const watchEngine = (ports: WatchPorts) => {
       yield* ports.save(armed);
       const delayed: Delivery[] = [];
 
+      let {
+        firing,
+      }: { firing: (typeof WatchInspection.Type.firings)[number] } = dispatch;
+
+      let latest: Checkpoint = armed;
+
+      const savePending = (deliveries: readonly Delivery[], nextAt: number) => {
+        latest = { ...armed, nextAt, pending: { firing, deliveries } };
+
+        return ports.save(latest);
+      };
+
       for (const [index, delivery] of dispatch.deliveries.entries()) {
+        const now = yield* Clock.currentTimeMillis;
+
+        if (now >= expiresAt) {
+          yield* expire(latest, now);
+
+          return;
+        }
+
         const rest = dispatch.deliveries.slice(index + 1);
+        const attempts = (delivery.attempts ?? 0) + 1;
+
+        if (attempts > MAX_ATTEMPTS) {
+          firing = undelivered(firing, recipientNames([delivery]));
+          yield* savePending([...delayed, ...rest], guarded.nextAt);
+          continue;
+        }
+
+        const inFlight = { ...delivery, attempts };
+        yield* savePending([...delayed, inFlight, ...rest], guarded.nextAt);
 
         const sealed =
           delivery.envelope === undefined
             ? yield* ports
                 .seal(
                   delivery,
-                  checkpoint.watch,
+                  delivery.ownerNotice
+                    ? "Watch wake budget exceeded"
+                    : checkpoint.watch.message.summary,
                   noticeText(checkpoint, delivery, dispatch),
                   dispatch.firing.messageId
                 )
-                .pipe(Effect.result)
+                .pipe(
+                  Effect.timeoutOrElse({
+                    duration: expiresAt - now,
+                    orElse: () =>
+                      Effect.fail(
+                        new PostboxFailed({
+                          reason: "Watch expired while sealing mail",
+                        })
+                      ),
+                  }),
+                  Effect.result
+                )
             : Result.succeed(delivery.envelope);
 
-        if (Result.isFailure(sealed)) {
-          delayed.push(delivery);
-          continue;
+        const beforeSend = yield* Clock.currentTimeMillis;
+
+        if (beforeSend >= expiresAt) {
+          yield* expire(latest, beforeSend);
+
+          return;
         }
 
-        const envelope = sealed.success;
-        const inFlight = { ...delivery, envelope };
-        yield* ports.save({
-          ...armed,
-          pending: { ...dispatch, deliveries: [...delayed, inFlight, ...rest] },
-        });
-        const sent = yield* ports.send(delivery, envelope).pipe(Effect.result);
+        const sealedDelivery = Result.isFailure(sealed)
+          ? inFlight
+          : { ...inFlight, envelope: sealed.success };
 
-        if (Result.isFailure(sent)) {
-          delayed.push(inFlight);
+        let outcome: "accepted" | "refused" | "uncertain" = "uncertain";
+
+        if (Result.isSuccess(sealed)) {
+          yield* savePending(
+            [...delayed, sealedDelivery, ...rest],
+            guarded.nextAt
+          );
+          const remaining = expiresAt - (yield* Clock.currentTimeMillis);
+
+          if (remaining <= 0) {
+            yield* expire(latest, expiresAt);
+
+            return;
+          }
+
+          outcome = yield* ports
+            .send(sealedDelivery, sealed.success, expiresAt)
+            .pipe(
+              Effect.orElseSucceed(() => "uncertain" as const),
+              Effect.timeoutOrElse({
+                duration: remaining,
+                orElse: () => Effect.succeed("uncertain" as const),
+              })
+            );
         }
 
-        yield* ports.save({
-          ...armed,
-          pending: { ...dispatch, deliveries: [...delayed, ...rest] },
-        });
+        if (outcome === "uncertain" && attempts < MAX_ATTEMPTS) {
+          delayed.push(sealedDelivery);
+        } else if (outcome !== "accepted") {
+          firing = undelivered(firing, recipientNames([delivery]));
+        }
+
+        yield* savePending([...delayed, ...rest], guarded.nextAt);
       }
 
-      if (delayed.length === 0) {
+      const finished = yield* Clock.currentTimeMillis;
+
+      if (finished >= expiresAt) {
+        yield* expire(latest, finished);
+      } else if (delayed.length === 0) {
         yield* ports.save(
-          transitionWatch(armed, {
-            at: yield* Clock.currentTimeMillis,
-            type: "sent",
-          })
+          transitionWatch(latest, { at: finished, type: "sent" })
         );
+      } else {
+        const backoff = Math.max(
+          ...delayed.map(({ attempts }) => retryDelay(attempts ?? 1))
+        );
+
+        yield* savePending(delayed, Math.min(expiresAt, finished + backoff));
       }
     });
 
@@ -263,6 +409,12 @@ export const watchEngine = (ports: WatchPorts) => {
     const at = yield* Clock.currentTimeMillis;
 
     if (record?.nextAt === null || record === undefined || record.nextAt > at) {
+      return;
+    }
+
+    if (at >= record.watch.expiresAt) {
+      yield* expire(record, at);
+
       return;
     }
 

@@ -9,6 +9,7 @@ export const WatchDelivery = Schema.Struct({
   wake: Schema.Boolean,
   ownerNotice: Schema.Boolean,
   envelope: Schema.optionalKey(Schema.String),
+  attempts: Schema.optionalKey(Schema.Int),
 });
 
 const WatchPending = Schema.Struct({
@@ -38,6 +39,7 @@ type Transition =
       readonly firing: Firing | null;
     }
   | { readonly type: "sent"; readonly at: number }
+  | { readonly type: "expire"; readonly firing: Firing | null }
   | { readonly type: "stop"; readonly state: "done" | "cancelled" };
 
 const intervalMs = (watch: typeof Watch.Type) => watch.intervalSeconds * 1000;
@@ -82,6 +84,15 @@ export const transitionWatch = (
         : setState({ ...record, pending: null }, event.state, null);
     }
 
+    case "expire": {
+      const firings =
+        event.firing === null
+          ? record.firings
+          : [...record.firings, event.firing].slice(-20);
+
+      return setState({ ...record, pending: null, firings }, "expired", null);
+    }
+
     case "tick": {
       if (watch.state !== "armed" && watch.state !== "checking") {
         return record;
@@ -112,7 +123,7 @@ export const transitionWatch = (
             pending: { firing, deliveries: null },
           },
           "fired",
-          at + 60_000
+          Math.min(watch.expiresAt, at + 60_000)
         );
       }
 
@@ -132,13 +143,15 @@ export const transitionWatch = (
         pending: null,
       };
 
+      if (event.at >= watch.expiresAt) {
+        return setState(delivered, "expired", null);
+      }
+
       if (watch.kind === "once") {
         return setState(delivered, "done", null);
       }
 
-      return event.at >= watch.expiresAt
-        ? setState(delivered, "expired", null)
-        : setState(delivered, "armed", following(watch, event.at));
+      return setState(delivered, "armed", following(watch, event.at));
     }
 
     default: {

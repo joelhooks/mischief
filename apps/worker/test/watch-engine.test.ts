@@ -1,10 +1,12 @@
 import { expect, it } from "@effect/vitest";
 import type { WatchDefinition } from "@mischief/core";
-import { Effect, Result, Schema } from "effect";
+import { Clock, Effect, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import { TestClock } from "effect/testing";
+import { vi } from "vitest";
 
 import { reserveWatchWake } from "../src/watch-budget.js";
+import { checkHttp } from "../src/watch-check.js";
 import type { CheckResult } from "../src/watch-check.js";
 import { watchEngine } from "../src/watch-engine.js";
 import type { Checkpoint, Delivery } from "../src/watch-machine.js";
@@ -32,6 +34,10 @@ const observed = (cursor: string): CheckResult => ({
 
 const dayMs = 86_400_000;
 
+const alwaysAccept: (
+  delivery: Delivery
+) => "accepted" | "refused" | "uncertain" = () => "accepted";
+
 const makeWorld = (
   usedInitially: readonly string[] = [],
   usedTomorrow: readonly string[] = []
@@ -45,6 +51,10 @@ const makeWorld = (
     ["0/example/desk", usedInitially],
     ["1/example/desk", usedTomorrow],
   ]);
+
+  const attempts: number[] = [];
+
+  let sendOutcome = alwaysAccept;
 
   let checks = 0;
   let result: CheckResult = { detail: "not ready", outcome: "false" };
@@ -91,24 +101,35 @@ const makeWorld = (
           return Effect.succeed(envelope);
         }),
       send: (delivery, envelope) =>
-        Effect.suspend(() => {
+        Effect.gen(function* send() {
+          attempts.push(yield* Clock.currentTimeMillis);
           sent.push({ delivery, envelope });
 
           if (cut === "send") {
             cut = null;
 
-            return crash;
+            return yield* crash;
           }
 
-          return Effect.void;
+          return sendOutcome(delivery);
         }),
     });
 
   let engine = boot();
 
   return {
-    arm: (kind: "once" | "repeat" = "repeat") =>
-      Effect.suspend(() => engine.arm(watchId, owner, { ...definition, kind })),
+    arm: (
+      kind: "once" | "repeat" = "repeat",
+      overrides: Partial<typeof definition> = {}
+    ) =>
+      Effect.suspend(() =>
+        engine.arm(watchId, owner, { ...definition, kind, ...overrides })
+      ),
+    attempts,
+    nextAt: () => record?.nextAt,
+    outcome: (send: typeof sendOutcome) => {
+      sendOutcome = send;
+    },
     checks: () => checks,
     cut: (stage: typeof cut) => {
       cut = stage;
@@ -255,7 +276,7 @@ it.effect(
         Array.from({ length: 20 }, (_, index) => `day-one-${index}`)
       );
 
-      yield* TestClock.setTime(dayMs - 120_000);
+      yield* TestClock.setTime(dayMs - 60_000 - 5000);
       yield* world.arm();
       world.cut("send");
       yield* world.tick(observed("ready")).pipe(Effect.exit);
@@ -270,6 +291,115 @@ it.effect(
       ]);
       expect(world.sent[0]?.envelope).toBe(world.sent[1]?.envelope);
       expect(receipt.firings[0]?.downgraded).toEqual(["example/desk"]);
+    })
+);
+
+it.effect(
+  "two completed GitHub runs with the same check name fire separately",
+  () =>
+    Effect.gen(function* githubRunCursors() {
+      const url = "https://checks.example.invalid/status";
+
+      const condition = {
+        type: "http",
+        url,
+        expect: {
+          jsonPath: '$.check_runs[?(@.name=="ci")].status',
+          equals: "completed",
+        },
+      } as const;
+
+      const world = makeWorld();
+      yield* world.arm();
+
+      for (const id of [501, 502, 501]) {
+        const get = vi.fn<typeof fetch>().mockResolvedValue(
+          Response.json({
+            check_runs: [
+              {
+                id,
+                name: "ci",
+                status: "completed",
+                head_sha: "a".repeat(40),
+                conclusion: "success",
+                completed_at: "2026-11-23T22:00:00Z",
+              },
+            ],
+          })
+        );
+
+        const result = yield* checkHttp(
+          condition,
+          "checks.example.invalid",
+          get
+        );
+
+        expect(result.outcome).toBe("true");
+        yield* world.tick(result);
+      }
+
+      const { firings } = yield* world.inspect;
+      expect(firings).toHaveLength(2);
+      expect(firings[0]?.cursor).not.toBe(firings[1]?.cursor);
+    })
+);
+
+it.effect(
+  "expiry stops retrying uncertain mail, keeps refusals, and sends one quiet owner notice",
+  () =>
+    Effect.gen(function* expiresBeforeRetry() {
+      const world = makeWorld();
+      world.outcome(({ name, ownerNotice }) => {
+        if (ownerNotice) {
+          return "accepted";
+        }
+
+        return name === "example/desk" ? "refused" : "uncertain";
+      });
+      yield* world.arm("once", {
+        timeoutSeconds: 66,
+        notify: { to: ["example/desk", "another/desk"], cc: [] },
+      });
+      yield* world.tick(observed("ready"));
+      yield* world.tick(observed("unused"));
+      const receipt = yield* world.tick(observed("unused"));
+      expect(receipt.watch.state).toBe("expired");
+      expect(receipt.firings[0]?.undelivered).toEqual([
+        "example/desk",
+        "another/desk",
+      ]);
+      expect(world.nextAt()).toBeNull();
+      expect(
+        world.sent.map(({ delivery }) => [delivery.name, delivery.wake])
+      ).toEqual([
+        ["example/desk", true],
+        ["another/desk", true],
+        ["another/desk", true],
+        ["watch-test", false],
+      ]);
+    })
+);
+
+it.effect(
+  "uncertain deliveries get five retries with exponential backoff",
+  () =>
+    Effect.gen(function* retriesAreBounded() {
+      const world = makeWorld();
+      world.outcome(() => "uncertain");
+      yield* world.arm("once");
+
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        yield* world.tick(observed("ready"));
+      }
+
+      expect(world.attempts).toEqual([
+        60_000, 65_000, 75_000, 95_000, 135_000, 215_000,
+      ]);
+      expect(world.nextAt()).toBeNull();
+      expect((yield* world.inspect).firings[0]?.undelivered).toEqual([
+        "example/desk",
+      ]);
+      expect(new Set(world.sent.map(({ envelope }) => envelope)).size).toBe(1);
     })
 );
 

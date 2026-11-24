@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, Fiber } from "effect";
+import { TestClock } from "effect/testing";
 import { vi } from "vitest";
 
 import { checkHttp, checkPeon, validateHttp } from "../src/watch-check.js";
@@ -67,6 +68,58 @@ it.effect(
       expect(
         (yield* check(JSON.stringify({ check_runs: [ci] }), 503)).outcome
       ).toBe("checkError");
+    })
+);
+
+it.effect(
+  "a response that stalls while reading the body hits the ten second deadline",
+  () =>
+    Effect.gen(function* stallDeadline() {
+      const cancel = vi.fn();
+      const body = new ReadableStream<Uint8Array>({ cancel });
+      const get = vi.fn<typeof fetch>().mockResolvedValue(new Response(body));
+
+      const probe = yield* checkHttp(
+        { ...condition, expect: { regex: "ready" } },
+        host,
+        get
+      ).pipe(Effect.forkChild);
+
+      yield* TestClock.adjust("10 seconds");
+      const result = yield* Fiber.join(probe);
+      expect(result.outcome).toBe("checkError");
+      expect(result.detail).toContain("10 second");
+      expect(cancel).toHaveBeenCalledOnce();
+    })
+);
+
+it.effect(
+  "plain JSON paths hash the nearest enclosing object independently of key order",
+  () =>
+    Effect.gen(function* canonicalPath() {
+      const options = {
+        ...condition,
+        expect: { jsonPath: "$.runs[0].status", equals: "done" },
+      };
+
+      const probe = (body: string) =>
+        checkHttp(
+          options,
+          host,
+          vi.fn<typeof fetch>().mockResolvedValue(new Response(body))
+        );
+
+      const first = yield* probe(
+        '{"runs":[{"id":1,"status":"done"}],"unrelated":17}'
+      );
+
+      expect(first.outcome).toBe("true");
+      expect(
+        yield* probe('{"runs":[{"status":"done","id":1}],"unrelated":18}')
+      ).toEqual(first);
+      expect(
+        yield* probe('{"runs":[{"status":"done","id":2}],"unrelated":18}')
+      ).not.toEqual(first);
     })
 );
 

@@ -40,7 +40,14 @@ const selectorName = Schema.decodeUnknownOption(
 const checkRuns = Schema.decodeUnknownOption(
   Schema.Struct({
     check_runs: Schema.Array(
-      Schema.Struct({ name: Schema.String, status: Schema.String })
+      Schema.Struct({
+        name: Schema.String,
+        status: Schema.String,
+        id: Schema.optionalKey(Schema.Int),
+        head_sha: Schema.optionalKey(Schema.String),
+        conclusion: Schema.optionalKey(Schema.NullOr(Schema.String)),
+        completed_at: Schema.optionalKey(Schema.NullOr(Schema.String)),
+      })
     ),
   })
 );
@@ -161,7 +168,10 @@ const descend = (at: JsonValue, key: string): Option.Option<JsonValue> => {
   );
 };
 
-const atPath = (value: JsonValue, path = ""): JsonValue | undefined => {
+const atPath = (
+  value: JsonValue,
+  path = ""
+): { readonly value: JsonValue; readonly node: JsonValue } | null => {
   const named = githubName(path);
 
   if (Option.isSome(named)) {
@@ -175,22 +185,40 @@ const atPath = (value: JsonValue, path = ""): JsonValue | undefined => {
       ({ name }) => name === named.value
     );
 
-    return matches.length === 1 ? matches[0]?.status : undefined;
+    const run = matches.length === 1 ? matches[0] : undefined;
+
+    return run === undefined
+      ? null
+      : {
+          value: run.status,
+          node: {
+            id: run.id ?? null,
+            head_sha: run.head_sha ?? null,
+            status: run.status,
+            conclusion: run.conclusion ?? null,
+            completed_at: run.completed_at ?? null,
+          },
+        };
   }
 
   let at = value;
+  let enclosing: JsonValue = null;
 
   for (const [key] of path.matchAll(pathToken)) {
     const child = descend(at, key);
 
     if (Option.isNone(child)) {
-      return Option.getOrUndefined(child);
+      return null;
+    }
+
+    if (Predicate.isObject(at) && !Array.isArray(at)) {
+      enclosing = at;
     }
 
     at = child.value;
   }
 
-  return at;
+  return { value: at, node: { value: at, enclosing } };
 };
 
 export const watchEvidence = (text: string) =>
@@ -198,7 +226,7 @@ export const watchEvidence = (text: string) =>
 
 const readChunk = Schema.decodeUnknownSync(Schema.Uint8Array);
 
-const readBody = async (body: Response["body"]) => {
+const readBody = async (body: Response["body"], signal: AbortSignal) => {
   if (body === null) {
     return "";
   }
@@ -207,18 +235,39 @@ const readBody = async (body: Response["body"]) => {
   const pieces: string[] = [];
   let bytes = 0;
 
-  for await (const raw of body) {
-    const chunk = readChunk(raw);
-    bytes += chunk.byteLength;
+  const reader = body.getReader();
 
-    if (bytes > MAX_BODY_BYTES) {
-      throw new Error("HTTP response exceeds 64 KB");
+  const cancel = () => {
+    void reader.cancel().catch(() => null);
+  };
+
+  signal.addEventListener("abort", cancel, { once: true });
+
+  try {
+    signal.throwIfAborted();
+    let next = await reader.read();
+
+    while (!next.done) {
+      const chunk = readChunk(next.value);
+      bytes += chunk.byteLength;
+
+      if (bytes > MAX_BODY_BYTES) {
+        throw new Error("HTTP response exceeds 64 KB");
+      }
+
+      pieces.push(decoder.decode(chunk, { stream: true }));
+      // oxlint-disable-next-line eslint/no-await-in-loop -- A stream reader consumes one chunk at a time and stops at the byte limit.
+      next = await reader.read();
     }
 
-    pieces.push(decoder.decode(chunk, { stream: true }));
-  }
+    signal.throwIfAborted();
 
-  return pieces.join("") + decoder.decode();
+    return pieces.join("") + decoder.decode();
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    cancel();
+    reader.releaseLock();
+  }
 };
 
 const noMatch = (detail: string): CheckResult => ({ detail, outcome: "false" });
@@ -228,47 +277,80 @@ const checkError = (detail: string): CheckResult => ({
   outcome: "checkError",
 });
 
+const isJsonArray = (value: JsonValue): value is readonly JsonValue[] =>
+  Array.isArray(value);
+
+const isJsonObject = (
+  value: JsonValue
+): value is Readonly<Record<string, JsonValue>> =>
+  Predicate.isObject(value) && !isJsonArray(value);
+
+const canonicalJson = (value: JsonValue): string => {
+  if (isJsonArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`;
+  }
+
+  if (!isJsonObject(value)) {
+    return JSON.stringify(value);
+  }
+
+  return `{${Object.keys(value)
+    .toSorted()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key] ?? null)}`)
+    .join(",")}}`;
+};
+
 const matched = (value: JsonValue, detail: string, evidence: string) =>
-  hashPeonText(JSON.stringify(value)).pipe(
+  Effect.try({
+    try: () => canonicalJson(value),
+    catch: () => checkError("The matched node exceeds the JSON nesting limit."),
+  }).pipe(
+    Effect.flatMap(hashPeonText),
     Effect.map((cursor): CheckResult => ({
       cursor,
       detail,
       evidence: watchEvidence(evidence),
       outcome: "true",
-    }))
+    })),
+    Effect.orElseSucceed((result) => result)
   );
 
 const matchContents = (body: string, expect: HttpCondition["expect"]) => {
-  const value =
+  const found =
     expect.jsonPath !== undefined || expect.equals !== undefined
       ? atPath(decodeJson(body), expect.jsonPath)
-      : body;
+      : { value: body, node: body };
 
   if (
-    value === undefined ||
-    (expect.equals !== undefined && !Equal.equals(expect.equals, value))
+    found === null ||
+    (expect.equals !== undefined && !Equal.equals(expect.equals, found.value))
   ) {
     return noMatch("HTTP JSON value did not match.");
   }
 
+  const { value, node } = found;
   const evidence = Predicate.isString(value) ? value : JSON.stringify(value);
 
   if (expect.regex === undefined) {
-    return { value: expect.equals ?? value, evidence };
+    return { value: node, evidence };
   }
 
   const match = new RegExp(expect.regex, "u").exec(evidence)?.[0];
 
   return match === undefined
     ? noMatch("HTTP value did not match the regex.")
-    : { value: match, evidence: match };
+    : { value: node, evidence: match };
 };
 
 const closeBody = (body: Response["body"]) => {
   void body?.cancel().catch(() => null);
 };
 
-const observe = async (response: Response, expect: HttpCondition["expect"]) => {
+const observe = async (
+  response: Response,
+  expect: HttpCondition["expect"],
+  signal: AbortSignal
+) => {
   const { status, body } = response;
 
   if (
@@ -303,7 +385,7 @@ const observe = async (response: Response, expect: HttpCondition["expect"]) => {
     };
   }
 
-  const match = matchContents(await readBody(body), expect);
+  const match = matchContents(await readBody(body, signal), expect);
 
   return "outcome" in match ? match : { ...match, status };
 };
@@ -327,7 +409,8 @@ export const checkHttp = Effect.fn("Watch.checkHttp")(function* checkHttp(
     try: async (signal) =>
       await observe(
         await get(url, { method: "GET", redirect: "manual", signal }),
-        expect
+        expect,
+        signal
       ),
   }).pipe(
     Effect.timeoutOrElse({

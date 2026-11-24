@@ -57569,7 +57569,8 @@ var WatchFiring = Schema9.Struct({
   at: Schema9.Finite,
   cursor: Cursor,
   messageId: Schema9.String,
-  downgraded: Schema9.Array(WatchName)
+  downgraded: Schema9.Array(WatchName),
+  undelivered: Schema9.optionalKey(Schema9.Array(WatchName))
 });
 var WatchInspection = Schema9.Struct({
   watch: Watch,
@@ -83282,7 +83283,7 @@ var makeSchedule = ({ alarms, guardMs, notices, runs, storage }) => {
 
 // src/postbox-object.ts
 import { DurableObject } from "cloudflare:workers";
-import { Effect as Effect63, Exit as Exit6, Layer as Layer26, Option as Option48, Schema as Schema100, Scope as Scope2 } from "effect";
+import { Clock as Clock13, Effect as Effect63, Exit as Exit6, Layer as Layer26, Option as Option48, Schema as Schema100, Scope as Scope2 } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 // src/decode-delivery.ts
@@ -85078,21 +85079,33 @@ ${body}`).pipe(Effect63.flatMap(({ envelope }) => mailroom.send(envelope)))
       )
     );
   }
-  async sendWatch(to, envelope, wake2) {
+  async sendWatch(to, envelope, wake2, deadline) {
     return await posted2(
       this.sender().pipe(
         Effect63.flatMap(
           ({ layer: layer2 }) => Mailroom.use(
-            ({ sendWatch }) => sendWatch?.(to, envelope, wake2) ?? Effect63.fail(new PostboxFailed({ reason: NOT_WIRED }))
+            ({ sendWatch }) => Effect63.gen(function* sendBeforeDeadline() {
+              const remaining3 = deadline - (yield* Clock13.currentTimeMillis);
+              if (remaining3 <= 0) {
+                return "refused";
+              }
+              return yield* (sendWatch?.(to, envelope, wake2) ?? Effect63.fail(new PostboxFailed({ reason: NOT_WIRED }))).pipe(
+                Effect63.map(
+                  SendVerdict.match({
+                    Accepted: () => "accepted",
+                    Conflict: () => "accepted",
+                    Refused: () => "refused",
+                    Uncertain: () => "uncertain"
+                  })
+                ),
+                Effect63.timeoutOrElse({
+                  duration: remaining3,
+                  orElse: () => Effect63.succeed("uncertain")
+                })
+              );
+            })
           ).pipe(
-            Effect63.flatMap(
-              (verdict) => SendVerdict.match(verdict, {
-                Accepted: () => Effect63.succeed({}),
-                Conflict: () => Effect63.succeed({}),
-                Refused: ({ reason }) => Effect63.fail(new PostboxFailed({ reason })),
-                Uncertain: ({ reason }) => Effect63.fail(new PostboxFailed({ reason }))
-              })
-            ),
+            Effect63.map((verdict) => ({ verdict })),
             Effect63.provide(layer2)
           )
         )
@@ -85399,7 +85412,7 @@ var peonBox = (url, key) => {
 };
 
 // src/peon-host.ts
-import { Clock as Clock13, Effect as Effect67, Schema as Schema103 } from "effect";
+import { Clock as Clock14, Effect as Effect67, Schema as Schema103 } from "effect";
 
 // src/peon-crypto.ts
 import { Effect as Effect66 } from "effect";
@@ -85490,7 +85503,7 @@ var peonHost = ({
     )
   );
   const commit = Effect67.fn("Peon.commit")(function* commit2(stored2) {
-    const now = yield* Clock13.currentTimeMillis;
+    const now = yield* Clock14.currentTimeMillis;
     const at = stored2.pending === null ? peonIdleAlarm(
       stored2.report.state,
       stored2.idleAt,
@@ -85505,7 +85518,7 @@ var peonHost = ({
         `Peon ${stored2.report.peonId} cannot accept ${event} while ${stored2.report.state}; changing state would lose in-flight work. Use inspectPeon, then resumePeon for a sleeping box or wait for its pending turn.`
       );
     }
-    const now = yield* Clock13.currentTimeMillis;
+    const now = yield* Clock14.currentTimeMillis;
     const report2 = { ...stored2.report, state: state3, updatedAt: now };
     if (state3 === "destroyed") {
       report2.destroyedAt = now;
@@ -85667,7 +85680,7 @@ var peonHost = ({
     const prepared = yield* prepare3(current, pending);
     yield* publish2(indexOf(prepared.report));
     const performed = yield* perform(prepared, pending);
-    const now = yield* Clock13.currentTimeMillis;
+    const now = yield* Clock14.currentTimeMillis;
     const { stored: stored2 } = performed;
     const finished = {
       ...stored2,
@@ -85717,7 +85730,7 @@ var peonHost = ({
     const promptFinished = fault.code === "PromptFailed" && stored2.pending.kind === "prompt" && stored2.report.state === "running";
     const observed = promptFinished ? fault.boxState ?? "idle" : stored2.report.state;
     const state3 = refused3 || observed === "destroyed" ? observed : peonTransition(observed, "BOX_LOST");
-    const updatedAt = promptFinished ? yield* Clock13.currentTimeMillis : stored2.report.updatedAt;
+    const updatedAt = promptFinished ? yield* Clock14.currentTimeMillis : stored2.report.updatedAt;
     const faulted = {
       ...stored2,
       idleAt: promptFinished ? updatedAt : stored2.idleAt,
@@ -85810,7 +85823,7 @@ var peonHost = ({
       if (stored2.pending !== null) {
         return yield* recover;
       }
-      const now = yield* Clock13.currentTimeMillis;
+      const now = yield* Clock14.currentTimeMillis;
       const at = peonIdleAlarm(
         stored2.report.state,
         stored2.idleAt,
@@ -85834,7 +85847,7 @@ var peonHost = ({
         return yield* recover;
       }
       yield* assertPeonSpawnable(template);
-      const now = yield* Clock13.currentTimeMillis;
+      const now = yield* Clock14.currentTimeMillis;
       const initial = {
         idleAt: now,
         pending: null,
@@ -87402,7 +87415,7 @@ function openDurableObjectSqliteStorage(storage, options2 = {}) {
 
 // src/plan-run-object.ts
 import { DurableObject as DurableObject5 } from "cloudflare:workers";
-import { Clock as Clock14, Effect as Effect77, Layer as Layer30, Option as Option58, Redacted as Redacted3, Schema as Schema110 } from "effect";
+import { Clock as Clock15, Effect as Effect77, Layer as Layer30, Option as Option58, Redacted as Redacted3, Schema as Schema110 } from "effect";
 import { FetchHttpClient as FetchHttpClient4 } from "effect/http";
 
 // src/abort-notices.ts
@@ -87802,7 +87815,7 @@ var PlanRun = class extends DurableObject5 {
     const mailEscalation = mailWired ? escalate(mailPorts) : () => Effect77.void;
     const mailDesk = mailWired ? mailOnce(mailPorts) : () => Effect77.void;
     const thought2 = (runId2, key, receipt) => Effect77.gen(function* tallied() {
-      const today = utcDay(yield* Clock14.currentTimeMillis);
+      const today = utcDay(yield* Clock15.currentTimeMillis);
       const totals = yield* Effect77.tryPromise(
         async () => await postbox2().tallyThink(today, runId2, key, receipt.tokens.total)
       ).pipe(withDeadline("Postbox.tallyThink"));
@@ -88271,7 +88284,14 @@ var selectorName = Schema114.decodeUnknownOption(
 var checkRuns = Schema114.decodeUnknownOption(
   Schema114.Struct({
     check_runs: Schema114.Array(
-      Schema114.Struct({ name: Schema114.String, status: Schema114.String })
+      Schema114.Struct({
+        name: Schema114.String,
+        status: Schema114.String,
+        id: Schema114.optionalKey(Schema114.Int),
+        head_sha: Schema114.optionalKey(Schema114.String),
+        conclusion: Schema114.optionalKey(Schema114.NullOr(Schema114.String)),
+        completed_at: Schema114.optionalKey(Schema114.NullOr(Schema114.String))
+      })
     )
   })
 );
@@ -88353,66 +88373,112 @@ var atPath = (value, path2 = "") => {
     const matches = runs.value.check_runs.filter(
       ({ name }) => name === named2.value
     );
-    return matches.length === 1 ? matches[0]?.status : void 0;
+    const run2 = matches.length === 1 ? matches[0] : void 0;
+    return run2 === void 0 ? null : {
+      value: run2.status,
+      node: {
+        id: run2.id ?? null,
+        head_sha: run2.head_sha ?? null,
+        status: run2.status,
+        conclusion: run2.conclusion ?? null,
+        completed_at: run2.completed_at ?? null
+      }
+    };
   }
   let at = value;
+  let enclosing = null;
   for (const [key] of path2.matchAll(pathToken)) {
     const child = descend(at, key);
     if (Option63.isNone(child)) {
-      return Option63.getOrUndefined(child);
+      return null;
+    }
+    if (Predicate10.isObject(at) && !Array.isArray(at)) {
+      enclosing = at;
     }
     at = child.value;
   }
-  return at;
+  return { value: at, node: { value: at, enclosing } };
 };
 var watchEvidence = (text) => clipTailText(sanitizeTailText(text).split("\n", 12).join("\n"), 2048);
 var readChunk = Schema114.decodeUnknownSync(Schema114.Uint8Array);
-var readBody = async (body) => {
+var readBody = async (body, signal) => {
   if (body === null) {
     return "";
   }
   const decoder2 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
   const pieces = [];
   let bytes3 = 0;
-  for await (const raw of body) {
-    const chunk = readChunk(raw);
-    bytes3 += chunk.byteLength;
-    if (bytes3 > MAX_BODY_BYTES) {
-      throw new Error("HTTP response exceeds 64 KB");
+  const reader = body.getReader();
+  const cancel = () => {
+    void reader.cancel().catch(() => null);
+  };
+  signal.addEventListener("abort", cancel, { once: true });
+  try {
+    signal.throwIfAborted();
+    let next = await reader.read();
+    while (!next.done) {
+      const chunk = readChunk(next.value);
+      bytes3 += chunk.byteLength;
+      if (bytes3 > MAX_BODY_BYTES) {
+        throw new Error("HTTP response exceeds 64 KB");
+      }
+      pieces.push(decoder2.decode(chunk, { stream: true }));
+      next = await reader.read();
     }
-    pieces.push(decoder2.decode(chunk, { stream: true }));
+    signal.throwIfAborted();
+    return pieces.join("") + decoder2.decode();
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    cancel();
+    reader.releaseLock();
   }
-  return pieces.join("") + decoder2.decode();
 };
 var noMatch = (detail) => ({ detail, outcome: "false" });
 var checkError = (detail) => ({
   detail,
   outcome: "checkError"
 });
-var matched = (value, detail, evidence) => hashPeonText(JSON.stringify(value)).pipe(
+var isJsonArray = (value) => Array.isArray(value);
+var isJsonObject2 = (value) => Predicate10.isObject(value) && !isJsonArray(value);
+var canonicalJson = (value) => {
+  if (isJsonArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`;
+  }
+  if (!isJsonObject2(value)) {
+    return JSON.stringify(value);
+  }
+  return `{${Object.keys(value).toSorted().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key] ?? null)}`).join(",")}}`;
+};
+var matched = (value, detail, evidence) => Effect81.try({
+  try: () => canonicalJson(value),
+  catch: () => checkError("The matched node exceeds the JSON nesting limit.")
+}).pipe(
+  Effect81.flatMap(hashPeonText),
   Effect81.map((cursor) => ({
     cursor,
     detail,
     evidence: watchEvidence(evidence),
     outcome: "true"
-  }))
+  })),
+  Effect81.orElseSucceed((result) => result)
 );
 var matchContents = (body, expect) => {
-  const value = expect.jsonPath !== void 0 || expect.equals !== void 0 ? atPath(decodeJson2(body), expect.jsonPath) : body;
-  if (value === void 0 || expect.equals !== void 0 && !Equal2.equals(expect.equals, value)) {
+  const found = expect.jsonPath !== void 0 || expect.equals !== void 0 ? atPath(decodeJson2(body), expect.jsonPath) : { value: body, node: body };
+  if (found === null || expect.equals !== void 0 && !Equal2.equals(expect.equals, found.value)) {
     return noMatch("HTTP JSON value did not match.");
   }
+  const { value, node } = found;
   const evidence = Predicate10.isString(value) ? value : JSON.stringify(value);
   if (expect.regex === void 0) {
-    return { value: expect.equals ?? value, evidence };
+    return { value: node, evidence };
   }
   const match = new RegExp(expect.regex, "u").exec(evidence)?.[0];
-  return match === void 0 ? noMatch("HTTP value did not match the regex.") : { value: match, evidence: match };
+  return match === void 0 ? noMatch("HTTP value did not match the regex.") : { value: node, evidence: match };
 };
 var closeBody = (body) => {
   void body?.cancel().catch(() => null);
 };
-var observe = async (response, expect) => {
+var observe = async (response, expect, signal) => {
   const { status, body } = response;
   if (status >= 500 || status >= 300 && status < 400 && status !== 304 || status === 0) {
     closeBody(body);
@@ -88432,7 +88498,7 @@ var observe = async (response, expect) => {
       evidence: `HTTP ${status}`
     };
   }
-  const match = matchContents(await readBody(body), expect);
+  const match = matchContents(await readBody(body, signal), expect);
   return "outcome" in match ? match : { ...match, status };
 };
 var checkHttp = Effect81.fn("Watch.checkHttp")(function* checkHttp2(condition, allowlist, get) {
@@ -88445,7 +88511,8 @@ var checkHttp = Effect81.fn("Watch.checkHttp")(function* checkHttp2(condition, a
     catch: () => "HTTP GET failed, timed out or returned an unreadable body within the 64 KB limit.",
     try: async (signal) => await observe(
       await get(url, { method: "GET", redirect: "manual", signal }),
-      expect
+      expect,
+      signal
     )
   }).pipe(
     Effect81.timeoutOrElse({
@@ -88485,7 +88552,7 @@ var checkPeon = ({ expect }, observation) => {
 };
 
 // src/watch-engine.ts
-import { Clock as Clock15, Effect as Effect83, Option as Option64, Result as Result12, Schema as Schema116 } from "effect";
+import { Clock as Clock16, Effect as Effect83, Option as Option64, Result as Result12, Schema as Schema116 } from "effect";
 
 // src/watch-machine.ts
 import { Schema as Schema115 } from "effect";
@@ -88493,7 +88560,8 @@ var WatchDelivery = Schema115.Struct({
   name: Schema115.String,
   wake: Schema115.Boolean,
   ownerNotice: Schema115.Boolean,
-  envelope: Schema115.optionalKey(Schema115.String)
+  envelope: Schema115.optionalKey(Schema115.String),
+  attempts: Schema115.optionalKey(Schema115.Int)
 });
 var WatchPending = Schema115.Struct({
   firing: WatchInspection.fields.firings.value,
@@ -88528,6 +88596,10 @@ var transitionWatch = (record, event) => {
     case "stop": {
       return record.nextAt === null ? record : setState({ ...record, pending: null }, event.state, null);
     }
+    case "expire": {
+      const firings = event.firing === null ? record.firings : [...record.firings, event.firing].slice(-20);
+      return setState({ ...record, pending: null, firings }, "expired", null);
+    }
     case "tick": {
       if (watch2.state !== "armed" && watch2.state !== "checking") {
         return record;
@@ -88549,7 +88621,7 @@ var transitionWatch = (record, event) => {
             pending: { firing, deliveries: null }
           },
           "fired",
-          at + 6e4
+          Math.min(watch2.expiresAt, at + 6e4)
         );
       }
       return at >= watch2.expiresAt ? setState(checked, "expired", null) : setState(checked, "armed", following(watch2, at));
@@ -88563,10 +88635,13 @@ var transitionWatch = (record, event) => {
         firings: [...record.firings, record.pending.firing].slice(-20),
         pending: null
       };
+      if (event.at >= watch2.expiresAt) {
+        return setState(delivered, "expired", null);
+      }
       if (watch2.kind === "once") {
         return setState(delivered, "done", null);
       }
-      return event.at >= watch2.expiresAt ? setState(delivered, "expired", null) : setState(delivered, "armed", following(watch2, event.at));
+      return setState(delivered, "armed", following(watch2, event.at));
     }
     default: {
       return event;
@@ -88575,6 +88650,13 @@ var transitionWatch = (record, event) => {
 };
 
 // src/watch-engine.ts
+var MAX_ATTEMPTS = 6;
+var retryDelay = (attempts) => 5e3 * 2 ** (attempts - 1);
+var undelivered = (firing, names3) => ({
+  ...firing,
+  undelivered: [.../* @__PURE__ */ new Set([...firing.undelivered ?? [], ...names3])]
+});
+var recipientNames = (deliveries) => deliveries.flatMap(({ name, ownerNotice }) => ownerNotice ? [] : [name]);
 var validateWatch = (definition, allowlist) => {
   const { condition, intervalSeconds, timeoutSeconds, notify } = definition;
   if (intervalSeconds < 60) {
@@ -88671,13 +88753,50 @@ var watchEngine = (ports) => {
       )
     )
   );
+  const expire = (checkpoint, at) => Effect83.gen(function* expireWatch() {
+    const { pending, watch: watch2 } = checkpoint;
+    const firing = pending === null ? null : undelivered(
+      pending.firing,
+      recipientNames(
+        pending.deliveries ?? initialDeliveries(watch2.notify)
+      )
+    );
+    yield* ports.save(
+      transitionWatch(checkpoint, { type: "expire", firing })
+    );
+    const owner = nameFor(watch2.owner);
+    const remaining3 = firing?.undelivered ?? [];
+    if (firing !== null && remaining3.length > 0 && Option64.isSome(owner) && owner.value !== "joel-iphone") {
+      const delivery = { name: owner.value, ownerNotice: true, wake: false };
+      yield* ports.seal(
+        delivery,
+        "Watch expired",
+        `Watch ${watch2.watchId} expired with undelivered recipients: ${remaining3.join(", ")}.`,
+        firing.messageId
+      ).pipe(
+        Effect83.flatMap(
+          (envelope) => ports.send(delivery, envelope, at + 1e4)
+        ),
+        Effect83.timeoutOption(1e4),
+        Effect83.ignore
+      );
+    }
+  });
   const deliver = (checkpoint) => Effect83.gen(function* deliverPending() {
     const { pending } = checkpoint;
     if (pending === null) {
       return;
     }
-    const at = yield* Clock15.currentTimeMillis;
-    const guarded = { ...checkpoint, nextAt: at + 6e4 };
+    const at = yield* Clock16.currentTimeMillis;
+    const { expiresAt } = checkpoint.watch;
+    if (at >= expiresAt) {
+      yield* expire(checkpoint, at);
+      return;
+    }
+    const guarded = {
+      ...checkpoint,
+      nextAt: Math.min(expiresAt, at + 5e3)
+    };
     yield* ports.save(guarded);
     const dispatch = yield* deliveriesFor(
       ports,
@@ -88688,46 +88807,99 @@ var watchEngine = (ports) => {
     const armed = { ...guarded, pending: dispatch };
     yield* ports.save(armed);
     const delayed = [];
+    let {
+      firing
+    } = dispatch;
+    let latest = armed;
+    const savePending = (deliveries, nextAt) => {
+      latest = { ...armed, nextAt, pending: { firing, deliveries } };
+      return ports.save(latest);
+    };
     for (const [index3, delivery] of dispatch.deliveries.entries()) {
+      const now = yield* Clock16.currentTimeMillis;
+      if (now >= expiresAt) {
+        yield* expire(latest, now);
+        return;
+      }
       const rest = dispatch.deliveries.slice(index3 + 1);
-      const sealed = delivery.envelope === void 0 ? yield* ports.seal(
-        delivery,
-        checkpoint.watch,
-        noticeText(checkpoint, delivery, dispatch),
-        dispatch.firing.messageId
-      ).pipe(Effect83.result) : Result12.succeed(delivery.envelope);
-      if (Result12.isFailure(sealed)) {
-        delayed.push(delivery);
+      const attempts = (delivery.attempts ?? 0) + 1;
+      if (attempts > MAX_ATTEMPTS) {
+        firing = undelivered(firing, recipientNames([delivery]));
+        yield* savePending([...delayed, ...rest], guarded.nextAt);
         continue;
       }
-      const envelope = sealed.success;
-      const inFlight = { ...delivery, envelope };
-      yield* ports.save({
-        ...armed,
-        pending: { ...dispatch, deliveries: [...delayed, inFlight, ...rest] }
-      });
-      const sent = yield* ports.send(delivery, envelope).pipe(Effect83.result);
-      if (Result12.isFailure(sent)) {
-        delayed.push(inFlight);
+      const inFlight = { ...delivery, attempts };
+      yield* savePending([...delayed, inFlight, ...rest], guarded.nextAt);
+      const sealed = delivery.envelope === void 0 ? yield* ports.seal(
+        delivery,
+        delivery.ownerNotice ? "Watch wake budget exceeded" : checkpoint.watch.message.summary,
+        noticeText(checkpoint, delivery, dispatch),
+        dispatch.firing.messageId
+      ).pipe(
+        Effect83.timeoutOrElse({
+          duration: expiresAt - now,
+          orElse: () => Effect83.fail(
+            new PostboxFailed({
+              reason: "Watch expired while sealing mail"
+            })
+          )
+        }),
+        Effect83.result
+      ) : Result12.succeed(delivery.envelope);
+      const beforeSend = yield* Clock16.currentTimeMillis;
+      if (beforeSend >= expiresAt) {
+        yield* expire(latest, beforeSend);
+        return;
       }
-      yield* ports.save({
-        ...armed,
-        pending: { ...dispatch, deliveries: [...delayed, ...rest] }
-      });
+      const sealedDelivery = Result12.isFailure(sealed) ? inFlight : { ...inFlight, envelope: sealed.success };
+      let outcome = "uncertain";
+      if (Result12.isSuccess(sealed)) {
+        yield* savePending(
+          [...delayed, sealedDelivery, ...rest],
+          guarded.nextAt
+        );
+        const remaining3 = expiresAt - (yield* Clock16.currentTimeMillis);
+        if (remaining3 <= 0) {
+          yield* expire(latest, expiresAt);
+          return;
+        }
+        outcome = yield* ports.send(sealedDelivery, sealed.success, expiresAt).pipe(
+          Effect83.orElseSucceed(() => "uncertain"),
+          Effect83.timeoutOrElse({
+            duration: remaining3,
+            orElse: () => Effect83.succeed("uncertain")
+          })
+        );
+      }
+      if (outcome === "uncertain" && attempts < MAX_ATTEMPTS) {
+        delayed.push(sealedDelivery);
+      } else if (outcome !== "accepted") {
+        firing = undelivered(firing, recipientNames([delivery]));
+      }
+      yield* savePending([...delayed, ...rest], guarded.nextAt);
     }
-    if (delayed.length === 0) {
+    const finished = yield* Clock16.currentTimeMillis;
+    if (finished >= expiresAt) {
+      yield* expire(latest, finished);
+    } else if (delayed.length === 0) {
       yield* ports.save(
-        transitionWatch(armed, {
-          at: yield* Clock15.currentTimeMillis,
-          type: "sent"
-        })
+        transitionWatch(latest, { at: finished, type: "sent" })
       );
+    } else {
+      const backoff = Math.max(
+        ...delayed.map(({ attempts }) => retryDelay(attempts ?? 1))
+      );
+      yield* savePending(delayed, Math.min(expiresAt, finished + backoff));
     }
   });
   const alarm = Effect83.gen(function* runAlarm() {
     const record = yield* ports.load;
-    const at = yield* Clock15.currentTimeMillis;
+    const at = yield* Clock16.currentTimeMillis;
     if (record?.nextAt === null || record === void 0 || record.nextAt > at) {
+      return;
+    }
+    if (at >= record.watch.expiresAt) {
+      yield* expire(record, at);
       return;
     }
     if (record.pending !== null) {
@@ -88740,7 +88912,7 @@ var watchEngine = (ports) => {
       return;
     }
     const result = yield* ports.check(checking.watch);
-    const finished = yield* Clock15.currentTimeMillis;
+    const finished = yield* Clock16.currentTimeMillis;
     const firing = result.outcome === "true" && finished < checking.watch.expiresAt && !(yield* ports.seen(result.cursor)) ? {
       at: finished,
       cursor: result.cursor,
@@ -88764,7 +88936,7 @@ var watchEngine = (ports) => {
     const requestHash = yield* hashPeonText(JSON.stringify(definition));
     const previous2 = yield* ports.load;
     if (previous2 === void 0) {
-      const armedAt = yield* Clock15.currentTimeMillis;
+      const armedAt = yield* Clock16.currentTimeMillis;
       yield* ports.save(
         newCheckpoint(
           {
@@ -88905,21 +89077,22 @@ var WatchObject = class extends DurableObject8 {
       const day = DateTime7.formatIsoDateUtc(DateTime7.makeUnsafe(at));
       return await binding.getByName(watchBudgetName(name)).reserveWake(day, key);
     }),
-    seal: (delivery, watch2, text, messageId) => postboxCall(
+    seal: (delivery, summary, text, messageId) => postboxCall(
       async () => await this.env.POSTBOX.getByName(POSTBOX_NAME).sealWatch(
         delivery.name,
-        delivery.ownerNotice ? "Watch wake budget exceeded" : watch2.message.summary,
+        summary,
         text,
         messageId
       )
     ).pipe(Effect84.map(({ envelope }) => envelope)),
-    send: (delivery, envelope) => postboxCall(
+    send: (delivery, envelope, deadline) => postboxCall(
       async () => await this.env.POSTBOX.getByName(POSTBOX_NAME).sendWatch(
         delivery.name,
         envelope,
-        delivery.wake
+        delivery.wake,
+        deadline
       )
-    ).pipe(Effect84.asVoid)
+    ).pipe(Effect84.map(({ verdict }) => verdict))
   });
   async arm(watchId, owner, definition) {
     return await reply(
@@ -89264,7 +89437,7 @@ var serveDeskWake = async (request2, env, issuer) => {
 };
 
 // src/peon-http.ts
-import { Clock as Clock16, Effect as Effect87, Layer as Layer34, Schema as Schema120 } from "effect";
+import { Clock as Clock17, Effect as Effect87, Layer as Layer34, Schema as Schema120 } from "effect";
 import { HttpRouter as HttpRouter4, HttpServer as HttpServer4 } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder5 } from "effect/http-api";
 var peonCommandRpc = (operation) => peonRpc(operation).pipe(
@@ -89359,7 +89532,7 @@ var peonServices = (env, owner) => {
       );
       yield* assertPeonSpawnable(template);
       const peonId = input.peonId ?? (yield* freshPeonId);
-      const now = yield* Clock16.currentTimeMillis;
+      const now = yield* Clock17.currentTimeMillis;
       const entry3 = {
         creationKey: `spawn/${peonId}`,
         owner,
@@ -89451,7 +89624,7 @@ var servePeon = async (request2, env, owner, capability) => {
 import { Effect as Effect89, Layer as Layer35 } from "effect";
 
 // src/service-auth.ts
-import { Clock as Clock17, Effect as Effect88 } from "effect";
+import { Clock as Clock18, Effect as Effect88 } from "effect";
 
 // src/auth-refused.ts
 import { Schema as Schema121 } from "effect";
@@ -89467,7 +89640,7 @@ var SKEW_SECONDS = 5;
 var MINT = `Mint a fresh Rat King service token with serviceToken from @rat-king/mailbox-client/auth (ES256, signed with your DID's #atproto key): iss your DID, aud the host's audience, lxm ${NSID_PREFIX}<capability>, a unique jti of at least 16 characters, iat now and exp at most 60 seconds later. Send it as Authorization: Bearer <token>. If your DID is not on the host's allowlist, ask the Mischief operator to add your DID document.`;
 var authenticate = Effect88.fn("Mischief.authenticate")(
   function* authenticate2(request2) {
-    const now = yield* Clock17.currentTimeMillis;
+    const now = yield* Clock18.currentTimeMillis;
     const claims = yield* authenticateClaims3({
       audience: request2.audience,
       authorization: request2.authorization,
@@ -89594,7 +89767,7 @@ var thinkStatusHttp = (telemetry) => HttpRouter5.toWebHandler(
 );
 
 // src/think-telemetry.ts
-import { Clock as Clock18, Effect as Effect90 } from "effect";
+import { Clock as Clock19, Effect as Effect90 } from "effect";
 var thinkTelemetry = ({
   cliproxyKey,
   cliproxyUrl,
@@ -89602,7 +89775,7 @@ var thinkTelemetry = ({
   readDay
 }) => ThinkTelemetry.of({
   read: Effect90.gen(function* readThinkTelemetry() {
-    const day = utcDay(yield* Clock18.currentTimeMillis);
+    const day = utcDay(yield* Clock19.currentTimeMillis);
     const today = yield* readDay(day);
     return {
       default: {

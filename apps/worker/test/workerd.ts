@@ -102,19 +102,22 @@ const configOf = (
   mailReach: string,
   boxPort: number | undefined,
   peonReaders: readonly string[],
-  watchOwners: readonly string[] | undefined
+  watchOwners: readonly string[] | undefined,
+  watchMail: { readonly port: number; readonly identity: string } | undefined
 ) => `using Workerd = import "/workerd/workerd.capnp";
 const config :Workerd.Config = (
   services = [
     (name = "main", worker = .worker),
     (name = "disk", disk = (path = "${dir}/do", writable = true)),
     ${boxPort === undefined ? "" : '(name = "box", worker = .boxWorker),'}
+    ${watchMail === undefined ? "" : `(name = "watch-mail", external = (address = "127.0.0.1:${watchMail.port}", http = ())),`}
   ],
   sockets = [(name = "http", address = "127.0.0.1:${port}", http = (), service = "main")${boxPort === undefined ? "" : `, (name = "box", address = "127.0.0.1:${boxPort}", http = (), service = "box")`}],
 );
 const worker :Workerd.Worker = (
   modules = [(name = "worker.js", esModule = embed "worker.js")],
   compatibilityDate = "2026-09-01",
+  ${watchMail === undefined ? "" : 'globalOutbound = "watch-mail",'}
   ${boxPort === undefined ? "" : 'globalOutbound = "box",'}
   durableObjectNamespaces = [
     (className = "PlanRun", uniqueKey = "mischief-plan-run", enableSql = true),
@@ -157,6 +160,13 @@ const worker :Workerd.Worker = (
       })
     )}),
 
+    ${
+      watchMail === undefined
+        ? ""
+        : `(name = "MISCHIEF_MAILBOX_URL", text = "https://mail.example.invalid"),
+    (name = "MISCHIEF_MAILBOX_DID", text = "did:web:mail.example.invalid"),
+    (name = "MISCHIEF_IDENTITY", text = ${JSON.stringify(watchMail.identity)}),`
+    }
     (name = "MISCHIEF_DID", text = "${MISCHIEF_DID}"),
     (name = "MISCHIEF_CALLERS", text = ${JSON.stringify(JSON.stringify(callers))}),
     (name = "MISCHIEF_MAIL_REACH", text = ${JSON.stringify(mailReach)}),
@@ -193,6 +203,7 @@ export const prepare = (
     readonly peons?: boolean;
     readonly peonReaders?: readonly string[];
     readonly watchOwners?: readonly string[];
+    readonly watchMail?: { readonly port: number; readonly identity: string };
   } = {}
 ) =>
   Effect.gen(function* prepareWorkerd() {
@@ -234,7 +245,8 @@ export const prepare = (
           ),
         boxPort,
         options.peonReaders ?? [],
-        options.watchOwners
+        options.watchOwners,
+        options.watchMail
       ) + (boxPort === undefined ? "" : boxConfig)
     );
 

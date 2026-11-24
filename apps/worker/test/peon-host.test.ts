@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { PeonReport } from "@mischief/core";
 import { emptyPeonUsage, fullPeonTemplate, PeonRefused } from "@mischief/core";
-import { Clock, Effect, Schema } from "effect";
+import { Clock, Console, Effect, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
 import type {
@@ -9,11 +9,12 @@ import type {
   PeonBoxRequest,
   PeonBoxOperation,
 } from "../src/peon-box.js";
+import { requireSuccess } from "../src/peon-box.js";
 import { hashPeonText } from "../src/peon-crypto.js";
 import { peonHost } from "../src/peon-host.js";
 import type { PeonHostOptions } from "../src/peon-host.js";
 import { PeonRequestReceipt, PeonStored } from "../src/peon-state.js";
-import type { PeonCompleted, PeonStoredValue } from "../src/peon-state.js";
+import type { PeonStoredValue } from "../src/peon-state.js";
 
 const template = {
   ...fullPeonTemplate,
@@ -38,7 +39,7 @@ const turn = {
   wallMs: 12,
 };
 
-const fixture = () => {
+const fixture = (guardMs = 30_000) => {
   let stored: PeonStoredValue | undefined;
   let alarm: number | null = null;
   let crashOnCompletion = false;
@@ -150,7 +151,7 @@ const fixture = () => {
         state: "suspended",
         usage: emptyPeonUsage,
       }),
-    guardMs: 30_000,
+    guardMs,
     publish: () => Effect.void,
     reply: (_to: string, messageId: string) =>
       Effect.sync(() => {
@@ -163,7 +164,7 @@ const fixture = () => {
         at: number | null,
         completed?: {
           readonly requestId: string;
-          readonly value: typeof PeonCompleted.Type;
+          readonly value: typeof PeonRequestReceipt.Type;
         }
       ) =>
         Effect.gen(function* commit() {
@@ -225,6 +226,16 @@ const fixture = () => {
       stored = row;
     },
     replies,
+    restoreLegacyPending: () => {
+      if (stored?.pending === undefined || stored.pending === null) {
+        throw new Error("legacy fixture needs a pending command");
+      }
+
+      const pending = { ...stored.pending };
+      delete pending.failures;
+      delete pending.retryAt;
+      stored = { ...stored, pending };
+    },
     writes,
   };
 };
@@ -365,7 +376,7 @@ it.effect(
 );
 
 it.effect(
-  "a parked B spawn retries after rollback without creating retry metadata",
+  "a stored retryable spawn binds its template and can drive again",
   () =>
     Effect.gen(function* rollbackSpawn() {
       const test = fixture();
@@ -481,6 +492,8 @@ it.effect(
       });
       test.fail(legacyFault(raw));
       yield* call("legacy-resume").pipe(Effect.flip);
+      test.restoreLegacyPending();
+
       const parked = yield* test.host().inspectStored;
       expect(parked.fault).toContain("BoxNetworkStale");
       expect(parked).toMatchObject({
@@ -513,6 +526,333 @@ it.effect(
       const replay = yield* call("legacy-resume").pipe(Effect.flip);
       expect(replay.code).toBe("BoxNetworkStale");
       expect(test.calls).toHaveLength(beforeInspect + 1);
+    })
+);
+
+it.effect.prop(
+  "retry alarms back off across host restarts and stop after six failed drives",
+  { guardMs: Schema.Literals([1000, 30_000, 60_000]) },
+  ({ guardMs }) =>
+    Effect.gen(function* retryBudget() {
+      const test = fixture(guardMs);
+      const requestId = "bounded-resume";
+      const resume = () => test.host().command("resume", requestId, "RESUME");
+
+      yield* test.host().initialize(entry, template, false);
+      yield* test.host().command("suspend", "setup-suspend", "SUSPEND");
+      test.fail();
+      yield* resume().pipe(Effect.flip);
+
+      for (const multiple of [1, 2, 4, 4, 4]) {
+        const delay = multiple * guardMs;
+        const now = yield* Clock.currentTimeMillis;
+        expect(test.alarm()).toBe(now + delay);
+
+        yield* TestClock.adjust(`${delay - 1} millis`);
+        const before = test.calls.length;
+        yield* test.host().idle("alarm");
+        expect(test.calls).toHaveLength(before);
+        expect(test.alarm()).toBe(now + delay);
+
+        yield* TestClock.adjust("1 millis");
+        test.fail();
+        yield* test.host().idle("alarm");
+        expect(test.calls).toHaveLength(before + 1);
+      }
+
+      const calls = test.calls.filter(
+        ({ operation }) => operation === "resume"
+      );
+
+      expect(calls).toHaveLength(6);
+      expect(new Set(calls.map(({ body }) => body?.requestId)).size).toBe(1);
+
+      const exhausted = yield* test.host().inspectStored;
+      expect(exhausted.fault).toContain("RetryExhausted");
+      expect(exhausted).toMatchObject({
+        pending: null,
+        state: "suspended",
+        terminalFault: {
+          attempts: 6,
+          code: "RetryExhausted",
+          kind: "resume",
+          requestId,
+        },
+      });
+      expect(test.alarm()).toBe(template.hibernateAfter);
+
+      yield* TestClock.adjust("2 days");
+      expect((yield* test.host().idle("alarm")).state).toBe("hibernated");
+      expect(
+        test.calls.filter(({ operation }) => operation === "resume")
+      ).toEqual(calls);
+
+      const resumed = yield* resume();
+      expect(resumed.state).toBe("idle");
+      expect(resumed).not.toHaveProperty("terminalFault");
+
+      const afterRetry = test.calls.filter(
+        ({ operation }) => operation === "resume"
+      );
+
+      expect(afterRetry).toHaveLength(7);
+      expect(new Set(afterRetry.map(({ body }) => body?.requestId)).size).toBe(
+        1
+      );
+    })
+);
+
+it.effect(
+  "an exhausted prompt still binds the request ID to its original text after hibernation",
+  () =>
+    Effect.gen(function* retryPrompt() {
+      const test = fixture(1000);
+      const requestId = "retryable-prompt";
+
+      const prompt = (text: string) =>
+        test.host().command("prompt", requestId, "PROMPT", { text });
+
+      yield* test.host().initialize(entry, template, false);
+      test.fail();
+      yield* prompt("Original text").pipe(Effect.flip);
+
+      for (const delay of [1, 2, 4, 4, 4]) {
+        yield* TestClock.adjust(`${delay} seconds`);
+        test.fail();
+        yield* test.host().idle("alarm");
+      }
+
+      yield* TestClock.adjust("2 days");
+      expect((yield* test.host().idle("alarm")).state).toBe("hibernated");
+
+      const before = test.calls.length;
+      const conflict = yield* prompt("Different text").pipe(Effect.flip);
+      expect(conflict.reason).toContain("different input");
+      expect(test.calls).toHaveLength(before);
+
+      expect((yield* prompt("Original text")).lastTurn?.output).toBe(
+        turn.output
+      );
+
+      const calls = test.calls.filter(
+        ({ operation }) => operation === "prompt"
+      );
+
+      expect(calls).toHaveLength(7);
+      expect(new Set(calls.map(({ body }) => body?.requestId)).size).toBe(1);
+    })
+);
+
+it.effect.each([401, 403])(
+  "a spawn refused with HTTP %s can retry its fixed ID after exhaustion",
+  (status) =>
+    Effect.gen(function* restartSpawn() {
+      const test = fixture(1000);
+      const spawn = () => test.host().initialize(entry, template, false);
+
+      const denial = yield* requireSuccess(entry.peonId, "spawn", {
+        status,
+        text: "Host configuration denied spawn",
+      }).pipe(Effect.flip);
+
+      test.fail(denial);
+      expect((yield* spawn().pipe(Effect.flip)).code).toBeUndefined();
+
+      for (const delay of [1, 2, 4, 4, 4]) {
+        yield* TestClock.adjust(`${delay} seconds`);
+        test.fail(denial);
+        yield* test.host().idle("alarm");
+      }
+
+      const exhausted = yield* test.host().inspectStored;
+      expect(exhausted.terminalFault).toMatchObject({
+        code: "RetryExhausted",
+        attempts: 6,
+        httpStatus: status,
+        kind: "spawn",
+      });
+      expect(exhausted.pending).toBeNull();
+      expect(test.alarm()).toBeNull();
+
+      const conflict = yield* test
+        .host()
+        .initialize(
+          entry,
+          { ...template, hibernateAfter: template.hibernateAfter + 1 },
+          false
+        )
+        .pipe(Effect.flip);
+
+      expect(conflict.reason).toContain("different spawn input");
+      expect(
+        test.calls.filter(({ operation }) => operation === "spawn")
+      ).toHaveLength(6);
+
+      test.fail(denial);
+      const refused = yield* spawn().pipe(Effect.flip);
+      expect(refused.code).toBeUndefined();
+      expect((yield* test.host().inspectStored).pending).toMatchObject({
+        kind: "spawn",
+        requestId: `spawn/${entry.peonId}`,
+      });
+      expect(test.alarm()).toBe((yield* Clock.currentTimeMillis) + 1000);
+
+      yield* TestClock.adjust("1 second");
+      expect((yield* test.host().idle("alarm")).state).toBe("idle");
+      const calls = test.calls.filter(({ operation }) => operation === "spawn");
+      expect(calls).toHaveLength(8);
+      expect(new Set(calls.map(({ body }) => body?.requestId)).size).toBe(1);
+    })
+);
+
+it.effect(
+  "exhausting automatic suspension leaves no timer that could restart it",
+  () =>
+    Effect.gen(function* exhaustedSuspend() {
+      const test = fixture(1000);
+      yield* test.host().initialize(entry, template, false);
+      yield* TestClock.adjust("60 seconds");
+      test.fail();
+      yield* test.host().idle("alarm").pipe(Effect.flip);
+
+      for (const delay of [1, 2, 4, 4, 4]) {
+        yield* TestClock.adjust(`${delay} seconds`);
+        test.fail();
+        yield* test.host().idle("alarm");
+      }
+
+      expect((yield* test.host().inspectStored).terminalFault).toMatchObject({
+        code: "RetryExhausted",
+        kind: "suspend",
+      });
+      expect(test.alarm()).toBeNull();
+      const before = test.calls.length;
+      yield* TestClock.adjust("2 days");
+      yield* test.host().idle("alarm");
+      expect(test.calls).toHaveLength(before);
+    })
+);
+
+it.effect("alarm logs one structured outcome per actual drive", () =>
+  Console.consoleWith((base) => {
+    const lines: unknown[] = [];
+
+    return Effect.gen(function* loggedRedrives() {
+      const test = fixture();
+      const requestId = "log-resume";
+
+      yield* test.host().initialize(entry, template, false);
+      yield* test.host().command("suspend", "setup-suspend", "SUSPEND");
+      test.fail();
+      yield* test
+        .host()
+        .command("resume", requestId, "RESUME")
+        .pipe(Effect.flip);
+      yield* test.host().idle("alarm");
+      expect(lines).toHaveLength(0);
+
+      yield* TestClock.adjust("30 seconds");
+      test.fail(
+        yield* requireSuccess(entry.peonId, "resume", {
+          status: 503,
+          text: JSON.stringify({
+            error: { code: "BoxCapacity", message: "Manager unavailable" },
+          }),
+        }).pipe(Effect.flip)
+      );
+      yield* test.host().idle("alarm");
+
+      yield* TestClock.adjust("60 seconds");
+      test.fail(
+        yield* requireSuccess(entry.peonId, "resume", {
+          status: 502,
+          text: "Gateway lost",
+        }).pipe(Effect.flip)
+      );
+      yield* test.host().idle("alarm");
+
+      yield* TestClock.adjust("120 seconds");
+      expect((yield* test.host().idle("alarm")).state).toBe("idle");
+
+      const common = {
+        event: "peon_alarm_redrive",
+        op: "resume",
+        peonId: entry.peonId,
+        requestId,
+      };
+
+      const records = yield* Schema.decodeUnknownEffect(
+        Schema.Array(Schema.fromJsonString(Schema.Json))
+      )(lines);
+
+      expect(records).toEqual([
+        {
+          ...common,
+          attempt: 2,
+          code: "BoxCapacity",
+          httpStatus: 503,
+          outcome: "refused",
+        },
+        {
+          ...common,
+          attempt: 3,
+          code: "uncoded",
+          httpStatus: 502,
+          outcome: "refused",
+        },
+        {
+          ...common,
+          attempt: 4,
+          code: null,
+          httpStatus: null,
+          outcome: "succeeded",
+        },
+      ]);
+    }).pipe(
+      Effect.provideService(
+        Console.Console,
+        new Proxy(base, {
+          get(target, property: keyof Console.Console) {
+            return property === "log"
+              ? (...args: unknown[]) => lines.push(...args)
+              : target[property];
+          },
+        })
+      )
+    );
+  })
+);
+
+it.effect.prop(
+  "only permanent uncoded spawn statuses are stamped as immediate rejections",
+  {
+    status: Schema.Literals([
+      400, 401, 403, 404, 408, 409, 413, 418, 422, 425, 429, 500, 503,
+    ]),
+  },
+  ({ status }) =>
+    Effect.gen(function* spawnStatus() {
+      const response = { status, text: "Uncoded manager failure" };
+
+      const denial = yield* requireSuccess(
+        entry.peonId,
+        "spawn",
+        response
+      ).pipe(Effect.flip);
+
+      const other = yield* requireSuccess(
+        entry.peonId,
+        "resume",
+        response
+      ).pipe(Effect.flip);
+
+      expect(denial.code).toBe(
+        [400, 404, 409, 413, 422].includes(status)
+          ? "BoxSpawnRejected"
+          : undefined
+      );
+      expect(denial.httpStatus).toBe(status);
+      expect(other.code).toBeUndefined();
     })
 );
 

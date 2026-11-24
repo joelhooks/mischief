@@ -194,6 +194,35 @@ const isDefinitiveRefusal = (
     (operation === "destroy" || operation === "export") &&
     code === "CustodyMissing");
 
+const isPermanentSpawnStatus = (operation: BoxHttpOperation, status: number) =>
+  operation === "spawn" && [400, 404, 409, 413, 422].includes(status);
+
+const uncodedBoxRefusal = (
+  operation: BoxHttpOperation,
+  response: { readonly status: number; readonly text: string },
+  context: string,
+  managerCode: typeof PeonBoxRefusalCode.Type | undefined
+) => {
+  const reason = `${context}: ${response.text.slice(0, 1024)}`;
+
+  if (isPermanentSpawnStatus(operation, response.status)) {
+    return new PeonRefused({
+      code: "BoxSpawnRejected",
+      httpStatus: response.status,
+      reason: `${reason}. Inspect the failed peon before cleanup. Fix the spawn inputs or ask the box host operator, then use a fresh peonId.`,
+    });
+  }
+
+  const refusal = {
+    httpStatus: response.status,
+    reason: `${reason}${uncodedRefusalSuffix}`,
+  };
+
+  return new PeonRefused(
+    managerCode === undefined ? refusal : { ...refusal, managerCode }
+  );
+};
+
 export const requireSuccess = (
   peonId: string,
   operation: BoxHttpOperation,
@@ -229,6 +258,7 @@ export const requireSuccess = (
 
       const failure = {
         code: error.code,
+        httpStatus: response.status,
         reason: `${prefix}${details}${suffix}`,
       };
 
@@ -243,9 +273,12 @@ export const requireSuccess = (
       );
     }
 
-    return yield* new PeonRefused({
-      reason: `${context}: ${response.text.slice(0, 1024)}${uncodedRefusalSuffix}`,
-    });
+    return yield* uncodedBoxRefusal(
+      operation,
+      response,
+      context,
+      Option.isSome(reply) ? reply.value.error.code : undefined
+    );
   });
 
 const custody = Schema.fromJsonString(
@@ -285,7 +318,7 @@ export const peonBox = (url: string, key: string): PeonBox => {
       Effect.mapError(
         () =>
           new PeonRefused({
-            reason: `Box ${peonId} ${operation} lost its connection. The stored operation will retry on its alarm with the same requestId; inspectPeon before retrying.`,
+            reason: `Box ${peonId} ${operation} lost its connection. Use inspectPeon to see whether the original requestId is still pending.`,
           })
       )
     );
@@ -294,6 +327,7 @@ export const peonBox = (url: string, key: string): PeonBox => {
       Effect.mapError(
         () =>
           new PeonRefused({
+            httpStatus: response.status,
             reason: `Box ${peonId} ${operation} returned an incomplete response. Its stored requestId remains pending; inspectPeon before retrying.`,
           })
       )
@@ -376,6 +410,7 @@ export const peonBox = (url: string, key: string): PeonBox => {
           Effect.mapError(
             () =>
               new PeonRefused({
+                httpStatus: final.status,
                 reason: `Box ${peonId} ${operation} returned data outside the box contract. Its requestId remains pending to prevent duplicate work; inspectPeon and check the box manager version.`,
               })
           )

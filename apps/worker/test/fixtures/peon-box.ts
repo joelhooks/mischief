@@ -142,6 +142,14 @@ const resumeRefusal = (path: string) => {
   return null;
 };
 
+const rejectedSpawn = "rejected-spawn";
+
+const missingRejectedBox = () =>
+  Response.json(
+    { error: { message: `Box ${rejectedSpawn} does not exist` } },
+    { status: 404 }
+  );
+
 const custodyMissing = {
   code: "CustodyMissing",
   message:
@@ -212,6 +220,10 @@ export class FakeBox extends DurableObject {
   }
 
   private async deleteRefusal(path: string, body: typeof RequestBody.Type) {
+    if (path === `/v1/boxes/${rejectedSpawn}`) {
+      return missingRejectedBox();
+    }
+
     const denial = refusals.get(path.slice("/v1/boxes/".length));
 
     if (denial !== undefined && denial.code !== "ReceiptMismatch") {
@@ -246,6 +258,26 @@ export class FakeBox extends DurableObject {
     );
   }
 
+  private async spawnBox(body: typeof RequestBody.Type, key: string) {
+    if (body.peonId === rejectedSpawn) {
+      return Response.json(
+        { error: { message: "Invalid pinned workspace" } },
+        { status: 400 }
+      );
+    }
+
+    const response = {
+      image: "example/box@sha256:012345",
+      peonId: body.peonId ?? "",
+      state: "idle",
+      workspace: body.template?.workspace ?? {},
+    };
+
+    await this.ctx.storage.put(key, response);
+
+    return Response.json(response);
+  }
+
   private async exportBox(path: string, key: string) {
     const denial = refusals.get(
       path.slice("/v1/boxes/".length, -"/export".length)
@@ -272,6 +304,10 @@ export class FakeBox extends DurableObject {
     calls: readonly CallValue[]
   ) {
     if (method === "GET") {
+      if (path === `/v1/boxes/${rejectedSpawn}`) {
+        return missingRejectedBox();
+      }
+
       const state = (await this.ctx.storage.get(`${path}/state`)) ?? "idle";
 
       if (path === "/v1/boxes/alarm-stale-browser") {
@@ -449,12 +485,7 @@ export class FakeBox extends DurableObject {
     let response: Schema.Json;
 
     if (path === "/v1/boxes") {
-      response = {
-        image: "example/box@sha256:012345",
-        peonId: body.peonId ?? "",
-        state: "idle",
-        workspace: body.template?.workspace ?? {},
-      };
+      return await this.spawnBox(body, key);
     } else if (path.endsWith("/clone")) {
       response = { peonId: body.newPeonId ?? "", state: "suspended" };
     } else if (path.endsWith("/suspend")) {

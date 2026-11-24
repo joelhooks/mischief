@@ -26,6 +26,7 @@ import {
 } from "../src/box/archive.js";
 import { BoxBuildRefused } from "../src/box/box-build-refused.js";
 import { BoxCapacity } from "../src/box/box-capacity.js";
+import { BoxImageMissing } from "../src/box/box-image-missing.js";
 import { nextState } from "../src/box/machine.js";
 import { Boxes } from "../src/box/manager.js";
 import { PromptFailed } from "../src/box/prompt-failed.js";
@@ -141,6 +142,11 @@ start) printf running > '${root}/fake/'"$1";;
 stop) if [ ! -f '${root}/stop-stuck' ]; then printf stopped > '${root}/fake/'"$1"; fi;;
 rm) for name in "$@"; do case "$name" in mischief-peon-box-*) unlink '${root}/fake/'"$name";; esac; done;;
 inspect)
+  if [ "$2" != '{{json .State}}' ]; then
+    grep '^type=bind,source=.*target=/opt/burrow,readonly,bind-recursive=disabled$' '${root}/fake/'"$3"'.args' |
+      cut -d, -f2 | cut -d= -f2-
+    exit 0
+  fi
   shift; shift
   if grep -qx running '${root}/fake/'"$1"; then printf '{"Running":true,"Pid":123}'; else printf '{"Running":false,"Pid":0}'; fi;;
 ps)
@@ -406,8 +412,12 @@ it.effect(
         yield* fs.writeFileString(receipt, "d".repeat(64));
         yield* requireRefusal;
         yield* fs.writeFileString(receipt, `${digest}\n`);
+        yield* requireRefusal;
 
-        for (const file of [receipt, build]) {
+        const program = `${build}/helium`;
+        yield* fs.writeFileString(program, "fixture");
+
+        for (const file of [receipt, build, program]) {
           for (const stat of [
             { uid: 1000, mode: 0o755 },
             { uid: 0, mode: 0o775 },
@@ -420,6 +430,13 @@ it.effect(
           statOverrides.delete(file);
         }
 
+        const escaped = `${build}/escape`;
+        yield* fs.symlink("../outside", escaped);
+        yield* fs.writeFileString(`${browserRoot}/outside`, "outside");
+        yield* requireRefusal;
+        yield* fs.remove(escaped);
+        yield* fs.symlink("helium", `${build}/in-tree-link`);
+
         expect((yield* create("browser", browser)).image).toBe(browserImage);
         const actual = yield* args("browser");
         expect(actual).toContain(browserImage);
@@ -429,6 +446,23 @@ it.effect(
         expect(actual).toContain("65534:1000");
         expect(actual).toContain("PEON_BROWSER_HOSTS=test.example");
         expect(actual).toContain("BURROW_CELL_IN_BOX=1");
+        expect(actual).toContain(
+          "BURROW_CELL_EGRESS_FLAGS=--proxy-server=http://127.0.0.1:9"
+        );
+
+        const egress = [
+          "--proxy-server=http://127.0.0.1:9",
+          "--proxy-bypass-list=test.example;<-loopback>",
+          "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+          "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE test.example",
+        ].join("\n");
+
+        expect(actual.join("\n")).toContain(
+          `BURROW_CELL_EGRESS_FLAGS=${egress}\n--label`
+        );
+        expect(actual.join("\n")).toContain(
+          `PEON_BROWSER_EGRESS_FLAGS=${egress}\n--mount`
+        );
         expect(
           actual.filter((_, index) => actual[index - 1] === "--security-opt")
         ).toEqual(["no-new-privileges"]);
@@ -442,6 +476,44 @@ it.effect(
           `type=bind,source=${fixture.root}/boxes/browser/home,target=/home/peon`,
           `type=bind,source=${build},target=/opt/burrow,readonly,bind-recursive=disabled`,
         ]);
+
+        yield* boxes.act({
+          action: "suspend",
+          peonId: "browser",
+          requestId: "suspend",
+        });
+        statOverrides.set(program, { uid: 1000, mode: 0o755 });
+
+        const resume = boxes.act({
+          action: "resume",
+          peonId: "browser",
+          requestId: "resume",
+        });
+
+        const refusedWake = yield* Effect.flip(resume);
+
+        expect(refusedWake).toBeInstanceOf(BoxBuildRefused);
+        expect(refusedWake).toMatchObject({ state: "suspended", status: 409 });
+        expect(
+          yield* fs.readFileString(
+            `${fixture.root}/fake/mischief-peon-box-browser`
+          )
+        ).toBe("stopped");
+
+        statOverrides.delete(program);
+
+        const savedArgs = `${fixture.root}/fake/mischief-peon-box-browser.args`;
+        const originalArgs = yield* fs.readFileString(savedArgs);
+
+        yield* fs.writeFileString(
+          savedArgs,
+          originalArgs.replace(build, `${browserRoot}/unverified`)
+        );
+        expect((yield* Effect.flip(resume)).message).toContain(
+          "points at another Burrow directory"
+        );
+        yield* fs.writeFileString(savedArgs, originalArgs);
+        expect((yield* resume).state).toBe("idle");
       }).pipe(
         Effect.provide(
           Boxes.layer({
@@ -490,7 +562,6 @@ it.effect(
           "browser-c",
           "browser-d",
           "browser-e",
-          "browser-f",
         ];
 
         const started = yield* Effect.forEach(ids, (id) => spawn(id), {
@@ -498,7 +569,24 @@ it.effect(
         });
 
         expect(started.map((box) => box.image)).toEqual(
-          Array.from({ length: 6 }, () => browserImage)
+          Array.from({ length: 5 }, () => browserImage)
+        );
+
+        const lastSlot = yield* Effect.forEach(
+          ["browser-f", "browser-race"],
+          (id) =>
+            spawn(id).pipe(
+              Effect.match({
+                onFailure: (failure) => failure,
+                onSuccess: (box) => box,
+              })
+            ),
+          { concurrency: "unbounded" }
+        );
+
+        expect(lastSlot.filter(Schema.is(BoxCapacity))).toHaveLength(1);
+        expect(lastSlot).toContainEqual(
+          expect.objectContaining({ image: browserImage, state: "idle" })
         );
         expect((yield* spawn("full", fixture.template)).image).toBe(image);
         const refusedCreate = yield* Effect.flip(spawn("browser-g"));
@@ -531,6 +619,106 @@ it.effect(
         expect((yield* wake).state).toBe("idle");
       }).pipe(
         Effect.provide(Boxes.layer({ ...fixture.config, browserImage })),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.mergeAll(
+          boxRunnerLayer().pipe(Layer.provideMerge(NodeServices.layer)),
+          Digest.layerWebCrypto,
+          ArchivePort.disabled
+        )
+      )
+    )
+);
+
+it.effect(
+  "a missing browser image can be retried after reconfiguration without changing existing box images",
+  () =>
+    Effect.gen(function* browserImageRotation() {
+      const fixture = yield* harness;
+      const fs = yield* FileSystem.FileSystem;
+      const digestA = `example/browser@sha256:${"a".repeat(64)}`;
+      const digestB = `example/browser@sha256:${"b".repeat(64)}`;
+
+      const browser: BoxTemplate = {
+        ...fixture.template,
+        browser: { hosts: ["qa.example.test"] },
+        imageKey: "browser",
+      };
+
+      const original = {
+        peonId: "original",
+        requestId: "create",
+        template: browser,
+      };
+
+      const withoutImage = yield* Boxes.use(({ create }) =>
+        Effect.flip(create(original))
+      ).pipe(
+        Effect.provide(Boxes.layer(fixture.config)),
+        Effect.provideService(Runner, fixture.runner)
+      );
+
+      expect(withoutImage).toBeInstanceOf(BoxImageMissing);
+      expect(withoutImage).toMatchObject({ status: 503, state: "spawned" });
+
+      yield* Effect.gen(function* createOnA() {
+        const boxes = yield* Boxes;
+        expect((yield* boxes.create(original)).image).toBe(digestA);
+
+        const parked = yield* boxes.act({
+          action: "hibernate",
+          peonId: original.peonId,
+          requestId: "hibernate",
+        });
+
+        expect(parked.state).toBe("hibernated");
+      }).pipe(
+        Effect.provide(
+          Boxes.layer({ ...fixture.config, browserImage: digestA })
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+
+      yield* Effect.gen(function* recreateOnA() {
+        const boxes = yield* Boxes;
+
+        const clone = yield* boxes.act({
+          action: "clone",
+          peonId: original.peonId,
+          newPeonId: "copy",
+          requestId: "clone",
+        });
+
+        expect(clone.state).toBe("suspended");
+
+        const resumed = yield* boxes.act({
+          action: "resume",
+          peonId: original.peonId,
+          requestId: "resume",
+        });
+
+        expect(resumed.state).toBe("idle");
+        expect(
+          (yield* boxes.create({ ...original, peonId: "fresh" })).image
+        ).toBe(digestB);
+
+        for (const id of ["original", "copy"]) {
+          const args = yield* fs.readFileString(
+            `${fixture.root}/fake/mischief-peon-box-${id}.args`
+          );
+
+          expect(args.trimEnd().split("\n").slice(-2)).toEqual([
+            digestA,
+            "infinity",
+          ]);
+        }
+      }).pipe(
+        Effect.provide(
+          Boxes.layer({ ...fixture.config, browserImage: digestB })
+        ),
         Effect.provideService(Runner, fixture.runner)
       );
     }).pipe(

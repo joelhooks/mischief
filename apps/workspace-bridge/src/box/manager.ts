@@ -31,8 +31,9 @@ import {
   linkManifest,
 } from "./archive.js";
 import type { OpenArchive } from "./archive.js";
-import type { BoxBuildRefused } from "./box-build-refused.js";
+import { BoxBuildRefused } from "./box-build-refused.js";
 import { BoxCapacity } from "./box-capacity.js";
+import { BoxImageMissing } from "./box-image-missing.js";
 import { browserArgs } from "./browser.js";
 import {
   BoxImages,
@@ -69,6 +70,8 @@ export interface BoxConfig {
   readonly gid: number;
   readonly parkArchiveTimeout?: Duration.Input;
 }
+
+type RetryableBoxRefusal = BoxBuildRefused | BoxCapacity | BoxImageMissing;
 
 const Receipt = Schema.Struct({
   error: Schema.optionalKey(BridgeFailure),
@@ -187,17 +190,13 @@ export class Boxes extends Context.Service<
   {
     readonly create: (
       input: typeof Create.Type
-    ) => Effect.Effect<
-      typeof Result.Type,
-      BridgeFailure | BoxCapacity | BoxBuildRefused
-    >;
+    ) => Effect.Effect<typeof Result.Type, BridgeFailure | RetryableBoxRefusal>;
     readonly act: (
       input: typeof Action.Type
     ) => Effect.Effect<
       typeof Result.Type,
       | BridgeFailure
-      | BoxCapacity
-      | BoxBuildRefused
+      | RetryableBoxRefusal
       | WorkspaceUnlanded
       | CustodyMissing
       | CustodyIncomplete
@@ -874,10 +873,27 @@ export class Boxes extends Context.Service<
           return yield* Effect.gen(function* wakeBrowserOrFull() {
             const restored = sleeping === "hibernated";
 
+            const launch = yield* launchArgs(box.template, sleeping);
+
             if (restored) {
-              const launch = yield* launchArgs(box.template, sleeping);
               yield* restore(box, box.peonId);
-              yield* container(box, false, launch);
+              yield* container(box, false, launch.args);
+            } else if (launch.build !== undefined) {
+              const mounted = yield* docker([
+                "inspect",
+                "--format",
+                '{{range .Mounts}}{{if eq .Destination "/opt/burrow"}}{{.Source}}{{end}}{{end}}',
+                containerOf(box.peonId),
+              ]);
+
+              if (mounted.trimEnd() !== launch.build) {
+                return yield* new BoxBuildRefused({
+                  message:
+                    "The stopped container points at another Burrow directory. Restore its original build-root configuration or hibernate the box before resuming so Docker can bind the verified directory.",
+                  state: sleeping,
+                  status: 409,
+                });
+              }
             }
 
             yield* docker(["start", containerOf(box.peonId)]);
@@ -1515,10 +1531,7 @@ export class Boxes extends Context.Service<
           committedFailure: (error: BridgeFailure) => Effect.Effect<never, E>,
           operation: Effect.Effect<
             typeof Result.Type,
-            | BridgeFailure
-            | BoxCapacity
-            | BoxBuildRefused
-            | PlatformError.PlatformError
+            BridgeFailure | RetryableBoxRefusal | PlatformError.PlatformError
           >
         ) {
           const requests = path.join(meta(id), "requests");
@@ -1569,10 +1582,11 @@ export class Boxes extends Context.Service<
                 error
               ): Effect.Effect<
                 never,
-                E | BoxCapacity | BoxBuildRefused | PlatformError.PlatformError
+                E | RetryableBoxRefusal | PlatformError.PlatformError
               > =>
                 Predicate.isTagged(error, "BoxCapacity") ||
-                Predicate.isTagged(error, "BoxBuildRefused")
+                Predicate.isTagged(error, "BoxBuildRefused") ||
+                Predicate.isTagged(error, "BoxImageMissing")
                   ? fs.remove(file).pipe(Effect.andThen(Effect.fail(error)))
                   : writeJson(file, { error, requestId }).pipe(
                       Effect.andThen(committedFailure(error))
@@ -1604,10 +1618,12 @@ export class Boxes extends Context.Service<
                   const image = images[template.imageKey ?? "full"];
 
                   if (image === undefined) {
-                    return yield* refusal(
-                      "Browser image is not configured. Set the browser entry in MISCHIEF_PEON_BOX_IMAGES to its immutable @sha256 digest and restart before retrying create.",
-                      503
-                    );
+                    return yield* new BoxImageMissing({
+                      message:
+                        "Browser image is not configured. Set the browser entry in MISCHIEF_PEON_BOX_IMAGES to its immutable @sha256 digest and restart, then retry the same create request.",
+                      state: "spawned",
+                      status: 503,
+                    });
                   }
 
                   const launch = yield* launchArgs(template, "spawned");
@@ -1719,7 +1735,7 @@ export class Boxes extends Context.Service<
                     template,
                   };
 
-                  yield* container(box, true, launch);
+                  yield* container(box, true, launch.args);
                   yield* save(box);
 
                   return {
@@ -2013,7 +2029,7 @@ export class Boxes extends Context.Service<
                     template: box.template,
                   };
 
-                  yield* container(clone, false, launch);
+                  yield* container(clone, false, launch.args);
                   yield* save(clone);
 
                   return { peonId: target, state: "suspended" };

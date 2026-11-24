@@ -56863,6 +56863,7 @@ var PeonExportReceipt = Schema4.Struct({
 var PeonBoxRefusalCode = Schema4.Literals([
   "BoxBuildRefused",
   "BoxCapacity",
+  "BoxImageMissing",
   "CustodyMissing",
   "CustodyIncomplete",
   "DestroyInProgress",
@@ -85046,6 +85047,7 @@ var custodyRefusal = Schema100.fromJsonString(
 var nextStep = {
   BoxBuildRefused: "Ask the box host operator to fix the pinned Burrow build and receipt, then retry.",
   BoxCapacity: "Suspend or destroy a browser box on the host, then retry the refused operation.",
+  BoxImageMissing: "Ask the box host operator to configure the browser image, then retry.",
   CustodyMissing: "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete: "Recover the skipped session files, then retry destroyPeon.",
   DestroyInProgress: "Retry destroyPeon with the original workspace disposition.",
@@ -85116,7 +85118,7 @@ var requireSuccess = (peonId, operation, response) => Effect65.gen(function* che
       reason: `${prefix}${details}${suffix}`
     };
     return yield* new PeonRefused(
-      (error.code === "PromptFailed" || error.code === "BoxCapacity" || error.code === "BoxBuildRefused") && error.state !== void 0 ? { ...failure6, boxState: error.state } : failure6
+      (error.code === "PromptFailed" || error.code === "BoxCapacity" || error.code === "BoxBuildRefused" || error.code === "BoxImageMissing") && error.state !== void 0 ? { ...failure6, boxState: error.state } : failure6
     );
   }
   return yield* new PeonRefused({
@@ -85534,7 +85536,7 @@ var peonHost = ({
     }
     const refused3 = fault.code !== void 0;
     const promptFinished = fault.code === "PromptFailed" && stored2.pending.kind === "prompt" && stored2.report.state === "running";
-    const reportedState = promptFinished || fault.code === "BoxCapacity" || fault.code === "BoxBuildRefused" ? fault.boxState : void 0;
+    const reportedState = promptFinished || fault.code === "BoxCapacity" || fault.code === "BoxBuildRefused" || fault.code === "BoxImageMissing" ? fault.boxState : void 0;
     const observed = reportedState ?? (promptFinished ? "idle" : stored2.report.state);
     const state3 = refused3 || observed === "destroyed" ? observed : peonTransition(observed, "BOX_LOST");
     const updatedAt = promptFinished ? yield* Clock13.currentTimeMillis : stored2.report.updatedAt;

@@ -513,7 +513,8 @@ export const peonHost = ({
     const reportedState =
       promptFinished ||
       fault.code === "BoxCapacity" ||
-      fault.code === "BoxBuildRefused"
+      fault.code === "BoxBuildRefused" ||
+      fault.code === "BoxImageMissing"
         ? fault.boxState
         : undefined;
 

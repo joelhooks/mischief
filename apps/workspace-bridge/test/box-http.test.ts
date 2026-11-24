@@ -11,6 +11,9 @@ import {
 } from "effect";
 import { HttpBody, HttpClient, HttpRouter } from "effect/http";
 
+import { requireSuccess } from "../../worker/src/peon-box.js";
+import { BoxBuildRefused } from "../src/box/box-build-refused.js";
+import { BoxCapacity } from "../src/box/box-capacity.js";
 import { CustodyMissing } from "../src/box/custody-missing.js";
 import { CustodyIncomplete } from "../src/box/custody-refusal.js";
 import { DestroyInProgress } from "../src/box/destroy-in-progress.js";
@@ -68,9 +71,22 @@ it.effect(
         }),
       ];
 
+      const browserRefusals = [
+        new BoxCapacity({
+          message: "Browser slots occupied",
+          state: "suspended",
+          status: 429,
+        }),
+        new BoxBuildRefused({
+          message: "Burrow receipt failed",
+          state: "hibernated",
+          status: 409,
+        }),
+      ];
+
       const boxes = Boxes.of({
         act: (input) => {
-          const refused = refusals.find(
+          const refused = [...refusals, ...browserRefusals].find(
             (failure) => failure._tag === input.requestId
           );
 
@@ -238,6 +254,26 @@ it.effect(
         if (Predicate.isTagged(failure, "PromptFailed")) {
           expect(errorBody).toMatchObject({ error: { state: "suspended" } });
         }
+      }
+
+      for (const failure of browserRefusals) {
+        const response = yield* HttpClient.post("/v1/boxes/peon/resume", {
+          body: HttpBody.jsonUnsafe({ requestId: failure._tag }),
+          headers,
+        });
+
+        expect(response.status).toBe(failure.status);
+
+        const decodedRefusal = yield* Effect.flip(
+          requireSuccess("peon", "resume", {
+            status: response.status,
+            text: yield* response.text,
+          })
+        );
+
+        expect(decodedRefusal.code).toBe(failure._tag);
+        expect(decodedRefusal.boxState).toBe(failure.state);
+        expect(decodedRefusal.reason).toContain(`HTTP ${failure.status}`);
       }
 
       expect(yield* Ref.get(calls)).toEqual([

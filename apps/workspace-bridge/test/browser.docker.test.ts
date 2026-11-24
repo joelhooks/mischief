@@ -3,6 +3,7 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import { describe } from "vitest";
 
+import { browserEgressFlags } from "../src/box/browser.js";
 import { BoxImages } from "../src/box/config.js";
 import { boxRunnerLayer } from "../src/box/runner.js";
 import { checked } from "../src/runner.js";
@@ -22,6 +23,8 @@ describe.skipIf(image === undefined || image === "")(
           const pinned = yield* Schema.decodeUnknownEffect(
             BoxImages.fields.full
           )(image);
+
+          const egress = yield* browserEgressFlags(["test.example"]);
 
           const id = yield* Effect.acquireRelease(
             docker([
@@ -45,7 +48,7 @@ describe.skipIf(image === undefined || image === "")(
               "--cpus",
               "4",
               "--env",
-              "PEON_BROWSER_HOSTS=test.example",
+              `PEON_BROWSER_EGRESS_FLAGS=${egress}`,
               "--env",
               "HOME=/tmp",
               "--env",

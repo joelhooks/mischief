@@ -1,9 +1,17 @@
+import { isIPv4 } from "node:net";
+
 import { Effect, Schema } from "effect";
 
 import { refusal } from "../protocol.js";
 import { PeonId } from "./protocol.js";
 
 export const BOX_NETWORK = "mischief-peon-boxes";
+
+export const BROWSER_BOX_NETWORK = "mischief-peon-browser";
+
+export const BROWSER_BOX_GATEWAY = "172.30.213.1";
+
+export type BoxNetwork = typeof BOX_NETWORK | typeof BROWSER_BOX_NETWORK;
 
 const PREFIX = "mischief-peon-box-";
 
@@ -22,6 +30,24 @@ const Inventory = Schema.fromJsonString(
 );
 
 export const ipv4Peer = (peer: string) => peer.replace(/^::ffff:/iu, "");
+
+export const boxNetworkForPeer = (peer: string): BoxNetwork | undefined => {
+  const address = ipv4Peer(peer);
+
+  if (!isIPv4(address)) {
+    return undefined;
+  }
+
+  if (address.startsWith("172.30.211.") && address !== "172.30.211.1") {
+    return BOX_NETWORK;
+  }
+
+  if (address.startsWith("172.30.213.") && address !== BROWSER_BOX_GATEWAY) {
+    return BROWSER_BOX_NETWORK;
+  }
+
+  return undefined;
+};
 
 export const liveBoxInventory = Effect.fnUntraced(function* liveBoxInventory(
   output: string

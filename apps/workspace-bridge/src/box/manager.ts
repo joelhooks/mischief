@@ -35,6 +35,8 @@ import type { OpenArchive } from "./archive.js";
 import { BoxBuildRefused } from "./box-build-refused.js";
 import { BoxCapacity } from "./box-capacity.js";
 import { BoxImageMissing } from "./box-image-missing.js";
+import { BoxNetworkUnavailable } from "./box-network-unavailable.js";
+import { rewriteBrowserProviders } from "./browser-provider.js";
 import { browserArgs } from "./browser.js";
 import {
   BoxImages,
@@ -47,11 +49,15 @@ import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
 import {
   BOX_NETWORK,
+  BROWSER_BOX_GATEWAY,
+  BROWSER_BOX_NETWORK,
+  boxNetworkForPeer,
   changesBoxNetwork,
   containerOf,
   ipv4Peer,
   liveBoxInventory,
 } from "./live-owner.js";
+import type { BoxNetwork } from "./live-owner.js";
 import { nextState } from "./machine.js";
 import { promptPi, requireText } from "./pi.js";
 import { PromptFailed } from "./prompt-failed.js";
@@ -80,7 +86,11 @@ export interface BoxConfig {
   readonly parkArchiveTimeout?: Duration.Input;
 }
 
-type RetryableBoxRefusal = BoxBuildRefused | BoxCapacity | BoxImageMissing;
+type RetryableBoxRefusal =
+  | BoxBuildRefused
+  | BoxCapacity
+  | BoxImageMissing
+  | BoxNetworkUnavailable;
 
 const Receipt = Schema.Struct({
   error: Schema.optionalKey(BridgeFailure),
@@ -101,6 +111,20 @@ const DNS_WITHOUT_LAN_ROUTER_FORWARDING = [
 ];
 
 const BROWSER_LABEL = "sh.mischief.box.image-key=browser";
+
+const networkFor = (template: BoxMetadata["template"]) =>
+  template.imageKey === "browser" ? BROWSER_BOX_NETWORK : BOX_NETWORK;
+
+const modelBaseUrl = (network: BoxNetwork) =>
+  network === BROWSER_BOX_NETWORK
+    ? `http://${BROWSER_BOX_GATEWAY}:28013`
+    : "http://172.30.212.1:28013";
+
+const unmanagedPeer = () =>
+  refusal(
+    "Model requests need a live managed box on a box network. Resume a managed peon and retry.",
+    403
+  );
 
 const decodeDuBytes = Schema.decodeUnknownOption(
   Schema.NumberFromString.check(
@@ -262,8 +286,10 @@ export class Boxes extends Context.Service<
             ? execute({ args, executable: "docker" })
             : execute({ args, executable: "docker", input });
 
-        let endpoints: Effect.Success<ReturnType<typeof liveBoxInventory>> =
-          new Map();
+        const endpoints = new Map<
+          BoxNetwork,
+          Effect.Success<ReturnType<typeof liveBoxInventory>>
+        >();
 
         const docker = (args: readonly string[], input?: string) =>
           changesBoxNetwork(args)
@@ -465,48 +491,59 @@ export class Boxes extends Context.Service<
           );
         });
 
-        const refreshEndpoints = runDocker([
-          "network",
-          "inspect",
-          "--format",
-          "{{json .Containers}}",
-          BOX_NETWORK,
-        ]).pipe(
-          Effect.flatMap(liveBoxInventory),
-          Effect.timeoutOrElse({
-            duration: "3 seconds",
-            orElse: () =>
-              Effect.fail(
-                refusal(
-                  "Docker box inventory timed out. Inspect Docker on the manager and retry.",
-                  503
-                )
-              ),
-          }),
-          Effect.mapError(() =>
-            refusal(
-              "Docker box inventory is unavailable. Inspect Docker on the manager and retry promptPeon.",
-              503
+        const refreshOwners = Effect.fnUntraced(function* refreshOwners(
+          network: BoxNetwork
+        ) {
+          const current = yield* runDocker([
+            "network",
+            "inspect",
+            "--format",
+            "{{json .Containers}}",
+            network,
+          ]).pipe(
+            Effect.flatMap(liveBoxInventory),
+            Effect.timeout("3 seconds"),
+            Effect.mapError(() =>
+              refusal(
+                `Docker box inventory for ${network} is unavailable. Inspect Docker on the manager and retry promptPeon.`,
+                503
+              )
             )
-          )
-        );
-
-        const refreshOwners = Effect.gen(function* refreshOwners() {
-          const current = yield* refreshEndpoints;
+          );
 
           for (const [peer, owner] of owners) {
-            if (current.get(peer)?.containerId !== owner.containerId) {
+            if (
+              boxNetworkForPeer(peer) === network &&
+              current.get(peer)?.containerId !== owner.containerId
+            ) {
               owners.delete(peer);
             }
           }
 
-          endpoints = current;
+          endpoints.set(network, current);
+
+          return current;
         });
 
-        yield* refreshOwners.pipe(Effect.ignore);
+        const boxNetworks: readonly BoxNetwork[] = [
+          BOX_NETWORK,
+          BROWSER_BOX_NETWORK,
+        ];
+
+        yield* Effect.forEach(
+          boxNetworks,
+          (network) => refreshOwners(network).pipe(Effect.ignore),
+          { concurrency: 2, discard: true }
+        );
 
         const ownerAt = Effect.fn("Boxes.ownerAt")(
           function* ownerAt(peer: string) {
+            const network = boxNetworkForPeer(peer);
+
+            if (network === undefined) {
+              return yield* unmanagedPeer();
+            }
+
             const address = ipv4Peer(peer);
             const cached = owners.get(address);
 
@@ -514,17 +551,17 @@ export class Boxes extends Context.Service<
               return { peonId: cached.peonId, imageKey: cached.imageKey };
             }
 
-            if (!endpoints.has(address)) {
-              yield* refreshOwners;
-            }
+            const known = endpoints.get(network);
 
-            const endpoint = endpoints.get(address);
+            const current =
+              known !== undefined && known.has(address)
+                ? known
+                : yield* refreshOwners(network);
+
+            const endpoint = current.get(address);
 
             if (endpoint === undefined) {
-              return yield* refusal(
-                "Model requests need a live managed box on the box network. Resume a managed peon and retry.",
-                403
-              );
+              return yield* unmanagedPeer();
             }
 
             const box = yield* load(endpoint.peonId);
@@ -788,23 +825,72 @@ export class Boxes extends Context.Service<
             Effect.provideService(Path.Path, path)
           );
 
-        const container = (
+        const requireBoxNetwork = (network: BoxNetwork) =>
+          runDocker([
+            "network",
+            "inspect",
+            "--format",
+            "{{.Name}}",
+            network,
+          ]).pipe(
+            Effect.asVoid,
+            Effect.mapError(
+              () =>
+                new BoxNetworkUnavailable({
+                  message: `Docker could not confirm network ${network}. The host owner must create it if missing. Verify it on the manager, then retry the same request.`,
+                  network,
+                  status: 503,
+                })
+            )
+          );
+
+        const container = Effect.fnUntraced(function* container(
           box: BoxMetadata,
           start: boolean,
           launch: readonly string[]
-        ) =>
-          docker([
+        ) {
+          const network = networkFor(box.template);
+          const browser = network === BROWSER_BOX_NETWORK;
+          const baseUrl = modelBaseUrl(network);
+
+          if (
+            browser &&
+            launch.some((arg) => arg === "--dns" || arg.startsWith("--dns="))
+          ) {
+            return yield* refusal(
+              `BoxDnsRefused: Browser boxes must use only ${BROWSER_BOX_GATEWAY} for DNS. Remove the conflicting DNS option from the browser launch arguments before retrying.`,
+              503
+            );
+          }
+
+          if (browser) {
+            const rewritten = yield* rewriteBrowserProviders(
+              base(box.peonId),
+              baseUrl
+            ).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path)
+            );
+
+            if (rewritten) {
+              yield* owned(box.peonId);
+            }
+          }
+
+          yield* docker([
             "create",
             "--name",
             containerOf(box.peonId),
             "--network",
-            BOX_NETWORK,
+            network,
             "--cgroup-parent",
             "mischief-peon-boxes.slice",
             "--read-only",
             "--tmpfs",
             `/tmp:rw,nosuid,nodev,size=${box.template.limits.tmp}`,
-            ...DNS_WITHOUT_LAN_ROUTER_FORWARDING,
+            ...(browser
+              ? ["--dns", BROWSER_BOX_GATEWAY]
+              : DNS_WITHOUT_LAN_ROUTER_FORWARDING),
             "--cap-drop",
             "ALL",
             "--security-opt",
@@ -846,28 +932,29 @@ export class Boxes extends Context.Service<
               ),
             ].flatMap((value) => ["--env", value]),
             "--env",
-            "ANTHROPIC_BASE_URL=http://172.30.212.1:28013",
+            `ANTHROPIC_BASE_URL=${baseUrl}`,
             "--env",
             "ANTHROPIC_AUTH_TOKEN=proxy",
             "--env",
-            "OPENAI_BASE_URL=http://172.30.212.1:28013/v1",
+            `OPENAI_BASE_URL=${baseUrl}/v1`,
             "--mount",
             `type=bind,source=${work(box.peonId)},target=/work`,
             "--mount",
             `type=bind,source=${home(box.peonId)},target=/home/peon`,
             ...launch,
-            ...(box.template.imageKey === "browser"
-              ? ["--label", BROWSER_LABEL]
-              : []),
+            ...(browser ? ["--label", BROWSER_LABEL] : []),
             "--entrypoint",
             "/bin/sleep",
             box.image,
             "infinity",
-          ]).pipe(
-            Effect.andThen(
-              start ? docker(["start", containerOf(box.peonId)]) : Effect.void
-            )
-          );
+          ]);
+
+          if (start) {
+            yield* docker(["start", containerOf(box.peonId)]);
+          }
+
+          return yield* Effect.void;
+        });
 
         const size = Effect.fn("Boxes.size")(function* size(
           directory: string,
@@ -1000,6 +1087,7 @@ export class Boxes extends Context.Service<
             const launch = yield* launchArgs(box.template, sleeping);
 
             if (restored) {
+              yield* requireBoxNetwork(networkFor(box.template));
               yield* restore(box, box.peonId);
               yield* container(box, false, launch.args);
             } else if (launch.build !== undefined) {
@@ -1710,7 +1798,8 @@ export class Boxes extends Context.Service<
               > =>
                 Predicate.isTagged(error, "BoxCapacity") ||
                 Predicate.isTagged(error, "BoxBuildRefused") ||
-                Predicate.isTagged(error, "BoxImageMissing")
+                Predicate.isTagged(error, "BoxImageMissing") ||
+                Predicate.isTagged(error, "BoxNetworkUnavailable")
                   ? fs.remove(file).pipe(Effect.andThen(Effect.fail(error)))
                   : writeJson(file, { error, requestId }).pipe(
                       Effect.andThen(committedFailure(error))
@@ -1761,6 +1850,8 @@ export class Boxes extends Context.Service<
                     );
                   }
 
+                  const network = networkFor(template);
+                  yield* requireBoxNetwork(network);
                   yield* fs.makeDirectory(base(id), {
                     mode: 0o770,
                     recursive: true,
@@ -1839,7 +1930,7 @@ export class Boxes extends Context.Service<
                       provider: {
                         env: {
                           ANTHROPIC_AUTH_TOKEN: "proxy",
-                          ANTHROPIC_BASE_URL: "http://172.30.212.1:28013",
+                          ANTHROPIC_BASE_URL: modelBaseUrl(network),
                         },
                         pathToClaudeCodeExecutable: "/usr/local/bin/claude",
                         plan: "max",
@@ -2120,6 +2211,7 @@ export class Boxes extends Context.Service<
                   }
 
                   const launch = yield* launchArgs(box.template);
+                  yield* requireBoxNetwork(networkFor(box.template));
                   yield* fs.makeDirectory(meta(target), {
                     mode: 0o700,
                     recursive: true,

@@ -12,6 +12,7 @@ import { refusal } from "../protocol.js";
 import { BoxBuildRefused } from "./box-build-refused.js";
 import { BoxCapacity } from "./box-capacity.js";
 import { BoxImageMissing } from "./box-image-missing.js";
+import { BoxNetworkUnavailable } from "./box-network-unavailable.js";
 import { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
@@ -33,6 +34,7 @@ const createBox = implement(
       BoxCapacity,
       BoxBuildRefused,
       BoxImageMissing,
+      BoxNetworkUnavailable,
     ]),
     input: Create,
     output: Result,
@@ -50,6 +52,7 @@ const actOnBox = implement(
       BoxCapacity,
       BoxBuildRefused,
       BoxImageMissing,
+      BoxNetworkUnavailable,
       WorkspaceUnlanded,
       CustodyMissing,
       CustodyIncomplete,
@@ -219,6 +222,8 @@ const route = (key: Redacted.Redacted) =>
         ),
       BoxImageMissing: (failure) =>
         taggedFailure(failure, { state: failure.state }),
+      BoxNetworkUnavailable: (failure) =>
+        taggedFailure(failure, { network: failure.network }),
       BoxCapacity: (failure) =>
         taggedFailure(failure, { state: failure.state }),
       WorkspaceUnlanded: (failure) =>

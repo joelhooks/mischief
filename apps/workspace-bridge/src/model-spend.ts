@@ -10,7 +10,7 @@ import {
 } from "effect/http";
 import type { HttpClient } from "effect/http";
 
-import { ipv4Peer } from "./box/live-owner.js";
+import { BOX_NETWORK, boxNetworkForPeer, ipv4Peer } from "./box/live-owner.js";
 import {
   ADMIT_PATH,
   RECORD_PATH,
@@ -153,15 +153,8 @@ const isTransientManagerFailure = (
 ): error is typeof TRANSIENT_MANAGER_FAILURE =>
   error === TRANSIENT_MANAGER_FAILURE;
 
-const workspacePeer = (peer: string) => {
-  const address = ipv4Peer(peer);
-
-  return (
-    isIPv4(address) &&
-    address.startsWith("172.30.211.") &&
-    address !== "172.30.211.1"
-  );
-};
+const legacyWorkspacePeer = (peer: string) =>
+  boxNetworkForPeer(peer) === BOX_NETWORK;
 
 export const modelSpend = (
   client: HttpClient.HttpClient,
@@ -209,7 +202,7 @@ export const modelSpend = (
     requestBytes: number,
     outputTokens?: number
   ) {
-    if (restricted && workspacePeer(peer)) {
+    if (restricted && legacyWorkspacePeer(peer)) {
       return yield* Effect.undefined;
     }
 

@@ -69,6 +69,35 @@ export {
 export { Peons, peonCapabilities } from "./peons/capabilities.js";
 
 export {
+  armWatchContract,
+  cancelWatchContract,
+  completeWatchContract,
+  inspectWatchContract,
+  listWatchesContract,
+  Watches,
+  watchCapabilities,
+  watchCapabilityNames,
+} from "./watches/capabilities.js";
+
+export {
+  Condition,
+  Cursor,
+  Evidence,
+  Notify,
+  Watch,
+  WatchCheck,
+  WatchDefinition,
+  WatchFiring,
+  WatchId,
+  WatchInspection,
+  WatchName,
+  WatchOwner,
+  WatchRefused,
+  WatchState,
+  WatchSummary,
+} from "./watches/schema.js";
+
+export {
   BoxTailResult,
   PeonTailContext,
   PeonTailEntry,

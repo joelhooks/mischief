@@ -9,17 +9,21 @@ import {
   prepare,
 } from "@rat-king/mailbox-client";
 import { Effect, Layer, Logger, Option, Schema } from "effect";
-import { HttpClient } from "effect/http";
+import { FetchHttpClient, HttpClient } from "effect/http";
+import { vi } from "vitest";
 
 import { routeDeskWake } from "../src/desk-wake-mail.js";
 import type { DeskWake } from "../src/desk-wake-mail.js";
-import { inboundOf } from "../src/mailroom.js";
+import { Mailroom, SendVerdict } from "../src/mailroom-port.js";
+import { inboundOf, openMailroom } from "../src/mailroom.js";
 import { readBatch } from "../src/postbox-inbox.js";
 import type { Letter } from "../src/postbox-inbox.js";
 import { leaseBook } from "../src/postbox-lease.js";
 import { freshCaller } from "./callers.js";
 
 const operator = "did:web:operator.ratking-fleet.invalid";
+
+const decodeJson = Schema.decodeUnknownSync(Schema.Json);
 
 const payload = {
   $type: "sh.mschf.ratking.desk.wake",
@@ -159,6 +163,7 @@ const mailboxIdentity = Effect.fn("Test.mailboxIdentity")(
           },
         ],
       },
+      identity,
       own: yield* ownIdentity(identity),
     };
   }
@@ -220,6 +225,83 @@ it.effect(
         )
       )
     )
+);
+
+it.effect(
+  "watch mail keeps signed wire bytes after restarting the sender and carries quiet cc intent",
+  () =>
+    Effect.gen(function* watchMailReplay() {
+      const sender = yield* mailboxIdentity("mischief-worker");
+      const recipient = yield* mailboxIdentity("watch-demo.desk.pi");
+      const calls: Schema.Json[] = [];
+
+      const fakeFetch = vi
+        .fn<typeof fetch>()
+        .mockImplementation(async (input, init) => {
+          const request = new Request(input, init);
+          const { pathname } = new URL(request.url);
+
+          if (pathname.endsWith(".getPeerDocument")) {
+            return Response.json({ document: recipient.document });
+          }
+
+          if (!pathname.endsWith(".send")) {
+            throw new Error(`Unexpected mailbox operation: ${pathname}`);
+          }
+
+          calls.push(decodeJson(await request.json()));
+
+          return Response.json(
+            { error: "Conflict", message: "The envelope is already present" },
+            { status: 409 }
+          );
+        });
+
+      const config = {
+        endpoint: "https://mailbox.invalid",
+        identity: sender.identity,
+        leases: leaseBook(nodeSqlStorage(":memory:")),
+        serviceDid: "did:web:mailbox.invalid",
+      };
+
+      const open = openMailroom(config).pipe(
+        Effect.provide(Layer.merge(webCrypto, FetchHttpClient.layer)),
+        Effect.provideService(FetchHttpClient.Fetch, fakeFetch)
+      );
+
+      const writer = yield* open;
+
+      const { envelope } = yield* Mailroom.use(({ sealWatch }) =>
+        sealWatch === undefined
+          ? Effect.die("Watch sealing is not wired")
+          : sealWatch("watch-demo/desk", "Ready", "Evidence", "watch-firing")
+      ).pipe(Effect.provide(writer.layer));
+
+      const submit = Mailroom.use(({ sendWatch }) =>
+        sendWatch === undefined
+          ? Effect.die("Watch sending is not wired")
+          : sendWatch("watch-demo/desk", envelope, false)
+      );
+
+      expect(
+        SendVerdict.guards.Conflict(
+          yield* submit.pipe(Effect.provide(writer.layer))
+        )
+      ).toBe(true);
+      const restarted = yield* open;
+      expect(
+        SendVerdict.guards.Conflict(
+          yield* submit.pipe(Effect.provide(restarted.layer))
+        )
+      ).toBe(true);
+      expect(calls).toHaveLength(2);
+      expect(calls[0]).toMatchObject({
+        wakeReason: "cc",
+        woke: false,
+        envelope: { aad: { recipientDid: recipient.did } },
+      });
+      expect(calls[0]).toEqual(calls[1]);
+    }).pipe(Effect.scoped)
 );
 
 it.effect(

@@ -2,6 +2,7 @@ import {
   peonCapabilities,
   runCapabilities,
   scheduleCapabilities,
+  watchCapabilities,
 } from "@mischief/core";
 // @effect-diagnostics asyncFunction:off -- a Durable Object stub's RPC methods are Promise APIs.
 import {
@@ -27,6 +28,7 @@ export const READ_ONLY: ReadonlySet<string> = new Set(
       ...runCapabilities,
       ...scheduleCapabilities,
       ...peonCapabilities,
+      ...watchCapabilities,
     ].flatMap(({ contract }) =>
       contract.annotations.readOnly ? [contract.name] : []
     ),

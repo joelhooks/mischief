@@ -168,15 +168,17 @@ it.effect(
 );
 
 it.effect(
-  "desk wake on adds a host user unit, SQLite binding and migration, and private bearer binding",
+  "desk wake on adds its unit and private binding, and the plan forwards the watch allowlist verbatim",
   () =>
     Effect.gen(function* enabledDeskWake() {
       const sender = "did:web:operator.ratking-fleet.invalid";
+      const watchHttpHosts = "api.github.com,api-v2.example.invalid";
 
       const rows = yield* plannedWorkspace({
         MISCHIEF_DESK_HOST_ENTRY: "/opt/mischief/desk-host-main.js",
         MISCHIEF_DESK_WAKE: "on",
         MISCHIEF_DESK_WAKE_SENDER: sender,
+        MISCHIEF_WATCH_HTTP_HOSTS: watchHttpHosts,
       });
 
       const unit = yield* Schema.decodeUnknownEffect(Unit)(
@@ -218,6 +220,7 @@ it.effect(
       expect(vars).toMatchObject({
         MISCHIEF_DESK_WAKE: "on",
         MISCHIEF_DESK_WAKE_SENDER: sender,
+        MISCHIEF_WATCH_HTTP_HOSTS: watchHttpHosts,
       });
       expect(file.content).not.toContain("MISCHIEF_DESK_WAKE_KEY");
       expect(rows.find(({ fqn }) => fqn === "planrun")?.props).toMatchObject({
@@ -267,13 +270,14 @@ it.effect(
       const baseline = yield* plannedWorkspace({});
       expect(JSON.stringify(disabled)).toBe(JSON.stringify(baseline));
 
-      const deskWakeOff = yield* plannedWorkspace({
+      const optionalFeaturesOff = yield* plannedWorkspace({
         MISCHIEF_DESK_HOST_ENTRY: "/unused/desk-host-main.js",
         MISCHIEF_DESK_WAKE: "off",
         MISCHIEF_DESK_WAKE_SENDER: "did:web:unused.invalid",
+        MISCHIEF_WATCH_HTTP_HOSTS: "",
       });
 
-      expect(JSON.stringify(deskWakeOff)).toBe(JSON.stringify(baseline));
+      expect(optionalFeaturesOff).toEqual(baseline);
 
       const workerContent = Schema.Struct({
         content: Schema.Struct({

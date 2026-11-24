@@ -286,6 +286,29 @@ export const openMailroom = (config: MailroomConfig) =>
         })
       );
 
+    const sendWatch = (to: string, envelope: string, wake: boolean) =>
+      Effect.gen(function* sendWatchEnvelope() {
+        const decoded = yield* decodeEnvelope(envelope);
+        const did = decoded.aad.recipientDid;
+
+        if (!Option.contains(didFor(canonicalName(to)), did)) {
+          return yield* failed(
+            "Stored watch mail no longer addresses its recorded recipient. Inspect the watch before retrying."
+          );
+        }
+
+        yield* peer(to, did);
+        const held = yield* fence;
+        const intent = { wakeReason: wake ? "to" : "cc", woke: wake } as const;
+
+        return verdictOf(
+          yield* prepared.send(
+            decoded,
+            held === undefined ? intent : { ...intent, fence: held }
+          )
+        );
+      });
+
     const tell = (to: string, summary: string, body: string) =>
       seal(to, `${summary}\n\n${body}`).pipe(
         Effect.flatMap(({ envelope }) => send(envelope)),
@@ -323,6 +346,9 @@ export const openMailroom = (config: MailroomConfig) =>
               seal(to, body, { encrypt: true, replyTo, summary, thread })
             )
           ),
+        sealWatch: (to, summary, body, thread) =>
+          seal(to, body, { summary, thread }),
+        sendWatch,
         send,
         surface: (summary, body) => tell(DESK, summary, body),
         tell,

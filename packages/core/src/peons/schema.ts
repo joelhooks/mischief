@@ -214,6 +214,15 @@ export const PeonTombstone = Schema.Struct({
 });
 
 export const PeonReport = Schema.Struct({
+  lastSettled: Schema.optionalKey(
+    Schema.Struct({
+      at: Schema.Finite,
+      code: Schema.Literal("BoxNetworkStale"),
+      kind: Schema.Literal("resume"),
+      requestId: Schema.String,
+      settledBy: Schema.Literals(["drive", "inspect"]),
+    })
+  ),
   processes: Schema.optionalKey(Schema.Finite),
   pending: Schema.optionalKey(
     Schema.NullOr(

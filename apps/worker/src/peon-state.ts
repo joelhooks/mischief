@@ -1,4 +1,9 @@
-import { PeonId, PeonReport, PeonWorkspace } from "@mischief/core";
+import {
+  PeonBoxRefusalCode,
+  PeonId,
+  PeonReport,
+  PeonWorkspace,
+} from "@mischief/core";
 import { Schema } from "effect";
 
 export const PEON_REGISTRY = "peons-v1";
@@ -37,6 +42,9 @@ export type PeonStoredValue = typeof PeonStored.Type;
 
 export const PeonCompleted = Schema.Struct({
   hash: Schema.String,
+  refusal: Schema.optionalKey(
+    Schema.Struct({ code: PeonBoxRefusalCode, reason: Schema.String })
+  ),
   report: PeonReport,
 });
 

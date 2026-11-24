@@ -11,6 +11,7 @@ import type {
 } from "../src/peon-box.js";
 import { peonHost } from "../src/peon-host.js";
 import type { PeonHostOptions } from "../src/peon-host.js";
+import { PeonStored } from "../src/peon-state.js";
 import type { PeonCompleted, PeonStoredValue } from "../src/peon-state.js";
 
 const template = {
@@ -181,7 +182,13 @@ const fixture = () => {
         }),
       completed: (requestId: string) =>
         Effect.sync(() => results.get(requestId)),
-      load: Effect.sync(() => structuredClone(stored)),
+      load: Effect.suspend(() =>
+        stored === undefined
+          ? Effect.succeed(undefined)
+          : Schema.decodeEffect(PeonStored)(structuredClone(stored)).pipe(
+              Effect.orDie
+            )
+      ),
     },
   };
 
@@ -274,13 +281,30 @@ it.effect(
       });
 
       const beforeInspect = test.calls.length;
-      const settled = { fault: null, pending: null, state: "suspended" };
+
+      const settled = {
+        fault: null,
+        lastSettled: {
+          at: yield* Clock.currentTimeMillis,
+          code: "BoxNetworkStale",
+          kind: "resume",
+          requestId: "legacy-resume",
+          settledBy: "inspect",
+        },
+        pending: null,
+        state: "suspended",
+      };
+
       expect(yield* test.host().inspect).toMatchObject(settled);
       expect(yield* test.host().inspectStored).toMatchObject(settled);
       expect(
         test.calls.slice(beforeInspect).map(({ operation }) => operation)
       ).toEqual(["inspect"]);
       expect(test.alarm()).toBe(template.hibernateAfter);
+
+      const replay = yield* call("legacy-resume").pipe(Effect.flip);
+      expect(replay.code).toBe("BoxNetworkStale");
+      expect(test.calls).toHaveLength(beforeInspect + 1);
     })
 );
 

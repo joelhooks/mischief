@@ -957,24 +957,28 @@ export const peonHost = ({
         }
 
         if (existing.pending === null) {
-          const { state } = existing.report;
-
-          if (state === "spawned") {
-            return yield* begin("spawn", requestId, "SPAWN");
-          }
+          const { state, resolvedTemplate } = existing.report;
 
           if (
-            state === "suspended" &&
+            (state === "spawned" || state === "suspended") &&
             receipt !== undefined &&
             "retryable" in receipt
           ) {
-            if (!sameTemplate(template, existing.report.resolvedTemplate)) {
+            if (!sameTemplate(template, resolvedTemplate)) {
               return yield* failure(
                 `Peon ${entry.peonId} already recorded different spawn input. Retry with the original template and overrides, or call spawnPeon with a fresh peonId.`
               );
             }
 
-            return yield* begin("spawn", requestId, "RESUME");
+            return yield* begin(
+              "spawn",
+              requestId,
+              state === "spawned" ? "SPAWN" : "RESUME"
+            );
+          }
+
+          if (state === "spawned") {
+            return yield* begin("spawn", requestId, "SPAWN");
           }
         }
 

@@ -39,7 +39,7 @@ export const PeonStored = Schema.Struct({
 
 export type PeonStoredValue = typeof PeonStored.Type;
 
-const PeonCompleted = Schema.Struct({
+export const PeonCompleted = Schema.Struct({
   hash: Schema.String,
   refusal: Schema.optionalKey(
     Schema.Struct({

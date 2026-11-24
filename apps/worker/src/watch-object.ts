@@ -131,15 +131,10 @@ export class WatchObject extends DurableObject<Env> {
           .getByName(watchBudgetName(name))
           .reserveWake(day, key);
       }),
-    seal: (delivery, summary, text, messageId) =>
+    seal: (mail) =>
       postboxCall<Sealed>(
         async () =>
-          await this.env.POSTBOX.getByName(POSTBOX_NAME).sealWatch(
-            delivery.name,
-            summary,
-            text,
-            messageId
-          )
+          await this.env.POSTBOX.getByName(POSTBOX_NAME).sealWatch(mail)
       ).pipe(Effect.map(({ envelope }) => envelope)),
     send: (delivery, envelope, deadline) =>
       postboxCall<{ verdict: "accepted" | "refused" | "uncertain" }>(

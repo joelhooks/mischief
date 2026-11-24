@@ -10,6 +10,7 @@ import { decodeDelivery } from "./decode-delivery.js";
 import { routeDeskWake } from "./desk-wake-mail.js";
 import type { DeskWake } from "./desk-wake-mail.js";
 import { Mailroom, SendVerdict } from "./mailroom-port.js";
+import type { WatchMail } from "./mailroom-port.js";
 import { openMailroom } from "./mailroom.js";
 import { resolvePeonAddress } from "./peon-address.js";
 import { peonMailHost, peonReplies, receivePeonMail } from "./peon-mail.js";
@@ -302,7 +303,7 @@ export class Postbox extends DurableObject<Env> {
     return { ok: true as const };
   }
 
-  async sealWatch(to: string, summary: string, body: string, thread: string) {
+  async sealWatch(mail: WatchMail) {
     await this.start();
 
     return await posted(
@@ -310,7 +311,7 @@ export class Postbox extends DurableObject<Env> {
         Effect.flatMap(({ layer }) =>
           Mailroom.use(
             ({ sealWatch }) =>
-              sealWatch?.(to, summary, body, thread) ??
+              sealWatch?.(mail) ??
               Effect.fail(new PostboxFailed({ reason: NOT_WIRED }))
           ).pipe(Effect.provide(layer))
         )

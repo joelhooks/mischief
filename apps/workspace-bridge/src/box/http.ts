@@ -11,6 +11,7 @@ import { errorResponse, readBody } from "../http.js";
 import { refusal } from "../protocol.js";
 import { BoxBuildRefused } from "./box-build-refused.js";
 import { BoxCapacity } from "./box-capacity.js";
+import { BoxDnsRefused } from "./box-dns-refused.js";
 import { BoxImageMissing } from "./box-image-missing.js";
 import { BoxNetworkUnavailable } from "./box-network-unavailable.js";
 import { CustodyMissing } from "./custody-missing.js";
@@ -33,6 +34,7 @@ const createBox = implement(
       BridgeFailure,
       BoxCapacity,
       BoxBuildRefused,
+      BoxDnsRefused,
       BoxImageMissing,
       BoxNetworkUnavailable,
     ]),
@@ -51,6 +53,7 @@ const actOnBox = implement(
       BridgeFailure,
       BoxCapacity,
       BoxBuildRefused,
+      BoxDnsRefused,
       BoxImageMissing,
       BoxNetworkUnavailable,
       WorkspaceUnlanded,
@@ -220,6 +223,7 @@ const route = (key: Redacted.Redacted) =>
           failure,
           failure.state === undefined ? {} : { state: failure.state }
         ),
+      BoxDnsRefused: (failure) => taggedFailure(failure, {}),
       BoxImageMissing: (failure) =>
         taggedFailure(failure, { state: failure.state }),
       BoxNetworkUnavailable: (failure) =>

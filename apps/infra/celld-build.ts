@@ -6,7 +6,7 @@ import { peonVars } from "./peon-config.ts";
 
 export const INSTANCE = "mischief";
 
-export const declaration: typeof Declaration.Type = {
+const declaration: typeof Declaration.Type = {
   compatibility_date: "2026-09-01",
   compatibility_flags: [],
   durable_objects: {
@@ -107,23 +107,6 @@ export const buildWorker = ({
             MISCHIEF_WORKSPACE_REPOS: workspace.repos,
           };
 
-    const deskWakeDeclaration: typeof Declaration.Type =
-      deskWakeSender === undefined
-        ? declaration
-        : {
-            ...declaration,
-            durable_objects: {
-              bindings: [
-                ...declaration.durable_objects.bindings,
-                { class_name: "DeskWaker", name: "DESK_WAKER" },
-              ],
-            },
-            migrations: [
-              ...declaration.migrations,
-              { new_sqlite_classes: ["DeskWaker"], tag: "v6-desk-waker" },
-            ],
-          };
-
     const workerVars: typeof workspaceVars & {
       MISCHIEF_OPUS_BRIDGE_URL?: string;
       MISCHIEF_DESK_WAKE?: string;
@@ -141,7 +124,25 @@ export const buildWorker = ({
 
     return yield* prepareDeployment(
       entry ?? path.resolve(import.meta.dirname, "../worker/src/worker.ts"),
-      deskWakeDeclaration,
+      {
+        ...declaration,
+        durable_objects: {
+          bindings: [
+            ...declaration.durable_objects.bindings,
+            ...(deskWakeSender === undefined
+              ? []
+              : [{ class_name: "DeskWaker", name: "DESK_WAKER" }]),
+            { class_name: "WatchObject", name: "WATCH" },
+          ],
+        },
+        migrations: [
+          ...declaration.migrations,
+          ...(deskWakeSender === undefined
+            ? []
+            : [{ new_sqlite_classes: ["DeskWaker"], tag: "v6-desk-waker" }]),
+          { new_sqlite_classes: ["WatchObject"], tag: "v7-watch" },
+        ],
+      },
       { commit, vars: workerVars, version }
     );
   });

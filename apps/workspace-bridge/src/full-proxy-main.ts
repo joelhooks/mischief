@@ -4,10 +4,11 @@ import {
   NodeServices,
 } from "@effect/platform-node";
 import { createServer } from "@mischief/model-bridge/server";
-import { Config, Effect, Layer, Schema } from "effect";
-import { FetchHttpClient, HttpRouter } from "effect/http";
+import { Config, Context, Effect, Layer, Schema } from "effect";
+import { FetchHttpClient, HttpClient, HttpRouter } from "effect/http";
 
 import { FullProxy, fullProxyRoutes } from "./full-proxy.js";
+import { managerKey, modelSpend } from "./model-spend.js";
 
 const program = Effect.gen(function* serveFullProxy() {
   const enabled = yield* Config.Literals(
@@ -30,13 +31,22 @@ const program = Effect.gen(function* serveFullProxy() {
     )
   );
 
+  const manager = yield* managerKey;
+
+  const client = Context.get(
+    yield* Layer.build(FetchHttpClient.layer),
+    HttpClient.HttpClient
+  );
+
+  const spend = modelSpend(client, manager, false);
+
   return yield* Layer.launch(
     HttpRouter.serve(fullProxyRoutes, {
       disableListenLog: true,
       disableLogger: true,
     }).pipe(
       Layer.provide(
-        FullProxy.layer({ key, models, upstream }).pipe(
+        FullProxy.layer({ key, models, spend, upstream }).pipe(
           Layer.provide(FetchHttpClient.layer)
         )
       ),
@@ -51,4 +61,4 @@ const program = Effect.gen(function* serveFullProxy() {
   );
 });
 
-NodeRuntime.runMain(program);
+NodeRuntime.runMain(program.pipe(Effect.scoped));

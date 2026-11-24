@@ -23,8 +23,19 @@ import {
   HttpServerResponse,
 } from "effect/http";
 
-import { errorResponse, readBody } from "./http.js";
+import { readBody } from "./http.js";
 import { MESSAGE_HOP_HEADERS, validateMessages } from "./messages.js";
+import {
+  admitModel,
+  measuredEncoding,
+  measuredRequest,
+  meterResponse,
+  modelHeaders,
+  preserveSpendFailure,
+  proxyFailureResponse,
+  socketPeer,
+} from "./model-spend.js";
+import type { ModelSpend } from "./model-spend.js";
 import { refusal } from "./protocol.js";
 import { collectBytes } from "./runner.js";
 
@@ -214,26 +225,30 @@ const validateResponses = Effect.fn("PeonProxy.validateResponses")(
 const ProxyInput = Schema.Struct({
   body: MessageBody,
   headers: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+  peer: Schema.optionalKey(Schema.String),
   rawBody: Schema.optionalKey(Schema.String),
   target: Schema.optionalKey(
     Schema.Literals(["/v1/responses", "/v1/messages", "/v1/messages?beta=true"])
   ),
 });
 
+const requestWire = (request: typeof ProxyInput.Type, messages: boolean) =>
+  messages && request.rawBody !== undefined
+    ? request.rawBody
+    : JSON.stringify(request.body);
+
 const upstreamRequest = (
   upstream: string,
   request: typeof ProxyInput.Type,
-  key: Redacted.Redacted
+  key: Redacted.Redacted,
+  wire: string
 ) => {
   if (
     request.target === "/v1/messages" ||
     request.target === "/v1/messages?beta=true"
   ) {
     return HttpClientRequest.post(upstream).pipe(
-      HttpClientRequest.bodyText(
-        request.rawBody ?? JSON.stringify(request.body),
-        "application/json"
-      ),
+      HttpClientRequest.bodyText(wire, "application/json"),
       HttpClientRequest.setHeaders(
         Object.fromEntries(
           Object.entries(request.headers ?? {}).filter(
@@ -265,7 +280,7 @@ const upstreamRequest = (
       authorization: `Bearer ${Redacted.value(key)}`,
       "x-cliproxy-client": "mischief/peons",
     }),
-    HttpClientRequest.bodyJsonUnsafe(request.body)
+    HttpClientRequest.bodyText(wire, "application/json")
   );
 };
 
@@ -282,7 +297,8 @@ const ProxyOutput = Schema.Struct({
 const withMessagesHeaders = (
   output: typeof ProxyOutput.Type,
   headers: Readonly<Record<string, string>>,
-  messages: boolean
+  messages: boolean,
+  metered = false
 ) =>
   messages
     ? {
@@ -290,9 +306,9 @@ const withMessagesHeaders = (
         headers: Object.fromEntries(
           Object.entries(headers).filter(
             ([key]) =>
-              ["content-encoding", "content-length", "request-id"].includes(
-                key
-              ) || key.startsWith("anthropic-ratelimit-")
+              ["content-encoding", "request-id"].includes(key) ||
+              (!metered && key === "content-length") ||
+              key.startsWith("anthropic-ratelimit-")
           )
         ),
       }
@@ -314,6 +330,13 @@ const providerErrorOf = (bytes: Uint8Array, encoding: string | undefined) => {
     new TextDecoder().decode(decoded)
   );
 };
+
+const retryableProvider = (
+  status: number,
+  error: Option.Option<typeof ProviderError.Type>
+) =>
+  [429, 503, 529].includes(status) ||
+  (Option.isSome(error) && error.value.error.type === "overloaded_error");
 
 const TransportCause = Schema.Struct({
   code: Schema.optionalKey(Schema.String),
@@ -357,6 +380,7 @@ export interface ProxyConfig {
   readonly key: Redacted.Redacted;
   readonly models: readonly string[];
   readonly upstream: string;
+  readonly spend?: ModelSpend;
 }
 
 export class Proxy extends Context.Service<
@@ -460,14 +484,31 @@ export class Proxy extends Context.Service<
             () => Ref.update(count, (running) => running - 1)
           );
 
+          const wire = requestWire(request, messages);
+
+          const requestBytes = Buffer.byteLength(wire);
+
           for (const delay of [0, 2000, 4000, 8000]) {
             if (delay > 0) {
               yield* Effect.sleep(delay);
             }
 
+            const meter = yield* admitModel(
+              config.spend,
+              request.peer,
+              requestBytes
+            );
+
+            const outbound = upstreamRequest(
+              upstream,
+              request,
+              config.key,
+              wire
+            );
+
             const send = (
               messages ? (messagesClient ?? client) : client
-            ).execute(upstreamRequest(upstream, request, config.key));
+            ).execute(measuredRequest(outbound, meter));
 
             const response = yield* (
               messages
@@ -503,14 +544,29 @@ export class Proxy extends Context.Service<
             const contentType =
               response.headers["content-type"] ?? "application/octet-stream";
 
+            const encoding = messages
+              ? response.headers["content-encoding"]
+              : undefined;
+
+            yield* measuredEncoding(meter, encoding);
+
+            const accounted = meterResponse(
+              meter,
+              requestBytes,
+              contentType,
+              response.stream
+            );
+
             if (response.status < 400) {
               return withMessagesHeaders(
                 {
-                  body: response.stream.pipe(
-                    Stream.mapError(() =>
-                      refusal(
-                        `The ${provider} stream was interrupted (status ${response.status}). Check the upstream and resume the think.`,
-                        503
+                  body: accounted.pipe(
+                    Stream.mapError(
+                      preserveSpendFailure(
+                        refusal(
+                          `The ${provider} stream was interrupted (status ${response.status}). Check the upstream and resume the think.`,
+                          503
+                        )
                       )
                     )
                   ),
@@ -518,11 +574,12 @@ export class Proxy extends Context.Service<
                   status: response.status,
                 },
                 response.headers,
-                messages
+                messages,
+                meter !== undefined
               );
             }
 
-            const bytes = yield* collectBytes(response.stream, 64 * 1024).pipe(
+            const bytes = yield* collectBytes(accounted, 64 * 1024).pipe(
               Effect.mapError(() =>
                 refusal(
                   `The ${provider} upstream returned an unreadable error or exceeded the 64 KiB error cap (status ${response.status}). Check the upstream and retry.`,
@@ -537,19 +594,10 @@ export class Proxy extends Context.Service<
                   `The ${provider} upstream returned an unreadable compressed error or exceeded the decoded 64 KiB error cap (status ${response.status}). Check the upstream and retry.`,
                   503
                 ),
-              try: () =>
-                providerErrorOf(
-                  bytes,
-                  messages ? response.headers["content-encoding"] : undefined
-                ),
+              try: () => providerErrorOf(bytes, encoding),
             });
 
-            const retry =
-              [429, 503, 529].includes(response.status) ||
-              (Option.isSome(error) &&
-                error.value.error.type === "overloaded_error");
-
-            if (!retry || delay === 8000) {
+            if (!retryableProvider(response.status, error) || delay === 8000) {
               return withMessagesHeaders(
                 {
                   body: Stream.make(bytes),
@@ -616,7 +664,8 @@ export const proxyRoute = Effect.gen(function* proxyResponse() {
 
   const output = yield* proxyResponses.handler({
     body,
-    headers: incoming.headers,
+    headers: modelHeaders(incoming.headers),
+    peer: socketPeer(incoming.peerAddress),
     rawBody: text,
     target: incoming.url,
   });
@@ -628,7 +677,7 @@ export const proxyRoute = Effect.gen(function* proxyResponse() {
   });
 }).pipe(
   Effect.catchTag("BridgeFailure", (failure) =>
-    Effect.succeed(errorResponse(failure))
+    Effect.succeed(proxyFailureResponse(failure))
   )
 );
 

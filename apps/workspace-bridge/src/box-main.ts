@@ -4,7 +4,7 @@ import {
   NodeServices,
 } from "@effect/platform-node";
 import { createServer } from "@mischief/model-bridge/server";
-import { Config, Effect, Layer, Redacted, Schema } from "effect";
+import { Config, Effect, Layer, Path, Redacted, Schema } from "effect";
 import * as Digest from "effect/crypto/Digest";
 import { HttpRouter } from "effect/http";
 
@@ -20,6 +20,11 @@ import {
 import { boxRoutes } from "./box/http.js";
 import { Boxes } from "./box/manager.js";
 import { boxRunnerLayer } from "./box/runner.js";
+import { notifySpend } from "./box/spend-alarm.js";
+import { spendRoutes } from "./box/spend-http.js";
+import { SpendLedger } from "./box/spend-ledger.js";
+import { SpendLimits } from "./box/spend-protocol.js";
+import { Runner } from "./runner.js";
 
 const program = Effect.gen(function* serveBoxes() {
   const enabled = yield* Config.Literals(
@@ -87,17 +92,48 @@ const program = Effect.gen(function* serveBoxes() {
     )(yield* Config.String("MISCHIEF_BOX_MIRRORS")),
   };
 
+  const limits = yield* Schema.decodeEffect(Schema.fromJsonString(SpendLimits))(
+    yield* Config.String("MISCHIEF_BOX_SPEND_LIMITS").pipe(
+      Config.withDefault("{}")
+    ),
+    { onExcessProperty: "error" }
+  );
+
+  const sender = yield* Config.String("MISCHIEF_BOX_SPEND_MAIL_AS").pipe(
+    Config.withDefault("peons/spend-alarm")
+  );
+
+  const ratking = yield* Config.String("MISCHIEF_BOX_SPEND_MAIL_BIN").pipe(
+    Config.withDefault("ratking")
+  );
+
+  const runner = boxRunnerLayer();
+
+  const boxes = Boxes.layer(config).pipe(
+    Layer.provide(archive),
+    Layer.provide(runner)
+  );
+
+  const spend = Layer.unwrap(
+    Effect.gen(function* boxSpendLayer() {
+      yield* Boxes;
+      const host = yield* Runner;
+      const path = yield* Path.Path;
+
+      return SpendLedger.layer(
+        path.join(config.metadata, "model-spend.sqlite"),
+        limits,
+        notifySpend(host, sender, ratking)
+      );
+    })
+  ).pipe(Layer.provide(boxes), Layer.provide(runner));
+
   return yield* Layer.launch(
-    HttpRouter.serve(boxRoutes(key), {
+    HttpRouter.serve(Layer.merge(boxRoutes(key), spendRoutes(key)), {
       disableListenLog: true,
       disableLogger: true,
     }).pipe(
-      Layer.provide(
-        Boxes.layer(config).pipe(
-          Layer.provide(archive),
-          Layer.provide(boxRunnerLayer())
-        )
-      ),
+      Layer.provide(Layer.merge(boxes, spend)),
       Layer.provide(
         NodeHttpServer.layer(createServer, { host: "127.0.0.1", port: 28_014 })
       ),

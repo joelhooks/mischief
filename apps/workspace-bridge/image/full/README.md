@@ -60,13 +60,26 @@ MISCHIEF_PEON_BOXES=on
 MISCHIEF_PEON_CLIPROXY_URL=<credential-free provider base URL, without /v1>
 MISCHIEF_PEON_CLIPROXY_KEY=<host-only provider key>
 MISCHIEF_PEON_FULL_MODELS=["gpt-6.1-sol","claude-opus-5-5"]
+MISCHIEF_BOX_KEY=<shared host manager bearer>
 ```
 
-The full proxy listens only on `172.30.212.1:28013`. It forwards POST `/v1/responses` and `/v1/messages`, with optional `?beta=true`. It replaces both credential headers, passes through request fields, feature headers and tools, holds at most eight streams, and reads at most 64 KiB of an upstream error. Returned errors omit the upstream body so a provider cannot echo the host key.
+The full proxy listens only on `172.30.212.1:28013`. It forwards POST `/v1/responses` and `/v1/messages`, with optional `?beta=true`. It replaces both credential headers, passes through request fields, feature headers and tools, holds at most eight streams, and reads at most 64 KiB of an upstream error. Metered boxes cannot start deferred Responses work (`background: true`) because the proxy would not see its usage. Returned errors omit the upstream body so a provider cannot echo the host key.
 
 Upstream transport failures and HTTP 5xx responses emit one `peon_upstream_transport_error` JSON line on stderr. The line contains the model, route without its query, elapsed milliseconds, status or error class, and the proxy-generated ID sent upstream as `x-mischief-request-id`. It excludes headers, bodies, keys and raw exception text. A 503 from the proxy's own stream limit is not an upstream failure.
 
 No host provider key enters a box. The only model credentials written into a box are the placeholder `proxy` values.
+
+### Per-box model spend
+
+The full and restricted model routes trust the TCP socket peer, not forwarding headers or a peon-supplied ID. The manager resolves box-network addresses against Docker’s live inventory and its own template metadata. Missing or ambiguous identities fail closed. The separate restricted workspace subnet still supports short-lived workspace jobs without a box ledger. Keep routing and the host firewall configured so box traffic cannot appear to come from that subnet.
+
+The manager owns `model-spend.sqlite` in `MISCHIEF_BOX_METADATA`; never mount, clear, or recreate that database on a routine restart. Browser boxes default to 20 upstream attempts per rolling minute and 2,000,000 accounted tokens per UTC day, separately for each peon. `MISCHIEF_BOX_SPEND_LIMITS={"browser":{"ratePerMin":20,"dailyTokens":2000000}}` overrides the browser thresholds. Add a `full` entry with both fields to cap that template too. Requests that span midnight stay on their admission day. The rolling request window does not reset at midnight.
+
+The proxy debits its outbound UTF-8 bytes before forwarding and records observed inbound bytes before passing them to the box. It uses one estimated token per four bytes as a fallback and raises that charge when provider usage frames (including cache usage) report more. This is an admission cap, not an exact billing ceiling: already admitted streams can finish above the threshold, and work the provider never reports is estimated from the bytes the proxy saw. The next request that cannot fit gets HTTP 429 with `error.code=SpendCap`. Pi surfaces the refusal through the existing `PromptFailed` path, which parks the box and clears the pending prompt. Retry with a fresh request ID after the applicable window resets.
+
+At 80% the manager emits `peon_spend_alarm` and attempts one Rat King send to `peons/desk` per peon, threshold and UTC day. Set `MISCHIEF_BOX_SPEND_MAIL_AS` to a dedicated sender whose key is installed on the manager host, and set `MISCHIEF_BOX_SPEND_MAIL_BIN` to the absolute `ratking` executable if it is not on the service PATH. Verify the identity with `ratking whoami --as <sender>`. A failed or interrupted delivery does not undo the cap or replay the alert; inspect `peon_spend_mail_failed` and the original log line. No credentials, request bodies or headers appear in either signal.
+
+Deploy the manager and both proxies together before admitting browser boxes. Give the restricted proxy the same `MISCHIEF_BOX_KEY` and set `MISCHIEF_PEON_BOXES=on` there when enabling the pair. To verify the path, use a temporary low canary limit and a managed browser box on the actual Docker network. Confirm both proxy listeners account for the same peon, a spoofed forwarding header does not change the charge, and the next prompt parks with `SpendCap` after a restart. Verify one alarm in manager logs and in `peons/desk`, then restore the intended limits. To roll back, stop browser admission first; do not run browser boxes against a proxy that predates the cap.
 
 ## Container and storage contract
 

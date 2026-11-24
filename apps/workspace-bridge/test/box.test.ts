@@ -34,6 +34,7 @@ import { PromptResult, Snapshot, State } from "../src/box/protocol.js";
 import type { BoxTemplate } from "../src/box/protocol.js";
 import { receiptKey } from "../src/box/receipt.js";
 import { boxRunnerLayer } from "../src/box/runner.js";
+import { spendMessage } from "../src/box/spend-protocol.js";
 import { checked, Runner } from "../src/runner.js";
 import { image, piOutput, sha } from "./fixtures.js";
 
@@ -164,6 +165,9 @@ ps)
     name="\${file##*/}"
     if [ "$2" = --filter ] && [ "$3" = "name=^/$name$" ]; then printf '%s\\n' "$name"; fi
   done;;
+network)
+  test "$*" = 'inspect --format {{json .Containers}} mischief-peon-boxes'
+  cat '${root}/network-inventory';;
 top) printf 'PID\\n123\\n';;
 exec)
   while [ "\${1#mischief-peon-box-}" = "$1" ]; do shift; done
@@ -261,6 +265,19 @@ printf '%s\\n' '{}' > "$CODEX_HOME/history.jsonl"
 printf 'changed by tool\\n' > '${root}/boxes/'"$id"'/work/result.txt'
 if [ "$input" = 'fail after writing history' ]; then
   exit 7
+fi
+if [ "$input" = 'capped model turn' ]; then
+  printf '%s\\n' '${JSON.stringify({
+    type: "message_end",
+    message: {
+      content: [],
+      errorMessage: spendMessage("daily"),
+      role: "assistant",
+      stopReason: "error",
+      usage: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
+    },
+  })}'
+  exit 1
 fi
 if [ "$input" = 'large event stream' ]; then
   printf '%s\\n' '{"type":"tool_execution_start","toolName":"inspect"}'
@@ -3182,6 +3199,80 @@ it.effect("a 33 MiB tool event does not consume the reply budget", () =>
       )
     )
   )
+);
+
+it.effect(
+  "the manager maps the live Docker address to host metadata and parks a SpendCap prompt through PromptFailed",
+  () =>
+    Effect.gen(function* spendCapPrompt() {
+      const fixture = yield* harness;
+      const fs = yield* FileSystem.FileSystem;
+      yield* Effect.gen(function* managedBox() {
+        const boxes = yield* Boxes;
+        yield* boxes.create({
+          peonId: "spend-test",
+          requestId: "create",
+          template: fixture.template,
+        });
+        yield* fs.writeFileString(
+          `${fixture.root}/network-inventory`,
+          JSON.stringify({
+            endpoint: {
+              Name: "mischief-peon-box-spend-test",
+              IPv4Address: "192.0.2.7/24",
+            },
+          })
+        );
+        expect(yield* boxes.ownerAt("192.0.2.7")).toEqual({
+          peonId: "spend-test",
+          imageKey: "full",
+        });
+        expect((yield* Effect.flip(boxes.ownerAt("192.0.2.8"))).status).toBe(
+          403
+        );
+
+        const prompt = boxes.act({
+          action: "prompt",
+          peonId: "spend-test",
+          requestId: "capped",
+          text: "capped model turn",
+        });
+
+        const failure = yield* Effect.flip(prompt);
+        expect(failure).toBeInstanceOf(PromptFailed);
+        expect(failure).toMatchObject({ status: 429, state: "suspended" });
+        expect(failure.message).toContain("SpendCap");
+        expect(yield* Effect.flip(prompt)).toMatchObject({
+          status: 429,
+          state: "suspended",
+        });
+        expect(yield* boxes.inspect("spend-test")).toMatchObject({
+          processes: 0,
+          state: "suspended",
+        });
+        expect(
+          yield* boxes.act({
+            action: "prompt",
+            peonId: "spend-test",
+            requestId: "fresh",
+            text: "continue",
+          })
+        ).toMatchObject({ output: "verdict" });
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
 );
 
 it.effect(

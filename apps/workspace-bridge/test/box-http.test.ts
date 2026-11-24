@@ -115,6 +115,8 @@ it.effect(
           Ref.update(calls, (values) => [...values, "inspect"]).pipe(
             Effect.as({ processes: 0, state: "suspended" })
           ),
+        ownerAt: () =>
+          Effect.die("Unexpected owner lookup in the lifecycle route test"),
         tail: () =>
           Effect.die("Unexpected tail call in the lifecycle route test"),
       });

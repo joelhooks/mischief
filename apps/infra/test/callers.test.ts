@@ -89,14 +89,20 @@ it.effect(
     Effect.gen(function* configured() {
       const doc = documentWith(PUBLIC_JWK);
 
+      const other = documentWith(
+        PUBLIC_JWK,
+        "did:web:other.ratking-fleet.invalid"
+      );
+
       const granted = yield* callersFrom([
         {
           ...doc,
           mischief: {
             mayMail: ["other/desk"],
-            peonCapabilities: ["spawnPeon", "promptPeon"],
+            peonCapabilities: ["spawnPeon", "promptPeon", "armWatch"],
           },
         },
+        other,
       ]);
 
       expect(Exit.isSuccess(granted)).toBe(true);
@@ -105,9 +111,9 @@ it.effect(
         expect(JSON.parse(granted.value.mailReach)).toStrictEqual({
           [doc.id]: ["other/desk"],
         });
-        expect(granted.value.callers).toBe(JSON.stringify([doc]));
+        expect(granted.value.callers).toBe(JSON.stringify([doc, other]));
         expect(JSON.parse(granted.value.peonGrants)).toStrictEqual({
-          [doc.id]: ["spawnPeon", "promptPeon"],
+          [doc.id]: ["spawnPeon", "promptPeon", "armWatch"],
         });
       }
 

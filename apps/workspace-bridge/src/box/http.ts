@@ -21,6 +21,7 @@ import { Action, ActionBody, Create, PeonId, Result } from "./protocol.js";
 import { ReceiptMismatch } from "./receipt-mismatch.js";
 import { ReplicaMismatch } from "./replica-mismatch.js";
 import { ReplicaPending } from "./replica-pending.js";
+import { spendRoutes } from "./spend-http.js";
 import { WorkspaceUnlanded } from "./workspace-unlanded.js";
 
 const createBox = implement(
@@ -255,3 +256,8 @@ export const boxRoutes = (key: Redacted.Redacted) =>
     HttpRouter.add("*", "/v1/boxes/:peonId", route(key)),
     HttpRouter.add("*", "/v1/boxes/:peonId/:action", route(key))
   );
+
+export const boxManagerRoutes = (keys: {
+  readonly controlKey: Redacted.Redacted;
+  readonly spendKey: Redacted.Redacted;
+}) => Layer.merge(boxRoutes(keys.controlKey), spendRoutes(keys.spendKey));

@@ -20,6 +20,8 @@ Pi's raw event stream goes to the private host file `metadata/<peon>/requests/<r
 
 These definitions do not create a Docker network, slice, firewall rule or unit, and the units are not registered with the infrastructure stack. Local image builds do not prove peon-network execution or live provider behavior; those proofs remain rollout work.
 
+Deploy the box manager and both model proxies together before admitting browser boxes. Set `MISCHIEF_BOX_SPEND_KEY` in `peon-boxes.env`, `peon-full-proxy.env` and `peon-proxy.env`. Remove `MISCHIEF_BOX_KEY` from both proxy files. See [Full peon boxes](image/full/README.md#opt-in-host-units) for the unit configuration.
+
 ## Processes
 
 - `dist/main.js`: authenticated Responses bridge on loopback, port 28011.
@@ -45,6 +47,8 @@ Declare values in the private environment files referenced by the unit definitio
 | `MISCHIEF_PEON_CLIPROXY_URL` | Dedicated provider base URL, without `/v1/responses` or `/v1/messages` |
 | `MISCHIEF_PEON_CLIPROXY_KEY` | Provider key; proxy process only |
 | `MISCHIEF_PEON_MODELS` | Exactly `["gpt-6.1-sol","claude-opus-5-5"]`, in either order, with no duplicates |
+| `MISCHIEF_BOX_KEY` | Box-control bearer: `peon-boxes.env` and worker bindings only |
+| `MISCHIEF_BOX_SPEND_KEY` | Distinct spend-only bearer: `peon-boxes.env`, `peon-full-proxy.env` and `peon-proxy.env` when `MISCHIEF_PEON_BOXES=on`; never in worker bindings |
 
 The worker's comma-separated `MISCHIEF_WORKSPACE_REPOS` is separate. A worker/bridge allowlist mismatch fails closed. Mirror URLs must use HTTPS on the configured walgit host, without credentials, query strings or fragments. Read-only Git credentials belong in the host's system Git configuration; the runner does not inherit the operator's environment or HOME. Neither mirrors nor Git configuration enter a cell.
 

@@ -1,6 +1,7 @@
 import { NodeHttpServer } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import {
+  ConfigProvider,
   Deferred,
   Effect,
   Exit,
@@ -13,6 +14,7 @@ import {
   Tracer,
 } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
+import { uuidV4Unsafe } from "effect/crypto/SecureRandom";
 import {
   HttpBody,
   HttpClient,
@@ -24,13 +26,13 @@ import {
 } from "effect/http";
 import { TestClock } from "effect/testing";
 
+import { boxManagerRoutes } from "../src/box/http.js";
 import { liveBoxId } from "../src/box/live-owner.js";
 import { Boxes } from "../src/box/manager.js";
-import { spendRoutes } from "../src/box/spend-http.js";
 import { SpendLedger } from "../src/box/spend-ledger.js";
-import { ADMIT_PATH } from "../src/box/spend-protocol.js";
+import { ADMIT_PATH, RECORD_PATH } from "../src/box/spend-protocol.js";
 import { FullProxy, fullProxyRoutes } from "../src/full-proxy.js";
-import { meterResponse, modelSpend } from "../src/model-spend.js";
+import { managerKey, meterResponse, modelSpend } from "../src/model-spend.js";
 import { refusal } from "../src/protocol.js";
 import { Proxy, proxyRoutes } from "../src/proxy.js";
 
@@ -49,7 +51,18 @@ for (const surface of ["full", "restricted"] as const) {
     () =>
       Effect.gen(function* socketSpend() {
         const client = yield* HttpClient.HttpClient;
-        const managerKey = Redacted.make("fixture-manager-bearer");
+        const controlKey = Redacted.make(uuidV4Unsafe());
+        const spendValue = uuidV4Unsafe();
+
+        const spendKey = yield* managerKey.pipe(
+          Effect.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromEnvRecord({
+                MISCHIEF_BOX_SPEND_KEY: spendValue,
+              })
+            )
+          )
+        );
 
         const manager = client.pipe(
           HttpClient.mapRequestInput((request) =>
@@ -73,9 +86,9 @@ for (const surface of ["full", "restricted"] as const) {
         );
 
         const config = {
-          key: Redacted.make("fixture-upstream-bearer"),
+          key: Redacted.make(uuidV4Unsafe()),
           models: ["gpt-6.1-sol", "claude-opus-5-5"],
-          spend: modelSpend(manager, managerKey, surface === "restricted"),
+          spend: modelSpend(manager, spendKey, surface === "restricted"),
           upstream: "http://provider.example.invalid",
         };
 
@@ -117,26 +130,33 @@ for (const surface of ["full", "restricted"] as const) {
             browser: {
               dailyTokens: 1000,
               defaultOutputTokens: 128,
-              ratePerMin: 1,
+              ratePerMin: 2,
             },
           },
           () => Effect.void
         );
 
-        const spend = spendRoutes(managerKey);
+        const managerRoutes = boxManagerRoutes({
+          controlKey,
+          spendKey: Redacted.make(spendValue),
+        });
+
         const server = { disableListenLog: true, disableLogger: true };
 
         const proxy =
           surface === "full"
             ? HttpRouter.serve(
-                Layer.merge(fullProxyRoutes, spend),
+                Layer.merge(fullProxyRoutes, managerRoutes),
                 server
               ).pipe(
                 Layer.provide(
                   FullProxy.layer(config).pipe(Layer.provide(provider))
                 )
               )
-            : HttpRouter.serve(Layer.merge(proxyRoutes, spend), server).pipe(
+            : HttpRouter.serve(
+                Layer.merge(proxyRoutes, managerRoutes),
+                server
+              ).pipe(
                 Layer.provide(Proxy.layer(config).pipe(Layer.provide(provider)))
               );
 
@@ -152,6 +172,24 @@ for (const surface of ["full", "restricted"] as const) {
 
         expect(forged.status).toBe(401);
         yield* forged.text;
+
+        const forbiddenSpawn = yield* client.post("/v1/boxes", {
+          headers: { authorization: `Bearer ${spendValue}` },
+        });
+
+        expect(forbiddenSpawn.status).toBe(401);
+        yield* forbiddenSpawn.text;
+
+        for (const path of [ADMIT_PATH, RECORD_PATH]) {
+          const forbiddenSpend = yield* client.post(path, {
+            headers: {
+              authorization: `Bearer ${Redacted.value(controlKey)}`,
+            },
+          });
+
+          expect(forbiddenSpend.status, path).toBe(401);
+          yield* forbiddenSpend.text;
+        }
 
         if (surface === "full") {
           const background = yield* client.post("/v1/responses", {

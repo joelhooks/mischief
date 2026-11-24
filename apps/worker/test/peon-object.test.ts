@@ -321,6 +321,68 @@ it.live(
 );
 
 it.live(
+  "an uncoded spawn 403 settles immediately and leaves the peon destroyable",
+  () =>
+    Effect.gen(function* refusedSpawn() {
+      const world = yield* prepare(60_000, [], undefined, { peons: true });
+      yield* start(world);
+
+      const peonId = "rejected-spawn";
+      const input = { peonId, template: "full", overrides: { workspace } };
+
+      expect((yield* post(world, "spawnPeon", input)).status).toBe(422);
+
+      const inspected = yield* post(world, "inspectPeon", { peonId });
+
+      const rejected = yield* Schema.decodeUnknownEffect(PeonReport)(
+        inspected.body
+      );
+
+      expect(rejected.fault).toContain("BoxSpawnRejected");
+      expect(rejected).toMatchObject({
+        pending: null,
+        state: "suspended",
+        terminalFault: {
+          attempts: 1,
+          code: "BoxSpawnRejected",
+          httpStatus: 403,
+          kind: "spawn",
+          requestId: `spawn/${peonId}`,
+        },
+      });
+
+      expect((yield* post(world, "spawnPeon", input)).status).toBe(422);
+
+      const destroy = yield* post(world, "destroyPeon", {
+        peonId,
+        requestId: "cleanup-rejected",
+        discardWorkspace: true,
+      });
+
+      expect(destroy.status).toBe(422);
+
+      const denied = yield* Schema.decodeUnknownEffect(PeonRefused)(
+        destroy.body
+      );
+
+      expect(denied.reason).toContain("destroy returned HTTP 404");
+      expect(
+        (yield* post(world, "inspectPeon", { peonId })).body
+      ).toMatchObject({
+        pending: { kind: "destroy", requestId: "cleanup-rejected" },
+        state: "suspended",
+      });
+
+      const calls = yield* readCalls(world);
+      expect(calls.map(({ path }) => path)).toEqual([
+        "/v1/boxes",
+        `/v1/boxes/${peonId}`,
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  30_000
+);
+
+it.live(
   "a 503 on resume keeps the pending intent and retries the same box request",
   () =>
     Effect.gen(function* unavailableResume() {

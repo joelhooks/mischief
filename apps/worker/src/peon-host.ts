@@ -13,7 +13,7 @@ import type {
   PeonTemplate,
   PeonTurn,
 } from "@mischief/core";
-import { Clock, Effect, Schema } from "effect";
+import { Clock, Console, Effect, Schema } from "effect";
 
 import { isLegacyStaleResume } from "./peon-box.js";
 import type { PeonBox } from "./peon-box.js";
@@ -83,7 +83,51 @@ interface CommandOptions {
   readonly defer?: boolean;
 }
 
+type DriveSource = "alarm" | "foreground";
+
+const maxFailedDrives = 6;
+
+const retryGuardMultiples = 4;
+
 const failure = (reason: string) => new PeonRefused({ reason });
+
+const httpFailureDetails = ({ httpStatus, managerCode }: PeonRefused) => {
+  if (httpStatus === undefined) {
+    return {};
+  }
+
+  return managerCode === undefined
+    ? { httpStatus }
+    : { httpStatus, managerCode };
+};
+
+const loggedRefusalCode = (refusal: PeonRefused | undefined) => {
+  if (refusal === undefined) {
+    return null;
+  }
+
+  return refusal.code === "BoxSpawnRejected"
+    ? "uncoded"
+    : (refusal.managerCode ?? refusal.code ?? "uncoded");
+};
+
+const logRedrive = (
+  peonId: string,
+  pending: typeof PeonPending.Type,
+  refusal?: PeonRefused
+) =>
+  Console.log(
+    JSON.stringify({
+      attempt: (pending.failures ?? 0) + 1,
+      code: loggedRefusalCode(refusal),
+      event: "peon_alarm_redrive",
+      httpStatus: refusal?.httpStatus ?? null,
+      op: pending.kind,
+      outcome: refusal === undefined ? "succeeded" : "refused",
+      peonId,
+      requestId: pending.requestId,
+    })
+  );
 
 const replayCompletion = (
   completed: typeof PeonCompleted.Type,
@@ -127,6 +171,15 @@ const reportWithMeasurements = (
 
   return measuredReport;
 };
+
+const idleAlarm = (stored: PeonStoredValue) =>
+  stored.report.terminalFault === undefined
+    ? peonIdleAlarm(
+        stored.report.state,
+        stored.idleAt,
+        stored.report.resolvedTemplate
+      )
+    : null;
 
 const indexOf = Schema.decodeUnknownSync(PeonIndexEntry);
 
@@ -227,12 +280,8 @@ export const peonHost = ({
 
     const at =
       stored.pending === null
-        ? peonIdleAlarm(
-            stored.report.state,
-            stored.idleAt,
-            stored.report.resolvedTemplate
-          )
-        : now + guardMs;
+        ? idleAlarm(stored)
+        : (stored.pending.retryAt ?? now + guardMs);
 
     yield* storage.commit(stored, at, completed);
   });
@@ -440,11 +489,9 @@ export const peonHost = ({
     return { clonedReport, stored: next, turn };
   });
 
-  const drive = Effect.fn("Peon.drive")(function* drive(): Effect.fn.Return<
-    typeof PeonReport.Type,
-    PeonRefused
-  > {
-    const current = yield* requirePeon;
+  const drive = Effect.fn("Peon.drive")(function* drive(
+    current: PeonStoredValue
+  ): Effect.fn.Return<typeof PeonReport.Type, PeonRefused> {
     const { pending } = current;
 
     if (pending === null) {
@@ -541,23 +588,67 @@ export const peonHost = ({
     }
   );
 
-  const recordFault = Effect.fn("Peon.recordFault")(function* recordFault(
-    fault: PeonRefused
+  const stopRetry = Effect.fn("Peon.stopRetry")(function* stopRetry(
+    stored: PeonStoredValue,
+    pending: typeof PeonPending.Type,
+    observed: (typeof PeonReport.Type)["state"],
+    fault: PeonRefused,
+    attempts: number
   ) {
-    const stored = yield* requirePeon;
+    const code =
+      fault.code === "BoxSpawnRejected" ? "BoxSpawnRejected" : "RetryExhausted";
 
-    if (stored.pending === null) {
-      return yield* fault;
-    }
+    const reason =
+      code === "BoxSpawnRejected"
+        ? `${code}: ${fault.reason}`
+        : `${code}: Peon ${stored.report.peonId} stopped retrying ${pending.kind} ${pending.requestId} after ${attempts} failed drives. Last failure: ${fault.reason} Inspect the box before submitting a new operation.`;
 
+    const details = httpFailureDetails(fault);
+    const refusal = { code, reason, ...details } as const;
+
+    const report: typeof PeonReport.Type = {
+      ...stored.report,
+      fault: reason,
+      state:
+        code === "BoxSpawnRejected"
+          ? peonTransition(observed, "BOX_LOST")
+          : observed,
+      terminalFault: {
+        attempts,
+        code,
+        kind: pending.kind,
+        requestId: pending.requestId,
+        ...details,
+      },
+      updatedAt: yield* Clock.currentTimeMillis,
+    };
+
+    yield* commit(
+      { ...stored, pending: null, report },
+      {
+        requestId: pending.requestId,
+        value: { hash: pending.inputHash, refusal, report },
+      }
+    );
+    yield* publish(indexOf(report));
+
+    return new PeonRefused(refusal);
+  });
+
+  const parkFault = Effect.fn("Peon.parkFault")(function* parkFault(
+    stored: PeonStoredValue,
+    pending: typeof PeonPending.Type,
+    fault: PeonRefused,
+    attempts: number
+  ) {
     const refused = fault.code !== undefined;
 
     const staleResume =
-      stored.pending.kind === "resume" && fault.code === "BoxNetworkStale";
+      pending.kind === "resume" && fault.code === "BoxNetworkStale";
 
     const promptFinished =
       fault.code === "PromptFailed" &&
-      stored.pending.kind === "prompt" &&
+      pending.kind === "prompt" &&
       stored.report.state === "running";
 
     const reportedState =
@@ -583,7 +674,15 @@ export const peonHost = ({
     const faulted = {
       ...stored,
       idleAt: promptFinished ? updatedAt : stored.idleAt,
-      pending: refused ? null : stored.pending,
+      pending: refused
+        ? null
+        : {
+            ...pending,
+            failures: attempts,
+            retryAt:
+              (yield* Clock.currentTimeMillis) +
+              guardMs * Math.min(retryGuardMultiples, 2 ** (attempts - 1)),
+          },
       report: {
         ...stored.report,
         fault: staleResume ? null : fault.reason,
@@ -593,17 +692,90 @@ export const peonHost = ({
     };
 
     yield* staleResume
-      ? settleStaleResume(faulted, stored.pending, "drive", fault.reason)
+      ? settleStaleResume(faulted, pending, "drive", fault.reason)
       : commit(faulted);
 
     if (state !== "destroyed") {
       yield* publish(indexOf(faulted.report));
     }
 
-    return yield* fault;
+    return fault;
   });
 
-  const recover = drive().pipe(Effect.catchTag("PeonRefused", recordFault));
+  const recordFault = Effect.fn("Peon.recordFault")(function* recordFault(
+    beforeDrive: PeonStoredValue,
+    fault: PeonRefused
+  ) {
+    const stored = yield* requirePeon;
+    const { pending } = stored;
+
+    if (pending === null) {
+      return fault;
+    }
+
+    const attempts = (pending.failures ?? 0) + 1;
+
+    if (
+      fault.code === "BoxSpawnRejected" ||
+      (fault.code === undefined && attempts >= maxFailedDrives)
+    ) {
+      return yield* stopRetry(
+        stored,
+        pending,
+        fault.boxState ?? beforeDrive.report.state,
+        fault,
+        attempts
+      );
+    }
+
+    return yield* parkFault(stored, pending, fault, attempts);
+  });
+
+  const recover = Effect.fn("Peon.recover")(function* recover(
+    source: DriveSource = "foreground"
+  ) {
+    const fromAlarm = source === "alarm";
+    let current = yield* requirePeon;
+    const { pending } = current;
+
+    if (pending === null) {
+      return yield* drive(current);
+    }
+
+    if (pending.retryAt !== undefined) {
+      if (fromAlarm && (yield* Clock.currentTimeMillis) < pending.retryAt) {
+        yield* commit(current);
+
+        return reportWithPending(current);
+      }
+
+      const driving = { ...pending };
+      delete driving.retryAt;
+      current = { ...current, pending: driving };
+      yield* commit(current);
+    }
+
+    return yield* drive(current).pipe(
+      Effect.matchEffect({
+        onFailure: (fault) =>
+          Effect.gen(function* failedDrive() {
+            if (fromAlarm) {
+              yield* logRedrive(current.report.peonId, pending, fault);
+            }
+
+            const refusal = yield* recordFault(current, fault);
+
+            return fromAlarm
+              ? reportWithPending(yield* requirePeon)
+              : yield* refusal;
+          }),
+        onSuccess: (report) =>
+          fromAlarm
+            ? logRedrive(current.report.peonId, pending).pipe(Effect.as(report))
+            : Effect.succeed(report),
+      })
+    );
+  });
 
   const begin = Effect.fn("Peon.begin")(function* begin(
     kind: (typeof PeonPending.Type)["kind"],
@@ -634,7 +806,7 @@ export const peonHost = ({
         stored.pending.requestId === requestId &&
         stored.pending.inputHash === inputHash
       ) {
-        return options.defer === true ? stored.report : yield* recover;
+        return options.defer === true ? stored.report : yield* recover();
       }
 
       if (kind !== "destroy" || stored.report.fault === null) {
@@ -648,6 +820,7 @@ export const peonHost = ({
 
     const report = { ...stored.report };
     delete report.lastSettled;
+    delete report.terminalFault;
     stored = { ...stored, report };
 
     if (peonAtTarget(kind, stored.report.state)) {
@@ -704,25 +877,22 @@ export const peonHost = ({
 
     yield* commit({ ...checkpoint, pending });
 
-    return options.defer === true ? checkpoint.report : yield* recover;
+    return options.defer === true ? checkpoint.report : yield* recover();
   });
 
   return {
     command: begin,
-    idle: Effect.fn("Peon.idle")(function* idle() {
+    idle: Effect.fn("Peon.idle")(function* idle(
+      source: DriveSource = "foreground"
+    ) {
       const stored = yield* requirePeon;
 
       if (stored.pending !== null) {
-        return yield* recover;
+        return yield* recover(source);
       }
 
       const now = yield* Clock.currentTimeMillis;
-
-      const at = peonIdleAlarm(
-        stored.report.state,
-        stored.idleAt,
-        stored.report.resolvedTemplate
-      );
+      const at = idleAlarm(stored);
 
       if (at !== null && at <= now) {
         return yield* stored.report.state === "idle"
@@ -749,11 +919,18 @@ export const peonHost = ({
           );
         }
 
-        if (existing.report.state === "spawned" && existing.pending === null) {
-          return yield* begin("spawn", `spawn/${entry.peonId}`, "SPAWN");
+        const requestId = `spawn/${entry.peonId}`;
+        const completed = yield* storage.completed(requestId);
+
+        if (completed?.refusal !== undefined) {
+          return yield* new PeonRefused(completed.refusal);
         }
 
-        return yield* recover;
+        if (existing.report.state === "spawned" && existing.pending === null) {
+          return yield* begin("spawn", requestId, "SPAWN");
+        }
+
+        return yield* recover();
       }
 
       yield* assertPeonSpawnable(template);
@@ -813,7 +990,7 @@ export const peonHost = ({
 
       yield* commit({ ...attaching, pending });
 
-      return yield* recover;
+      return yield* recover();
     }),
     inspect: Effect.gen(function* inspect() {
       const stored = yield* requirePeon;

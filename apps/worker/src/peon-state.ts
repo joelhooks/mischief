@@ -1,9 +1,4 @@
-import {
-  PeonBoxRefusalCode,
-  PeonId,
-  PeonReport,
-  PeonWorkspace,
-} from "@mischief/core";
+import { PeonRefused, PeonId, PeonReport, PeonWorkspace } from "@mischief/core";
 import { Schema } from "effect";
 
 export const PEON_REGISTRY = "peons-v1";
@@ -25,6 +20,10 @@ export const PeonPending = Schema.Struct({
   mail: Schema.optionalKey(Schema.Boolean),
   newPeonId: Schema.optional(PeonId),
   requestId: Schema.String,
+  failures: Schema.optionalKey(
+    Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))
+  ),
+  retryAt: Schema.optionalKey(Schema.Finite),
   resumeRequestId: Schema.String,
   sender: Schema.optional(Schema.String),
   text: Schema.optional(Schema.String),
@@ -43,7 +42,12 @@ export type PeonStoredValue = typeof PeonStored.Type;
 export const PeonCompleted = Schema.Struct({
   hash: Schema.String,
   refusal: Schema.optionalKey(
-    Schema.Struct({ code: PeonBoxRefusalCode, reason: Schema.String })
+    Schema.Struct({
+      code: PeonRefused.fields.code,
+      httpStatus: PeonRefused.fields.httpStatus,
+      managerCode: PeonRefused.fields.managerCode,
+      reason: PeonRefused.fields.reason,
+    })
   ),
   report: PeonReport,
 });

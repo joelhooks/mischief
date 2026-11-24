@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { PeonReport } from "@mischief/core";
 import { emptyPeonUsage, fullPeonTemplate, PeonRefused } from "@mischief/core";
-import { Clock, Effect, Schema } from "effect";
+import { Clock, Console, Effect, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
 import type {
@@ -9,6 +9,7 @@ import type {
   PeonBoxRequest,
   PeonBoxOperation,
 } from "../src/peon-box.js";
+import { requireSuccess } from "../src/peon-box.js";
 import { peonHost } from "../src/peon-host.js";
 import type { PeonHostOptions } from "../src/peon-host.js";
 import { PeonStored } from "../src/peon-state.js";
@@ -37,7 +38,7 @@ const turn = {
   wallMs: 12,
 };
 
-const fixture = () => {
+const fixture = (guardMs = 30_000) => {
   let stored: PeonStoredValue | undefined;
   let alarm: number | null = null;
   let crashOnCompletion = false;
@@ -148,7 +149,7 @@ const fixture = () => {
         state: "suspended",
         usage: emptyPeonUsage,
       }),
-    guardMs: 30_000,
+    guardMs,
     publish: () => Effect.void,
     reply: (_to: string, messageId: string) =>
       Effect.sync(() => {
@@ -208,6 +209,16 @@ const fixture = () => {
     host: () => peonHost(options),
     read: () => stored,
     replies,
+    restoreLegacyPending: () => {
+      if (stored?.pending === undefined || stored.pending === null) {
+        throw new Error("legacy fixture needs a pending command");
+      }
+
+      const pending = { ...stored.pending };
+      delete pending.failures;
+      delete pending.retryAt;
+      stored = { ...stored, pending };
+    },
   };
 };
 
@@ -273,6 +284,8 @@ it.effect(
       });
       test.fail(legacyFault(raw));
       yield* call("legacy-resume").pipe(Effect.flip);
+      test.restoreLegacyPending();
+
       const parked = yield* test.host().inspectStored;
       expect(parked.fault).toContain("BoxNetworkStale");
       expect(parked).toMatchObject({
@@ -305,6 +318,194 @@ it.effect(
       const replay = yield* call("legacy-resume").pipe(Effect.flip);
       expect(replay.code).toBe("BoxNetworkStale");
       expect(test.calls).toHaveLength(beforeInspect + 1);
+    })
+);
+
+it.effect.prop(
+  "retry alarms back off across host restarts and stop after six failed drives",
+  { guardMs: Schema.Literals([1000, 30_000, 60_000]) },
+  ({ guardMs }) =>
+    Effect.gen(function* retryBudget() {
+      const test = fixture(guardMs);
+      const requestId = "bounded-resume";
+      const resume = () => test.host().command("resume", requestId, "RESUME");
+
+      yield* test.host().initialize(entry, template, false);
+      yield* test.host().command("suspend", "setup-suspend", "SUSPEND");
+      test.fail();
+      yield* resume().pipe(Effect.flip);
+
+      for (const multiple of [1, 2, 4, 4, 4]) {
+        const delay = multiple * guardMs;
+        const now = yield* Clock.currentTimeMillis;
+        expect(test.alarm()).toBe(now + delay);
+
+        yield* TestClock.adjust(`${delay - 1} millis`);
+        const before = test.calls.length;
+        yield* test.host().idle("alarm");
+        expect(test.calls).toHaveLength(before);
+        expect(test.alarm()).toBe(now + delay);
+
+        yield* TestClock.adjust("1 millis");
+        test.fail();
+        yield* test.host().idle("alarm");
+        expect(test.calls).toHaveLength(before + 1);
+      }
+
+      const calls = test.calls.filter(
+        ({ operation }) => operation === "resume"
+      );
+
+      expect(calls).toHaveLength(6);
+      expect(new Set(calls.map(({ body }) => body?.requestId)).size).toBe(1);
+
+      const exhausted = yield* test.host().inspectStored;
+      expect(exhausted.fault).toContain("RetryExhausted");
+      expect(exhausted).toMatchObject({
+        pending: null,
+        state: "suspended",
+        terminalFault: {
+          attempts: 6,
+          code: "RetryExhausted",
+          kind: "resume",
+          requestId,
+        },
+      });
+      expect(test.alarm()).toBeNull();
+
+      yield* TestClock.adjust("2 days");
+      yield* test.host().idle("alarm");
+
+      const replay = yield* resume().pipe(Effect.flip);
+      expect(replay.code).toBe("RetryExhausted");
+      expect(
+        test.calls.filter(({ operation }) => operation === "resume")
+      ).toEqual(calls);
+      expect(test.alarm()).toBeNull();
+
+      const fresh = yield* test
+        .host()
+        .command("resume", "fresh-resume", "RESUME");
+
+      expect(fresh.state).toBe("idle");
+      expect(fresh).not.toHaveProperty("terminalFault");
+    })
+);
+
+it.effect("alarm logs one structured outcome per actual drive", () =>
+  Console.consoleWith((base) => {
+    const lines: unknown[] = [];
+
+    return Effect.gen(function* loggedRedrives() {
+      const test = fixture();
+      const requestId = "log-resume";
+
+      yield* test.host().initialize(entry, template, false);
+      yield* test.host().command("suspend", "setup-suspend", "SUSPEND");
+      test.fail();
+      yield* test
+        .host()
+        .command("resume", requestId, "RESUME")
+        .pipe(Effect.flip);
+      yield* test.host().idle("alarm");
+      expect(lines).toHaveLength(0);
+
+      yield* TestClock.adjust("30 seconds");
+      test.fail(
+        yield* requireSuccess(entry.peonId, "resume", {
+          status: 503,
+          text: JSON.stringify({
+            error: { code: "BoxCapacity", message: "Manager unavailable" },
+          }),
+        }).pipe(Effect.flip)
+      );
+      yield* test.host().idle("alarm");
+
+      yield* TestClock.adjust("60 seconds");
+      test.fail(
+        yield* requireSuccess(entry.peonId, "resume", {
+          status: 502,
+          text: "Gateway lost",
+        }).pipe(Effect.flip)
+      );
+      yield* test.host().idle("alarm");
+
+      yield* TestClock.adjust("120 seconds");
+      expect((yield* test.host().idle("alarm")).state).toBe("idle");
+
+      const common = {
+        event: "peon_alarm_redrive",
+        op: "resume",
+        peonId: entry.peonId,
+        requestId,
+      };
+
+      const records = yield* Schema.decodeUnknownEffect(
+        Schema.Array(Schema.fromJsonString(Schema.Json))
+      )(lines);
+
+      expect(records).toEqual([
+        {
+          ...common,
+          attempt: 2,
+          code: "BoxCapacity",
+          httpStatus: 503,
+          outcome: "refused",
+        },
+        {
+          ...common,
+          attempt: 3,
+          code: "uncoded",
+          httpStatus: 502,
+          outcome: "refused",
+        },
+        {
+          ...common,
+          attempt: 4,
+          code: null,
+          httpStatus: null,
+          outcome: "succeeded",
+        },
+      ]);
+    }).pipe(
+      Effect.provideService(
+        Console.Console,
+        new Proxy(base, {
+          get(target, property: keyof Console.Console) {
+            return property === "log"
+              ? (...args: unknown[]) => lines.push(...args)
+              : target[property];
+          },
+        })
+      )
+    );
+  })
+);
+
+it.effect.prop(
+  "only permanent uncoded spawn statuses are stamped as immediate rejections",
+  { status: Schema.Literals([400, 403, 408, 425, 429, 500, 503]) },
+  ({ status }) =>
+    Effect.gen(function* spawnStatus() {
+      const response = { status, text: "Uncoded manager failure" };
+
+      const denial = yield* requireSuccess(
+        entry.peonId,
+        "spawn",
+        response
+      ).pipe(Effect.flip);
+
+      const other = yield* requireSuccess(
+        entry.peonId,
+        "resume",
+        response
+      ).pipe(Effect.flip);
+
+      expect(denial.code).toBe(
+        status === 400 || status === 403 ? "BoxSpawnRejected" : undefined
+      );
+      expect(denial.httpStatus).toBe(status);
+      expect(other.code).toBeUndefined();
     })
 );
 

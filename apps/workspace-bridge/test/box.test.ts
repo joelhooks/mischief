@@ -2862,6 +2862,9 @@ it.effect(
 
         for (const command of creates) {
           expect(command).toContain("--network mischief-peon-boxes");
+          expect(command.match(/(?:^| )--restart(?:=| )[^ ]+/gu)).toEqual([
+            " --restart no",
+          ]);
           expect(
             command.match(/--mount type=bind,source=[^ ]+,target=[^ ]+/gu)
           ).toEqual([

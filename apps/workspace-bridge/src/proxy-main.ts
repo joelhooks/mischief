@@ -8,6 +8,7 @@ import { createServer } from "@mischief/model-bridge/server";
 import { Config, Context, Effect, Layer, Redacted, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpRouter } from "effect/http";
 
+import { managerKey, modelSpend } from "./model-spend.js";
 import { Proxy, proxyRoutes } from "./proxy.js";
 
 const program = Effect.gen(function* serveWorkspaceProxy() {
@@ -29,6 +30,20 @@ const program = Effect.gen(function* serveWorkspaceProxy() {
     )
   );
 
+  const enabled = yield* Config.Literals(
+    ["off", "on"],
+    "MISCHIEF_PEON_BOXES"
+  ).pipe(Config.withDefault("off"));
+
+  const manager = enabled === "on" ? yield* managerKey : undefined;
+
+  const client = Context.get(
+    yield* Layer.build(FetchHttpClient.layer),
+    HttpClient.HttpClient
+  );
+
+  const spend = modelSpend(client, manager, true);
+
   const messagesContext = yield* Layer.build(NodeHttpClient.layerNodeHttp);
   const messagesClient = Context.get(messagesContext, HttpClient.HttpClient);
 
@@ -38,7 +53,7 @@ const program = Effect.gen(function* serveWorkspaceProxy() {
       disableLogger: true,
     }).pipe(
       Layer.provide(
-        Proxy.layer({ key, models, upstream }, messagesClient).pipe(
+        Proxy.layer({ key, models, spend, upstream }, messagesClient).pipe(
           Layer.provide(FetchHttpClient.layer)
         )
       ),

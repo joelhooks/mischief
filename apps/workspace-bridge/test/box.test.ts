@@ -1,4 +1,7 @@
-import { NodeServices } from "@effect/platform-node";
+import { normalizeContext } from "@earendil-works/pi-ai";
+import type { Model } from "@earendil-works/pi-ai";
+import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
+import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { BridgeFailure } from "@mischief/model-bridge/bridge-failure";
 import {
@@ -10,11 +13,19 @@ import {
   Layer,
   Option,
   Predicate,
+  Redacted,
   Ref,
   Schema,
+  Stream,
 } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 import * as Digest from "effect/crypto/Digest";
+import {
+  HttpClient,
+  HttpClientRequest,
+  HttpClientResponse,
+  HttpRouter,
+} from "effect/http";
 import { TestClock } from "effect/testing";
 
 import { archiveDiskLayer } from "../src/box/archive-disk.js";
@@ -34,6 +45,10 @@ import { PromptResult, Snapshot, State } from "../src/box/protocol.js";
 import type { BoxTemplate } from "../src/box/protocol.js";
 import { receiptKey } from "../src/box/receipt.js";
 import { boxRunnerLayer } from "../src/box/runner.js";
+import { SpendLedger } from "../src/box/spend-ledger.js";
+import { spendMessage, spendReading } from "../src/box/spend-protocol.js";
+import { FullProxy, fullProxyRoutes } from "../src/full-proxy.js";
+import { refusal } from "../src/protocol.js";
 import { checked, Runner } from "../src/runner.js";
 import { image, piOutput, sha } from "./fixtures.js";
 
@@ -64,6 +79,7 @@ const harness = Effect.gen(function* harness() {
 
   yield* fs.makeDirectory(`${root}/bin`);
   yield* fs.makeDirectory(`${root}/fake`);
+  yield* fs.writeFileString(`${root}/network-inventory`, "{}");
 
   const script = `#!/bin/sh
 set -eu
@@ -164,6 +180,9 @@ ps)
     name="\${file##*/}"
     if [ "$2" = --filter ] && [ "$3" = "name=^/$name$" ]; then printf '%s\\n' "$name"; fi
   done;;
+network)
+  test "$*" = 'inspect --format {{json .Containers}} mischief-peon-boxes'
+  cat '${root}/network-inventory';;
 top) printf 'PID\\n123\\n';;
 exec)
   while [ "\${1#mischief-peon-box-}" = "$1" ]; do shift; done
@@ -2843,6 +2862,9 @@ it.effect(
 
         for (const command of creates) {
           expect(command).toContain("--network mischief-peon-boxes");
+          expect(command.match(/(?:^| )--restart(?:=| )[^ ]+/gu)).toEqual([
+            " --restart no",
+          ]);
           expect(
             command.match(/--mount type=bind,source=[^ ]+,target=[^ ]+/gu)
           ).toEqual([
@@ -3182,6 +3204,290 @@ it.effect("a 33 MiB tool event does not consume the reply budget", () =>
       )
     )
   )
+);
+
+it.effect(
+  "real Pi Responses SDK parks the box on both a streamed SpendCap and HTTP 429, preserving the source Docker mapping",
+  () =>
+    Effect.gen(function* spendCapPrompt() {
+      const fixture = yield* harness;
+      const fs = yield* FileSystem.FileSystem;
+      const ledger = yield* SpendLedger;
+      const upstreamCalls = yield* Ref.make(0);
+      const capFailure = refusal(spendMessage("daily"), 429);
+
+      const upstream = HttpClient.make((request) =>
+        Ref.update(upstreamCalls, (count) => count + 1).pipe(
+          Effect.as(
+            HttpClientResponse.fromWeb(
+              request,
+              new Response(
+                `data: ${JSON.stringify({ type: "response.completed", response: { usage: { total_tokens: 1200 } } })}\n\n`,
+                { headers: { "content-type": "text/event-stream" } }
+              )
+            )
+          )
+        )
+      );
+
+      yield* HttpRouter.serve(fullProxyRoutes, {
+        disableListenLog: true,
+        disableLogger: true,
+      }).pipe(
+        Layer.provide(
+          FullProxy.layer({
+            key: Redacted.make("fixture-model-bearer"),
+            models: ["gpt-6.1-sol"],
+            upstream: "http://provider.example.invalid",
+            spend: Effect.fnUntraced(
+              function* testBoxAdmission(_peer, bytes, requested) {
+                const permit = yield* ledger.admit(
+                  { imageKey: "browser", peonId: "spend-test" },
+                  Math.ceil(bytes / 4),
+                  requested
+                );
+
+                if (permit.status !== "metered") {
+                  return yield* capFailure;
+                }
+
+                return {
+                  outputTokens: permit.outputTokens,
+                  record: (tokens, settled) =>
+                    ledger
+                      .record(spendReading(permit.receipt, tokens, settled))
+                      .pipe(
+                        Effect.flatMap(({ allowed }) =>
+                          allowed ? Effect.void : Effect.fail(capFailure)
+                        )
+                      ),
+                };
+              }
+            ),
+          }).pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, upstream)))
+        ),
+        Layer.build
+      );
+      const client = yield* HttpClient.HttpClient;
+      const endpoint = yield* client.preprocess(HttpClientRequest.get("/v1"));
+
+      const model: Model<"openai-responses"> = {
+        api: "openai-responses",
+        baseUrl: endpoint.url,
+        contextWindow: 500_000,
+        cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 },
+        id: "gpt-6.1-sol",
+        input: ["text"],
+        maxTokens: 128,
+        name: "Fixture Responses",
+        provider: "peon",
+        reasoning: false,
+      };
+
+      const pi = Runner.of({
+        run: Effect.fnUntraced(function* runPrompt(command) {
+          if (
+            command.input !== "capped model turn" ||
+            command.consumeStdout === undefined
+          ) {
+            return yield* fixture.runner.run(command);
+          }
+
+          const events = openAIResponsesApi().streamSimple(
+            model,
+            normalizeContext({
+              messages: [
+                { content: command.input, role: "user", timestamp: 0 },
+              ],
+            }),
+            { apiKey: "proxy", maxRetries: 0, maxTokens: 128 }
+          );
+
+          const assistant = yield* Effect.promise(events.result.bind(events));
+          expect(assistant.stopReason).toBe("error");
+          expect(assistant.errorMessage).toContain("SpendCap");
+          yield* command
+            .consumeStdout(
+              Stream.make(
+                new TextEncoder().encode(
+                  `${JSON.stringify({ type: "message_end", message: assistant })}\n`
+                )
+              )
+            )
+            .pipe(
+              Effect.catchTag("PlatformError", () =>
+                Effect.fail(refusal("Could not persist the fixture Pi event."))
+              )
+            );
+
+          return { exit: 1, stdout: "" };
+        }),
+      });
+
+      yield* Effect.gen(function* managedBox() {
+        const boxes = yield* Boxes;
+        yield* boxes.create({
+          peonId: "spend-test",
+          requestId: "create",
+          template: fixture.template,
+        });
+        yield* fs.writeFileString(
+          `${fixture.root}/network-inventory`,
+          JSON.stringify({
+            endpoint: {
+              Name: "mischief-peon-box-spend-test",
+              IPv4Address: "192.0.2.7/24",
+            },
+          })
+        );
+        expect(yield* boxes.ownerAt("192.0.2.7")).toEqual({
+          peonId: "spend-test",
+          imageKey: "full",
+        });
+        expect((yield* Effect.flip(boxes.ownerAt("192.0.2.8"))).status).toBe(
+          403
+        );
+
+        for (const requestId of ["stream-overage", "before-headers"]) {
+          const prompt = boxes.act({
+            action: "prompt",
+            peonId: "spend-test",
+            requestId,
+            text: "capped model turn",
+          });
+
+          const failure = yield* Effect.flip(prompt);
+          expect(failure).toBeInstanceOf(PromptFailed);
+          expect(failure).toMatchObject({ status: 429, state: "suspended" });
+          expect(failure.message).toContain("SpendCap");
+          expect(yield* Effect.flip(prompt)).toMatchObject({
+            status: 429,
+            state: "suspended",
+          });
+        }
+
+        expect(yield* Ref.get(upstreamCalls)).toBe(1);
+        expect(yield* boxes.inspect("spend-test")).toMatchObject({
+          processes: 0,
+          state: "suspended",
+        });
+        expect(
+          yield* boxes.act({
+            action: "prompt",
+            peonId: "spend-test",
+            requestId: "fresh",
+            text: "continue",
+          })
+        ).toMatchObject({ output: "verdict" });
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(Layer.provide(ArchivePort.memory))
+        ),
+        Effect.provideService(Runner, pi)
+      );
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          SpendLedger.layer(
+            ":memory:",
+            { browser: { dailyTokens: 1000, ratePerMin: 20 } },
+            () => Effect.void
+          ),
+          NodeHttpServer.layerTest,
+          boxRunnerLayer().pipe(
+            Layer.provideMerge(
+              Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+            )
+          )
+        )
+      )
+    )
+);
+
+it.live(
+  "owner hits survive a Docker stall, but a manager destroy and launch cannot inherit them",
+  () =>
+    Effect.gen(function* ownerLifecycle() {
+      const fixture = yield* harness;
+      const fs = yield* FileSystem.FileSystem;
+      const stalled = yield* Ref.make(false);
+
+      const runner = Runner.of({
+        run: (command) =>
+          command.executable === "docker" && command.args[0] === "network"
+            ? Ref.get(stalled).pipe(
+                Effect.flatMap((blocked) =>
+                  blocked ? Effect.never : fixture.runner.run(command)
+                )
+              )
+            : fixture.runner.run(command),
+      });
+
+      const inventory = (containerId: string, peonId: string) =>
+        fs.writeFileString(
+          `${fixture.root}/network-inventory`,
+          JSON.stringify({
+            [containerId]: {
+              Name: `mischief-peon-box-${peonId}`,
+              IPv4Address: "192.0.2.12/24",
+            },
+          })
+        );
+
+      yield* Effect.gen(function* rotateOwner() {
+        const boxes = yield* Boxes;
+
+        const launch = (peonId: string) =>
+          boxes.create({
+            peonId,
+            requestId: "create",
+            template: fixture.template,
+          });
+
+        yield* launch("old-owner");
+        yield* inventory("container-before", "old-owner");
+        expect(yield* boxes.ownerAt("192.0.2.12")).toMatchObject({
+          peonId: "old-owner",
+        });
+
+        yield* Ref.set(stalled, true);
+        expect(
+          yield* boxes
+            .ownerAt("::ffff:192.0.2.12")
+            .pipe(Effect.timeout("1 second"))
+        ).toMatchObject({ peonId: "old-owner" });
+        yield* Ref.set(stalled, false);
+
+        yield* boxes.act({ action: "export", peonId: "old-owner" });
+        yield* boxes.act({
+          action: "destroy",
+          peonId: "old-owner",
+          requestId: "destroy",
+          discardWorkspace: true,
+        });
+        yield* launch("new-owner");
+        yield* inventory("container-after", "new-owner");
+        expect(yield* boxes.ownerAt("192.0.2.12")).toMatchObject({
+          peonId: "new-owner",
+        });
+      }).pipe(
+        Effect.provide(
+          Boxes.layer(fixture.config).pipe(
+            Layer.provide(
+              Layer.merge(ArchivePort.memory, Layer.succeed(Runner, runner))
+            )
+          )
+        )
+      );
+    }).pipe(
+      Effect.provide(
+        boxRunnerLayer().pipe(
+          Layer.provideMerge(
+            Layer.merge(NodeServices.layer, Digest.layerWebCrypto)
+          )
+        )
+      )
+    )
 );
 
 it.effect(

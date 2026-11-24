@@ -1,7 +1,15 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { BoxTailResult } from "@mischief/core";
-import { Context, Effect, FileSystem, Layer, Redacted, Schema } from "effect";
+import {
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Redacted,
+  Ref,
+  Schema,
+} from "effect";
 import * as Digest from "effect/crypto/Digest";
 import { HttpRouter } from "effect/http";
 
@@ -77,6 +85,28 @@ const runRoute = Effect.fnUntraced(function* runRoute() {
     );
 
   yield* recordState("suspended");
+  const inventoryRead = yield* Ref.make(false);
+
+  const runner = Runner.of({
+    run: Effect.fnUntraced(function* parkedBoxCommand({ executable, args }) {
+      if (executable === "id" && args.length === 1 && args[0] === "-u") {
+        return { exit: 0, stdout: "1000\n" };
+      }
+
+      if (
+        executable === "docker" &&
+        args.join(" ") ===
+          "network inspect --format {{json .Containers}} mischief-peon-boxes" &&
+        !(yield* Ref.getAndSet(inventoryRead, true))
+      ) {
+        return { exit: 0, stdout: "{}" };
+      }
+
+      return yield* Effect.die(
+        `Reading a parked session must not invoke ${executable}`
+      );
+    }),
+  });
 
   const handler = yield* Effect.acquireRelease(
     Effect.sync(() =>
@@ -89,19 +119,7 @@ const runRoute = Effect.fnUntraced(function* runRoute() {
                   ArchivePort.disabled,
                   NodeServices.layer,
                   Digest.layerWebCrypto,
-                  Layer.succeed(
-                    Runner,
-                    Runner.of({
-                      run: ({ executable, args }) =>
-                        executable === "id" &&
-                        args.length === 1 &&
-                        args[0] === "-u"
-                          ? Effect.succeed({ exit: 0, stdout: "1000\n" })
-                          : Effect.die(
-                              `Reading a parked session must not invoke ${executable}`
-                            ),
-                    })
-                  )
+                  Layer.succeed(Runner, runner)
                 )
               )
             )
@@ -144,7 +162,7 @@ const readPage = Effect.fnUntraced(function* readPage(response: Response) {
 });
 
 it.effect(
-  "a suspended box serves bounded summaries of its 10 MiB session without starting any process",
+  "a suspended box serves bounded summaries of its 10 MiB session without invoking Docker after startup",
   () =>
     Effect.gen(function* boundedTail() {
       const { fs, home, tail } = yield* runRoute();

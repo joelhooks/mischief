@@ -44,6 +44,13 @@ import {
 import type { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
+import {
+  BOX_NETWORK,
+  changesBoxNetwork,
+  containerOf,
+  ipv4Peer,
+  liveBoxInventory,
+} from "./live-owner.js";
 import { nextState } from "./machine.js";
 import { promptPi, requireText } from "./pi.js";
 import { PromptFailed } from "./prompt-failed.js";
@@ -54,6 +61,7 @@ import { receiptKey } from "./receipt.js";
 import { ReplicaMismatch } from "./replica-mismatch.js";
 import { ReplicaPending } from "./replica-pending.js";
 import { readSessionTail } from "./session-tail.js";
+import type { BoxOwner } from "./spend-protocol.js";
 import { unlanded, verifyWorkspace } from "./workspace-proof.js";
 import type { WorkspaceUnlanded } from "./workspace-unlanded.js";
 
@@ -92,8 +100,6 @@ const DNS_WITHOUT_LAN_ROUTER_FORWARDING = [
 ];
 
 const BROWSER_LABEL = "sh.mischief.box.image-key=browser";
-
-const containerOf = (id: string) => `mischief-peon-box-${id}`;
 
 const diagnosticOf = (stderr: string | undefined) =>
   (stderr ?? "No helper stderr")
@@ -209,6 +215,7 @@ export class Boxes extends Context.Service<
     readonly inspect: (
       id: string
     ) => Effect.Effect<typeof Result.Type, BridgeFailure>;
+    readonly ownerAt: (peer: string) => Effect.Effect<BoxOwner, BridgeFailure>;
     readonly tail: (
       id: string,
       query: typeof PeonTailQuery.Type
@@ -235,10 +242,34 @@ export class Boxes extends Context.Service<
         const execute = (command: Command) =>
           checked(command).pipe(Effect.provideService(Runner, runner));
 
-        const docker = (args: readonly string[], input?: string) =>
+        const owners = new Map<
+          string,
+          BoxOwner & { readonly containerId: string }
+        >();
+
+        const topology = yield* Semaphore.make(1);
+
+        const runDocker = (args: readonly string[], input?: string) =>
           input === undefined
             ? execute({ args, executable: "docker" })
             : execute({ args, executable: "docker", input });
+
+        let endpoints: Effect.Success<ReturnType<typeof liveBoxInventory>> =
+          new Map();
+
+        const docker = (args: readonly string[], input?: string) =>
+          changesBoxNetwork(args)
+            ? topology.withPermit(
+                Effect.gen(function* changeTopology() {
+                  owners.clear();
+                  endpoints.clear();
+
+                  return yield* runDocker(args, input).pipe(
+                    Effect.uninterruptible
+                  );
+                })
+              )
+            : runDocker(args, input);
 
         const admission = yield* Semaphore.make(1);
         const maxLive = config.browserMaxLive ?? DEFAULT_BROWSER_MAX_LIVE;
@@ -425,6 +456,86 @@ export class Boxes extends Context.Service<
             )
           );
         });
+
+        const refreshEndpoints = runDocker([
+          "network",
+          "inspect",
+          "--format",
+          "{{json .Containers}}",
+          BOX_NETWORK,
+        ]).pipe(
+          Effect.flatMap(liveBoxInventory),
+          Effect.timeoutOrElse({
+            duration: "3 seconds",
+            orElse: () =>
+              Effect.fail(
+                refusal(
+                  "Docker box inventory timed out. Inspect Docker on the manager and retry.",
+                  503
+                )
+              ),
+          }),
+          Effect.mapError(() =>
+            refusal(
+              "Docker box inventory is unavailable. Inspect Docker on the manager and retry promptPeon.",
+              503
+            )
+          )
+        );
+
+        const refreshOwners = Effect.gen(function* refreshOwners() {
+          const current = yield* refreshEndpoints;
+
+          for (const [peer, owner] of owners) {
+            if (current.get(peer)?.containerId !== owner.containerId) {
+              owners.delete(peer);
+            }
+          }
+
+          endpoints = current;
+        });
+
+        yield* refreshOwners.pipe(Effect.ignore);
+
+        const ownerAt = Effect.fn("Boxes.ownerAt")(
+          function* ownerAt(peer: string) {
+            const address = ipv4Peer(peer);
+            const cached = owners.get(address);
+
+            if (cached !== undefined) {
+              return { peonId: cached.peonId, imageKey: cached.imageKey };
+            }
+
+            if (!endpoints.has(address)) {
+              yield* refreshOwners;
+            }
+
+            const endpoint = endpoints.get(address);
+
+            if (endpoint === undefined) {
+              return yield* refusal(
+                "Model requests need a live managed box on the box network. Resume a managed peon and retry.",
+                403
+              );
+            }
+
+            const box = yield* load(endpoint.peonId);
+
+            const owner = {
+              peonId: box.peonId,
+              imageKey: box.template.imageKey ?? "full",
+            };
+
+            owners.set(address, {
+              ...owner,
+              containerId: endpoint.containerId,
+            });
+
+            return owner;
+          },
+          (effect) => topology.withPermit(effect),
+          Effect.catchTag("PlatformError", hostFailure)
+        );
 
         const save = (box: BoxMetadata) =>
           writeJson(metadataPath(box.peonId), box);
@@ -679,7 +790,7 @@ export class Boxes extends Context.Service<
             "--name",
             containerOf(box.peonId),
             "--network",
-            "mischief-peon-boxes",
+            BOX_NETWORK,
             "--cgroup-parent",
             "mischief-peon-boxes.slice",
             "--read-only",
@@ -2129,7 +2240,7 @@ export class Boxes extends Context.Service<
           Effect.catchTag("PlatformError", hostFailure)
         );
 
-        return Boxes.of({ act, create, inspect, tail });
+        return Boxes.of({ act, create, inspect, ownerAt, tail });
       }).pipe(Effect.catchTag("PlatformError", hostFailure))
     );
 }

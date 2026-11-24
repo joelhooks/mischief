@@ -23,13 +23,28 @@ import {
   HttpServerResponse,
 } from "effect/http";
 
-import { errorResponse, readBody } from "./http.js";
+import { readBody } from "./http.js";
+import {
+  admitModel,
+  measuredRequest,
+  meterResponse,
+  ModelBodySchema,
+  modelHeaders,
+  modelWire,
+  prepareMeteredResponse,
+  preserveSpendCap,
+  preserveSpendFailure,
+  proxyFailureResponse,
+  socketPeer,
+} from "./model-spend.js";
+import type { ModelSpend } from "./model-spend.js";
 import { refusal } from "./protocol.js";
 import { collectBytes } from "./runner.js";
 
 const Input = Schema.Struct({
-  body: Schema.Record(Schema.String, Schema.Unknown),
+  body: ModelBodySchema,
   headers: Schema.Record(Schema.String, Schema.String),
+  peer: Schema.optionalKey(Schema.String),
   target: Schema.Literals([
     "/v1/responses",
     "/v1/messages",
@@ -51,6 +66,7 @@ export interface FullProxyConfig {
   readonly key: Redacted.Redacted;
   readonly models: readonly string[];
   readonly upstream: string;
+  readonly spend?: ModelSpend;
 }
 
 export class FullProxy extends Context.Service<
@@ -180,6 +196,29 @@ export class FullProxy extends Context.Service<
           const transportFailure = (error: HttpClientError.HttpClientError) =>
             reportFailure({ errorClass: error.reason._tag });
 
+          if (config.spend !== undefined && input.body.background === true) {
+            return yield* refusal(
+              "Background model requests escape spend measurement. Send a synchronous or streamed request and retry.",
+              403
+            );
+          }
+
+          const outputKey =
+            route === "/v1/messages" ? "max_tokens" : "max_output_tokens";
+
+          const wire = JSON.stringify(input.body);
+
+          const meter = yield* admitModel(
+            config.spend,
+            input.peer,
+            Buffer.byteLength(wire),
+            input.body,
+            outputKey
+          );
+
+          const outboundWire = modelWire(wire, input.body, outputKey, meter);
+          const requestBytes = Buffer.byteLength(outboundWire);
+
           const response = yield* client
             .execute(
               HttpClientRequest.post(
@@ -191,7 +230,8 @@ export class FullProxy extends Context.Service<
                   "x-api-key": Redacted.value(config.key),
                   "x-mischief-request-id": requestId,
                 }),
-                HttpClientRequest.bodyJsonUnsafe(input.body)
+                (upstream) => measuredRequest(upstream, meter),
+                HttpClientRequest.bodyText(outboundWire, "application/json")
               )
             )
             .pipe(
@@ -217,12 +257,22 @@ export class FullProxy extends Context.Service<
           const contentType =
             response.headers["content-type"] ?? "application/octet-stream";
 
+          const accounted = meterResponse(
+            meter,
+            requestBytes,
+            contentType,
+            stream,
+            route === "/v1/messages"
+          );
+
           if (response.status >= 400) {
-            yield* collectBytes(stream, 64 * 1024).pipe(
-              Effect.mapError(() =>
-                refusal(
-                  "Upstream error exceeded 64 KiB; returning it could exhaust the host. Inspect provider health and retry.",
-                  502
+            yield* collectBytes(accounted, 64 * 1024).pipe(
+              Effect.mapError(
+                preserveSpendCap(
+                  refusal(
+                    "Upstream error exceeded 64 KiB; returning it could exhaust the host. Inspect provider health and retry.",
+                    502
+                  )
                 )
               )
             );
@@ -243,11 +293,17 @@ export class FullProxy extends Context.Service<
           }
 
           return {
-            body: stream.pipe(
-              Stream.mapError(() =>
-                refusal(
-                  "Provider stream was interrupted. Inspect the peon session before retrying the prompt.",
-                  502
+            body: yield* prepareMeteredResponse(
+              meter,
+              contentType,
+              accounted.pipe(
+                Stream.mapError(
+                  preserveSpendFailure(
+                    refusal(
+                      "Provider stream was interrupted. Inspect the peon session before retrying the prompt.",
+                      502
+                    )
+                  )
                 )
               )
             ),
@@ -298,7 +354,8 @@ const route = Effect.gen(function* fullProxyRoute() {
 
   const result = yield* forwardFullModel.handler({
     body,
-    headers: request.headers,
+    headers: modelHeaders(request.headers),
+    peer: socketPeer(request.peerAddress),
     target,
   });
 
@@ -308,7 +365,7 @@ const route = Effect.gen(function* fullProxyRoute() {
   });
 }).pipe(
   Effect.catchTag("BridgeFailure", (failure) =>
-    Effect.succeed(errorResponse(failure))
+    Effect.succeed(proxyFailureResponse(failure))
   )
 );
 

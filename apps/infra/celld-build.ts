@@ -62,21 +62,16 @@ const thinkerVars = (thinker: Thinker): Record<string, string> =>
     ? { MISCHIEF_CLIPROXY_URL: thinker.url, MISCHIEF_MODEL: "cliproxy" }
     : { MISCHIEF_MODEL: "faux" };
 
-const dnsLabel = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
+const browserLaunchHostname =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
 
 const WatchHttpHosts = Schema.String.check(
   Schema.makeFilter(
     (hosts) =>
-      hosts
-        .split(",")
-        .every(
-          (host) =>
-            host.length <= 253 &&
-            host.split(".").every((label) => dnsLabel.test(label))
-        ),
+      hosts.split(",").every((host) => browserLaunchHostname.test(host)),
     {
       message:
-        "Set MISCHIEF_WATCH_HTTP_HOSTS to a comma-separated list of exact lowercase hostnames (e.g. api.example.invalid,status.example.invalid), without spaces, wildcards, schemes, ports or paths, or unset it to disable HTTP watches. Then retry the plan.",
+        "Set MISCHIEF_WATCH_HTTP_HOSTS to a comma-separated list of exact lowercase hostnames (e.g. api.example.invalid,status.example.invalid). Each hostname needs at least two labels and a last label starting with a letter. Do not use IP literals, spaces, wildcards, schemes, ports or paths. Unset the variable to disable HTTP watches. Then retry the plan.",
     }
   )
 );

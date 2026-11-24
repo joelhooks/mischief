@@ -163,6 +163,10 @@ it.effect(
 it.effect("refuses malformed watch host lists before building", () =>
   Effect.forEach(
     [
+      "169.254.169.254",
+      "127.0.0.1",
+      "10.0.0.1",
+      "localhost",
       "",
       "*.example.invalid",
       "https://example.invalid",

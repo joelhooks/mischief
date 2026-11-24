@@ -172,7 +172,7 @@ it.effect(
   () =>
     Effect.gen(function* enabledDeskWake() {
       const sender = "did:web:operator.ratking-fleet.invalid";
-      const watchHttpHosts = "status.example.invalid,api-v2.example.invalid";
+      const watchHttpHosts = "api.github.com,api-v2.example.invalid";
 
       const rows = yield* plannedWorkspace({
         MISCHIEF_DESK_HOST_ENTRY: "/opt/mischief/desk-host-main.js",

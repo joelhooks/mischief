@@ -1,0 +1,38 @@
+#!/bin/sh
+set -eu
+
+browser_egress_flags() {
+  set -f
+  bypass=''
+  resolver='MAP * ~NOTFOUND'
+  IFS=' '
+  for host in ${PEON_BROWSER_HOSTS:-}; do
+    if [ "${#host}" -gt 253 ] || ! printf '%s\n' "$host" | LC_ALL=C grep -Eq '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$'; then
+      printf '%s\n' 'Set PEON_BROWSER_HOSTS to exact lowercase test DNS hostnames, not wildcards, addresses, or URLs.' >&2
+      exit 2
+    fi
+    bypass="$bypass$host;"
+    resolver="$resolver, EXCLUDE $host"
+  done
+  if [ -z "$bypass" ]; then
+    printf '%s\n' 'PEON_BROWSER_HOSTS is empty. Spawn browser@1 with a nonempty overrides.browser.hosts list.' >&2
+    exit 2
+  fi
+  printf '%s\n' \
+    '--proxy-server=http://127.0.0.1:9' \
+    "--proxy-bypass-list=${bypass}<-loopback>" \
+    '--force-webrtc-ip-handling-policy=disable_non_proxied_udp' \
+    "--host-resolver-rules=$resolver"
+}
+
+flags="$(browser_egress_flags)"
+container_sandbox_flag='--no-sandbox'
+tmpfs_shared_memory_flag='--disable-dev-shm-usage'
+if [ "${1:-}" = --launch-flags ]; then
+  printf '%s\n' "$container_sandbox_flag" "$tmpfs_shared_memory_flag" "$flags"
+else
+  set -f
+  IFS='
+'
+  exec /usr/bin/chromium "$@" "$container_sandbox_flag" "$tmpfs_shared_memory_flag" $flags
+fi

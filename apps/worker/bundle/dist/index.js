@@ -56764,7 +56764,14 @@ var Limits = Schema4.Struct({
   pids: Positive,
   tmp: Schema4.String.check(Schema4.isPattern(/^[1-9][0-9]*[bkmg]$/u)).pipe(Schema4.withDecodingDefaultKey(Effect3.succeed("1g")))
 });
+var ImageKey = Schema4.Literals(["full", "browser"]);
+var BrowserLaunch = Schema4.Struct({
+  hosts: Schema4.Array(Schema4.String.check(Schema4.isPattern(/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/u))).check(Schema4.isMinLength(1)),
+  burrowSha256: Schema4.optionalKey(Schema4.String.check(Schema4.isPattern(/^[0-9a-f]{64}$/u)))
+});
 var PeonTemplate = Schema4.Struct({
+  browser: Schema4.optionalKey(BrowserLaunch),
+  imageKey: Schema4.optionalKey(ImageKey),
   catalogModel: Schema4.optionalKey(Schema4.String),
   cellReady: Schema4.optionalKey(Schema4.Boolean),
   hibernateAfter: Positive,
@@ -56783,6 +56790,7 @@ var PeonTemplate = Schema4.Struct({
   workspace: Schema4.optional(PeonWorkspace)
 });
 var PeonOverrides = Schema4.Struct({
+  browser: Schema4.optionalKey(BrowserLaunch),
   cellReady: Schema4.optionalKey(Schema4.Boolean),
   hibernateAfter: Schema4.optionalKey(Positive),
   limits: Schema4.optionalKey(Schema4.Struct({
@@ -57363,6 +57371,16 @@ var builtinPeonTemplates = [
     extends: { name: "full", version: 1 },
     name: "read-only",
     template: { ...fullPeonTemplate, restriction: "read-only" },
+    version: 1
+  },
+  {
+    extends: { name: "full", version: 1 },
+    name: "browser",
+    template: {
+      ...fullPeonTemplate,
+      imageKey: "browser",
+      limits: { cpus: 4, memory: "4g", pids: 1024, tmp: "2g" }
+    },
     version: 1
   },
   ...peonCatalog.entries.map((entry3) => ({
@@ -85251,6 +85269,13 @@ var assertPeonSpawnable = (template) => {
       )
     );
   }
+  if (template.imageKey === "browser" !== (template.browser !== void 0)) {
+    return Effect67.fail(
+      failure4(
+        "Browser boxes need a nonempty list of exact test hostnames. Set overrides.browser.hosts when spawning browser@1; omit overrides.browser for other templates."
+      )
+    );
+  }
   if (template.workspace === void 0) {
     return Effect67.fail(
       failure4(
@@ -85332,6 +85357,8 @@ var peonHost = ({
       case "spawn": {
         const resolved = stored2.report.resolvedTemplate;
         const template = {
+          browser: resolved.browser,
+          imageKey: resolved.imageKey,
           limits: resolved.limits,
           model: resolved.model,
           system: resolved.system,

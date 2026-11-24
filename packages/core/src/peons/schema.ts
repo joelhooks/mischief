@@ -50,7 +50,24 @@ const Limits = Schema.Struct({
   ),
 });
 
+const ImageKey = Schema.Literals(["full", "browser"]);
+
+const BrowserLaunch = Schema.Struct({
+  hosts: Schema.Array(
+    Schema.String.check(
+      Schema.isPattern(
+        /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/u
+      )
+    )
+  ).check(Schema.isMinLength(1)),
+  burrowSha256: Schema.optionalKey(
+    Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/u))
+  ),
+});
+
 export const PeonTemplate = Schema.Struct({
+  browser: Schema.optionalKey(BrowserLaunch),
+  imageKey: Schema.optionalKey(ImageKey),
   catalogModel: Schema.optionalKey(Schema.String),
   cellReady: Schema.optionalKey(Schema.Boolean),
   hibernateAfter: Positive,
@@ -72,6 +89,7 @@ export const PeonTemplate = Schema.Struct({
 export type PeonTemplateValue = typeof PeonTemplate.Type;
 
 export const PeonOverrides = Schema.Struct({
+  browser: Schema.optionalKey(BrowserLaunch),
   cellReady: Schema.optionalKey(Schema.Boolean),
   hibernateAfter: Schema.optionalKey(Positive),
   limits: Schema.optionalKey(

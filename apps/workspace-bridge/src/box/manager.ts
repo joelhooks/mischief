@@ -30,6 +30,8 @@ import {
   linkManifest,
 } from "./archive.js";
 import type { OpenArchive } from "./archive.js";
+import { browserArgs } from "./browser.js";
+import { BoxImages, floatingImageRefusal } from "./config.js";
 import type { CustodyMissing } from "./custody-missing.js";
 import { CustodyIncomplete } from "./custody-refusal.js";
 import { DestroyInProgress } from "./destroy-in-progress.js";
@@ -52,6 +54,8 @@ export interface BoxConfig {
   readonly metadata: string;
   readonly mount: string;
   readonly image: string;
+  readonly browserImage?: string | undefined;
+  readonly browserBuildRoot?: string;
   readonly mirrors: Readonly<Record<string, string>>;
   readonly gid: number;
   readonly parkArchiveTimeout?: Duration.Input;
@@ -227,11 +231,14 @@ export class Boxes extends Context.Service<
         const home = (id: string) => path.join(base(id), "home");
         const work = (id: string) => path.join(base(id), "work");
 
-        if (!/^[^\s]+@sha256:[0-9a-f]{64}$/u.test(config.image)) {
-          return yield* refusal(
-            "A floating box image could change tools after a wake. Set MISCHIEF_PEON_BOX_IMAGE to an immutable @sha256 digest and restart."
-          );
-        }
+        const configuredImages =
+          config.browserImage === undefined
+            ? { full: config.image }
+            : { full: config.image, browser: config.browserImage };
+
+        const images = yield* Schema.decodeEffect(BoxImages)(
+          configuredImages
+        ).pipe(Effect.mapError(floatingImageRefusal));
 
         const roots = [config.root, config.snapshots, config.metadata];
 
@@ -591,7 +598,18 @@ export class Boxes extends Context.Service<
         const gitName = "shitratgit[bot]";
         const gitEmail = "286405550+shitratgit[bot]@users.noreply.github.com";
 
-        const container = (box: BoxMetadata, start: boolean) =>
+        const launchArgs = (template: BoxMetadata["template"]) =>
+          browserArgs(template, config.browserBuildRoot ?? "").pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+            Effect.provideService(Runner, runner)
+          );
+
+        const container = (
+          box: BoxMetadata,
+          start: boolean,
+          launch: readonly string[]
+        ) =>
           docker([
             "create",
             "--name",
@@ -654,6 +672,7 @@ export class Boxes extends Context.Service<
             `type=bind,source=${work(box.peonId)},target=/work`,
             "--mount",
             `type=bind,source=${home(box.peonId)},target=/home/peon`,
+            ...launch,
             "--entrypoint",
             "/bin/sleep",
             box.image,
@@ -783,8 +802,9 @@ export class Boxes extends Context.Service<
           const restored = box.state === "hibernated";
 
           if (restored) {
+            const launch = yield* launchArgs(box.template);
             yield* restore(box, box.peonId);
-            yield* container(box, false);
+            yield* container(box, false, launch);
           }
 
           yield* docker(["start", containerOf(box.peonId)]);
@@ -1496,6 +1516,17 @@ export class Boxes extends Context.Service<
                     );
                   }
 
+                  const image = images[template.imageKey ?? "full"];
+
+                  if (image === undefined) {
+                    return yield* refusal(
+                      "Browser image is not configured. Set the browser entry in MISCHIEF_PEON_BOX_IMAGES to its immutable @sha256 digest and restart before retrying create.",
+                      503
+                    );
+                  }
+
+                  const launch = yield* launchArgs(template);
+
                   const mirror = config.mirrors[template.workspace.repo];
 
                   if (mirror === undefined || !path.isAbsolute(mirror)) {
@@ -1596,18 +1627,18 @@ export class Boxes extends Context.Service<
                   yield* owned(id, true);
 
                   const box: BoxMetadata = {
-                    image: config.image,
+                    image,
                     lastPromptAt: null,
                     peonId: id,
                     state: "idle",
                     template,
                   };
 
-                  yield* container(box, true);
+                  yield* container(box, true, launch);
                   yield* save(box);
 
                   return {
-                    image: config.image,
+                    image,
                     peonId: id,
                     state: "idle",
                     workspace: template.workspace,
@@ -1863,6 +1894,7 @@ export class Boxes extends Context.Service<
                     );
                   }
 
+                  const launch = yield* launchArgs(box.template);
                   yield* fs.makeDirectory(meta(target), {
                     mode: 0o700,
                     recursive: true,
@@ -1896,7 +1928,7 @@ export class Boxes extends Context.Service<
                     template: box.template,
                   };
 
-                  yield* container(clone, false);
+                  yield* container(clone, false, launch);
                   yield* save(clone);
 
                   return { peonId: target, state: "suspended" };

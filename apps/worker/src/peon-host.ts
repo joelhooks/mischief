@@ -160,6 +160,14 @@ export const assertPeonSpawnable = (template: typeof PeonTemplate.Type) => {
     );
   }
 
+  if ((template.imageKey === "browser") !== (template.browser !== undefined)) {
+    return Effect.fail(
+      failure(
+        "Browser boxes need a nonempty list of exact test hostnames. Set overrides.browser.hosts when spawning browser@1; omit overrides.browser for other templates."
+      )
+    );
+  }
+
   if (template.workspace === undefined) {
     return Effect.fail(
       failure(
@@ -284,6 +292,8 @@ export const peonHost = ({
         const resolved = stored.report.resolvedTemplate;
 
         const template = {
+          browser: resolved.browser,
+          imageKey: resolved.imageKey,
           limits: resolved.limits,
           model: resolved.model,
           system: resolved.system,

@@ -310,6 +310,141 @@ printf '%s\\n' '${piOutput}'
   };
 });
 
+it.effect(
+  "browser containers preserve full hardening and mount only verified release bytes",
+  () =>
+    Effect.gen(function* browserBox() {
+      const fixture = yield* harness;
+      const fs = yield* FileSystem.FileSystem;
+      const browserRoot = `${fixture.root}/browser-builds`;
+      const browserImage = `example/browser@sha256:${"b".repeat(64)}`;
+      const source = `${fixture.root}/release`;
+      const archive = `${fixture.root}/release.tar.gz`;
+      yield* fs.makeDirectory(source);
+      yield* fs.writeFileString(`${source}/burrow`, "fixture");
+      yield* checked({
+        args: ["-C", source, "-czf", archive, "."],
+        executable: "tar",
+      });
+
+      const checksum = yield* checked({
+        args: [archive],
+        executable: "sha256sum",
+      });
+
+      const digest = checksum.split(/\s/u)[0] ?? "";
+      const build = `${browserRoot}/${digest}/unpacked`;
+      yield* fs.makeDirectory(build, { recursive: true });
+      yield* fs.rename(
+        archive,
+        `${browserRoot}/${digest}/burrow-linux-x64.tar.gz`
+      );
+      yield* checked({
+        args: [
+          "-C",
+          build,
+          "-xzf",
+          `${browserRoot}/${digest}/burrow-linux-x64.tar.gz`,
+        ],
+        executable: "tar",
+      });
+
+      yield* Effect.gen(function* verifyMounts() {
+        const boxes = yield* Boxes;
+
+        const create = (peonId: string, selected: BoxTemplate) =>
+          boxes.create({ peonId, requestId: peonId, template: selected });
+
+        const browser: BoxTemplate = {
+          ...fixture.template,
+          browser: { burrowSha256: digest, hosts: ["test.example"] },
+          imageKey: "browser",
+          limits: { cpus: 4, memory: "4g", pids: 1024, tmp: "2g" },
+        };
+
+        const args = (id: string) =>
+          fs
+            .readFileString(`${fixture.root}/fake/mischief-peon-box-${id}.args`)
+            .pipe(Effect.map((raw) => raw.trimEnd().split("\n")));
+
+        yield* create("full", fixture.template);
+        const full = yield* args("full");
+        expect(full).toContain(image);
+        expect(full).not.toContain("--shm-size");
+        expect(full).not.toContain("PEON_BROWSER_HOSTS=test.example");
+
+        yield* fs.writeFileString(
+          `${browserRoot}/${digest}/burrow-linux-x64.tar.gz`,
+          "tampered"
+        );
+        const mismatch = yield* Effect.flip(create("mismatch", browser));
+        expect(mismatch.message).toContain("differs from its pinned tarball");
+        expect(
+          yield* fs.exists(
+            `${fixture.root}/fake/mischief-peon-box-mismatch.args`
+          )
+        ).toBe(false);
+        yield* checked({
+          args: [
+            "-C",
+            source,
+            "-czf",
+            `${browserRoot}/${digest}/burrow-linux-x64.tar.gz`,
+            ".",
+          ],
+          executable: "tar",
+        });
+        expect((yield* create("browser", browser)).image).toBe(browserImage);
+        const actual = yield* args("browser");
+        expect(actual).toContain(browserImage);
+        expect(actual).toContain("/tmp:rw,nosuid,nodev,size=2g");
+        expect(actual).toContain("--read-only");
+        expect(actual).toContain("ALL");
+        expect(actual).toContain("65534:1000");
+        expect(actual).toContain("PEON_BROWSER_HOSTS=test.example");
+        expect(actual).toContain("BURROW_CELL_IN_BOX=1");
+        expect(
+          actual.filter((_, index) => actual[index - 1] === "--security-opt")
+        ).toEqual(["no-new-privileges"]);
+        expect(actual).not.toContain("--privileged");
+        expect(actual).not.toContain("--cap-add");
+        expect(actual).not.toContain("--shm-size");
+        expect(
+          actual.filter((_, index) => actual[index - 1] === "--mount")
+        ).toEqual([
+          `type=bind,source=${fixture.root}/boxes/browser/work,target=/work`,
+          `type=bind,source=${fixture.root}/boxes/browser/home,target=/home/peon`,
+          `type=bind,source=${build},target=/opt/burrow,readonly,bind-recursive=disabled`,
+        ]);
+        yield* fs.writeFileString(
+          `${build}/extra`,
+          "not part of the pinned release"
+        );
+        expect(
+          (yield* Effect.flip(create("extra", browser))).message
+        ).toContain("differs from its pinned tarball");
+      }).pipe(
+        Effect.provide(
+          Boxes.layer({
+            ...fixture.config,
+            browserBuildRoot: browserRoot,
+            browserImage,
+          })
+        ),
+        Effect.provideService(Runner, fixture.runner)
+      );
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.mergeAll(
+          boxRunnerLayer().pipe(Layer.provideMerge(NodeServices.layer)),
+          Digest.layerWebCrypto,
+          ArchivePort.disabled
+        )
+      )
+    )
+);
+
 const custodyFixture = Effect.gen(function* custodyFixture() {
   const fixture = yield* harness;
   const fs = yield* FileSystem.FileSystem;

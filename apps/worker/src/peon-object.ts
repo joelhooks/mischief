@@ -238,6 +238,25 @@ export class Peon extends DurableObject<Env> {
     );
   }
 
+  async watchContext(owner: string) {
+    const raw = await this.ctx.storage.get("peon");
+
+    if (raw === undefined) {
+      return null;
+    }
+
+    const { lastTurnId, pending, report } =
+      Schema.decodeUnknownSync(PeonStored)(raw);
+
+    return report.owner === owner
+      ? {
+          lastTurnId: lastTurnId ?? null,
+          pending: pending !== null,
+          state: report.state,
+        }
+      : null;
+  }
+
   async tailContext() {
     const { lastTurn, state } = await this.run(this.host.inspectStored);
 

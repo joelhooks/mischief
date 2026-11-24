@@ -12,6 +12,7 @@ export const {
   CallerThinks,
   Peon,
   PeonTemplates,
+  WatchObject,
 } = worker;
 
 export default worker.default;

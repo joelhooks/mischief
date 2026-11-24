@@ -11,8 +11,13 @@ const Call = Schema.Struct({
   iss: Schema.Literals(["did:web:a", "did:web:b"]),
   jti: Schema.Literals(["j-0000000000000001", "j-0000000000000002"]),
   lxm: Schema.Literals([
+    "sh.mschf.mischief.armWatch",
+    "sh.mschf.mischief.cancelWatch",
+    "sh.mschf.mischief.completeWatch",
     "sh.mschf.mischief.inspectDeskWake",
     "sh.mschf.mischief.inspectRun",
+    "sh.mschf.mischief.inspectWatch",
+    "sh.mschf.mischief.listWatches",
     "sh.mschf.mischief.submitPlan",
   ]),
   now: Schema.Int.check(
@@ -77,7 +82,14 @@ it.effect.prop(
         expect(
           seenDurable.at(-1),
           "only a write capability's token is spent in the durable ledger"
-        ).toBe(call.lxm === "sh.mschf.mischief.submitPlan");
+        ).toBe(
+          [
+            "sh.mschf.mischief.armWatch",
+            "sh.mschf.mischief.cancelWatch",
+            "sh.mschf.mischief.completeWatch",
+            "sh.mschf.mischief.submitPlan",
+          ].includes(call.lxm)
+        );
 
         const key = `${call.iss} ${call.jti}`;
 
@@ -108,8 +120,10 @@ it("only reads skip the durable ledger: the read-only set names exactly the insp
       "sh.mschf.mischief.inspectPeon",
       "sh.mschf.mischief.inspectRun",
       "sh.mschf.mischief.inspectSchedule",
+      "sh.mschf.mischief.inspectWatch",
       "sh.mschf.mischief.listPeonTemplates",
       "sh.mschf.mischief.listPeons",
+      "sh.mschf.mischief.listWatches",
       "sh.mschf.mischief.openApi",
       "sh.mschf.mischief.readRun",
       "sh.mschf.mischief.tailPeon",

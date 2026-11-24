@@ -7328,12 +7328,12 @@ var init_EventStream = __esm({
           if (failure6) {
             return;
           }
-          const terminal = __classPrivateFieldGet2(this, _EventStream_terminalFailure, "f");
-          if (!terminal) {
+          const terminal2 = __classPrivateFieldGet2(this, _EventStream_terminalFailure, "f");
+          if (!terminal2) {
             return;
           }
-          if (terminal.kind === "error" ? rejectOnError : rejectOnAbort) {
-            failure6 = terminal.error;
+          if (terminal2.kind === "error" ? rejectOnError : rejectOnAbort) {
+            failure6 = terminal2.error;
           }
         };
         const onEnd = () => {
@@ -13450,15 +13450,15 @@ var init_agent_session_stream = __esm({
           if (!state3.accept(event)) {
             continue;
           }
-          const terminal = state3.terminal(event);
+          const terminal2 = state3.terminal(event);
           const pendingCall = state3.call(event);
           const handler = pendingCall && __classPrivateFieldGet2(this, _AgentSessionStream_handlers, "f").get(pendingCall.name);
           const call = pendingCall && handler ? structuredClone(pendingCall) : void 0;
-          if (terminal) {
+          if (terminal2) {
             __classPrivateFieldGet2(this, _AgentSessionStream_stream, "f").controller.abort();
           }
           yield event;
-          if (terminal) {
+          if (terminal2) {
             return;
           }
           __classPrivateFieldGet2(this, _AgentSessionStream_instances, "m", _AgentSessionStream_checkAbort).call(this);
@@ -24465,19 +24465,19 @@ var require_createActor_25900f76_cjs = __commonJS({
     var selectionFrames = [];
     var transitionEffectSignal = new Error("Transition effect");
     function protectSelectionRelay(target) {
-      let matched = false;
+      let matched2 = false;
       let abort = false;
       for (const frame of selectionFrames) {
         if (frame.parent === target) {
           frame.requiresReevaluation = true;
-          matched = true;
+          matched2 = true;
           abort ||= frame.mode === "abort";
         }
       }
       if (abort) {
         throw transitionEffectSignal;
       }
-      return matched;
+      return matched2;
     }
     function beginTransitionSelection(parent, mode = "abort") {
       const frame = {
@@ -42754,8 +42754,8 @@ function FromUndefined2(_context, _type, value) {
 
 // ../../node_modules/.pnpm/typebox@1.3.27/node_modules/typebox/build/value/convert/from_union.mjs
 function FromUnion10(context, type, value) {
-  const matched = type.anyOf.some((type2) => Check2(context, type2, value));
-  if (matched)
+  const matched2 = type.anyOf.some((type2) => Check2(context, type2, value));
+  if (matched2)
     return value;
   const candidates = type.anyOf.map((type2) => FromType21(context, type2, Clone2(value)));
   const selected = candidates.find((value2) => Check2(context, type, value2));
@@ -47244,8 +47244,8 @@ var Transaction = class {
     return this.#read("submission", () => this.#host.storage.submission(id, this.#context));
   }
   /** Committed submission with a conversation-scoped request ID. */
-  submissionByRequest(conversationId, requestId2) {
-    return this.#read("submissionByRequest", () => this.#host.storage.submissionByRequest(conversationId, requestId2, this.#context));
+  submissionByRequest(conversationId, requestId3) {
+    return this.#read("submissionByRequest", () => this.#host.storage.submissionByRequest(conversationId, requestId3, this.#context));
   }
   // ─── Table writes ───────────────────────────────────────────────────────
   createConversation(options2) {
@@ -48616,8 +48616,8 @@ var GuardedStorage = class {
   scanSubmissions(query, limit2, cursor, context) {
     return this.#call(context, () => this.#storage.scanSubmissions(query, limit2, cursor, context));
   }
-  submissionByRequest(conversationId, requestId2, context) {
-    return this.#call(context, () => this.#storage.submissionByRequest(conversationId, requestId2, context));
+  submissionByRequest(conversationId, requestId3, context) {
+    return this.#call(context, () => this.#storage.submissionByRequest(conversationId, requestId3, context));
   }
   findDocument(address, at, context) {
     return this.#call(context, () => this.#storage.findDocument(address, at, context));
@@ -53603,9 +53603,9 @@ var TaskScheduler = class {
         if (this.#hasOwnedLive(id, overlay, done))
           continue;
         const outcome = record.state.outcome;
-        const terminal = withState(record, { status: "terminal", outcome });
-        tx.setTask(terminal);
-        overlay.tasks.set(id, terminal);
+        const terminal2 = withState(record, { status: "terminal", outcome });
+        tx.setTask(terminal2);
+        overlay.tasks.set(id, terminal2);
         done.add(id);
         if (outcome.status === "faulted" || outcome.status === "orphaned") {
           await this.#settleOutcome(tx, record, outcome);
@@ -54485,14 +54485,14 @@ var TaskScheduler = class {
       } finally {
         invocation.context = previous2;
         const state3 = invocation.record.state;
-        const terminal = invocation.fault ?? (state3.status === "terminal" || state3.status === "completing" ? state3.outcome : void 0);
-        const outcome = terminal !== void 0 ? terminal.status === "completed" ? "done" : terminal.status === "aborted" ? "aborted" : "faulted" : state3.status === "waiting" || state3.status === "sleeping" ? state3.status : invocation.ended || this.#closing ? "aborted" : `next=${state3.checkpoint.phase}`;
+        const terminal2 = invocation.fault ?? (state3.status === "terminal" || state3.status === "completing" ? state3.outcome : void 0);
+        const outcome = terminal2 !== void 0 ? terminal2.status === "completed" ? "done" : terminal2.status === "aborted" ? "aborted" : "faulted" : state3.status === "waiting" || state3.status === "sleeping" ? state3.status : invocation.ended || this.#closing ? "aborted" : `next=${state3.checkpoint.phase}`;
         span.setAttributes({ outcome });
-        if (terminal?.status === "faulted" || terminal?.status === "failed" || terminal?.status === "orphaned") {
-          const message = terminal.status === "orphaned" ? terminal.reason : terminal.error.message;
+        if (terminal2?.status === "faulted" || terminal2?.status === "failed" || terminal2?.status === "orphaned") {
+          const message = terminal2.status === "orphaned" ? terminal2.reason : terminal2.error.message;
           span.setStatus({
             status: "error",
-            error: { name: `task_${terminal.status}`, message: message.slice(0, 500) }
+            error: { name: `task_${terminal2.status}`, message: message.slice(0, 500) }
           });
         } else if (outcome === "aborted") {
           span.setStatus({ status: "ok" });
@@ -56059,9 +56059,9 @@ var MemoryStorage = class {
     }
     return page(values, limit2, start.order);
   }
-  async submissionByRequest(conversationId, requestId2, _context) {
+  async submissionByRequest(conversationId, requestId3, _context) {
     this.assertOpen();
-    const id = this.state.submissionIdsByRequest.get(conversationId)?.get(requestId2);
+    const id = this.state.submissionIdsByRequest.get(conversationId)?.get(requestId3);
     if (id === void 0)
       return void 0;
     return clone(this.state.submissions.get(id));
@@ -56341,14 +56341,14 @@ var replyWith = (respond) => async (context) => {
   const last = context.messages.findLast((message) => message.role === "user");
   const content = last?.content ?? "";
   const prompt = Array.isArray(content) ? content.flatMap((block) => block.type === "text" ? [block.text] : []).join("") : content;
-  const reply = respond(prompt);
-  if (reply.kind === "hang") {
+  const reply2 = respond(prompt);
+  if (reply2.kind === "hang") {
     return await Effect.runPromise(Effect.never);
   }
-  return reply.kind === "error" ? fauxAssistantMessage("", {
-    errorMessage: reply.message,
+  return reply2.kind === "error" ? fauxAssistantMessage("", {
+    errorMessage: reply2.message,
     stopReason: "error"
-  }) : fauxAssistantMessage(reply.text);
+  }) : fauxAssistantMessage(reply2.text);
 };
 var fauxThinkerOptions = (storageFor, respond = echo) => {
   const faux = fauxProvider({ api: "faux" });
@@ -57435,215 +57435,7 @@ var failureSchemaOf = (contract) => {
 };
 
 // ../../packages/core/dist/peons/contracts.js
-import { Schema as Schema12 } from "effect";
-
-// ../../packages/core/dist/peons/tail.js
-import { Schema as Schema11 } from "effect";
-
-// ../../packages/core/dist/peons/tail-forbidden.js
-import { Schema as Schema9 } from "effect";
-var PeonTailForbidden = class extends Schema9.TaggedError()("PeonTailForbidden", { reason: Schema9.String }, { httpApiStatus: 403 }) {
-};
-
-// ../../packages/core/dist/peons/tail-not-found.js
-import { Schema as Schema10 } from "effect";
-var PeonTailNotFound = class extends Schema10.TaggedError()("PeonTailNotFound", { reason: Schema10.String }, { httpApiStatus: 404 }) {
-};
-
-// ../../packages/core/dist/peons/tail.js
-var peonTailMaxEntries = 200;
-var peonTailEntryBudget = 2048;
-var peonTailPageEntryBudget = 59 * 1024;
-var peonTailArgBudget = 512;
-var peonTailNameBudget = 96;
-var peonTailLastToolLimit = 16;
-var Cursor = Schema11.String.check(Schema11.isPattern(/^b[1-9][0-9]{0,15}$/u));
-var PeonTailQuery = Schema11.Struct({
-  entries: Schema11.optionalKey(Schema11.Int.check(Schema11.isBetween({ maximum: peonTailMaxEntries, minimum: 1 }))),
-  sinceId: Schema11.optionalKey(Cursor)
-});
-var PeonTailEntryType = Schema11.Literals([
-  "session",
-  "system",
-  "user",
-  "assistant",
-  "toolResult",
-  "compaction",
-  "model_change",
-  "thinking_level_change",
-  "blob",
-  "other"
-]);
-var PeonTailEntry = Schema11.Struct({
-  bytes: Schema11.Int.check(Schema11.isGreaterThan(0)),
-  id: Cursor,
-  type: PeonTailEntryType,
-  text: Schema11.optionalKey(Schema11.String.check(Schema11.isMaxLength(peonTailEntryBudget))),
-  toolCalls: Schema11.optionalKey(Schema11.Array(Schema11.Struct({
-    name: Schema11.String.check(Schema11.isMaxLength(peonTailNameBudget)),
-    args: Schema11.String.check(Schema11.isMaxLength(peonTailArgBudget))
-  })).check(Schema11.isMaxLength(peonTailLastToolLimit)))
-});
-var TailPage = Schema11.Struct({
-  status: Schema11.Literal("tail"),
-  entries: Schema11.Array(PeonTailEntry).check(Schema11.isMaxLength(peonTailMaxEntries)),
-  truncated: Schema11.Boolean
-});
-var NotLive = Schema11.Struct({
-  status: Schema11.Literal("not-live"),
-  reason: Schema11.Literals(["hibernated", "destroyed", "absent", "no-session"])
-});
-var BoxTailResult = Schema11.Union([TailPage, NotLive]);
-var PeonTailContext = Schema11.Struct({
-  peonId: PeonId,
-  state: PeonState,
-  lastTurn: Schema11.NullOr(Schema11.Struct({
-    exit: Schema11.Finite,
-    output: Schema11.optionalKey(Schema11.String.check(Schema11.isMaxLength(peonTailEntryBudget))),
-    toolCalls: Schema11.optionalKey(Schema11.Array(Schema11.String.check(Schema11.isMaxLength(peonTailNameBudget))).check(Schema11.isMaxLength(peonTailLastToolLimit))),
-    resumeMs: Schema11.optionalKey(Schema11.Finite),
-    toolCallCount: Schema11.Int.check(Schema11.isGreaterThanOrEqualTo(0)),
-    usage: PeonUsage,
-    wallMs: Schema11.Finite
-  }))
-});
-var tailPeonContract = defineContract("tailPeon", {
-  annotations: { idempotent: true, readOnly: true },
-  description: "Read recent managed Pi activity, with redacted excerpts of user and assistant text and tool calls. Tool results and private metadata are summarized. Pass an entry id as sinceId to see only newer entries. Never wakes a box.",
-  failure: Schema11.Union([PeonRefused, PeonTailNotFound, PeonTailForbidden]),
-  input: Schema11.Struct({ peonId: PeonId, ...PeonTailQuery.fields }),
-  output: Schema11.Union([
-    Schema11.Struct({ ...PeonTailContext.fields, ...TailPage.fields }),
-    Schema11.Struct({ ...PeonTailContext.fields, ...NotLive.fields })
-  ])
-});
-
-// ../../packages/core/dist/peons/contracts.js
-var requestId = Schema12.String.check(Schema12.isMinLength(1), Schema12.isMaxLength(512));
-var spawnPeonContract = defineContract("spawnPeon", {
-  annotations: { openWorld: true },
-  description: "Spawn a full-tool peon from a versioned template. Supply a pinned workspace in overrides. Idempotent when peonId is supplied.",
-  failure: PeonRefused,
-  input: Schema12.Struct({
-    overrides: Schema12.optionalKey(PeonOverrides),
-    peonId: Schema12.optionalKey(PeonId),
-    template: PeonTemplateSelector
-  }),
-  output: PeonReport
-});
-var promptPeonContract = defineContract("promptPeon", {
-  annotations: { idempotent: true, openWorld: true },
-  description: "Wake a peon and run one turn. Repeating requestId returns the original turn; changing its text is refused to prevent duplicate work.",
-  failure: PeonRefused,
-  input: Schema12.Struct({ peonId: PeonId, requestId, text: Schema12.String }),
-  output: PeonReport
-});
-var lifecycle = {
-  failure: PeonRefused,
-  input: Schema12.Struct({
-    peonId: PeonId,
-    requestId: Schema12.optionalKey(requestId)
-  }),
-  output: PeonReport
-};
-var suspendPeonContract = defineContract("suspendPeon", {
-  ...lifecycle,
-  annotations: { idempotent: true },
-  description: "Stop the box and keep its workspace. One alarm remains for hibernation."
-});
-var resumePeonContract = defineContract("resumePeon", {
-  ...lifecycle,
-  annotations: { idempotent: true },
-  description: "Wake a suspended or hibernated box without starting a turn."
-});
-var hibernatePeonContract = defineContract("hibernatePeon", {
-  ...lifecycle,
-  annotations: { idempotent: true },
-  description: "Snapshot a stopped peon and release its box storage."
-});
-var destroyPeonContract = defineContract("destroyPeon", {
-  ...lifecycle,
-  annotations: { destructive: true, idempotent: true },
-  description: "Remove a peon box after custody verification and a verified landed head or explicit workspace discard.",
-  input: Schema12.Struct({
-    ...lifecycle.input.fields,
-    discardWorkspace: Schema12.optionalKey(Schema12.Literal(true)),
-    landedHead: Schema12.optionalKey(Schema12.String.check(Schema12.isPattern(/^[a-f0-9]{40}$/u)))
-  }),
-  output: Schema12.Union([PeonReport, PeonTombstone])
-});
-var clonePeonContract = defineContract("clonePeon", {
-  annotations: { openWorld: true },
-  description: "Clone an idle or sleeping peon's workspace and conversation into a suspended peon.",
-  failure: PeonRefused,
-  input: Schema12.Struct({
-    newPeonId: Schema12.optionalKey(PeonId),
-    peonId: PeonId,
-    requestId: Schema12.optionalKey(requestId)
-  }),
-  output: PeonReport
-});
-var inspectPeonContract = defineContract("inspectPeon", {
-  annotations: { idempotent: true, readOnly: true },
-  description: "Inspect the durable peon state, template, usage, last turn and box storage bytes.",
-  failure: PeonRefused,
-  input: Schema12.Struct({ peonId: PeonId }),
-  output: Schema12.Union([PeonReport, PeonTombstone])
-});
-var listPeonTemplatesContract = defineContract("listPeonTemplates", {
-  annotations: { idempotent: true, readOnly: true },
-  description: "List the latest version of each template, paged by name.",
-  failure: PeonRefused,
-  input: Schema12.Struct({
-    cursor: Schema12.optionalKey(Schema12.String),
-    limit: Schema12.optionalKey(Schema12.Int.check(Schema12.isBetween({ maximum: 100, minimum: 1 })))
-  }),
-  output: Schema12.Struct({
-    cursor: Schema12.NullOr(Schema12.String),
-    templates: Schema12.Array(PeonTemplateVersion)
-  })
-});
-var savePeonTemplateContract = defineContract("savePeonTemplate", {
-  description: "Resolve a parent version and deep merge overrides into a new immutable template version.",
-  failure: PeonRefused,
-  input: Schema12.Struct({
-    extends: PeonTemplateSelector,
-    name: PeonId,
-    overrides: PeonOverrides
-  }),
-  output: PeonTemplateVersion
-});
-var listPeonsContract = defineContract("listPeons", {
-  annotations: { idempotent: true, readOnly: true },
-  description: "List the caller's awake peons from the registry, never the Rat King directory. Select sleeping peons or tombstones with state, an array of states, or all. Owner, template and state filters apply before pagination.",
-  failure: PeonRefused,
-  input: Schema12.Struct({
-    cursor: Schema12.optionalKey(Schema12.String),
-    limit: Schema12.optionalKey(Schema12.Int.check(Schema12.isBetween({ maximum: 100, minimum: 1 }))),
-    owner: Schema12.optionalKey(Schema12.String),
-    state: Schema12.optionalKey(Schema12.Union([PeonState, Schema12.Array(PeonState), Schema12.Literal("all")])),
-    template: Schema12.optionalKey(Schema12.String)
-  }),
-  output: Schema12.Struct({
-    cursor: Schema12.NullOr(Schema12.String),
-    peons: Schema12.Array(PeonIndexEntry)
-  })
-});
-var peonContracts = [
-  spawnPeonContract,
-  promptPeonContract,
-  suspendPeonContract,
-  resumePeonContract,
-  hibernatePeonContract,
-  clonePeonContract,
-  destroyPeonContract,
-  inspectPeonContract,
-  tailPeonContract,
-  listPeonTemplatesContract,
-  savePeonTemplateContract,
-  listPeonsContract
-];
-var peonCapabilityNames = new Set(peonContracts.map(({ name }) => name));
+import { Schema as Schema14 } from "effect";
 
 // ../../packages/capability/dist/implement.js
 import { Data as Data2, Effect as Effect6 } from "effect";
@@ -57697,9 +57489,374 @@ var aroundHandlers = (capabilities2, around) => {
   return wrapped;
 };
 
+// ../../packages/core/dist/watches/capabilities.js
+import { Context as Context4, Schema as Schema10 } from "effect";
+
+// ../../packages/core/dist/watches/schema.js
+import { Schema as Schema9 } from "effect";
+var WatchId = Schema9.String.check(Schema9.isPattern(/^watch-[a-f0-9]{64}$/u));
+var WatchOwner = Schema9.String.check(Schema9.isPattern(/^did:[a-z0-9]+:\S+$/u));
+var WatchName = Schema9.String.check(Schema9.isPattern(/^[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)?$/u), Schema9.isMaxLength(128));
+var WatchState = Schema9.Literals([
+  "armed",
+  "checking",
+  "fired",
+  "done",
+  "cancelled",
+  "expired"
+]);
+var Cursor = Schema9.String;
+var Evidence = Schema9.Struct({
+  at: Schema9.Finite,
+  text: Schema9.String
+});
+var Condition = Schema9.Union([
+  Schema9.Struct({
+    type: Schema9.Literal("http"),
+    url: Schema9.String.check(Schema9.isMaxLength(2048)),
+    expect: Schema9.Struct({
+      status: Schema9.optionalKey(Schema9.Int),
+      jsonPath: Schema9.optionalKey(Schema9.String.check(Schema9.isMaxLength(256))),
+      equals: Schema9.optionalKey(Schema9.Json),
+      regex: Schema9.optionalKey(Schema9.String.check(Schema9.isMaxLength(256)))
+    })
+  }),
+  Schema9.Struct({
+    type: Schema9.Literal("peon"),
+    peonId: PeonId,
+    expect: Schema9.Struct({
+      state: Schema9.optionalKey(PeonState),
+      pendingClear: Schema9.optionalKey(Schema9.Literal(true))
+    })
+  })
+]);
+var Notify = Schema9.Struct({
+  to: Schema9.Array(WatchName),
+  cc: Schema9.Array(WatchName)
+});
+var WatchDefinition = Schema9.Struct({
+  kind: Schema9.Literals(["once", "repeat"]),
+  condition: Condition,
+  intervalSeconds: Schema9.Int,
+  timeoutSeconds: Schema9.Int,
+  notify: Notify,
+  message: Schema9.Struct({
+    summary: Schema9.String.check(Schema9.isMaxLength(280)),
+    body: Schema9.String.check(Schema9.isMaxLength(2e4))
+  }),
+  label: Schema9.String.check(Schema9.isMinLength(1), Schema9.isMaxLength(256))
+});
+var WatchSummary = Schema9.Struct({
+  watchId: WatchId,
+  owner: WatchOwner,
+  label: WatchDefinition.fields.label,
+  kind: WatchDefinition.fields.kind,
+  notify: Notify,
+  state: WatchState,
+  armedAt: Schema9.Finite,
+  expiresAt: Schema9.Finite
+});
+var Watch = Schema9.Struct({
+  ...WatchSummary.fields,
+  ...WatchDefinition.fields
+});
+var WatchCheck = Schema9.Struct({
+  at: Schema9.Finite,
+  outcome: Schema9.Literals(["true", "false", "checkError"]),
+  detail: Schema9.String
+});
+var WatchFiring = Schema9.Struct({
+  at: Schema9.Finite,
+  cursor: Cursor,
+  messageId: Schema9.String,
+  downgraded: Schema9.Array(WatchName)
+});
+var WatchInspection = Schema9.Struct({
+  watch: Watch,
+  lastCheck: Schema9.NullOr(WatchCheck),
+  cursor: Schema9.NullOr(Cursor),
+  evidence: Schema9.Array(Evidence),
+  firings: Schema9.Array(WatchFiring)
+});
+var WatchRefused = class extends Schema9.TaggedError()("WatchRefused", {
+  code: Schema9.Literals([
+    "BadCondition",
+    "HostNotAllowed",
+    "TooManyTargets",
+    "IntervalTooShort",
+    "NotOwner",
+    "UnknownWatch",
+    "NotGranted"
+  ]),
+  reason: Schema9.String
+}) {
+  get message() {
+    return this.reason;
+  }
+};
+
+// ../../packages/core/dist/watches/capabilities.js
+var requestId = Schema10.String.check(Schema10.isMinLength(1), Schema10.isMaxLength(512));
+var armWatchContract = defineContract("armWatch", {
+  annotations: { idempotent: true, openWorld: true },
+  description: "Arm a durable condition check using the caller's armWatch grant.",
+  input: Schema10.Struct({ ...WatchDefinition.fields, requestId }),
+  output: Schema10.Struct({ watchId: WatchId, state: Schema10.Literal("armed") }),
+  failure: WatchRefused
+});
+var listWatchesContract = defineContract("listWatches", {
+  annotations: { readOnly: true },
+  description: "List watches, optionally filtered by owner DID or recipient name.",
+  input: Schema10.Struct({
+    owner: Schema10.optionalKey(WatchOwner),
+    target: Schema10.optionalKey(WatchName)
+  }),
+  output: Schema10.Struct({ watches: Schema10.Array(WatchSummary) }),
+  failure: WatchRefused
+});
+var inspectWatchContract = defineContract("inspectWatch", {
+  annotations: { readOnly: true },
+  description: "Inspect a watch's definition, check, cursor, and recent receipts as its owner or Switchboard.",
+  input: Schema10.Struct({ watchId: WatchId }),
+  output: WatchInspection,
+  failure: WatchRefused
+});
+var terminal = {
+  annotations: { idempotent: true },
+  input: Schema10.Struct({ watchId: WatchId, requestId }),
+  output: Schema10.Struct({ state: WatchState }),
+  failure: WatchRefused
+};
+var cancelWatchContract = defineContract("cancelWatch", {
+  ...terminal,
+  description: "Cancel a watch as its owner or Switchboard."
+});
+var completeWatchContract = defineContract("completeWatch", {
+  ...terminal,
+  description: "Mark a watch done as its owner or Switchboard."
+});
+var Watches = class extends Context4.Service()("@mischief/core/Watches") {
+};
+var watchCapabilities = [
+  implement(armWatchContract, (input) => Watches.use((watches) => watches.armWatch(input))),
+  implement(listWatchesContract, (input) => Watches.use((watches) => watches.listWatches(input))),
+  implement(inspectWatchContract, (input) => Watches.use((watches) => watches.inspectWatch(input))),
+  implement(cancelWatchContract, (input) => Watches.use((watches) => watches.cancelWatch(input))),
+  implement(completeWatchContract, (input) => Watches.use((watches) => watches.completeWatch(input)))
+];
+var watchCapabilityNames = new Set(watchCapabilities.map(({ contract }) => contract.name));
+
+// ../../packages/core/dist/peons/tail.js
+import { Schema as Schema13 } from "effect";
+
+// ../../packages/core/dist/peons/tail-forbidden.js
+import { Schema as Schema11 } from "effect";
+var PeonTailForbidden = class extends Schema11.TaggedError()("PeonTailForbidden", { reason: Schema11.String }, { httpApiStatus: 403 }) {
+};
+
+// ../../packages/core/dist/peons/tail-not-found.js
+import { Schema as Schema12 } from "effect";
+var PeonTailNotFound = class extends Schema12.TaggedError()("PeonTailNotFound", { reason: Schema12.String }, { httpApiStatus: 404 }) {
+};
+
+// ../../packages/core/dist/peons/tail.js
+var peonTailMaxEntries = 200;
+var peonTailEntryBudget = 2048;
+var peonTailPageEntryBudget = 59 * 1024;
+var peonTailArgBudget = 512;
+var peonTailNameBudget = 96;
+var peonTailLastToolLimit = 16;
+var Cursor2 = Schema13.String.check(Schema13.isPattern(/^b[1-9][0-9]{0,15}$/u));
+var PeonTailQuery = Schema13.Struct({
+  entries: Schema13.optionalKey(Schema13.Int.check(Schema13.isBetween({ maximum: peonTailMaxEntries, minimum: 1 }))),
+  sinceId: Schema13.optionalKey(Cursor2)
+});
+var PeonTailEntryType = Schema13.Literals([
+  "session",
+  "system",
+  "user",
+  "assistant",
+  "toolResult",
+  "compaction",
+  "model_change",
+  "thinking_level_change",
+  "blob",
+  "other"
+]);
+var PeonTailEntry = Schema13.Struct({
+  bytes: Schema13.Int.check(Schema13.isGreaterThan(0)),
+  id: Cursor2,
+  type: PeonTailEntryType,
+  text: Schema13.optionalKey(Schema13.String.check(Schema13.isMaxLength(peonTailEntryBudget))),
+  toolCalls: Schema13.optionalKey(Schema13.Array(Schema13.Struct({
+    name: Schema13.String.check(Schema13.isMaxLength(peonTailNameBudget)),
+    args: Schema13.String.check(Schema13.isMaxLength(peonTailArgBudget))
+  })).check(Schema13.isMaxLength(peonTailLastToolLimit)))
+});
+var TailPage = Schema13.Struct({
+  status: Schema13.Literal("tail"),
+  entries: Schema13.Array(PeonTailEntry).check(Schema13.isMaxLength(peonTailMaxEntries)),
+  truncated: Schema13.Boolean
+});
+var NotLive = Schema13.Struct({
+  status: Schema13.Literal("not-live"),
+  reason: Schema13.Literals(["hibernated", "destroyed", "absent", "no-session"])
+});
+var BoxTailResult = Schema13.Union([TailPage, NotLive]);
+var PeonTailContext = Schema13.Struct({
+  peonId: PeonId,
+  state: PeonState,
+  lastTurn: Schema13.NullOr(Schema13.Struct({
+    exit: Schema13.Finite,
+    output: Schema13.optionalKey(Schema13.String.check(Schema13.isMaxLength(peonTailEntryBudget))),
+    toolCalls: Schema13.optionalKey(Schema13.Array(Schema13.String.check(Schema13.isMaxLength(peonTailNameBudget))).check(Schema13.isMaxLength(peonTailLastToolLimit))),
+    resumeMs: Schema13.optionalKey(Schema13.Finite),
+    toolCallCount: Schema13.Int.check(Schema13.isGreaterThanOrEqualTo(0)),
+    usage: PeonUsage,
+    wallMs: Schema13.Finite
+  }))
+});
+var tailPeonContract = defineContract("tailPeon", {
+  annotations: { idempotent: true, readOnly: true },
+  description: "Read recent managed Pi activity, with redacted excerpts of user and assistant text and tool calls. Tool results and private metadata are summarized. Pass an entry id as sinceId to see only newer entries. Never wakes a box.",
+  failure: Schema13.Union([PeonRefused, PeonTailNotFound, PeonTailForbidden]),
+  input: Schema13.Struct({ peonId: PeonId, ...PeonTailQuery.fields }),
+  output: Schema13.Union([
+    Schema13.Struct({ ...PeonTailContext.fields, ...TailPage.fields }),
+    Schema13.Struct({ ...PeonTailContext.fields, ...NotLive.fields })
+  ])
+});
+
+// ../../packages/core/dist/peons/contracts.js
+var requestId2 = Schema14.String.check(Schema14.isMinLength(1), Schema14.isMaxLength(512));
+var spawnPeonContract = defineContract("spawnPeon", {
+  annotations: { openWorld: true },
+  description: "Spawn a full-tool peon from a versioned template. Supply a pinned workspace in overrides. Idempotent when peonId is supplied.",
+  failure: PeonRefused,
+  input: Schema14.Struct({
+    overrides: Schema14.optionalKey(PeonOverrides),
+    peonId: Schema14.optionalKey(PeonId),
+    template: PeonTemplateSelector
+  }),
+  output: PeonReport
+});
+var promptPeonContract = defineContract("promptPeon", {
+  annotations: { idempotent: true, openWorld: true },
+  description: "Wake a peon and run one turn. Repeating requestId returns the original turn; changing its text is refused to prevent duplicate work.",
+  failure: PeonRefused,
+  input: Schema14.Struct({ peonId: PeonId, requestId: requestId2, text: Schema14.String }),
+  output: PeonReport
+});
+var lifecycle = {
+  failure: PeonRefused,
+  input: Schema14.Struct({
+    peonId: PeonId,
+    requestId: Schema14.optionalKey(requestId2)
+  }),
+  output: PeonReport
+};
+var suspendPeonContract = defineContract("suspendPeon", {
+  ...lifecycle,
+  annotations: { idempotent: true },
+  description: "Stop the box and keep its workspace. One alarm remains for hibernation."
+});
+var resumePeonContract = defineContract("resumePeon", {
+  ...lifecycle,
+  annotations: { idempotent: true },
+  description: "Wake a suspended or hibernated box without starting a turn."
+});
+var hibernatePeonContract = defineContract("hibernatePeon", {
+  ...lifecycle,
+  annotations: { idempotent: true },
+  description: "Snapshot a stopped peon and release its box storage."
+});
+var destroyPeonContract = defineContract("destroyPeon", {
+  ...lifecycle,
+  annotations: { destructive: true, idempotent: true },
+  description: "Remove a peon box after custody verification and a verified landed head or explicit workspace discard.",
+  input: Schema14.Struct({
+    ...lifecycle.input.fields,
+    discardWorkspace: Schema14.optionalKey(Schema14.Literal(true)),
+    landedHead: Schema14.optionalKey(Schema14.String.check(Schema14.isPattern(/^[a-f0-9]{40}$/u)))
+  }),
+  output: Schema14.Union([PeonReport, PeonTombstone])
+});
+var clonePeonContract = defineContract("clonePeon", {
+  annotations: { openWorld: true },
+  description: "Clone an idle or sleeping peon's workspace and conversation into a suspended peon.",
+  failure: PeonRefused,
+  input: Schema14.Struct({
+    newPeonId: Schema14.optionalKey(PeonId),
+    peonId: PeonId,
+    requestId: Schema14.optionalKey(requestId2)
+  }),
+  output: PeonReport
+});
+var inspectPeonContract = defineContract("inspectPeon", {
+  annotations: { idempotent: true, readOnly: true },
+  description: "Inspect the durable peon state, template, usage, last turn and box storage bytes.",
+  failure: PeonRefused,
+  input: Schema14.Struct({ peonId: PeonId }),
+  output: Schema14.Union([PeonReport, PeonTombstone])
+});
+var listPeonTemplatesContract = defineContract("listPeonTemplates", {
+  annotations: { idempotent: true, readOnly: true },
+  description: "List the latest version of each template, paged by name.",
+  failure: PeonRefused,
+  input: Schema14.Struct({
+    cursor: Schema14.optionalKey(Schema14.String),
+    limit: Schema14.optionalKey(Schema14.Int.check(Schema14.isBetween({ maximum: 100, minimum: 1 })))
+  }),
+  output: Schema14.Struct({
+    cursor: Schema14.NullOr(Schema14.String),
+    templates: Schema14.Array(PeonTemplateVersion)
+  })
+});
+var savePeonTemplateContract = defineContract("savePeonTemplate", {
+  description: "Resolve a parent version and deep merge overrides into a new immutable template version.",
+  failure: PeonRefused,
+  input: Schema14.Struct({
+    extends: PeonTemplateSelector,
+    name: PeonId,
+    overrides: PeonOverrides
+  }),
+  output: PeonTemplateVersion
+});
+var listPeonsContract = defineContract("listPeons", {
+  annotations: { idempotent: true, readOnly: true },
+  description: "List the caller's awake peons from the registry, never the Rat King directory. Select sleeping peons or tombstones with state, an array of states, or all. Owner, template and state filters apply before pagination.",
+  failure: PeonRefused,
+  input: Schema14.Struct({
+    cursor: Schema14.optionalKey(Schema14.String),
+    limit: Schema14.optionalKey(Schema14.Int.check(Schema14.isBetween({ maximum: 100, minimum: 1 }))),
+    owner: Schema14.optionalKey(Schema14.String),
+    state: Schema14.optionalKey(Schema14.Union([PeonState, Schema14.Array(PeonState), Schema14.Literal("all")])),
+    template: Schema14.optionalKey(Schema14.String)
+  }),
+  output: Schema14.Struct({
+    cursor: Schema14.NullOr(Schema14.String),
+    peons: Schema14.Array(PeonIndexEntry)
+  })
+});
+var peonContracts = [
+  spawnPeonContract,
+  promptPeonContract,
+  suspendPeonContract,
+  resumePeonContract,
+  hibernatePeonContract,
+  clonePeonContract,
+  destroyPeonContract,
+  inspectPeonContract,
+  tailPeonContract,
+  listPeonTemplatesContract,
+  savePeonTemplateContract,
+  listPeonsContract
+];
+var peonCapabilityNames = new Set([...peonContracts, armWatchContract].map(({ name }) => name));
+
 // ../../packages/core/dist/peons/capabilities.js
-import { Context as Context4 } from "effect";
-var Peons = class extends Context4.Service()("@mischief/core/Peons") {
+import { Context as Context5 } from "effect";
+var Peons = class extends Context5.Service()("@mischief/core/Peons") {
 };
 var spawnPeon = implement(spawnPeonContract, (input) => Peons.use((peons) => peons.spawnPeon(input)));
 var promptPeon = implement(promptPeonContract, (input) => Peons.use((peons) => peons.promptPeon(input)));
@@ -57836,41 +57993,41 @@ var clipTailText = (value, budget) => {
 var previewTailText = (value, budget) => clipTailText(sanitizeTailText(value), budget);
 
 // ../../packages/core/dist/thinking/contracts.js
-import { Schema as Schema14 } from "effect";
+import { Schema as Schema16 } from "effect";
 
 // ../../packages/core/dist/thinking/telemetry-unavailable.js
-import { Schema as Schema13 } from "effect";
-var ThinkTelemetryUnavailable = class extends Schema13.TaggedError()("ThinkTelemetryUnavailable", { reason: Schema13.String }) {
+import { Schema as Schema15 } from "effect";
+var ThinkTelemetryUnavailable = class extends Schema15.TaggedError()("ThinkTelemetryUnavailable", { reason: Schema15.String }) {
   get message() {
     return this.reason;
   }
 };
 
 // ../../packages/core/dist/thinking/contracts.js
-var ThinkDaySchema = Schema14.Struct({
-  calls: Schema14.Finite,
-  tokens: Schema14.Finite,
-  warning: Schema14.Struct({
-    line: Schema14.Finite,
-    median: Schema14.NullOr(Schema14.Finite),
-    multiple: Schema14.Finite,
-    sampleDays: Schema14.Finite
+var ThinkDaySchema = Schema16.Struct({
+  calls: Schema16.Finite,
+  tokens: Schema16.Finite,
+  warning: Schema16.Struct({
+    line: Schema16.Finite,
+    median: Schema16.NullOr(Schema16.Finite),
+    multiple: Schema16.Finite,
+    sampleDays: Schema16.Finite
   })
 });
-var ThinkStatusSchema = Schema14.Struct({
-  default: Schema14.Struct({
-    ...Schema14.Struct({ model: Schema14.String, thinking: Schema14.String }).fields,
-    review: Schema14.String,
-    source: Schema14.String
+var ThinkStatusSchema = Schema16.Struct({
+  default: Schema16.Struct({
+    ...Schema16.Struct({ model: Schema16.String, thinking: Schema16.String }).fields,
+    review: Schema16.String,
+    source: Schema16.String
   }),
-  host: Schema14.Struct({ model: Schema14.String, wired: Schema14.Boolean }),
-  today: Schema14.Struct({
+  host: Schema16.Struct({ model: Schema16.String, wired: Schema16.Boolean }),
+  today: Schema16.Struct({
     ...ThinkDaySchema.fields,
-    day: Schema14.String,
-    warnAt: Schema14.Struct({
-      call: Schema14.Finite,
-      day: Schema14.Finite,
-      stepRepeats: Schema14.Finite
+    day: Schema16.String,
+    warnAt: Schema16.Struct({
+      call: Schema16.Finite,
+      day: Schema16.Finite,
+      stepRepeats: Schema16.Finite
     })
   })
 });
@@ -57878,13 +58035,13 @@ var thinkStatusContract = defineContract("thinkStatus", {
   annotations: { idempotent: true, readOnly: true },
   description: "Read host thinking defaults, model wiring, and UTC day telemetry",
   failure: ThinkTelemetryUnavailable,
-  input: Schema14.Struct({}),
+  input: Schema16.Struct({}),
   output: ThinkStatusSchema
 });
 
 // ../../packages/core/dist/thinking/telemetry.js
-import { Context as Context5, Effect as Effect7, Layer as Layer3 } from "effect";
-var ThinkTelemetry = class _ThinkTelemetry extends Context5.Service()("@mischief/core/ThinkTelemetry") {
+import { Context as Context6, Effect as Effect7, Layer as Layer3 } from "effect";
+var ThinkTelemetry = class _ThinkTelemetry extends Context6.Service()("@mischief/core/ThinkTelemetry") {
   static unavailable = Layer3.succeed(_ThinkTelemetry, _ThinkTelemetry.of({
     read: Effect7.fail(new ThinkTelemetryUnavailable({
       reason: "This local CLI has no host Postbox telemetry. Call authenticated POST /thinkStatus with {} on the Mischief host to read its UTC day tally."
@@ -57897,20 +58054,20 @@ var thinkStatus = implement(thinkStatusContract, () => ThinkTelemetry.use((telem
 var thinkingCapabilities = [thinkStatus];
 
 // ../../packages/core/dist/file-inspector.js
-import { Context as Context6, Effect as Effect8, FileSystem, Layer as Layer4 } from "effect";
+import { Context as Context7, Effect as Effect8, FileSystem, Layer as Layer4 } from "effect";
 
 // ../../packages/core/dist/stats.js
-import { Runtime, Schema as Schema15 } from "effect";
-var FileStatsSchema = Schema15.Struct({
-  bytes: Schema15.Int,
-  characters: Schema15.Int,
-  lines: Schema15.Int,
-  path: Schema15.String,
-  words: Schema15.Int
+import { Runtime, Schema as Schema17 } from "effect";
+var FileStatsSchema = Schema17.Struct({
+  bytes: Schema17.Int,
+  characters: Schema17.Int,
+  lines: Schema17.Int,
+  path: Schema17.String,
+  words: Schema17.Int
 });
-var FileStatsError = class extends Schema15.TaggedError()("FileStatsError", {
-  path: Schema15.String,
-  reason: Schema15.String
+var FileStatsError = class extends Schema17.TaggedError()("FileStatsError", {
+  path: Schema17.String,
+  reason: Schema17.String
 }) {
   [Runtime.errorExitCode] = 1;
   [Runtime.errorReported] = false;
@@ -57935,7 +58092,7 @@ var summarizeBytes = (path2, content) => ({
 });
 
 // ../../packages/core/dist/file-inspector.js
-var FileInspector = class extends Context6.Service()("@mischief/core/FileInspector", {
+var FileInspector = class extends Context7.Service()("@mischief/core/FileInspector", {
   make: Effect8.gen(function* makeFileInspector() {
     const fileSystem = yield* FileSystem.FileSystem;
     const inspect = Effect8.fn("FileInspector.inspect")(function* inspect2(path2) {
@@ -57949,30 +58106,30 @@ var FileInspector = class extends Context6.Service()("@mischief/core/FileInspect
 };
 
 // ../../packages/core/dist/contracts.js
-import { Schema as Schema16 } from "effect";
+import { Schema as Schema18 } from "effect";
 var inspectFileContract = defineContract("inspectFile", {
   annotations: { idempotent: true, readOnly: true },
   description: "Count bytes, characters, words, and lines in a file",
   failure: FileStatsError,
-  input: Schema16.Struct({
-    path: Schema16.String.annotate({ description: "File to inspect" })
+  input: Schema18.Struct({
+    path: Schema18.String.annotate({ description: "File to inspect" })
   }),
   output: FileStatsSchema
 });
 
 // ../../packages/capability/dist/actor-watch.js
-import { Context as Context7, Effect as Effect9 } from "effect";
-var ActorWatch = Context7.Reference("@mischief/capability/ActorWatch", { defaultValue: () => ({ watch: () => Effect9.void }) });
+import { Context as Context8, Effect as Effect9 } from "effect";
+var ActorWatch = Context8.Reference("@mischief/capability/ActorWatch", { defaultValue: () => ({ watch: () => Effect9.void }) });
 var watchActor = Effect9.fnUntraced(function* watchActor2(machine, actor) {
   const watcher = yield* ActorWatch;
   yield* watcher.watch(machine, actor);
 });
 
 // ../../node_modules/.pnpm/@xstate+effect@1.0.0-beta.0_@oxlint+plugins@1.93.0_effect@4.1.4_xstate@6.0.0-beta.1/node_modules/@xstate/effect/dist/xstate-effect.js
-import { Schema as Schema17, Effect as Effect11, Stream as Stream2, Cause as Cause2, Exit as Exit2, Queue as Queue2, Data as Data4 } from "effect";
+import { Schema as Schema19, Effect as Effect11, Stream as Stream2, Cause as Cause2, Exit as Exit2, Queue as Queue2, Data as Data4 } from "effect";
 
 // ../../node_modules/.pnpm/@xstate+effect@1.0.0-beta.0_@oxlint+plugins@1.93.0_effect@4.1.4_xstate@6.0.0-beta.1/node_modules/@xstate/effect/dist/state-a2154dce.js
-import { Cause, Data as Data3, Queue, Effect as Effect10, Exit, Fiber, Scope, Context as Context8, Clock, Duration as Duration2 } from "effect";
+import { Cause, Data as Data3, Queue, Effect as Effect10, Exit, Fiber, Scope, Context as Context9, Clock, Duration as Duration2 } from "effect";
 
 // ../../node_modules/.pnpm/xstate@6.0.0-beta.1/node_modules/xstate/dist/xstate-durable.cjs.mjs
 var import_xstate_durable_cjs = __toESM(require_xstate_durable_cjs(), 1);
@@ -58418,7 +58575,7 @@ function closeEffectHost(host) {
     discard: true
   }).pipe(Effect10.andThen(Scope.close(host.scope, Exit.void))));
 }
-var ActorScope = class extends Context8.Service()("@xstate/effect/ActorScope") {
+var ActorScope = class extends Context9.Service()("@xstate/effect/ActorScope") {
 };
 var XSTATE_TIMER = "xstate.timer";
 var XSTATE_INIT = "xstate.init";
@@ -58427,7 +58584,7 @@ function createEffectActor(logic, ...[options2]) {
     const parentScope = yield* Effect10.scope;
     const actorScope = yield* Scope.fork(parentScope);
     const baseContext = yield* Effect10.context();
-    const context = Context8.add(Context8.add(baseContext, Scope.Scope, actorScope), ActorScope, actorScope);
+    const context = Context9.add(Context9.add(baseContext, Scope.Scope, actorScope), ActorScope, actorScope);
     const host = createEffectHost(context, actorScope);
     const runFork = Effect10.runForkWith(context);
     const runPromise = Effect10.runPromiseWith(context);
@@ -58445,7 +58602,7 @@ function createEffectActor(logic, ...[options2]) {
     const timerKey = (source, timer) => `${source.sessionId}:${JSON.stringify(timer)}`;
     const inspectors = /* @__PURE__ */ new Set();
     let rootAnnounced = false;
-    const clock = Context8.get(context, Clock.Clock);
+    const clock = Context9.get(context, Clock.Clock);
     const durable = (0, import_xstate_durable_cjs.createDurable)(logic, {
       // Timer deadlines are measured on the same clock the timers sleep
       // on, so a restored timer resumes with its remaining delay.
@@ -58686,15 +58843,15 @@ function isStandardSchema(value) {
   return !!value && (typeof value === "object" || typeof value === "function") && "~standard" in value;
 }
 function toStandardSchema(schema2) {
-  if (Schema17.isSchema(schema2)) {
-    return Schema17.toStandardSchemaV1(schema2);
+  if (Schema19.isSchema(schema2)) {
+    return Schema19.toStandardSchemaV1(schema2);
   }
   return schema2;
 }
 function mapSchemaRecord(value) {
   return Object.fromEntries(Object.keys(value).map((key) => {
     const entry3 = value[key];
-    if (Schema17.isSchema(entry3) || isStandardSchema(entry3)) {
+    if (Schema19.isSchema(entry3) || isStandardSchema(entry3)) {
       return [key, toStandardSchema(entry3)];
     }
     if (entry3 && typeof entry3 === "object" && !Array.isArray(entry3)) {
@@ -59003,17 +59160,17 @@ var SnapshotCodecError = class extends Data4.TaggedError("SnapshotCodecError") {
 };
 
 // ../../packages/core/dist/inspect-machine.js
-import { Cause as Cause3, Data as Data5, Effect as Effect12, Option as Option2, Schema as Schema18 } from "effect";
+import { Cause as Cause3, Data as Data5, Effect as Effect12, Option as Option2, Schema as Schema20 } from "effect";
 var inspectOutcome = Data5.taggedEnum();
 var readStats = createEffectLogic({
   effect: ({ input }) => FileInspector.use((inspector) => inspector.inspect(input.path)),
-  schemas: { input: Schema18.Struct({ path: Schema18.String }) }
+  schemas: { input: Schema20.Struct({ path: Schema20.String }) }
 });
 var inspectMachine = setupEffect({
   actors: { readStats },
   schemas: {
     context: (0, import_xstate_cjs.types)(),
-    input: Schema18.Struct({ path: Schema18.String })
+    input: Schema20.Struct({ path: Schema20.String })
   }
 }).createMachine({
   context: ({ input }) => ({ outcome: void 0, path: input.path }),
@@ -59068,17 +59225,17 @@ var missingCriteria = (plan, judge) => stepsOf(plan.machine.states).flatMap(({ s
 ] : []);
 
 // ../../packages/core/dist/plans/validate.js
-import { Effect as Effect14, Option as Option3, Schema as Schema21 } from "effect";
+import { Effect as Effect14, Option as Option3, Schema as Schema23 } from "effect";
 import { absurd as absurd3, constFalse, constVoid } from "effect/Function";
 
 // ../../packages/core/dist/steps/call-registry.js
-import { Context as Context9, Effect as Effect13, Schema as Schema20 } from "effect";
+import { Context as Context10, Effect as Effect13, Schema as Schema22 } from "effect";
 
 // ../../packages/core/dist/steps/step-failed.js
-import { Schema as Schema19 } from "effect";
-var StepFailed = class extends Schema19.TaggedError()("StepFailed", {
-  key: Schema19.String,
-  reason: Schema19.String
+import { Schema as Schema21 } from "effect";
+var StepFailed = class extends Schema21.TaggedError()("StepFailed", {
+  key: Schema21.String,
+  reason: Schema21.String
 }) {
   get message() {
     return `Step ${this.key} failed: ${this.reason}. The run recorded failed:${this.key} in its docs; inspectRun shows where it went next.`;
@@ -59087,15 +59244,15 @@ var StepFailed = class extends Schema19.TaggedError()("StepFailed", {
 
 // ../../packages/core/dist/steps/call-registry.js
 var callable = (spec) => ({
-  invoke: (input, call) => Schema20.decodeEffect(spec.input)(input).pipe(Effect13.mapError((issue) => new StepFailed({
+  invoke: (input, call) => Schema22.decodeEffect(spec.input)(input).pipe(Effect13.mapError((issue) => new StepFailed({
     key: call.key,
     reason: `its input does not decode with the capability's input schema: ${issue.message}. Fix the step's input or the docs it reads`
-  })), Effect13.flatMap((decoded) => spec.run(decoded, call)), Effect13.flatMap((output) => Schema20.encodeEffect(spec.output)(output).pipe(Effect13.mapError((issue) => new StepFailed({
+  })), Effect13.flatMap((decoded) => spec.run(decoded, call)), Effect13.flatMap((output) => Schema22.encodeEffect(spec.output)(output).pipe(Effect13.mapError((issue) => new StepFailed({
     key: call.key,
     reason: `the capability returned output its output schema refuses, so nothing was recorded: ${issue.message}`
   })))))
 });
-var CallRegistry = Context9.Reference("@mischief/core/CallRegistry", { defaultValue: () => /* @__PURE__ */ new Map() });
+var CallRegistry = Context10.Reference("@mischief/core/CallRegistry", { defaultValue: () => /* @__PURE__ */ new Map() });
 
 // ../../packages/core/dist/plans/compile.js
 import { absurd as absurd2 } from "effect/Function";
@@ -59460,8 +59617,8 @@ var stateFacts = (states, prefix) => Object.entries(states).flatMap(([name, node
 var planFacts = (plan) => new Map(stateFacts(plan.machine.states, []));
 
 // ../../packages/core/dist/plans/declared-thinking.js
-import { Context as Context10 } from "effect";
-var DeclaredThinking = Context10.Reference("@mischief/core/DeclaredThinking", { defaultValue: () => ({ fallback: "low", models: {} }) });
+import { Context as Context11 } from "effect";
+var DeclaredThinking = Context11.Reference("@mischief/core/DeclaredThinking", { defaultValue: () => ({ fallback: "low", models: {} }) });
 var capThinking = (level, ceiling) => thinkingLevels.indexOf(level) > thinkingLevels.indexOf(ceiling) ? ceiling : level;
 var askedBy = (plan, declaration, { agent, field, subject, where }) => ({
   field,
@@ -59555,20 +59712,20 @@ var hydrateNode = (node, path2, machineId) => {
 var hydratePlan = (compiled, sources) => (0, import_xstate_cjs.machineFromJSON)({ ...compiled, ...hydrateNode(compiled, [], compiled.id) }, sources);
 
 // ../../packages/core/dist/plans/step-kinds.js
-import { Context as Context11 } from "effect";
+import { Context as Context12 } from "effect";
 var STEP_KINDS_FLAG = "MISCHIEF_STEP_KINDS";
 var gatedStepKinds = ["call"];
 var isGated = (name) => gatedStepKinds.some((kind) => kind === name);
 var stepKindsFrom = (text) => new Set((text ?? "").split(",").map((name) => name.trim()).filter(isGated));
-var EnabledStepKinds = Context11.Reference("@mischief/core/EnabledStepKinds", { defaultValue: () => /* @__PURE__ */ new Set() });
+var EnabledStepKinds = Context12.Reference("@mischief/core/EnabledStepKinds", { defaultValue: () => /* @__PURE__ */ new Set() });
 var turnOn = (kind) => `A host turns it on with ${STEP_KINDS_FLAG}=${kind}, and turning it on changes what every live run on this host can do, so it ships as a host config change under the deploy rules, with the go and its provenance in the deploy receipt`;
 var stepKindOff = (where, kind) => `${where}: step kind "${kind}" is off on this host. ${turnOn(kind)}. Until then, express this step with think or switch, then call submitPlan again`;
 var ephemeralThinkOff = (where) => `${where}: a think with ephemeral or post calls host capabilities, so it needs step kind "call", which is off on this host. ${turnOn("call")}. Until then, drop ephemeral and post from this think, then call submitPlan again`;
 
 // ../../packages/core/dist/plans/workspace.js
-import { Context as Context12 } from "effect";
+import { Context as Context13 } from "effect";
 var WORKSPACE_TOOLS = ["read", "grep", "find", "ls", "bash"];
-var WorkspacePolicy = Context12.Reference("@mischief/core/WorkspacePolicy", { defaultValue: () => ({ enabled: false, repos: [] }) });
+var WorkspacePolicy = Context13.Reference("@mischief/core/WorkspacePolicy", { defaultValue: () => ({ enabled: false, repos: [] }) });
 var workspacePolicyFrom = (flag, repos) => ({
   enabled: flag === "on",
   repos: (repos ?? "").split(",").map((repo) => repo.trim()).filter(Boolean)
@@ -59599,7 +59756,7 @@ var workspaceErrors = (plan, policy) => [
 ];
 
 // ../../packages/core/dist/plans/validate.js
-var PlanRefused = class extends Schema21.TaggedError()("PlanRefused", { errors: Schema21.Array(Schema21.String) }) {
+var PlanRefused = class extends Schema23.TaggedError()("PlanRefused", { errors: Schema23.Array(Schema23.String) }) {
   get message() {
     return `Plan refused, nothing was stored. Fix each problem and call submitPlan again:
 ${this.errors.map((error) => `- ${error}`).join("\n")}`;
@@ -59612,7 +59769,7 @@ var BASE_TOOLS = [
   "ask-parent"
 ];
 var codeKeys = /* @__PURE__ */ new Set(["@code", "@expr"]);
-var isJsonObject = Schema21.is(Schema21.JsonObject);
+var isJsonObject = Schema23.is(Schema23.JsonObject);
 var findCode = (value, path2) => {
   const entries2 = isJsonObject(value) ? Object.entries(value) : [];
   const children = Array.isArray(value) ? value.map((child, index3) => [String(index3), child]) : entries2;
@@ -59996,7 +60153,7 @@ var checkPlan = Effect14.fn("checkPlan")(function* checkPlan2(plan, seeded = [],
   }
   return resolvedPlan;
 });
-var decodeEnvelopeKeys = Schema21.decodeUnknownOption(Schema21.Struct({ envelope: Schema21.Record(Schema21.String, Schema21.Json) }));
+var decodeEnvelopeKeys = Schema23.decodeUnknownOption(Schema23.Struct({ envelope: Schema23.Record(Schema23.String, Schema23.Json) }));
 var refuseRetired = (input) => Option3.match(decodeEnvelopeKeys(input), {
   onNone: () => Effect14.void,
   onSome: ({ envelope }) => "budgetTokens" in envelope ? new PlanRefused({
@@ -60014,22 +60171,22 @@ var validatePlan = Effect14.fn("validatePlan")(function* validatePlan2(input, se
 });
 
 // ../../packages/core/dist/runs/answer-refused.js
-import { Schema as Schema22 } from "effect";
-var AnswerRefused = class extends Schema22.TaggedError()("AnswerRefused", { reason: Schema22.String, runId: Schema22.String }) {
+import { Schema as Schema24 } from "effect";
+var AnswerRefused = class extends Schema24.TaggedError()("AnswerRefused", { reason: Schema24.String, runId: Schema24.String }) {
   get message() {
     return `Answer refused for run ${this.runId}: ${this.reason}`;
   }
 };
 
 // ../../packages/core/dist/runs/contracts.js
-import { Schema as Schema32 } from "effect";
+import { Schema as Schema34 } from "effect";
 
 // ../../packages/core/dist/runs/already-journaled.js
-import { Schema as Schema23 } from "effect";
-var AlreadyJournaled = class extends Schema23.TaggedError()("AlreadyJournaled", {
-  messageId: Schema23.String,
-  replyTo: Schema23.String,
-  runId: Schema23.String
+import { Schema as Schema25 } from "effect";
+var AlreadyJournaled = class extends Schema25.TaggedError()("AlreadyJournaled", {
+  messageId: Schema25.String,
+  replyTo: Schema25.String,
+  runId: Schema25.String
 }) {
   get message() {
     return `Run ${this.runId} already stored reply ${this.messageId} to ${this.replyTo}. Record its delivery receipt; do not deliver it again.`;
@@ -60037,139 +60194,139 @@ var AlreadyJournaled = class extends Schema23.TaggedError()("AlreadyJournaled", 
 };
 
 // ../../packages/core/dist/runs/extend-refused.js
-import { Schema as Schema24 } from "effect";
-var ExtendRefused = class extends Schema24.TaggedError()("ExtendRefused", { reason: Schema24.String, runId: Schema24.String }) {
+import { Schema as Schema26 } from "effect";
+var ExtendRefused = class extends Schema26.TaggedError()("ExtendRefused", { reason: Schema26.String, runId: Schema26.String }) {
   get message() {
     return `Extending run ${this.runId} refused: ${this.reason}`;
   }
 };
 
 // ../../packages/core/dist/runs/reply-refused.js
-import { Schema as Schema25 } from "effect";
-var ReplyRefused = class extends Schema25.TaggedError()("ReplyRefused", { reason: Schema25.String, replyTo: Schema25.String }) {
+import { Schema as Schema27 } from "effect";
+var ReplyRefused = class extends Schema27.TaggedError()("ReplyRefused", { reason: Schema27.String, replyTo: Schema27.String }) {
   get message() {
     return `Reply to ${this.replyTo} refused: ${this.reason}`;
   }
 };
 
 // ../../packages/core/dist/runs/revision-refused.js
-import { Schema as Schema26 } from "effect";
-var RevisionRefused = class extends Schema26.TaggedError()("RevisionRefused", { reason: Schema26.String, runId: Schema26.String }) {
+import { Schema as Schema28 } from "effect";
+var RevisionRefused = class extends Schema28.TaggedError()("RevisionRefused", { reason: Schema28.String, runId: Schema28.String }) {
   get message() {
     return `Revising run ${this.runId} refused, nothing changed: ${this.reason}`;
   }
 };
 
 // ../../packages/core/dist/runs/schema.js
-import { Effect as Effect16, Schema as Schema30 } from "effect";
+import { Effect as Effect16, Schema as Schema32 } from "effect";
 
 // ../../packages/core/dist/steps/inputs.js
-import { Schema as Schema27 } from "effect";
-var ThinkInputSchema = Schema27.Struct({
-  agent: Schema27.optionalKey(AgentConfigSchema),
-  ephemeral: Schema27.optionalKey(EphemeralSourceSchema),
-  key: Schema27.String,
-  post: Schema27.optionalKey(PostSchema),
-  prompt: Schema27.String,
-  writes: Schema27.optionalKey(DocKey)
+import { Schema as Schema29 } from "effect";
+var ThinkInputSchema = Schema29.Struct({
+  agent: Schema29.optionalKey(AgentConfigSchema),
+  ephemeral: Schema29.optionalKey(EphemeralSourceSchema),
+  key: Schema29.String,
+  post: Schema29.optionalKey(PostSchema),
+  prompt: Schema29.String,
+  writes: Schema29.optionalKey(DocKey)
 });
-var AskInputSchema = Schema27.Struct({
-  key: Schema27.String,
-  message: Schema27.String,
+var AskInputSchema = Schema29.Struct({
+  key: Schema29.String,
+  message: Schema29.String,
   to: RatKingName,
-  writes: Schema27.optionalKey(DocKey)
+  writes: Schema29.optionalKey(DocKey)
 });
-var QuestionInputSchema = Schema27.Struct({
-  criteria: Schema27.optionalKey(Schema27.Record(Schema27.String, Schema27.Json)),
-  key: Schema27.String,
-  options: Schema27.Array(Schema27.String),
-  question: Schema27.String,
-  reason: Schema27.optionalKey(Schema27.String)
+var QuestionInputSchema = Schema29.Struct({
+  criteria: Schema29.optionalKey(Schema29.Record(Schema29.String, Schema29.Json)),
+  key: Schema29.String,
+  options: Schema29.Array(Schema29.String),
+  question: Schema29.String,
+  reason: Schema29.optionalKey(Schema29.String)
 });
-var JudgeInputSchema = Schema27.Struct({
+var JudgeInputSchema = Schema29.Struct({
   ...QuestionInputSchema.fields,
-  fallback: Schema27.optional(Schema27.String),
-  reads: Schema27.optional(Schema27.Array(DocKey)),
-  thinkAgent: Schema27.optional(AgentConfigSchema),
-  thinkThreshold: Schema27.optional(Probability),
-  threshold: Schema27.optional(Probability)
+  fallback: Schema29.optional(Schema29.String),
+  reads: Schema29.optional(Schema29.Array(DocKey)),
+  thinkAgent: Schema29.optional(AgentConfigSchema),
+  thinkThreshold: Schema29.optional(Probability),
+  threshold: Schema29.optional(Probability)
 });
-var SwitchInputSchema = Schema27.Struct({
-  cases: Schema27.Record(Schema27.String, Schema27.String),
-  default: Schema27.String,
-  key: Schema27.String,
+var SwitchInputSchema = Schema29.Struct({
+  cases: Schema29.Record(Schema29.String, Schema29.String),
+  default: Schema29.String,
+  key: Schema29.String,
   reads: DocKey
 });
-var CallInputSchema = Schema27.Struct({
-  capability: Schema27.String,
-  input: Schema27.optionalKey(Schema27.Json),
-  key: Schema27.String,
-  reads: Schema27.optionalKey(Schema27.Array(DocKey)),
-  writes: Schema27.optionalKey(DocKey)
+var CallInputSchema = Schema29.Struct({
+  capability: Schema29.String,
+  input: Schema29.optionalKey(Schema29.Json),
+  key: Schema29.String,
+  reads: Schema29.optionalKey(Schema29.Array(DocKey)),
+  writes: Schema29.optionalKey(DocKey)
 });
-var ElaborateInputSchema = Schema27.Struct({
-  goal: Schema27.String,
-  key: Schema27.String
+var ElaborateInputSchema = Schema29.Struct({
+  goal: Schema29.String,
+  key: Schema29.String
 });
-var PickParamsSchema = Schema27.Struct({ option: Schema27.String });
-var JudgeVerdictSchema = Schema27.Struct({
-  choice: Schema27.optionalKey(Schema27.String),
-  escalate: Schema27.optionalKey(Schema27.Boolean)
+var PickParamsSchema = Schema29.Struct({ option: Schema29.String });
+var JudgeVerdictSchema = Schema29.Struct({
+  choice: Schema29.optionalKey(Schema29.String),
+  escalate: Schema29.optionalKey(Schema29.Boolean)
 });
-var OutputEventSchema = Schema27.Struct({
+var OutputEventSchema = Schema29.Struct({
   output: JudgeVerdictSchema
 });
 
 // ../../packages/core/dist/steps/provider-unavailable.js
-import { Schema as Schema28 } from "effect";
-var ProviderCauseSchema = Schema28.Literals([
+import { Schema as Schema30 } from "effect";
+var ProviderCauseSchema = Schema30.Literals([
   "billing",
   "busy",
   "server",
   "timeout"
 ]);
-var ProviderUnavailable = class extends Schema28.TaggedError()("ProviderUnavailable", {
+var ProviderUnavailable = class extends Schema30.TaggedError()("ProviderUnavailable", {
   cause: ProviderCauseSchema,
-  error: Schema28.optionalKey(Schema28.String),
-  key: Schema28.String,
-  provider: Schema28.String,
-  retryAfter: Schema28.optional(Schema28.Finite),
-  status: Schema28.NullOr(Schema28.Int)
+  error: Schema30.optionalKey(Schema30.String),
+  key: Schema30.String,
+  provider: Schema30.String,
+  retryAfter: Schema30.optional(Schema30.Finite),
+  status: Schema30.NullOr(Schema30.Int)
 }) {
 };
 
 // ../../packages/core/dist/steps/receipt.js
-import { Effect as Effect15, Option as Option4, Schema as Schema29 } from "effect";
-var ThinkReceiptSchema = Schema29.Struct({
-  effective: Schema29.Struct({
-    model: Schema29.NullOr(Schema29.String),
-    thinking: Schema29.NullOr(Schema29.String)
+import { Effect as Effect15, Option as Option4, Schema as Schema31 } from "effect";
+var ThinkReceiptSchema = Schema31.Struct({
+  effective: Schema31.Struct({
+    model: Schema31.NullOr(Schema31.String),
+    thinking: Schema31.NullOr(Schema31.String)
   }),
-  latencyMs: Schema29.NullOr(Count),
-  matched: Schema29.Boolean,
-  requested: Schema29.Struct({
-    from: Schema29.Literals(["plan", "default"]),
-    model: Schema29.String,
-    thinking: Schema29.String,
-    thinkingFrom: Schema29.optionalKey(Schema29.Literals(["plan", "default", "envelope"]))
+  latencyMs: Schema31.NullOr(Count),
+  matched: Schema31.Boolean,
+  requested: Schema31.Struct({
+    from: Schema31.Literals(["plan", "default"]),
+    model: Schema31.String,
+    thinking: Schema31.String,
+    thinkingFrom: Schema31.optionalKey(Schema31.Literals(["plan", "default", "envelope"]))
   }),
-  tokens: Schema29.Struct({
+  tokens: Schema31.Struct({
     cacheRead: Count,
-    cacheWrite: Count.pipe(Schema29.withDecodingDefaultKey(Effect15.succeed(0))),
+    cacheWrite: Count.pipe(Schema31.withDecodingDefaultKey(Effect15.succeed(0))),
     input: Count,
     output: Count,
     total: Count
   })
 });
-var ThinkTotalsSchema = Schema29.Struct({
+var ThinkTotalsSchema = Schema31.Struct({
   calls: Count,
   mismatched: Count,
-  models: Schema29.Array(Schema29.String),
+  models: Schema31.Array(Schema31.String),
   tokens: ThinkReceiptSchema.fields.tokens
 });
-var decodeReceipt = Schema29.decodeUnknownOption(ThinkReceiptSchema);
-var isRecord2 = Schema29.is(Schema29.Record(Schema29.String, Schema29.Json));
-var isList2 = Schema29.is(Schema29.Array(Schema29.Json));
+var decodeReceipt = Schema31.decodeUnknownOption(ThinkReceiptSchema);
+var isRecord2 = Schema31.is(Schema31.Record(Schema31.String, Schema31.Json));
+var isList2 = Schema31.is(Schema31.Array(Schema31.Json));
 var receiptsIn = (value) => {
   if (isList2(value)) {
     return value.flatMap(receiptsIn);
@@ -60191,7 +60348,7 @@ var thinkTotals = (entries2) => {
   const sum = (pick) => receipts.reduce((total, receipt) => total + pick(receipt), 0);
   return {
     calls: receipts.length,
-    mismatched: receipts.filter(({ matched }) => !matched).length,
+    mismatched: receipts.filter(({ matched: matched2 }) => !matched2).length,
     models: [...new Set(receipts.map(effectiveName))].toSorted(),
     tokens: {
       cacheRead: sum(({ tokens }) => tokens.cacheRead),
@@ -60205,8 +60362,8 @@ var thinkTotals = (entries2) => {
 var thinkLine = (totals) => `think: ${totals.models.join(", ")} \xB7 ${totals.calls} call${totals.calls === 1 ? "" : "s"} \xB7 ${totals.tokens.total.toLocaleString("en-US")} tok (${totals.tokens.cacheRead.toLocaleString("en-US")} cached)${totals.tokens.cacheWrite > 0 ? ` \xB7 ${totals.tokens.cacheWrite.toLocaleString("en-US")} cache-write` : ""}${totals.mismatched > 0 ? ` \xB7 ${totals.mismatched} served by another model` : ""}`;
 
 // ../../packages/core/dist/runs/schema.js
-var RunId = Schema30.String.check(Schema30.isPattern(/^[a-z0-9][a-z0-9-]{0,63}$/u));
-var RunStatusSchema = Schema30.Literals([
+var RunId = Schema32.String.check(Schema32.isPattern(/^[a-z0-9][a-z0-9-]{0,63}$/u));
+var RunStatusSchema = Schema32.Literals([
   "running",
   "paused",
   "waiting-for-joel",
@@ -60225,147 +60382,147 @@ var terminalStatuses = /* @__PURE__ */ new Set([
   "aborted",
   "failed"
 ]);
-var QueuedEventSchema = Schema30.StructWithRest(Schema30.Struct({
-  actorId: Schema30.optionalKey(Schema30.String),
-  type: Schema30.String
-}), [Schema30.Record(Schema30.String, Schema30.Unknown)]);
-var StoredEventSchema = Schema30.StructWithRest(Schema30.Struct({
-  actorId: Schema30.optionalKey(Schema30.String),
-  outputAt: Schema30.optionalKey(Schema30.String),
-  type: Schema30.String
-}), [Schema30.Record(Schema30.String, Schema30.Unknown)]);
-var DirectiveSchema = Schema30.TaggedUnion({
+var QueuedEventSchema = Schema32.StructWithRest(Schema32.Struct({
+  actorId: Schema32.optionalKey(Schema32.String),
+  type: Schema32.String
+}), [Schema32.Record(Schema32.String, Schema32.Unknown)]);
+var StoredEventSchema = Schema32.StructWithRest(Schema32.Struct({
+  actorId: Schema32.optionalKey(Schema32.String),
+  outputAt: Schema32.optionalKey(Schema32.String),
+  type: Schema32.String
+}), [Schema32.Record(Schema32.String, Schema32.Unknown)]);
+var DirectiveSchema = Schema32.TaggedUnion({
   Ask: {
-    envelope: Schema30.String,
+    envelope: Schema32.String,
     epoch: Count,
-    messageId: Schema30.String,
-    to: Schema30.String,
+    messageId: Schema32.String,
+    to: Schema32.String,
     visit: Count
   },
   Emit: { question: QuestionInputSchema }
 });
 var DIRECTIVE_KEY = /^(?<runId>[a-z0-9][a-z0-9-]{0,63}):(?<step>[a-z_][a-z0-9_-]*(?:\.[a-z_][a-z0-9_-]*)*):(?<visit>[1-9][0-9]*):(?<index>0|[1-9][0-9]*)$/u;
-var DirectiveKey = Schema30.String.check(Schema30.isPattern(DIRECTIVE_KEY));
+var DirectiveKey = Schema32.String.check(Schema32.isPattern(DIRECTIVE_KEY));
 var directiveKey = ({ index: index3, runId: runId2, step, visit }) => `${runId2}:${step}:${visit}:${index3}`;
-var PendingDirectiveSchema = Schema30.Struct({
+var PendingDirectiveSchema = Schema32.Struct({
   directive: DirectiveSchema,
   key: DirectiveKey
 });
-var CheckpointSchema = Schema30.Struct({
-  mailbox: Schema30.Array(StoredEventSchema),
-  pending: Schema30.Array(PendingDirectiveSchema).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed([]))),
-  snapshot: Schema30.Unknown,
-  starts: Schema30.Record(Schema30.String, Count),
+var CheckpointSchema = Schema32.Struct({
+  mailbox: Schema32.Array(StoredEventSchema),
+  pending: Schema32.Array(PendingDirectiveSchema).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed([]))),
+  snapshot: Schema32.Unknown,
+  starts: Schema32.Record(Schema32.String, Count),
   transitionIndex: Count
 });
-var DocsSchema = Schema30.Record(Schema30.String, Schema30.Json);
-var JudgeModeSchema = Schema30.Literals(["shadow", "jev"]).annotate({
+var DocsSchema = Schema32.Record(Schema32.String, Schema32.Json);
+var JudgeModeSchema = Schema32.Literals(["shadow", "jev"]).annotate({
   description: `Who answers this run's judge steps: "shadow" records each question for a relay to answer, "jev" asks Jev. Omitted, the host default answers. Fixed at the first submit`
 });
-var EscalateToSchema = Schema30.String.check(Schema30.isPattern(/^[a-z][a-z0-9_-]{0,63}(?:\/[a-z][a-z0-9_-]{0,63})?$/u)).annotate({
+var EscalateToSchema = Schema32.String.check(Schema32.isPattern(/^[a-z][a-z0-9_-]{0,63}(?:\/[a-z][a-z0-9_-]{0,63})?$/u)).annotate({
   description: 'The Rat King name that gets mail when a judge escalates, such as "agent-graph/desk". Omitted, an escalation only waits for answerRun. Fixed at the first submit'
 });
-var AwaitingSchema = Schema30.Struct({
-  key: Schema30.String,
-  message: Schema30.NullOr(Schema30.String).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed(null))),
-  messageId: Schema30.String,
-  to: Schema30.String,
-  writes: Schema30.NullOr(Schema30.String)
+var AwaitingSchema = Schema32.Struct({
+  key: Schema32.String,
+  message: Schema32.NullOr(Schema32.String).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed(null))),
+  messageId: Schema32.String,
+  to: Schema32.String,
+  writes: Schema32.NullOr(Schema32.String)
 });
-var ReplyLineSchema = Schema30.Struct({
-  acceptedAt: Schema30.optionalKey(Schema30.String),
-  body: Schema30.String,
-  from: Schema30.optionalKey(Schema30.String),
-  messageId: Schema30.optionalKey(Schema30.String),
-  replyTo: Schema30.String,
-  runId: Schema30.optionalKey(RunId)
+var ReplyLineSchema = Schema32.Struct({
+  acceptedAt: Schema32.optionalKey(Schema32.String),
+  body: Schema32.String,
+  from: Schema32.optionalKey(Schema32.String),
+  messageId: Schema32.optionalKey(Schema32.String),
+  replyTo: Schema32.String,
+  runId: Schema32.optionalKey(RunId)
 });
-var PendingReplySchema = Schema30.Struct({
-  body: Schema30.String,
-  key: Schema30.String
+var PendingReplySchema = Schema32.Struct({
+  body: Schema32.String,
+  key: Schema32.String
 });
-var HeldSchema = Schema30.Struct({
+var HeldSchema = Schema32.Struct({
   cause: ProviderCauseSchema,
-  error: Schema30.String.pipe(Schema30.withDecodingDefaultKey(Effect16.succeed(""))),
-  key: Schema30.String,
-  provider: Schema30.String,
-  resumeAfter: Schema30.NullOr(Schema30.Finite).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed(null))),
-  retryAfter: Schema30.NullOr(Schema30.Finite).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed(null))),
-  since: Schema30.Finite,
-  status: Schema30.NullOr(Schema30.Int)
+  error: Schema32.String.pipe(Schema32.withDecodingDefaultKey(Effect16.succeed(""))),
+  key: Schema32.String,
+  provider: Schema32.String,
+  resumeAfter: Schema32.NullOr(Schema32.Finite).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed(null))),
+  retryAfter: Schema32.NullOr(Schema32.Finite).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed(null))),
+  since: Schema32.Finite,
+  status: Schema32.NullOr(Schema32.Int)
 });
-var RunStateSchema = Schema30.Struct({
-  answers: Schema30.Record(Schema30.String, Count),
-  asking: Schema30.NullOr(QuestionInputSchema),
-  awaiting: Schema30.Array(AwaitingSchema).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed([]))),
-  callerShareWaits: Schema30.optionalKey(Count),
-  capped: Schema30.NullOr(Schema30.String).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed(null))),
-  checkpoint: Schema30.NullOr(CheckpointSchema),
-  held: Schema30.Array(HeldSchema).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed([]))),
+var RunStateSchema = Schema32.Struct({
+  answers: Schema32.Record(Schema32.String, Count),
+  asking: Schema32.NullOr(QuestionInputSchema),
+  awaiting: Schema32.Array(AwaitingSchema).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed([]))),
+  callerShareWaits: Schema32.optionalKey(Count),
+  capped: Schema32.NullOr(Schema32.String).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed(null))),
+  checkpoint: Schema32.NullOr(CheckpointSchema),
+  held: Schema32.Array(HeldSchema).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed([]))),
   planVersion: Count,
-  replies: Schema30.Array(PendingReplySchema).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed([]))),
-  resumeAttempts: Count.pipe(Schema30.withDecodingDefaultKey(Effect16.succeed(0))),
-  revision: Schema30.NullOr(Schema30.Struct({ diverged: Schema30.Boolean, from: Count })).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed(null))),
-  seeded: Schema30.NullOr(Schema30.Array(Schema30.String)).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed(null))),
+  replies: Schema32.Array(PendingReplySchema).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed([]))),
+  resumeAttempts: Count.pipe(Schema32.withDecodingDefaultKey(Effect16.succeed(0))),
+  revision: Schema32.NullOr(Schema32.Struct({ diverged: Schema32.Boolean, from: Count })).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed(null))),
+  seeded: Schema32.NullOr(Schema32.Array(Schema32.String)).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed(null))),
   status: RunStatusSchema,
-  submitted: Schema30.NullOr(Schema30.String).pipe(Schema30.withDecodingDefaultKey(Effect16.succeed(null))),
+  submitted: Schema32.NullOr(Schema32.String).pipe(Schema32.withDecodingDefaultKey(Effect16.succeed(null))),
   transitions: Count,
-  value: Schema30.NullOr(Schema30.String)
+  value: Schema32.NullOr(Schema32.String)
 });
-var QuestionSchema = Schema30.Struct({
+var QuestionSchema = Schema32.Struct({
   ...QuestionInputSchema.fields,
   answered: Count
 });
-var FailureSchema = Schema30.Struct({
-  key: Schema30.String,
-  reason: Schema30.String
+var FailureSchema = Schema32.Struct({
+  key: Schema32.String,
+  reason: Schema32.String
 });
-var RunThinkingSchema = Schema30.Struct({
+var RunThinkingSchema = Schema32.Struct({
   ...ThinkTotalsSchema.fields,
-  line: Schema30.String
+  line: Schema32.String
 });
-var DriveLeaseSchema = Schema30.Struct({
+var DriveLeaseSchema = Schema32.Struct({
   epoch: Count,
-  holder: Schema30.NullOr(Schema30.String),
+  holder: Schema32.NullOr(Schema32.String),
   leaseUntil: Count
 });
-var RunReportSchema = Schema30.Struct({
-  awaiting: Schema30.optionalKey(Schema30.Array(AwaitingSchema)),
-  callerShareWaits: Schema30.optionalKey(Count),
+var RunReportSchema = Schema32.Struct({
+  awaiting: Schema32.optionalKey(Schema32.Array(AwaitingSchema)),
+  callerShareWaits: Schema32.optionalKey(Count),
   docs: DocsSchema,
-  driveLease: Schema30.optionalKey(DriveLeaseSchema),
-  failures: Schema30.optionalKey(Schema30.Array(FailureSchema)),
-  held: Schema30.optionalKey(Schema30.Array(HeldSchema)),
-  planId: Schema30.String,
+  driveLease: Schema32.optionalKey(DriveLeaseSchema),
+  failures: Schema32.optionalKey(Schema32.Array(FailureSchema)),
+  held: Schema32.optionalKey(Schema32.Array(HeldSchema)),
+  planId: Schema32.String,
   planVersion: Count,
-  question: Schema30.optionalKey(QuestionSchema),
+  question: Schema32.optionalKey(QuestionSchema),
   runId: RunId,
   status: RunStatusSchema,
-  thinking: Schema30.optionalKey(RunThinkingSchema),
+  thinking: Schema32.optionalKey(RunThinkingSchema),
   transitions: Count,
-  value: Schema30.NullOr(Schema30.String)
+  value: Schema32.NullOr(Schema32.String)
 });
-var RevisionReportSchema = Schema30.Struct({
-  dryRun: Schema30.Boolean,
-  live: Schema30.Array(Schema30.String),
-  reused: Schema30.Array(Schema30.String),
+var RevisionReportSchema = Schema32.Struct({
+  dryRun: Schema32.Boolean,
+  live: Schema32.Array(Schema32.String),
+  reused: Schema32.Array(Schema32.String),
   run: RunReportSchema
 });
-var JournalLineSchema = Schema30.Struct({
-  entry: Schema30.Json,
-  key: Schema30.String
+var JournalLineSchema = Schema32.Struct({
+  entry: Schema32.Json,
+  key: Schema32.String
 });
-var RunRecordSchema = Schema30.Struct({
-  journal: Schema30.Array(JournalLineSchema),
+var RunRecordSchema = Schema32.Struct({
+  journal: Schema32.Array(JournalLineSchema),
   plan: PlanSchema,
   planVersion: Count,
   runId: RunId
 });
 
 // ../../packages/core/dist/runs/unknown-run.js
-import { Schema as Schema31 } from "effect";
-var UnknownRun = class extends Schema31.TaggedError()("UnknownRun", {
-  runId: Schema31.String
+import { Schema as Schema33 } from "effect";
+var UnknownRun = class extends Schema33.TaggedError()("UnknownRun", {
+  runId: Schema33.String
 }) {
   get message() {
     return `No run named "${this.runId}". Check the runId, or start one with submitPlan({ runId, plan }).`;
@@ -60378,13 +60535,13 @@ var submitPlanContract = defineContract("submitPlan", {
   annotations: { idempotent: true, openWorld: true },
   description: "Validate a plan and store it as version 1 of a new run with any seed docs. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. Submitting an existing run id with the same plan and docs reports that run; a different plan or docs is refused, so use reviseRun to change a run.",
   failure: PlanRefused,
-  input: Schema32.Struct({
-    docs: Schema32.optionalKey(DocsSchema.annotate({
+  input: Schema34.Struct({
+    docs: Schema34.optionalKey(DocsSchema.annotate({
       description: "Seed docs, by name, that judge steps can list in reads; the plan stays the same across runs"
     })),
-    escalateTo: Schema32.optionalKey(EscalateToSchema),
-    judge: Schema32.optionalKey(JudgeModeSchema),
-    plan: Schema32.Json.annotate({ description: "The plan, as JSON" }),
+    escalateTo: Schema34.optionalKey(EscalateToSchema),
+    judge: Schema34.optionalKey(JudgeModeSchema),
+    plan: Schema34.Json.annotate({ description: "The plan, as JSON" }),
     runId
   }),
   output: RunReportSchema
@@ -60393,38 +60550,38 @@ var inspectRunContract = defineContract("inspectRun", {
   annotations: { idempotent: true, readOnly: true },
   description: "Report a run's status, current state, documents, and any open question",
   failure: UnknownRun,
-  input: Schema32.Struct({ runId }),
+  input: Schema34.Struct({ runId }),
   output: RunReportSchema
 });
 var readRunContract = defineContract("readRun", {
   annotations: { idempotent: true, readOnly: true },
   description: "Read a run's current plan and its whole journal in the order it was written, for viewers that draw the plan's states and what each step recorded",
   failure: UnknownRun,
-  input: Schema32.Struct({ runId }),
+  input: Schema34.Struct({ runId }),
   output: RunRecordSchema
 });
 var pauseRunContract = defineContract("pauseRun", {
   annotations: { idempotent: true },
   description: "Ask a run to stop before its next transition; steps already running finish",
   failure: UnknownRun,
-  input: Schema32.Struct({ runId }),
+  input: Schema34.Struct({ runId }),
   output: RunReportSchema
 });
 var resumeRunContract = defineContract("resumeRun", {
   annotations: { idempotent: true, openWorld: true },
   description: "Clear a pause and store the run as running from its last checkpoint. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress.",
   failure: UnknownRun,
-  input: Schema32.Struct({ runId }),
+  input: Schema34.Struct({ runId }),
   output: RunReportSchema
 });
 var abortRunContract = defineContract("abortRun", {
   annotations: { destructive: true, idempotent: true },
   description: "End a run for good; its checkpoint and documents stay readable",
   failure: UnknownRun,
-  input: Schema32.Struct({
-    reason: Schema32.optionalKey(Schema32.String),
+  input: Schema34.Struct({
+    reason: Schema34.optionalKey(Schema34.String),
     runId,
-    supersededBy: Schema32.optionalKey(RunId.annotate({
+    supersededBy: Schema34.optionalKey(RunId.annotate({
       description: "The run replacing this one. Each open ask gets one closing note naming it, so the asked desk stops treating the old ask as live"
     }))
   }),
@@ -60433,9 +60590,9 @@ var abortRunContract = defineContract("abortRun", {
 var answerRunContract = defineContract("answerRun", {
   annotations: { openWorld: true },
   description: "Store an answer to the question a run is waiting on with one of its listed options. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress.",
-  failure: Schema32.Union([UnknownRun, AnswerRefused]),
-  input: Schema32.Struct({
-    reply: Schema32.String.annotate({ description: "One of the listed options" }),
+  failure: Schema34.Union([UnknownRun, AnswerRefused]),
+  input: Schema34.Struct({
+    reply: Schema34.String.annotate({ description: "One of the listed options" }),
     runId
   }),
   output: RunReportSchema
@@ -60443,19 +60600,19 @@ var answerRunContract = defineContract("answerRun", {
 var deliverReplyContract = defineContract("deliverReply", {
   annotations: { openWorld: true },
   description: "Store a Rat King reply for the run whose ask sent the message it answers. Worker hosts return once stored; the alarm writes its doc and drives the run on. The local CLI drives in-process before returning. Poll inspectRun for progress. Takes a drained mailbox line as-is; extra fields are ignored.",
-  failure: Schema32.Union([AlreadyJournaled, ReplyRefused]),
+  failure: Schema34.Union([AlreadyJournaled, ReplyRefused]),
   input: ReplyLineSchema,
   output: RunReportSchema
 });
 var reviseRunContract = defineContract("reviseRun", {
   annotations: { openWorld: true },
   description: "Rebuild a run under a revised plan with the same envelope. Steps whose definition and input docs are unchanged reuse their recorded results; the rest run live, an unchanged ask keeps its message and reply, and Joel is asked again only after work changed. Worker hosts return once the revision is stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. live and reused preview reuse and the first live step on each path; dryRun previews without touching the run.",
-  failure: Schema32.Union([UnknownRun, RevisionRefused]),
-  input: Schema32.Struct({
-    dryRun: Schema32.Boolean.annotate({
+  failure: Schema34.Union([UnknownRun, RevisionRefused]),
+  input: Schema34.Struct({
+    dryRun: Schema34.Boolean.annotate({
       description: "Preview only: report reuse and the first live steps, change nothing"
     }),
-    plan: Schema32.Json.annotate({ description: "The revised plan, as JSON" }),
+    plan: Schema34.Json.annotate({ description: "The revised plan, as JSON" }),
     runId
   }),
   output: RevisionReportSchema
@@ -60463,9 +60620,9 @@ var reviseRunContract = defineContract("reviseRun", {
 var extendRunContract = defineContract("extendRun", {
   annotations: { openWorld: true },
   description: "Raise a run's maxSteps when it paused at its envelope and store a new plan version. Worker hosts return once stored and drive it from the alarm; the local CLI drives in-process before returning. Poll inspectRun for progress. The owner decides this; nothing a worker sees ever carries the limit.",
-  failure: Schema32.Union([UnknownRun, ExtendRefused]),
-  input: Schema32.Struct({
-    maxSteps: Schema32.Int.check(Schema32.isGreaterThan(0)).annotate({
+  failure: Schema34.Union([UnknownRun, ExtendRefused]),
+  input: Schema34.Struct({
+    maxSteps: Schema34.Int.check(Schema34.isGreaterThan(0)).annotate({
       description: "The new step limit, above the current one"
     }),
     runId
@@ -60474,14 +60631,14 @@ var extendRunContract = defineContract("extendRun", {
 });
 
 // ../../packages/core/dist/runs/host.js
-import { Clock as Clock3, Context as Context24, Effect as Effect33, Exit as Exit5, Layer as Layer14, Option as Option15, Result as Result6, Schema as Schema52 } from "effect";
+import { Clock as Clock3, Context as Context25, Effect as Effect33, Exit as Exit5, Layer as Layer14, Option as Option15, Result as Result6, Schema as Schema54 } from "effect";
 import * as Digest4 from "effect/crypto/Digest";
 
 // ../../packages/core/dist/steps/judge.js
-import { Context as Context13, Effect as Effect17, Layer as Layer5, Schema as Schema33 } from "effect";
+import { Context as Context14, Effect as Effect17, Layer as Layer5, Schema as Schema35 } from "effect";
 var WHY_LINES = 8;
 var WHY_LINE_CHARS = 240;
-var WhySchema = Schema33.Array(Schema33.String.check(Schema33.isMaxLength(WHY_LINE_CHARS))).check(Schema33.isMaxLength(WHY_LINES));
+var WhySchema = Schema35.Array(Schema35.String.check(Schema35.isMaxLength(WHY_LINE_CHARS))).check(Schema35.isMaxLength(WHY_LINES));
 var whyDocName = (key) => `${key.replaceAll(".", "-")}-why`;
 var askedDocName = (key) => `__asked:${key}`;
 var reasonDocName = (key) => `__reason:${key}`;
@@ -60489,31 +60646,31 @@ var unwired = (call) => Effect17.fail(new StepFailed({
   key: call.key,
   reason: "this host has no Jev judge wired. Wire one (the CLI host takes MISCHIEF_JEV_KEY, a TypeSafe key) or give the judge step a fallback transition, then resume the run"
 }));
-var Judge = class extends Context13.Service()("@mischief/core/Judge") {
+var Judge = class extends Context14.Service()("@mischief/core/Judge") {
   static unwired = Layer5.succeed(this, {
     choose: unwired
   });
 };
 
 // ../../packages/core/dist/steps/operator.js
-import { Context as Context14 } from "effect";
-var Operator = class extends Context14.Service()("@mischief/core/Operator") {
+import { Context as Context15 } from "effect";
+var Operator = class extends Context15.Service()("@mischief/core/Operator") {
 };
 
 // ../../packages/core/dist/runs/close-asks.js
-import { Effect as Effect20, Option as Option6, Result, Schema as Schema37 } from "effect";
+import { Effect as Effect20, Option as Option6, Result, Schema as Schema39 } from "effect";
 
 // ../../packages/core/dist/steps/mail.js
-import { Context as Context15, Effect as Effect18, Layer as Layer6, Schema as Schema34 } from "effect";
-var SealedSchema = Schema34.Struct({
-  envelope: Schema34.String,
-  messageId: Schema34.String
+import { Context as Context16, Effect as Effect18, Layer as Layer6, Schema as Schema36 } from "effect";
+var SealedSchema = Schema36.Struct({
+  envelope: Schema36.String,
+  messageId: Schema36.String
 });
 var unwired2 = (call) => Effect18.fail(new StepFailed({
   key: call.key,
   reason: "Mail is not wired on this host"
 }));
-var Mail = class extends Context15.Service()("@mischief/core/Mail") {
+var Mail = class extends Context16.Service()("@mischief/core/Mail") {
   static unwired = Layer6.succeed(this, {
     seal: unwired2,
     send: unwired2
@@ -60521,19 +60678,19 @@ var Mail = class extends Context15.Service()("@mischief/core/Mail") {
 };
 
 // ../../packages/core/dist/runs/run-store.js
-import { Cause as Cause4, Context as Context16, Effect as Effect19, Exit as Exit3, Layer as Layer7, Option as Option5 } from "effect";
+import { Cause as Cause4, Context as Context17, Effect as Effect19, Exit as Exit3, Layer as Layer7, Option as Option5 } from "effect";
 
 // ../../packages/core/dist/runs/run-left-uncommitted.js
-import { Schema as Schema35 } from "effect";
-var RunLeftUncommitted = class extends Schema35.TaggedError()("RunLeftUncommitted", { runId: Schema35.String, writes: Schema35.Array(Schema35.String) }) {
+import { Schema as Schema37 } from "effect";
+var RunLeftUncommitted = class extends Schema37.TaggedError()("RunLeftUncommitted", { runId: Schema37.String, writes: Schema37.Array(Schema37.String) }) {
   get message() {
     return `run ${this.runId}'s unit of work closed with writes nobody committed or discarded (${this.writes.join(", ")}). Commit or discard before the unit ends; withinRun does both.`;
   }
 };
 
 // ../../packages/core/dist/runs/run-write-outside-unit.js
-import { Schema as Schema36 } from "effect";
-var RunWriteOutsideUnit = class extends Schema36.TaggedError()("RunWriteOutsideUnit", { runId: Schema36.String, write: Schema36.String }) {
+import { Schema as Schema38 } from "effect";
+var RunWriteOutsideUnit = class extends Schema38.TaggedError()("RunWriteOutsideUnit", { runId: Schema38.String, write: Schema38.String }) {
   get message() {
     return `${this.write} for run ${this.runId} came outside a unit of work, so it would never be committed. Go through RunHost, or wrap the writes in withinRun(store, "${this.runId}").`;
   }
@@ -60723,7 +60880,7 @@ var memoryRunBackend = () => {
     readRun: (runId2) => Effect19.sync(() => Option5.fromUndefinedOr(runs.get(runId2)).pipe(Option5.map((state3) => structuredClone(state3))))
   };
 };
-var RunStore = class extends Context16.Service()("@mischief/core/RunStore") {
+var RunStore = class extends Context17.Service()("@mischief/core/RunStore") {
   static memory = Layer7.sync(this, () => bufferedRunStore(memoryRunBackend()));
 };
 var withinRun = (store, runId2) => (effect) => Effect19.acquireUseRelease(store.open(runId2), () => effect, (_, exit) => (Exit3.isSuccess(exit) || Cause4.hasFails(exit.cause) && !Cause4.hasDies(exit.cause) && !Cause4.hasInterrupts(exit.cause) ? store.commit(runId2) : store.discard(runId2)).pipe(Effect19.andThen(store.close(runId2))));
@@ -60736,8 +60893,8 @@ var closeText = (runId2, messageId, supersededBy) => [
   "",
   JSON.stringify(supersededBy === void 0 ? { closed: runId2, supersedes: messageId } : { closed: runId2, supersededBy, supersedes: messageId })
 ].join("\n");
-var decodeSealed = Schema37.decodeUnknownOption(SealedSchema);
-var reasonOf = (failure6) => Schema37.is(StepFailed)(failure6) ? failure6.reason : failure6.error ?? `${failure6.provider} is unavailable (${failure6.cause})`;
+var decodeSealed = Schema39.decodeUnknownOption(SealedSchema);
+var reasonOf = (failure6) => Schema39.is(StepFailed)(failure6) ? failure6.reason : failure6.error ?? `${failure6.provider} is unavailable (${failure6.cause})`;
 var closeOpenAsks = (runId2, open3, supersededBy) => Effect20.gen(function* closeAsks() {
   const store = yield* RunStore;
   const mail = yield* Mail;
@@ -60768,8 +60925,8 @@ var closeOpenAsks = (runId2, open3, supersededBy) => Effect20.gen(function* clos
 });
 
 // ../../packages/core/dist/runs/drive.js
-import { Context as Context17, Effect as Effect21, Layer as Layer8 } from "effect";
-var Drive = class extends Context17.Service()("@mischief/core/Drive") {
+import { Context as Context18, Effect as Effect21, Layer as Layer8 } from "effect";
+var Drive = class extends Context18.Service()("@mischief/core/Drive") {
   static inline = Layer8.succeed(this, {
     stored: (_report, advance3) => advance3
   });
@@ -60779,14 +60936,14 @@ var Drive = class extends Context17.Service()("@mischief/core/Drive") {
 };
 
 // ../../packages/core/dist/runs/fingerprint.js
-import { Effect as Effect22, Option as Option7, Schema as Schema38 } from "effect";
+import { Effect as Effect22, Option as Option7, Schema as Schema40 } from "effect";
 import * as Digest from "effect/crypto/Digest";
 import { Hex } from "effect/encoding";
 var canonical = (value) => {
-  if (Schema38.is(Schema38.Array(Schema38.Json))(value)) {
+  if (Schema40.is(Schema40.Array(Schema40.Json))(value)) {
     return `[${value.map((item) => canonical(item)).join(",")}]`;
   }
-  if (Schema38.is(Schema38.Record(Schema38.String, Schema38.Json))(value)) {
+  if (Schema40.is(Schema40.Record(Schema40.String, Schema40.Json))(value)) {
     const fields = Object.entries(value).toSorted(([left], [right]) => left < right ? -1 : 1).map(([name, field]) => `${JSON.stringify(name)}:${canonical(field)}`);
     return `{${fields.join(",")}}`;
   }
@@ -60796,24 +60953,24 @@ var fingerprintOf = (crypto2, value) => Effect22.gen(function* fingerprint() {
   const digest = yield* crypto2.digest(Digest.sha256, new TextEncoder().encode(canonical(value)));
   return Hex.encode(digest);
 }).pipe(Effect22.orDie);
-var ActorStepSchema = Schema38.Struct({
-  options: Schema38.Struct({ input: Schema38.Unknown, src: Schema38.String })
+var ActorStepSchema = Schema40.Struct({
+  options: Schema40.Struct({ input: Schema40.Unknown, src: Schema40.String })
 });
-var decodeJson = Schema38.decodeUnknownOption(Schema38.fromJsonString(Schema38.Json));
-var stepOf = (actor) => Schema38.decodeUnknownOption(ActorStepSchema)(actor).pipe(Option7.flatMap(({ options: options2 }) => decodeJson(JSON.stringify({ input: options2.input, src: options2.src }))), Option7.getOrElse(() => null));
+var decodeJson = Schema40.decodeUnknownOption(Schema40.fromJsonString(Schema40.Json));
+var stepOf = (actor) => Schema40.decodeUnknownOption(ActorStepSchema)(actor).pipe(Option7.flatMap(({ options: options2 }) => decodeJson(JSON.stringify({ input: options2.input, src: options2.src }))), Option7.getOrElse(() => null));
 
 // ../../packages/core/dist/runs/provider-resume.js
-import { Context as Context18, Effect as Effect23, Layer as Layer9, Random, Schema as Schema39 } from "effect";
-var ProviderResumeSchema = Schema39.Struct({
-  attempts: Schema39.Int.check(Schema39.isGreaterThanOrEqualTo(0)),
-  baseMs: Schema39.Int.check(Schema39.isGreaterThanOrEqualTo(1)),
-  capMs: Schema39.Int.check(Schema39.isGreaterThanOrEqualTo(1))
+import { Context as Context19, Effect as Effect23, Layer as Layer9, Random, Schema as Schema41 } from "effect";
+var ProviderResumeSchema = Schema41.Struct({
+  attempts: Schema41.Int.check(Schema41.isGreaterThanOrEqualTo(0)),
+  baseMs: Schema41.Int.check(Schema41.isGreaterThanOrEqualTo(1)),
+  capMs: Schema41.Int.check(Schema41.isGreaterThanOrEqualTo(1))
 });
-var ProviderResume = Context18.Reference("@mischief/core/ProviderResume", {
+var ProviderResume = Context19.Reference("@mischief/core/ProviderResume", {
   defaultValue: () => ({ attempts: 6, baseMs: 3e4, capMs: 9e5 })
 });
 var setting = (text, fallback) => text === void 0 || text.trim() === "" ? fallback : Number(text);
-var providerResumeLayer = (settings2) => Layer9.effect(ProviderResume, Schema39.decodeEffect(ProviderResumeSchema)({
+var providerResumeLayer = (settings2) => Layer9.effect(ProviderResume, Schema41.decodeEffect(ProviderResumeSchema)({
   attempts: setting(settings2.attempts, 6),
   baseMs: setting(settings2.baseMs, 3e4),
   capMs: setting(settings2.capMs, 9e5)
@@ -60838,7 +60995,7 @@ var providerWakeAt = (held) => {
 };
 
 // ../../packages/core/dist/runs/session.js
-import { Clock as Clock2, Cause as Cause5, Exit as Exit4, Deferred as Deferred2, Effect as Effect31, Option as Option13, Result as Result5, Schema as Schema50, Semaphore } from "effect";
+import { Clock as Clock2, Cause as Cause5, Exit as Exit4, Deferred as Deferred2, Effect as Effect31, Option as Option13, Result as Result5, Schema as Schema52, Semaphore } from "effect";
 import * as Digest2 from "effect/crypto/Digest";
 import { constVoid as constVoid2 } from "effect/Function";
 
@@ -60883,11 +61040,11 @@ var amendPlan = (plan, point, amendment) => ({
 });
 
 // ../../packages/core/dist/steps/call-concurrency.js
-import { Context as Context19, Effect as Effect24, Layer as Layer10, Result as Result2, Schema as Schema40 } from "effect";
+import { Context as Context20, Effect as Effect24, Layer as Layer10, Result as Result2, Schema as Schema42 } from "effect";
 var CALL_CONCURRENCY_FLAG = "MISCHIEF_CALL_CONCURRENCY";
 var DEFAULT_CALL_CONCURRENCY = 16;
-var CallConcurrency = Context19.Reference("@mischief/core/CallConcurrency", { defaultValue: () => DEFAULT_CALL_CONCURRENCY });
-var CallConcurrencyRefused = class extends Schema40.TaggedError()("CallConcurrencyRefused", { given: Schema40.String }) {
+var CallConcurrency = Context20.Reference("@mischief/core/CallConcurrency", { defaultValue: () => DEFAULT_CALL_CONCURRENCY });
+var CallConcurrencyRefused = class extends Schema42.TaggedError()("CallConcurrencyRefused", { given: Schema42.String }) {
   get message() {
     return `${CALL_CONCURRENCY_FLAG}="${this.given}" is refused: it caps the capability calls one run invokes at once, so it must be a positive whole number such as ${DEFAULT_CALL_CONCURRENCY}. Set ${CALL_CONCURRENCY_FLAG}=${DEFAULT_CALL_CONCURRENCY}, or leave it unset for the default of ${DEFAULT_CALL_CONCURRENCY}, then start the host again`;
   }
@@ -60902,13 +61059,13 @@ var callConcurrencyFrom = (text) => {
 var callConcurrencyLayer = (text) => Layer10.effect(CallConcurrency, Effect24.fromResult(callConcurrencyFrom(text)).pipe(Effect24.orDie));
 
 // ../../packages/core/dist/steps/caller-think-share.js
-import { Context as Context20, Effect as Effect25, Schema as Schema41 } from "effect";
-var ThinkAbortUnconfirmed = class extends Schema41.TaggedError()("ThinkAbortUnconfirmed", {
-  key: Schema41.String,
-  reason: Schema41.String
+import { Context as Context21, Effect as Effect25, Schema as Schema43 } from "effect";
+var ThinkAbortUnconfirmed = class extends Schema43.TaggedError()("ThinkAbortUnconfirmed", {
+  key: Schema43.String,
+  reason: Schema43.String
 }) {
 };
-var CallerThinkShare = Context20.Reference("@mischief/core/CallerThinkShare", {
+var CallerThinkShare = Context21.Reference("@mischief/core/CallerThinkShare", {
   defaultValue: () => ({
     acquire: () => Effect25.succeed({
       durationMs: Number.POSITIVE_INFINITY,
@@ -60918,11 +61075,11 @@ var CallerThinkShare = Context20.Reference("@mischief/core/CallerThinkShare", {
 });
 
 // ../../packages/core/dist/steps/think-concurrency.js
-import { Context as Context21, Effect as Effect26, Layer as Layer11, Result as Result3, Schema as Schema42 } from "effect";
+import { Context as Context22, Effect as Effect26, Layer as Layer11, Result as Result3, Schema as Schema44 } from "effect";
 var THINK_CONCURRENCY_FLAG = "MISCHIEF_THINK_CONCURRENCY";
 var DEFAULT_THINK_CONCURRENCY = 20;
-var ThinkConcurrency = Context21.Reference("@mischief/core/ThinkConcurrency", { defaultValue: () => DEFAULT_THINK_CONCURRENCY });
-var ThinkConcurrencyRefused = class extends Schema42.TaggedError()("ThinkConcurrencyRefused", { given: Schema42.String }) {
+var ThinkConcurrency = Context22.Reference("@mischief/core/ThinkConcurrency", { defaultValue: () => DEFAULT_THINK_CONCURRENCY });
+var ThinkConcurrencyRefused = class extends Schema44.TaggedError()("ThinkConcurrencyRefused", { given: Schema44.String }) {
   get message() {
     return `${THINK_CONCURRENCY_FLAG}="${this.given}" is refused: it caps the think calls one run sends to the model at once, so it must be a positive whole number such as ${DEFAULT_THINK_CONCURRENCY}. Set ${THINK_CONCURRENCY_FLAG}=${DEFAULT_THINK_CONCURRENCY}, or leave it unset for the default of ${DEFAULT_THINK_CONCURRENCY}, then start the host again`;
   }
@@ -60943,12 +61100,12 @@ var ThinkModelUnmapped = class extends Data6.TaggedError("ThinkModelUnmapped") {
 var unmappedReason = ({ mapped, model: model2 }) => `ThinkModelUnmapped: the think rung asks for model "${model2}", which this host does not map (mapped: ${mapped.join(", ") || "none"}), so no model weighed in and the judge came to you. Fix: answer the question. To let the think rung decide next time, set the plan's defaults.agent.model to a mapped model, or drop envelope.thresholds.think to send every sub-threshold verdict straight to you.`;
 
 // ../../packages/core/dist/steps/thinker.js
-import { Context as Context22, Effect as Effect27, Layer as Layer12 } from "effect";
+import { Context as Context23, Effect as Effect27, Layer as Layer12 } from "effect";
 var unwired3 = (call) => Effect27.fail(new StepFailed({
   key: call.key,
   reason: "Thinker is not wired on this host"
 }));
-var Thinker = class extends Context22.Service()("@mischief/core/Thinker") {
+var Thinker = class extends Context23.Service()("@mischief/core/Thinker") {
   static unwired = Layer12.succeed(this, {
     decide: unwired3,
     elaborate: unwired3,
@@ -60963,7 +61120,7 @@ var VerdictDeferred = class extends Data7.TaggedError("VerdictDeferred") {
 };
 
 // ../../packages/core/dist/steps/withheld.js
-import { Schema as Schema43 } from "effect";
+import { Schema as Schema45 } from "effect";
 var HTTP_STATUS = /\bHTTP (?<status>[1-5]\d{2})\b/u;
 var statusIn = (reason) => {
   const found = HTTP_STATUS.exec(reason)?.groups?.status;
@@ -60992,14 +61149,14 @@ var withheldOutage = (outage) => new ProviderUnavailable({
   retryAfter: outage.retryAfter,
   status: outage.status
 });
-var withheldThink = (key) => (failure6) => Schema43.is(ProviderUnavailable)(failure6) ? withheldOutage(failure6) : withheldFailure(key, "model", "")(failure6);
+var withheldThink = (key) => (failure6) => Schema45.is(ProviderUnavailable)(failure6) ? withheldOutage(failure6) : withheldFailure(key, "model", "")(failure6);
 
 // ../../packages/core/dist/runs/completions.js
-import { Effect as Effect28, Option as Option8, Predicate, Schema as Schema45 } from "effect";
+import { Effect as Effect28, Option as Option8, Predicate, Schema as Schema47 } from "effect";
 
 // ../../packages/core/dist/runs/completion-lost.js
-import { Schema as Schema44 } from "effect";
-var CompletionLost = class extends Schema44.TaggedError()("CompletionLost", { key: Schema44.String, runId: Schema44.String, type: Schema44.String }) {
+import { Schema as Schema46 } from "effect";
+var CompletionLost = class extends Schema46.TaggedError()("CompletionLost", { key: Schema46.String, runId: Schema46.String, type: Schema46.String }) {
   get message() {
     return `run ${this.runId}'s checkpoint holds an unconsumed ${this.type} event whose output is stored under journal key ${this.key}, and the journal has no entry there, so the run cannot resume with the value that step returned. The journal row was deleted after the checkpoint that names it was committed. Restore the run's journal from a backup, or abortRun({ runId: "${this.runId}" }) and submitPlan it as a new run.`;
   }
@@ -61028,18 +61185,18 @@ var liveEvent = (runId2, journal, keys) => (event) => {
   remember(keys, outputAt, output);
   return Effect28.succeed({ ...rest, output });
 };
-var Rest2 = Schema45.Record(Schema45.String, Schema45.Unknown);
-var EffectSchema = Schema45.StructWithRest(Schema45.Struct({ status: Schema45.String }), [Rest2]);
-var DoneSchema = Schema45.StructWithRest(Schema45.Struct({
-  effects: Schema45.optionalKey(Schema45.Record(Schema45.String, EffectSchema)),
-  status: Schema45.Literal("done")
+var Rest2 = Schema47.Record(Schema47.String, Schema47.Unknown);
+var EffectSchema = Schema47.StructWithRest(Schema47.Struct({ status: Schema47.String }), [Rest2]);
+var DoneSchema = Schema47.StructWithRest(Schema47.Struct({
+  effects: Schema47.optionalKey(Schema47.Record(Schema47.String, EffectSchema)),
+  status: Schema47.Literal("done")
 }), [Rest2]);
-var ChildSchema = Schema45.StructWithRest(Schema45.Struct({ snapshot: Schema45.optionalKey(Schema45.Unknown) }), [Rest2]);
-var ChildrenSchema = Schema45.Struct({
-  children: Schema45.Record(Schema45.String, ChildSchema)
+var ChildSchema = Schema47.StructWithRest(Schema47.Struct({ snapshot: Schema47.optionalKey(Schema47.Unknown) }), [Rest2]);
+var ChildrenSchema = Schema47.Struct({
+  children: Schema47.Record(Schema47.String, ChildSchema)
 });
-var decodeDone = Schema45.decodeUnknownOption(DoneSchema);
-var decodeChildren = Schema45.decodeUnknownOption(ChildrenSchema);
+var decodeDone = Schema47.decodeUnknownOption(DoneSchema);
+var decodeChildren = Schema47.decodeUnknownOption(ChildrenSchema);
 var settledEffect = ({ output: _output, ...effect }) => effect;
 var withoutOutput = (child) => Option8.match(decodeDone(child.snapshot), {
   onNone: () => child,
@@ -61069,11 +61226,11 @@ var withoutDoneOutputs = (persisted) => Option8.match(decodeChildren(persisted),
 });
 
 // ../../packages/core/dist/runs/execution.js
-import { Effect as Effect29, Option as Option10, Predicate as Predicate2, Schema as Schema47 } from "effect";
+import { Effect as Effect29, Option as Option10, Predicate as Predicate2, Schema as Schema49 } from "effect";
 
 // ../../packages/core/dist/runs/restore-snapshot.js
-import { Option as Option9, Schema as Schema46 } from "effect";
-var decodeEmptyLegacyTimers = Schema46.decodeUnknownOption(Schema46.Struct({ timers: Schema46.Record(Schema46.String, Schema46.Never) }));
+import { Option as Option9, Schema as Schema48 } from "effect";
+var decodeEmptyLegacyTimers = Schema48.decodeUnknownOption(Schema48.Struct({ timers: Schema48.Record(Schema48.String, Schema48.Never) }));
 var restorePlanSnapshot = (persisted) => Option9.match(decodeEmptyLegacyTimers(persisted), {
   onNone: () => persisted,
   onSome: () => ({
@@ -61083,23 +61240,23 @@ var restorePlanSnapshot = (persisted) => Option9.match(decodeEmptyLegacyTimers(p
 });
 
 // ../../packages/core/dist/runs/execution.js
-var StateValueSchema = Schema47.Union([
-  Schema47.String,
-  Schema47.Record(Schema47.String, Schema47.suspend(() => StateValueSchema))
+var StateValueSchema = Schema49.Union([
+  Schema49.String,
+  Schema49.Record(Schema49.String, Schema49.suspend(() => StateValueSchema))
 ]);
-var ViewSchema = Schema47.Struct({
-  children: Schema47.Record(Schema47.String, Schema47.UndefinedOr(Schema47.Struct({ sessionId: Schema47.String }))),
-  status: Schema47.String,
+var ViewSchema = Schema49.Struct({
+  children: Schema49.Record(Schema49.String, Schema49.UndefinedOr(Schema49.Struct({ sessionId: Schema49.String }))),
+  status: Schema49.String,
   value: StateValueSchema
 });
-var decodeView = Schema47.decodeUnknownSync(ViewSchema);
-var StartSchema = Schema47.Struct({
-  descriptor: Schema47.Struct({
-    actor: Schema47.Struct({ $actor: Schema47.String }),
-    type: Schema47.Literal("@xstate.start")
+var decodeView = Schema49.decodeUnknownSync(ViewSchema);
+var StartSchema = Schema49.Struct({
+  descriptor: Schema49.Struct({
+    actor: Schema49.Struct({ $actor: Schema49.String }),
+    type: Schema49.Literal("@xstate.start")
   })
 });
-var decodeStart = Schema47.decodeUnknownOption(StartSchema);
+var decodeStart = Schema49.decodeUnknownOption(StartSchema);
 var typed = (step) => {
   const snapshot = step[0];
   return { effects: step[1], snapshot };
@@ -61141,20 +61298,20 @@ var openExecution = (compiled, sources, adapter, opening) => {
 };
 
 // ../../packages/core/dist/runs/redrive.js
-import { Context as Context23, Effect as Effect30, Layer as Layer13, Option as Option11, Result as Result4, Schema as Schema48 } from "effect";
-var Attempts = Schema48.Int.check(Schema48.isGreaterThan(0));
-var RedriveAttempts = Context23.Reference("@mischief/core/RedriveAttempts", {
+import { Context as Context24, Effect as Effect30, Layer as Layer13, Option as Option11, Result as Result4, Schema as Schema50 } from "effect";
+var Attempts = Schema50.Int.check(Schema50.isGreaterThan(0));
+var RedriveAttempts = Context24.Reference("@mischief/core/RedriveAttempts", {
   defaultValue: () => 3
 });
-var redriveAttemptsLayer = (value) => Layer13.effect(RedriveAttempts, Schema48.decodeEffect(Attempts)(value === void 0 || value.trim() === "" ? 3 : Number(value)).pipe(Effect30.orDie));
-var ThinkAttemptSchema = Schema48.Struct({
-  attempts: Schema48.Int.check(Schema48.isGreaterThanOrEqualTo(0)),
-  level: Schema48.String,
-  model: Schema48.String,
-  pending: Schema48.Boolean,
-  unfinished: Schema48.Int.check(Schema48.isGreaterThanOrEqualTo(0))
+var redriveAttemptsLayer = (value) => Layer13.effect(RedriveAttempts, Schema50.decodeEffect(Attempts)(value === void 0 || value.trim() === "" ? 3 : Number(value)).pipe(Effect30.orDie));
+var ThinkAttemptSchema = Schema50.Struct({
+  attempts: Schema50.Int.check(Schema50.isGreaterThanOrEqualTo(0)),
+  level: Schema50.String,
+  model: Schema50.String,
+  pending: Schema50.Boolean,
+  unfinished: Schema50.Int.check(Schema50.isGreaterThanOrEqualTo(0))
 });
-var decode = Schema48.decodeUnknownOption(ThinkAttemptSchema);
+var decode = Schema50.decodeUnknownOption(ThinkAttemptSchema);
 var settleThinkAttempt = (call, journal) => Effect30.gen(function* settleAttempt() {
   const key = `think-attempt:${call.key}#${call.visit}@${call.epoch}`;
   const attempt = decode(journal.get(key));
@@ -61204,10 +61361,10 @@ var attemptedThink = (call, journal, effect, exhausted) => Effect30.gen(function
 });
 
 // ../../packages/core/dist/runs/replay.js
-import { Option as Option12, Schema as Schema49 } from "effect";
-var isText2 = Schema49.is(Schema49.String);
-var isList3 = Schema49.is(Schema49.Array(Schema49.Json));
-var isRecord3 = Schema49.is(Schema49.Record(Schema49.String, Schema49.Json));
+import { Option as Option12, Schema as Schema51 } from "effect";
+var isText2 = Schema51.is(Schema51.String);
+var isList3 = Schema51.is(Schema51.Array(Schema51.Json));
+var isRecord3 = Schema51.is(Schema51.Record(Schema51.String, Schema51.Json));
 var textsIn = (value) => {
   if (isText2(value)) {
     return [value];
@@ -61217,13 +61374,13 @@ var textsIn = (value) => {
   }
   return isRecord3(value) ? Object.values(value).flatMap((item) => textsIn(item)) : [];
 };
-var ReadsSchema = Schema49.Struct({
-  input: Schema49.Struct({
-    ephemeral: Schema49.optionalKey(Schema49.Struct({ reads: Schema49.optionalKey(Schema49.Array(Schema49.String)) })),
-    reads: Schema49.optionalKey(Schema49.Union([Schema49.String, Schema49.Array(Schema49.String)]))
+var ReadsSchema = Schema51.Struct({
+  input: Schema51.Struct({
+    ephemeral: Schema51.optionalKey(Schema51.Struct({ reads: Schema51.optionalKey(Schema51.Array(Schema51.String)) })),
+    reads: Schema51.optionalKey(Schema51.Union([Schema51.String, Schema51.Array(Schema51.String)]))
   })
 });
-var decodeReads = Schema49.decodeUnknownOption(ReadsSchema);
+var decodeReads = Schema51.decodeUnknownOption(ReadsSchema);
 var namesOf = (names3) => {
   if (names3 === void 0) {
     return [];
@@ -61237,59 +61394,59 @@ var docsRead = (step) => {
   ]), Option12.getOrElse(() => []));
   return [.../* @__PURE__ */ new Set([...textsIn(step).flatMap(docRefs), ...reads])].toSorted();
 };
-var ThinkSchema = Schema49.Struct({
-  output: Schema49.Struct({ output: Schema49.Json }),
-  step: Schema49.Struct({
-    input: Schema49.Struct({ writes: Schema49.String }),
-    src: Schema49.Literal("think")
+var ThinkSchema = Schema51.Struct({
+  output: Schema51.Struct({ output: Schema51.Json }),
+  step: Schema51.Struct({
+    input: Schema51.Struct({ writes: Schema51.String }),
+    src: Schema51.Literal("think")
   })
 });
-var CalledSchema = Schema49.Struct({
-  output: Schema49.Struct({ output: Schema49.Json }),
-  step: Schema49.Struct({
-    input: Schema49.Struct({ writes: Schema49.String }),
-    src: Schema49.Literal("call")
+var CalledSchema = Schema51.Struct({
+  output: Schema51.Struct({ output: Schema51.Json }),
+  step: Schema51.Struct({
+    input: Schema51.Struct({ writes: Schema51.String }),
+    src: Schema51.Literal("call")
   })
 });
-var decodeCalled = Schema49.decodeUnknownOption(CalledSchema);
-var AskSchema = Schema49.Struct({
-  output: Schema49.Struct({ messageId: Schema49.String }),
-  step: Schema49.Struct({
-    input: Schema49.Struct({ key: Schema49.String, to: Schema49.String }),
-    src: Schema49.Literal("ask")
+var decodeCalled = Schema51.decodeUnknownOption(CalledSchema);
+var AskSchema = Schema51.Struct({
+  output: Schema51.Struct({ messageId: Schema51.String }),
+  step: Schema51.Struct({
+    input: Schema51.Struct({ key: Schema51.String, to: Schema51.String }),
+    src: Schema51.Literal("ask")
   })
 });
-var ElaborateSchema = Schema49.Struct({
-  output: Schema49.Struct({ amendment: Schema49.Json }),
-  step: Schema49.Struct({
-    input: Schema49.Struct({ key: Schema49.String }),
-    src: Schema49.Literal("elaborate")
+var ElaborateSchema = Schema51.Struct({
+  output: Schema51.Struct({ amendment: Schema51.Json }),
+  step: Schema51.Struct({
+    input: Schema51.Struct({ key: Schema51.String }),
+    src: Schema51.Literal("elaborate")
   })
 });
-var JudgedSchema = Schema49.Struct({
-  output: Schema49.Struct({ why: WhySchema }),
-  step: Schema49.Struct({
-    input: Schema49.Struct({ key: Schema49.String }),
-    src: Schema49.Literal("judge")
+var JudgedSchema = Schema51.Struct({
+  output: Schema51.Struct({ why: WhySchema }),
+  step: Schema51.Struct({
+    input: Schema51.Struct({ key: Schema51.String }),
+    src: Schema51.Literal("judge")
   })
 });
-var decodeThink = Schema49.decodeUnknownOption(ThinkSchema);
-var AskedSchema = Schema49.Struct({
-  output: Schema49.Struct({ asked: Schema49.String }),
-  step: Schema49.Struct({
-    input: Schema49.Struct({ key: Schema49.String }),
-    src: Schema49.Literal("judge")
+var decodeThink = Schema51.decodeUnknownOption(ThinkSchema);
+var AskedSchema = Schema51.Struct({
+  output: Schema51.Struct({ asked: Schema51.String }),
+  step: Schema51.Struct({
+    input: Schema51.Struct({ key: Schema51.String }),
+    src: Schema51.Literal("judge")
   })
 });
-var ReasonSchema = Schema49.Struct({
-  output: Schema49.Struct({ reason: Schema49.String }),
+var ReasonSchema = Schema51.Struct({
+  output: Schema51.Struct({ reason: Schema51.String }),
   step: AskedSchema.fields.step
 });
-var decodeJudged = Schema49.decodeUnknownOption(JudgedSchema);
-var decodeReason = Schema49.decodeUnknownOption(ReasonSchema);
-var decodeAsked = Schema49.decodeUnknownOption(AskedSchema);
-var decodeAsk = Schema49.decodeUnknownOption(AskSchema);
-var decodeElaborate = Schema49.decodeUnknownOption(ElaborateSchema);
+var decodeJudged = Schema51.decodeUnknownOption(JudgedSchema);
+var decodeReason = Schema51.decodeUnknownOption(ReasonSchema);
+var decodeAsked = Schema51.decodeUnknownOption(AskedSchema);
+var decodeAsk = Schema51.decodeUnknownOption(AskSchema);
+var decodeElaborate = Schema51.decodeUnknownOption(ElaborateSchema);
 var docWrites = (step, output) => {
   const done = { output, step };
   return [
@@ -61311,7 +61468,7 @@ var docWrites = (step, output) => {
 
 // ../../packages/core/dist/runs/session.js
 var DRAINED = { type: "mischief.drained" };
-var isText3 = Schema50.is(Schema50.String);
+var isText3 = Schema52.is(Schema52.String);
 var statusAfter = (machine) => {
   switch (machine) {
     case "done": {
@@ -61325,19 +61482,19 @@ var statusAfter = (machine) => {
     }
   }
 };
-var decodeFailure = Schema50.decodeUnknownOption(Schema50.Struct({
-  error: Schema50.String,
-  reason: Schema50.optionalKey(Schema50.String)
+var decodeFailure = Schema52.decodeUnknownOption(Schema52.Struct({
+  error: Schema52.String,
+  reason: Schema52.optionalKey(Schema52.String)
 }));
 var reasonOf2 = (failure6) => failure6.reason ?? failure6.error;
-var isStepFailed = Schema50.is(StepFailed);
-var decodeVerdict = Schema50.decodeUnknownOption(OutputEventSchema);
-var decodeSent = Schema50.decodeUnknownOption(Schema50.Struct({
-  message: Schema50.optionalKey(Schema50.String),
-  messageId: Schema50.String
+var isStepFailed = Schema52.is(StepFailed);
+var decodeVerdict = Schema52.decodeUnknownOption(OutputEventSchema);
+var decodeSent = Schema52.decodeUnknownOption(Schema52.Struct({
+  message: Schema52.optionalKey(Schema52.String),
+  messageId: Schema52.String
 }));
-var decodeOutput = Schema50.decodeUnknownEffect(Schema50.Json);
-var decodeIdentity = Schema50.decodeUnknownOption(Schema50.Struct({ machine: Schema50.Struct({ id: Schema50.String }) }));
+var decodeOutput = Schema52.decodeUnknownEffect(Schema52.Json);
+var decodeIdentity = Schema52.decodeUnknownOption(Schema52.Struct({ machine: Schema52.Struct({ id: Schema52.String }) }));
 var failed = (key, reason) => new StepFailed({ key, reason });
 var shown = (ask, docs) => {
   if (ask === void 0) {
@@ -61493,7 +61650,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect31.gen(f
   const PRODUCED = "directive:";
   const produce = (key, directive) => Effect31.suspend(() => journal.has(`${PRODUCED}${key}`) ? Effect31.void : recordJournal(`${PRODUCED}${key}`, directive));
   const deliveryKey = (stepKey, cause) => Effect31.suspend(() => {
-    const known = Schema50.decodeUnknownOption(DirectiveKey)(journal.get(cause));
+    const known = Schema52.decodeUnknownOption(DirectiveKey)(journal.get(cause));
     if (Option13.isSome(known)) {
       return Effect31.succeed(known.value);
     }
@@ -61505,7 +61662,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect31.gen(f
     });
     return recordJournal(cause, key).pipe(Effect31.as(key));
   });
-  const pendingNow = Effect31.suspend(() => Effect31.forEach([...journal.keys()].flatMap((entry3) => entry3.startsWith(PRODUCED) && !journal.has(`done:${entry3.slice(PRODUCED.length)}`) ? [entry3.slice(PRODUCED.length)] : []), (key) => Schema50.decodeUnknownEffect(DirectiveSchema)(journal.get(`${PRODUCED}${key}`)).pipe(Effect31.map((directive) => ({ directive, key })), Effect31.orDie)));
+  const pendingNow = Effect31.suspend(() => Effect31.forEach([...journal.keys()].flatMap((entry3) => entry3.startsWith(PRODUCED) && !journal.has(`done:${entry3.slice(PRODUCED.length)}`) ? [entry3.slice(PRODUCED.length)] : []), (key) => Schema52.decodeUnknownEffect(DirectiveSchema)(journal.get(`${PRODUCED}${key}`)).pipe(Effect31.map((directive) => ({ directive, key })), Effect31.orDie)));
   const visitOf = (key) => visits.get(key) ?? 1;
   const epochOf = () => run2.state.revision === null ? 0 : run2.plan.version;
   const step = (key, effect) => effect.pipe(Effect31.tapError((failure6) => isStepFailed(failure6) ? store.writeDoc(runId2, `failed:${key}`, true) : Effect31.void));
@@ -61557,7 +61714,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect31.gen(f
       provider: "caller-share",
       status: 408
     }))))
-  })), ({ release }, outcome) => Exit4.isFailure(outcome) && (Cause5.hasInterrupts(outcome.cause) || Option13.exists(Cause5.findErrorOption(outcome.cause), Schema50.is(ThinkAbortUnconfirmed))) ? Effect31.void : release).pipe(Effect31.catchIf(Schema50.is(ThinkAbortUnconfirmed), ({ reason }) => new ProviderUnavailable({
+  })), ({ release }, outcome) => Exit4.isFailure(outcome) && (Cause5.hasInterrupts(outcome.cause) || Option13.exists(Cause5.findErrorOption(outcome.cause), Schema52.is(ThinkAbortUnconfirmed))) ? Effect31.void : release).pipe(Effect31.catchIf(Schema52.is(ThinkAbortUnconfirmed), ({ reason }) => new ProviderUnavailable({
     cause: "timeout",
     error: `the leased think could not confirm its conversation stopped (${reason}); its lease remains held until expiry, and the run's alarm retries`,
     key,
@@ -61590,7 +61747,7 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect31.gen(f
       runId: runId2,
       visit: visitOf(input.key)
     };
-    const sealed = yield* journaled(`seal:${input.key}#${call.visit}`, step(input.key, withDocs(input.key, input.message).pipe(Effect31.flatMap((message2) => mail.seal({ ...call, message: message2, to: input.to })))), printOf({ input, src: "ask" })).pipe(Effect31.catchTag("StepFailed", () => Effect31.fail(failed(input.key, "sealed envelope refused"))), Effect31.flatMap((entry3) => Schema50.decodeUnknownEffect(SealedSchema)(entry3).pipe(Effect31.mapError(() => failed(input.key, "sealed envelope refused")))));
+    const sealed = yield* journaled(`seal:${input.key}#${call.visit}`, step(input.key, withDocs(input.key, input.message).pipe(Effect31.flatMap((message2) => mail.seal({ ...call, message: message2, to: input.to })))), printOf({ input, src: "ask" })).pipe(Effect31.catchTag("StepFailed", () => Effect31.fail(failed(input.key, "sealed envelope refused"))), Effect31.flatMap((entry3) => Schema52.decodeUnknownEffect(SealedSchema)(entry3).pipe(Effect31.mapError(() => failed(input.key, "sealed envelope refused")))));
     const message = yield* step(input.key, withDocs(input.key, input.message));
     yield* store.writeMessage(sealed.messageId, runId2);
     yield* store.writeDoc(runId2, `__sent:${input.key}`, {
@@ -61632,10 +61789,10 @@ var driveSession = (runId2, opened, watch2, automatic = false) => Effect31.gen(f
       return yield* step(input.key, Effect31.fail(failed(input.key, `it switches on doc "${input.reads}", which no step has written on this run's path yet. Make the writing step run before this switch, or seed the doc at submit`)));
     }
     const text = docText(value).trim();
-    const matched = Object.hasOwn(input.cases, text);
+    const matched2 = Object.hasOwn(input.cases, text);
     return {
-      choice: matched ? input.cases[text] ?? input.default : input.default,
-      defaulted: !matched,
+      choice: matched2 ? input.cases[text] ?? input.default : input.default,
+      defaulted: !matched2,
       tokens: 0,
       value: text.slice(0, 200)
     };
@@ -61741,13 +61898,13 @@ ${docText(text)}`
       runId: runId2,
       visit: visitOf(input.key)
     };
-    const reply = Option13.fromNullishOr(run2.state.replies.find(({ key }) => key === input.key));
+    const reply2 = Option13.fromNullishOr(run2.state.replies.find(({ key }) => key === input.key));
     const docs = Object.fromEntries((input.reads ?? []).flatMap((name) => name in stored2 ? [[name, stored2[name] ?? null]] : []));
     const { probabilities, usage, why } = yield* step(input.key, judge.choose({
       ...call,
       criteria: input.criteria,
       docs,
-      reply: reply.pipe(Option13.map(({ body }) => body))
+      reply: reply2.pipe(Option13.map(({ body }) => body))
     }));
     const [top] = Object.entries(probabilities).toSorted((left, right) => right[1] - left[1]);
     const jev = { probs: probabilities, rung: "jev", usage: { ...usage } };
@@ -61801,7 +61958,7 @@ ${docText(text)}`
   });
   const logic = (schema2, body) => (0, import_xstate_cjs.createAsyncLogic)({
     // oxlint-disable-next-line typescript/promise-function-async -- xstate async logic consumes a Promise factory.
-    run: ({ input }) => runPromise(Schema50.decodeEffect(schema2)(input).pipe(Effect31.mapError(() => failed("input", "step input refused")), Effect31.flatMap(body)))
+    run: ({ input }) => runPromise(Schema52.decodeEffect(schema2)(input).pipe(Effect31.mapError(() => failed("input", "step input refused")), Effect31.flatMap(body)))
   });
   const sources = {
     actions: {
@@ -61870,7 +62027,7 @@ ${docText(text)}`
       const key = `logic:${actor.address}#${visit}`;
       const stepKey = stepKeyOf(actor.address);
       const work = Effect31.tryPromise({
-        catch: (cause) => cause instanceof VerdictDeferred || Schema50.is(ProviderUnavailable)(cause) ? cause : failed(key, isStepFailed(cause) ? cause.reason : `${key} failed`),
+        catch: (cause) => cause instanceof VerdictDeferred || Schema52.is(ProviderUnavailable)(cause) ? cause : failed(key, isStepFailed(cause) ? cause.reason : `${key} failed`),
         // oxlint-disable-next-line typescript/promise-function-async -- xstate hands the step body over as a Promise factory.
         try: () => {
           visits.set(stepKeyOf(actor.address), visit);
@@ -62252,9 +62409,9 @@ ${docText(text)}`
 }).pipe(Effect31.scoped);
 
 // ../../packages/core/dist/runs/submission.js
-import { Effect as Effect32, Option as Option14, Schema as Schema51 } from "effect";
-var decodeJsonObject = Schema51.decodeUnknownOption(Schema51.JsonObject);
-var docKeyGuard = Schema51.is(DocKey);
+import { Effect as Effect32, Option as Option14, Schema as Schema53 } from "effect";
+var decodeJsonObject = Schema53.decodeUnknownOption(Schema53.JsonObject);
+var docKeyGuard = Schema53.is(DocKey);
 var isDocKey = (name) => docKeyGuard(name);
 var checkSubmission = Effect32.fn("checkSubmission")(function* checkSubmission2(input, docs) {
   const badNames = Object.keys(docs).filter((name) => !isDocKey(name));
@@ -62270,8 +62427,8 @@ var checkSubmission = Effect32.fn("checkSubmission")(function* checkSubmission2(
 });
 
 // ../../packages/core/dist/runs/host.js
-var decodeJsonObject2 = Schema52.decodeUnknownOption(Schema52.JsonObject);
-var RunHost = class extends Context24.Service()("@mischief/core/RunHost", {
+var decodeJsonObject2 = Schema54.decodeUnknownOption(Schema54.JsonObject);
+var RunHost = class extends Context25.Service()("@mischief/core/RunHost", {
   make: Effect33.gen(function* makeRunHost() {
     const context = yield* Effect33.context();
     const store = yield* RunStore;
@@ -62328,7 +62485,7 @@ var RunHost = class extends Context24.Service()("@mischief/core/RunHost", {
       if (journal.has("done:abort-notices")) {
         return;
       }
-      const reason = Option15.getOrElse(Schema52.decodeUnknownOption(Schema52.String)(journal.get("abort-reason")), () => "abortRun was requested");
+      const reason = Option15.getOrElse(Schema54.decodeUnknownOption(Schema54.String)(journal.get("abort-reason")), () => "abortRun was requested");
       const sent = yield* Effect33.exit(operator.aborted?.(runId2, reason) ?? Effect33.void);
       if (Exit5.isSuccess(sent)) {
         yield* store.writeJournal(runId2, "done:abort-notices", true);
@@ -62368,7 +62525,7 @@ var RunHost = class extends Context24.Service()("@mischief/core/RunHost", {
       };
     });
     const submit = Effect33.fn("RunHost.submit")(function* submit2(runId2, input, docs = {}) {
-      const submitted = yield* fingerprintOf(Context24.get(context, Digest4.Digest), { docs, plan: input });
+      const submitted = yield* fingerprintOf(Context25.get(context, Digest4.Digest), { docs, plan: input });
       const existing = yield* store.readRun(runId2);
       if (Option15.isSome(existing)) {
         if (existing.value.submitted !== null && existing.value.submitted !== submitted) {
@@ -62407,7 +62564,7 @@ var RunHost = class extends Context24.Service()("@mischief/core/RunHost", {
       yield* store.writeRun(runId2, fresh);
       return yield* reportOf(runId2, plan, fresh).pipe(Effect33.provideContext(context));
     });
-    const answer2 = Effect33.fn("RunHost.answer")(function* answer3(runId2, reply) {
+    const answer2 = Effect33.fn("RunHost.answer")(function* answer3(runId2, reply2) {
       const report2 = yield* inspect(runId2);
       if (report2.question === void 0) {
         return yield* new AnswerRefused({
@@ -62415,15 +62572,15 @@ var RunHost = class extends Context24.Service()("@mischief/core/RunHost", {
           runId: runId2
         });
       }
-      if (!report2.question.options.includes(reply)) {
+      if (!report2.question.options.includes(reply2)) {
         return yield* new AnswerRefused({
-          reason: `"${reply}" is not an option for "${report2.question.question}". Call answerRun({ runId: "${runId2}", reply }) with reply one of: ${report2.question.options.join(", ")}.`,
+          reason: `"${reply2}" is not an option for "${report2.question.question}". Call answerRun({ runId: "${runId2}", reply }) with reply one of: ${report2.question.options.join(", ")}.`,
           runId: runId2
         });
       }
       const { state: state3 } = yield* loadRun(runId2);
       const { question } = report2;
-      yield* store.writeJournal(runId2, `answer-pending:${question.key}#${(state3.answers[question.key] ?? 0) + 1}@v${state3.planVersion}`, reply);
+      yield* store.writeJournal(runId2, `answer-pending:${question.key}#${(state3.answers[question.key] ?? 0) + 1}@v${state3.planVersion}`, reply2);
       yield* store.writeRun(runId2, { ...state3, status: "running" });
       return yield* inspect(runId2);
     });
@@ -62630,7 +62787,7 @@ ${refusals.map((error) => `- ${error}`).join("\n")}`);
     return {
       abort: (runId2, supersededBy, reason) => unit(runId2)(abort(runId2, supersededBy, reason)),
       advance: (runId2) => unit(runId2)(advance3(runId2)),
-      answer: (runId2, reply) => afterStored(unit(runId2)(answer2(runId2, reply))),
+      answer: (runId2, reply2) => afterStored(unit(runId2)(answer2(runId2, reply2))),
       deliver: (line) => afterStored(store.readMessage(line.replyTo).pipe(Effect33.flatMap((owner) => Option15.isSome(owner) ? unit(owner.value)(deliver(line)) : deliver(line)))),
       extend: (runId2, maxSteps) => afterStored(unit(runId2)(extend(runId2, maxSteps))),
       inspect,
@@ -62652,7 +62809,7 @@ var readRun = implement(readRunContract, ({ runId: runId2 }) => RunHost.use((hos
 var pauseRun = implement(pauseRunContract, ({ runId: runId2 }) => RunHost.use((host) => host.pause(runId2)));
 var resumeRun = implement(resumeRunContract, ({ runId: runId2 }) => RunHost.use((host) => host.resume(runId2)));
 var abortRun = implement(abortRunContract, ({ reason, runId: runId2, supersededBy }) => RunHost.use((host) => host.abort(runId2, supersededBy, reason)));
-var answerRun = implement(answerRunContract, ({ reply, runId: runId2 }) => RunHost.use((host) => host.answer(runId2, reply)));
+var answerRun = implement(answerRunContract, ({ reply: reply2, runId: runId2 }) => RunHost.use((host) => host.answer(runId2, reply2)));
 var deliverReply = implement(deliverReplyContract, (line) => RunHost.use((host) => host.deliver(line)));
 var extendRun = implement(extendRunContract, ({ maxSteps, runId: runId2 }) => RunHost.use((host) => host.extend(runId2, maxSteps)));
 var reviseRun = implement(reviseRunContract, ({ dryRun, plan, runId: runId2 }) => RunHost.use((host) => host.revise(runId2, plan, dryRun)));
@@ -62670,19 +62827,19 @@ var runCapabilities = [
 ];
 
 // ../../packages/core/dist/runs/drain.js
-import { Effect as Effect34, Option as Option16, Schema as Schema53 } from "effect";
-var DrainOutcomeSchema = Schema53.TaggedUnion({
+import { Effect as Effect34, Option as Option16, Schema as Schema55 } from "effect";
+var DrainOutcomeSchema = Schema55.TaggedUnion({
   AlreadyJournaled: {
-    messageId: Schema53.String,
-    replyTo: Schema53.String,
-    runId: Schema53.String
+    messageId: Schema55.String,
+    replyTo: Schema55.String,
+    runId: Schema55.String
   },
-  Delivered: { replyTo: Schema53.String, status: Schema53.String },
-  Refused: { reason: Schema53.String, replyTo: Schema53.String },
-  Unrouted: { line: Schema53.String, reason: Schema53.String }
+  Delivered: { replyTo: Schema55.String, status: Schema55.String },
+  Refused: { reason: Schema55.String, replyTo: Schema55.String },
+  Unrouted: { line: Schema55.String, reason: Schema55.String }
 });
 var UNROUTED_REASON = "not a reply to a Mischief ask: it needs string body and replyTo fields. Kept in __unrouted.jsonl; read it there and answer the sender directly";
-var decodeLine = Schema53.decodeUnknownOption(Schema53.fromJsonString(ReplyLineSchema));
+var decodeLine = Schema55.decodeUnknownOption(Schema55.fromJsonString(ReplyLineSchema));
 var consumeDrained = Effect34.fn("consumeDrained")(function* consume(raw) {
   const line = decodeLine(raw);
   if (Option16.isNone(line)) {
@@ -62700,24 +62857,24 @@ var consumeDrained = Effect34.fn("consumeDrained")(function* consume(raw) {
 });
 
 // ../../packages/core/dist/steps/shadow-judge.js
-import { Effect as Effect35, Layer as Layer15, Option as Option17, Schema as Schema54 } from "effect";
+import { Effect as Effect35, Layer as Layer15, Option as Option17, Schema as Schema56 } from "effect";
 var SHADOW_JUDGE = "shadow/judge";
-var Probability2 = Schema54.Number.check(Schema54.isBetween({ maximum: 1, minimum: 0 }));
-var VerdictSchema = Schema54.Union([
-  Schema54.Struct({
-    probabilities: Schema54.Record(Schema54.String, Probability2),
-    why: Schema54.optionalKey(WhySchema)
+var Probability2 = Schema56.Number.check(Schema56.isBetween({ maximum: 1, minimum: 0 }));
+var VerdictSchema = Schema56.Union([
+  Schema56.Struct({
+    probabilities: Schema56.Record(Schema56.String, Probability2),
+    why: Schema56.optionalKey(WhySchema)
   }),
-  Schema54.Struct({ choice: Schema54.String, why: Schema54.optionalKey(WhySchema) })
+  Schema56.Struct({ choice: Schema56.String, why: Schema56.optionalKey(WhySchema) })
 ]);
-var decodeVerdict2 = Schema54.decodeUnknownOption(Schema54.fromJsonString(VerdictSchema));
+var decodeVerdict2 = Schema56.decodeUnknownOption(Schema56.fromJsonString(VerdictSchema));
 var NO_USAGE = { tokens: 0 };
 var refused = (key, why, options2) => Effect35.fail(new StepFailed({
   key,
   reason: `${why}. ${SHADOW_JUDGE} replies with JSON {"choice": "<option>"} or {"probabilities": {"<option>": 0..1}}, where each option is one of: ${options2.join(", ")}. Either may add "why": up to ${String(WHY_LINES)} lines of at most ${String(WHY_LINE_CHARS)} characters, ids and counts only`
 }));
 var shadowJudge = Layer15.succeed(Judge, Judge.of({
-  choose: ({ key, options: options2, reply }) => Option17.match(reply, {
+  choose: ({ key, options: options2, reply: reply2 }) => Option17.match(reply2, {
     onNone: () => Effect35.fail(new VerdictDeferred({ to: SHADOW_JUDGE })),
     onSome: (body) => Option17.match(decodeVerdict2(body), {
       onNone: () => refused(key, "the shadow verdict did not decode", options2),
@@ -62732,89 +62889,89 @@ var shadowJudge = Layer15.succeed(Judge, Judge.of({
 }));
 
 // ../../packages/core/dist/schedules/host.js
-import { Clock as Clock4, Duration as Duration3, Effect as Effect37, Option as Option18, Result as Result8, Schema as Schema58 } from "effect";
+import { Clock as Clock4, Duration as Duration3, Effect as Effect37, Option as Option18, Result as Result8, Schema as Schema60 } from "effect";
 
 // ../../packages/core/dist/schedules/decide.js
 import { Cron, Data as Data8, Predicate as Predicate3, Result as Result7 } from "effect";
 
 // ../../packages/core/dist/schedules/schema.js
-import { Effect as Effect36, Schema as Schema55 } from "effect";
-var ScheduleId = Schema55.String.check(Schema55.isPattern(/^[a-z0-9][a-z0-9-]{0,47}$/u));
+import { Effect as Effect36, Schema as Schema57 } from "effect";
+var ScheduleId = Schema57.String.check(Schema57.isPattern(/^[a-z0-9][a-z0-9-]{0,47}$/u));
 var HISTORY = 100;
-var Millis = Schema55.Int.check(Schema55.isGreaterThanOrEqualTo(0));
-var Every3 = Schema55.TaggedStruct("every", { ms: Millis });
-var CronCadence = Schema55.TaggedStruct("cron", {
-  expression: Schema55.String
+var Millis = Schema57.Int.check(Schema57.isGreaterThanOrEqualTo(0));
+var Every3 = Schema57.TaggedStruct("every", { ms: Millis });
+var CronCadence = Schema57.TaggedStruct("cron", {
+  expression: Schema57.String
 });
-var CadenceSchema = Schema55.Union([Every3, CronCadence]);
-var WakeSchema = Schema55.Struct({
+var CadenceSchema = Schema57.Union([Every3, CronCadence]);
+var WakeSchema = Schema57.Struct({
   at: Millis,
   due: Millis,
   n: Count,
-  runId: Schema55.String
+  runId: Schema57.String
 });
-var SkipSchema = Schema55.Struct({
+var SkipSchema = Schema57.Struct({
   at: Millis,
   due: Millis,
-  reason: Schema55.String
+  reason: Schema57.String
 });
-var AbortSchema = Schema55.Struct({
+var AbortSchema = Schema57.Struct({
   at: Millis,
-  reason: Schema55.String,
-  runId: Schema55.String
+  reason: Schema57.String,
+  runId: Schema57.String
 });
-var EndReasonSchema = Schema55.Literals([
+var EndReasonSchema = Schema57.Literals([
   "completed",
   "done",
   "cap",
   "timeout",
   "failed"
 ]);
-var EndedSchema = Schema55.Struct({
+var EndedSchema = Schema57.Struct({
   at: Millis,
-  detail: Schema55.String,
+  detail: Schema57.String,
   reason: EndReasonSchema
 });
-var ScheduleStateSchema = Schema55.Struct({
-  abortCount: Count.pipe(Schema55.withDecodingDefaultKey(Effect36.succeed(0))),
-  aborting: Schema55.NullOr(Schema55.String).pipe(Schema55.withDecodingDefaultKey(Effect36.succeed(null))),
-  aborts: Schema55.Array(AbortSchema).pipe(Schema55.withDecodingDefaultKey(Effect36.succeed([]))),
+var ScheduleStateSchema = Schema57.Struct({
+  abortCount: Count.pipe(Schema57.withDecodingDefaultKey(Effect36.succeed(0))),
+  aborting: Schema57.NullOr(Schema57.String).pipe(Schema57.withDecodingDefaultKey(Effect36.succeed(null))),
+  aborts: Schema57.Array(AbortSchema).pipe(Schema57.withDecodingDefaultKey(Effect36.succeed([]))),
   cadence: CadenceSchema,
-  carry: Schema55.Array(Schema55.String),
+  carry: Schema57.Array(Schema57.String),
   createdAt: Millis,
   docs: DocsSchema,
-  ended: Schema55.NullOr(EndedSchema),
-  endsAt: Schema55.NullOr(Millis),
-  escalateTo: Schema55.NullOr(EscalateToSchema).pipe(Schema55.withDecodingDefaultKey(Effect36.succeed(null))),
-  judge: Schema55.NullOr(JudgeModeSchema).pipe(Schema55.withDecodingDefaultKey(Effect36.succeed(null))),
-  maxWakes: Schema55.NullOr(Count),
+  ended: Schema57.NullOr(EndedSchema),
+  endsAt: Schema57.NullOr(Millis),
+  escalateTo: Schema57.NullOr(EscalateToSchema).pipe(Schema57.withDecodingDefaultKey(Effect36.succeed(null))),
+  judge: Schema57.NullOr(JudgeModeSchema).pipe(Schema57.withDecodingDefaultKey(Effect36.succeed(null))),
+  maxWakes: Schema57.NullOr(Count),
   nextAt: Millis,
   pendingDocs: DocsSchema,
-  plan: Schema55.Json,
+  plan: Schema57.Json,
   scheduleId: ScheduleId,
   skipCount: Count,
-  skips: Schema55.Array(SkipSchema),
+  skips: Schema57.Array(SkipSchema),
   wakeCount: Count,
-  wakeTimeoutMs: Schema55.NullOr(Millis).pipe(Schema55.withDecodingDefaultKey(Effect36.succeed(null))),
-  wakes: Schema55.Array(WakeSchema)
+  wakeTimeoutMs: Schema57.NullOr(Millis).pipe(Schema57.withDecodingDefaultKey(Effect36.succeed(null))),
+  wakes: Schema57.Array(WakeSchema)
 });
-var ScheduleReportSchema = Schema55.Struct({
+var ScheduleReportSchema = Schema57.Struct({
   abortCount: Count,
-  aborts: Schema55.Array(AbortSchema),
+  aborts: Schema57.Array(AbortSchema),
   cadence: CadenceSchema,
-  carry: Schema55.Array(Schema55.String),
-  ended: Schema55.NullOr(EndedSchema),
-  endsAt: Schema55.NullOr(Millis),
-  escalateTo: Schema55.NullOr(EscalateToSchema),
-  judge: Schema55.NullOr(JudgeModeSchema),
-  maxWakes: Schema55.NullOr(Count),
-  nextAt: Schema55.NullOr(Millis),
+  carry: Schema57.Array(Schema57.String),
+  ended: Schema57.NullOr(EndedSchema),
+  endsAt: Schema57.NullOr(Millis),
+  escalateTo: Schema57.NullOr(EscalateToSchema),
+  judge: Schema57.NullOr(JudgeModeSchema),
+  maxWakes: Schema57.NullOr(Count),
+  nextAt: Schema57.NullOr(Millis),
   scheduleId: ScheduleId,
   skipCount: Count,
-  skips: Schema55.Array(SkipSchema),
+  skips: Schema57.Array(SkipSchema),
   wakeCount: Count,
-  wakeTimeoutMs: Schema55.NullOr(Millis),
-  wakes: Schema55.Array(WakeSchema)
+  wakeTimeoutMs: Schema57.NullOr(Millis),
+  wakes: Schema57.Array(WakeSchema)
 });
 var reportOf2 = (state3) => ({
   abortCount: state3.abortCount,
@@ -63013,18 +63170,18 @@ var endNoticeOf = (state3, ended) => ({
 });
 
 // ../../packages/core/dist/schedules/schedule-alarm.js
-import { Context as Context25 } from "effect";
-var ScheduleAlarm = class extends Context25.Service()("@mischief/core/ScheduleAlarm") {
+import { Context as Context26 } from "effect";
+var ScheduleAlarm = class extends Context26.Service()("@mischief/core/ScheduleAlarm") {
 };
 
 // ../../packages/core/dist/schedules/schedule-notices.js
-import { Context as Context26 } from "effect";
-var ScheduleNotices = class extends Context26.Service()("@mischief/core/ScheduleNotices") {
+import { Context as Context27 } from "effect";
+var ScheduleNotices = class extends Context27.Service()("@mischief/core/ScheduleNotices") {
 };
 
 // ../../packages/core/dist/schedules/schedule-refused.js
-import { Schema as Schema56 } from "effect";
-var ScheduleRefused = class extends Schema56.TaggedError()("ScheduleRefused", { errors: Schema56.Array(Schema56.String), scheduleId: Schema56.String }) {
+import { Schema as Schema58 } from "effect";
+var ScheduleRefused = class extends Schema58.TaggedError()("ScheduleRefused", { errors: Schema58.Array(Schema58.String), scheduleId: Schema58.String }) {
   get message() {
     return `Schedule ${this.scheduleId} refused, nothing was stored. Fix each problem and call createSchedule again:
 ${this.errors.map((error) => `- ${error}`).join("\n")}`;
@@ -63032,26 +63189,26 @@ ${this.errors.map((error) => `- ${error}`).join("\n")}`;
 };
 
 // ../../packages/core/dist/schedules/schedule-store.js
-import { Context as Context27 } from "effect";
-var ScheduleStore = class extends Context27.Service()("@mischief/core/ScheduleStore") {
+import { Context as Context28 } from "effect";
+var ScheduleStore = class extends Context28.Service()("@mischief/core/ScheduleStore") {
 };
 
 // ../../packages/core/dist/schedules/unknown-schedule.js
-import { Schema as Schema57 } from "effect";
-var UnknownSchedule = class extends Schema57.TaggedError()("UnknownSchedule", { scheduleId: Schema57.String }) {
+import { Schema as Schema59 } from "effect";
+var UnknownSchedule = class extends Schema59.TaggedError()("UnknownSchedule", { scheduleId: Schema59.String }) {
   get message() {
     return `No schedule named "${this.scheduleId}". Check the scheduleId, or start one with createSchedule({ scheduleId, plan, every or cron, maxWakes or timeout }).`;
   }
 };
 
 // ../../packages/core/dist/schedules/wake-runs.js
-import { Context as Context28 } from "effect";
-var WakeRuns = class extends Context28.Service()("@mischief/core/WakeRuns") {
+import { Context as Context29 } from "effect";
+var WakeRuns = class extends Context29.Service()("@mischief/core/WakeRuns") {
 };
 
 // ../../packages/core/dist/schedules/host.js
 var MIN_EVERY_MS = 6e4;
-var decodeDuration = Schema58.decodeUnknownOption(Schema58.DurationFromString);
+var decodeDuration = Schema60.decodeUnknownOption(Schema60.DurationFromString);
 var millisOf = (text) => decodeDuration(text).pipe(Option18.filter(Duration3.isFinite), Option18.map(Duration3.toMillis));
 var cadenceOf = (input) => {
   if (input.every === void 0 === (input.cron === void 0)) {
@@ -63240,7 +63397,7 @@ var wakeSchedule = Effect37.fn("wakeSchedule")(function* wakeSchedule2() {
 });
 
 // ../../packages/core/dist/schedules/contracts.js
-import { Schema as Schema59 } from "effect";
+import { Schema as Schema61 } from "effect";
 var scheduleId = ScheduleId.annotate({
   description: "Schedule id, lowercase kebab-case, up to 48 characters"
 });
@@ -63248,30 +63405,30 @@ var createScheduleContract = defineContract("createSchedule", {
   annotations: { idempotent: true, openWorld: true },
   description: 'Wake a fresh run of one plan on a cadence, one wake at a time, until completeSchedule, a "done" doc, maxWakes or the timeout. Wake n is the run "<scheduleId>-wake-<n>"; a slot whose previous wake is still going is skipped, and missed slots collapse to one wake. With wakeTimeout, a wake still going past it is aborted at the next slot instead. Creating an existing schedule id returns it unchanged.',
   failure: ScheduleRefused,
-  input: Schema59.Struct({
-    carry: Schema59.optionalKey(Schema59.Array(Schema59.String).annotate({
+  input: Schema61.Struct({
+    carry: Schema61.optionalKey(Schema61.Array(Schema61.String).annotate({
       description: "Doc names each wake passes to the next; each needs a starting value in docs"
     })),
-    cron: Schema59.optionalKey(Schema59.String.annotate({
+    cron: Schema61.optionalKey(Schema61.String.annotate({
       description: 'Five cron fields in UTC, such as "0 9 * * 1-5"'
     })),
-    docs: Schema59.optionalKey(DocsSchema.annotate({ description: "Seed docs for every wake" })),
-    escalateTo: Schema59.optionalKey(EscalateToSchema),
-    every: Schema59.optionalKey(Schema59.String.annotate({
+    docs: Schema61.optionalKey(DocsSchema.annotate({ description: "Seed docs for every wake" })),
+    escalateTo: Schema61.optionalKey(EscalateToSchema),
+    every: Schema61.optionalKey(Schema61.String.annotate({
       description: 'A duration of at least 1 minute, such as "30 minutes"'
     })),
-    judge: Schema59.optionalKey(JudgeModeSchema),
-    maxWakes: Schema59.optionalKey(Schema59.Int.check(Schema59.isGreaterThan(0)).annotate({
+    judge: Schema61.optionalKey(JudgeModeSchema),
+    maxWakes: Schema61.optionalKey(Schema61.Int.check(Schema61.isGreaterThan(0)).annotate({
       description: "The most wakes before the schedule ends"
     })),
-    plan: Schema59.Json.annotate({
+    plan: Schema61.Json.annotate({
       description: "The plan every wake runs, as JSON"
     }),
     scheduleId,
-    timeout: Schema59.optionalKey(Schema59.String.annotate({
+    timeout: Schema61.optionalKey(Schema61.String.annotate({
       description: 'How long the schedule may live, such as "7 days"'
     })),
-    wakeTimeout: Schema59.optionalKey(Schema59.String.annotate({
+    wakeTimeout: Schema61.optionalKey(Schema61.String.annotate({
       description: 'How long one wake may run, at least 1 minute, such as "2 hours". At the next slot, a wake past it is aborted, and the next wake starts from the docs the aborted one started with'
     }))
   }),
@@ -63281,14 +63438,14 @@ var inspectScheduleContract = defineContract("inspectSchedule", {
   annotations: { idempotent: true, readOnly: true },
   description: "Report a schedule's cadence, its recent wakes and skips with counts, when it wakes next, and why it ended",
   failure: UnknownSchedule,
-  input: Schema59.Struct({ scheduleId }),
+  input: Schema61.Struct({ scheduleId }),
   output: ScheduleReportSchema
 });
 var completeScheduleContract = defineContract("completeSchedule", {
   annotations: { destructive: true, idempotent: true },
   description: "End a schedule for good; a wake already running finishes, and its runs stay readable",
   failure: UnknownSchedule,
-  input: Schema59.Struct({ scheduleId }),
+  input: Schema61.Struct({ scheduleId }),
   output: ScheduleReportSchema
 });
 
@@ -63303,12 +63460,12 @@ var scheduleCapabilities = [
 ];
 
 // ../../packages/core/dist/schedules/wake-unanswered.js
-import { Schema as Schema60 } from "effect";
-var WakeUnanswered = class extends Schema60.TaggedError()("WakeUnanswered", {
-  reason: Schema60.String,
-  runId: Schema60.String,
-  scheduleId: Schema60.String,
-  step: Schema60.Literals(["abortRun", "inspectRun", "submitPlan"])
+import { Schema as Schema62 } from "effect";
+var WakeUnanswered = class extends Schema62.TaggedError()("WakeUnanswered", {
+  reason: Schema62.String,
+  runId: Schema62.String,
+  scheduleId: Schema62.String,
+  step: Schema62.Literals(["abortRun", "inspectRun", "submitPlan"])
 }) {
   get message() {
     return `${this.step} ${this.runId} ${this.reason}, so schedule "${this.scheduleId}" could not finish its wake. The wake alarm fails and the Durable Object retries it. To look now, call inspectRun {"runId":"${this.runId}"} and inspectSchedule {"scheduleId":"${this.scheduleId}"}.`;
@@ -63316,7 +63473,7 @@ var WakeUnanswered = class extends Schema60.TaggedError()("WakeUnanswered", {
 };
 
 // ../../packages/thinking/dist/gateway.js
-import { Hash as Hash3, Option as Option19, Redacted, Schema as Schema61 } from "effect";
+import { Hash as Hash3, Option as Option19, Redacted, Schema as Schema63 } from "effect";
 
 // ../../packages/thinking/dist/declared.js
 init_models();
@@ -63355,8 +63512,8 @@ var promptCacheKeyOf = (runId2) => {
   const key = `mischief-${runId2}`;
   return key.length <= PROMPT_CACHE_KEY_MAX ? key : `mischief-${runId2.slice(0, 40)}-${Math.abs(Hash3.string(runId2)).toString(36)}`;
 };
-var isPayload = Schema61.is(Schema61.Record(Schema61.String, Schema61.Unknown));
-var isKey = Schema61.is(Schema61.String);
+var isPayload = Schema63.is(Schema63.Record(Schema63.String, Schema63.Unknown));
+var isKey = Schema63.is(Schema63.String);
 var keyed = (options2) => {
   const key = options2.metadata?.[RUN_CACHE_KEY];
   if (!isKey(key) || options2.cacheRetention === "none") {
@@ -63531,28 +63688,28 @@ var gatewayThinkerOptions = (storageFor, { apiKey, baseUrl, fetch: fetch2, opusB
 };
 
 // ../../packages/thinking/dist/jev.js
-import { Effect as Effect38, Layer as Layer16, Predicate as Predicate4, Redacted as Redacted2, Schedule, Schema as Schema62 } from "effect";
+import { Effect as Effect38, Layer as Layer16, Predicate as Predicate4, Redacted as Redacted2, Schedule, Schema as Schema64 } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 var JEV_URL = "https://api.typesafe.ai/v1/systemone";
 var JEV_MODEL = "jev-latest";
 var JEV_PATIENCE = "2 minutes";
-var Unit = Schema62.Finite.check(Schema62.isBetween({ maximum: 1, minimum: 0 }));
-var ChoiceAnswer = Schema62.Struct({
-  choice: Schema62.String,
-  probabilities: Schema62.Record(Schema62.String, Unit),
-  type: Schema62.Literal("choice")
+var Unit = Schema64.Finite.check(Schema64.isBetween({ maximum: 1, minimum: 0 }));
+var ChoiceAnswer = Schema64.Struct({
+  choice: Schema64.String,
+  probabilities: Schema64.Record(Schema64.String, Unit),
+  type: Schema64.Literal("choice")
 });
-var NoulAnswer = Schema62.Struct({
+var NoulAnswer = Schema64.Struct({
   noul: Unit,
-  type: Schema62.Literal("noul")
+  type: Schema64.Literal("noul")
 });
-var Evaluation = Schema62.Struct({
-  answers: Schema62.Struct({
-    decision: Schema62.Union([ChoiceAnswer, NoulAnswer])
+var Evaluation = Schema64.Struct({
+  answers: Schema64.Struct({
+    decision: Schema64.Union([ChoiceAnswer, NoulAnswer])
   }),
-  usage: Schema62.Struct({
-    input_tokens: Schema62.Int,
-    output_tokens: Schema62.Int
+  usage: Schema64.Struct({
+    input_tokens: Schema64.Int,
+    output_tokens: Schema64.Int
   })
 });
 var SUM_SLACK = 0.02;
@@ -63583,8 +63740,8 @@ var answerProblem = (answer2, options2) => {
 };
 var probabilitiesOf = (answer2) => answer2.type === "noul" ? { no: 1 - answer2.noul, yes: answer2.noul } : answer2.probabilities;
 var RETRYABLE = /* @__PURE__ */ new Set([429, 529]);
-var Busy = class extends Schema62.TaggedError()("Busy", {
-  status: Schema62.Int
+var Busy = class extends Schema64.TaggedError()("Busy", {
+  status: Schema64.Int
 }) {
 };
 var advice = (status) => {
@@ -63624,7 +63781,7 @@ var jevJudge = ({ apiKey, patience = JEV_PATIENCE, retryBase = "500 millis", url
         schedule: Schedule.exponential(retryBase),
         times: 4,
         while: Predicate4.isTagged("Busy")
-      }), Effect38.catchTag("Busy", ({ status }) => Effect38.fail(unavailable2("busy", status))), Effect38.flatMap((response) => response.status === 200 ? response.json.pipe(Effect38.mapError(() => failed3("TypeSafe's answer was not JSON. Resume the run"))) : Effect38.fail(refusal3(response.status))), Effect38.flatMap((body) => Schema62.decodeUnknownEffect(Evaluation)(body).pipe(Effect38.mapError(() => failed3("TypeSafe's answer did not hold one Choice or Noul. Resume the run; if it repeats, the API has changed")))), Effect38.flatMap(({ answers, usage }) => {
+      }), Effect38.catchTag("Busy", ({ status }) => Effect38.fail(unavailable2("busy", status))), Effect38.flatMap((response) => response.status === 200 ? response.json.pipe(Effect38.mapError(() => failed3("TypeSafe's answer was not JSON. Resume the run"))) : Effect38.fail(refusal3(response.status))), Effect38.flatMap((body) => Schema64.decodeUnknownEffect(Evaluation)(body).pipe(Effect38.mapError(() => failed3("TypeSafe's answer did not hold one Choice or Noul. Resume the run; if it repeats, the API has changed")))), Effect38.flatMap(({ answers, usage }) => {
         const problem = answerProblem(answers.decision, options2);
         return problem === void 0 ? Effect38.succeed({
           probabilities: probabilitiesOf(answers.decision),
@@ -63637,10 +63794,10 @@ var jevJudge = ({ apiKey, patience = JEV_PATIENCE, retryBase = "500 millis", url
 
 // ../../packages/thinking/dist/pi-thinker.js
 init_models();
-import { Clock as Clock5, Deferred as Deferred3, Effect as Effect39, Layer as Layer17, Option as Option21, Ref as Ref3, Schema as Schema64, Semaphore as Semaphore2 } from "effect";
+import { Clock as Clock5, Deferred as Deferred3, Effect as Effect39, Layer as Layer17, Option as Option21, Ref as Ref3, Schema as Schema66, Semaphore as Semaphore2 } from "effect";
 
 // ../../packages/thinking/dist/provider-status.js
-import { Option as Option20, Schema as Schema63 } from "effect";
+import { Option as Option20, Schema as Schema65 } from "effect";
 var HOLD = /* @__PURE__ */ new Set([408, 429, 502, 503]);
 var RETRY_THEN_HOLD = /* @__PURE__ */ new Set([500, 507, 520]);
 var SERVER_ERROR = 500;
@@ -63663,15 +63820,15 @@ var verdictOf2 = (status, transient) => {
 };
 var TIMEOUT = 408;
 var TOO_MANY_REQUESTS = 429;
-var CooldownBody = Schema63.Struct({
-  code: Schema63.Literal("model_cooldown"),
-  reset_seconds: Schema63.Finite.check(Schema63.isGreaterThanOrEqualTo(0))
+var CooldownBody = Schema65.Struct({
+  code: Schema65.Literal("model_cooldown"),
+  reset_seconds: Schema65.Finite.check(Schema65.isGreaterThanOrEqualTo(0))
 });
-var Cooldown = Schema63.Union([
+var Cooldown = Schema65.Union([
   CooldownBody,
-  Schema63.Struct({ error: CooldownBody })
+  Schema65.Struct({ error: CooldownBody })
 ]);
-var decodeCooldown = Schema63.decodeUnknownOption(Schema63.fromJsonString(Cooldown));
+var decodeCooldown = Schema65.decodeUnknownOption(Schema65.fromJsonString(Cooldown));
 var RETRY_AFTER = /["']?retry-after["']?\s*[:=]\s*["']?(?<value>[^\r\n"}]+)/iu;
 var retryHeaderAt = (header, now) => /^\d+(?:\.\d+)?$/u.test(header) ? now + Number(header) * 1e3 : Date.parse(header);
 var retryAfterOf = (message, status, now) => {
@@ -63768,9 +63925,9 @@ var parkedFor = (parked, conversationId) => {
   parked.set(conversationId, signal);
   return signal;
 };
-var DecisionSchema = Schema64.fromJsonString(Schema64.Struct({
-  choice: Schema64.String,
-  confidence: Schema64.Finite.check(Schema64.isBetween({ maximum: 1, minimum: 0 }))
+var DecisionSchema = Schema66.fromJsonString(Schema66.Struct({
+  choice: Schema66.String,
+  confidence: Schema66.Finite.check(Schema66.isBetween({ maximum: 1, minimum: 0 }))
 }));
 var pi = (call, operation, run2) => Effect39.tryPromise({
   catch: (cause) => new StepFailed({
@@ -64048,7 +64205,7 @@ var thinkerOf = (options2) => {
       decide: (call) => answer2(call, requestedOf(call.agent, options2.defaults, call.ceiling), `${call.question}
 
 Answer with one JSON object and nothing else: {"choice": <one of ${JSON.stringify(call.options)}>, "confidence": <0 to 1>}.`, harnessFor(call)).pipe(Effect39.map(({ receipt, text, tokens, usd }) => ({
-        decision: Schema64.decodeUnknownOption(DecisionSchema)(text.trim()).pipe(Option21.filter(({ choice }) => call.options.includes(choice))),
+        decision: Schema66.decodeUnknownOption(DecisionSchema)(text.trim()).pipe(Option21.filter(({ choice }) => call.options.includes(choice))),
         usage: { receipt, tokens, usd }
       }))),
       elaborate: (call) => Effect39.fail(new StepFailed({
@@ -64073,12 +64230,12 @@ import { Effect as Effect64, Option as Option49, Result as Result11 } from "effe
 import { Clock as Clock6, Effect as Effect40 } from "effect";
 
 // src/caller-thinks.ts
-import { Result as Result9, Schema as Schema65 } from "effect";
+import { Result as Result9, Schema as Schema67 } from "effect";
 var DEFAULT_CALLER_THINKS = 40;
 var CALLER_RETRY_MS = 3e4;
-var CallerThinksRefused = class extends Schema65.TaggedError()(
+var CallerThinksRefused = class extends Schema67.TaggedError()(
   "CallerThinksRefused",
-  { given: Schema65.String }
+  { given: Schema67.String }
 ) {
   get message() {
     return `MISCHIEF_CALLER_THINKS="${this.given}" is refused: it protects other callers' model capacity, so it must be a positive whole number such as ${DEFAULT_CALLER_THINKS}. Set MISCHIEF_CALLER_THINKS=${DEFAULT_CALLER_THINKS}, or leave it unset for the default of ${DEFAULT_CALLER_THINKS}, then start the host again`;
@@ -64091,17 +64248,17 @@ var callerThinksFrom = (text) => {
   }
   return /^[1-9]\d*$/u.test(given) && Number.isSafeInteger(Number(given)) ? Result9.succeed(Number(given)) : Result9.fail(new CallerThinksRefused({ given }));
 };
-var Lease = Schema65.Struct({ expires: Schema65.Finite });
-var Count2 = Schema65.Struct({ count: Schema65.Int });
-var Crossing = Schema65.Struct({
-  quiet_until: Schema65.Finite,
-  serial: Schema65.Int
+var Lease = Schema67.Struct({ expires: Schema67.Finite });
+var Count2 = Schema67.Struct({ count: Schema67.Int });
+var Crossing = Schema67.Struct({
+  quiet_until: Schema67.Finite,
+  serial: Schema67.Int
 });
-var ShareNotice = Schema65.Struct({
-  object_name: Schema65.String,
-  serial: Schema65.Int,
-  text: Schema65.String,
-  to: Schema65.String
+var ShareNotice = Schema67.Struct({
+  object_name: Schema67.String,
+  serial: Schema67.Int,
+  text: Schema67.String,
+  to: Schema67.String
 });
 var callerThinkLedger = (storage) => {
   storage.sql.exec(
@@ -64125,11 +64282,11 @@ var callerThinkLedger = (storage) => {
       const [existing] = storage.sql.exec(
         "SELECT expires FROM caller_think_leases WHERE id = ?",
         input.id
-      ).toArray().map((row2) => Schema65.decodeUnknownSync(Lease)(row2));
+      ).toArray().map((row2) => Schema67.decodeUnknownSync(Lease)(row2));
       if (existing !== void 0) {
         return { acquired: true, expires: existing.expires };
       }
-      const [count] = storage.sql.exec("SELECT COUNT(*) AS count FROM caller_think_leases").toArray().map((row2) => Schema65.decodeUnknownSync(Count2)(row2));
+      const [count] = storage.sql.exec("SELECT COUNT(*) AS count FROM caller_think_leases").toArray().map((row2) => Schema67.decodeUnknownSync(Count2)(row2));
       if ((count?.count ?? 0) < input.share) {
         const expires = input.now + input.ttlMs;
         storage.sql.exec(
@@ -64141,7 +64298,7 @@ var callerThinkLedger = (storage) => {
       }
       const [crossing] = storage.sql.exec(
         "SELECT quiet_until, serial FROM caller_think_crossing WHERE id = 1"
-      ).toArray().map((row2) => Schema65.decodeUnknownSync(Crossing)(row2));
+      ).toArray().map((row2) => Schema67.decodeUnknownSync(Crossing)(row2));
       const fresh = crossing === void 0 || crossing.quiet_until <= input.now;
       const serial = (crossing?.serial ?? 0) + (fresh ? 1 : 0);
       storage.sql.exec(
@@ -64165,7 +64322,7 @@ var callerThinkLedger = (storage) => {
     }),
     pending: () => storage.sql.exec(
       "SELECT serial, object_name, recipient AS `to`, text FROM caller_think_notices ORDER BY serial, recipient LIMIT 1"
-    ).toArray().map((row2) => Schema65.decodeUnknownSync(ShareNotice)(row2))[0],
+    ).toArray().map((row2) => Schema67.decodeUnknownSync(ShareNotice)(row2))[0],
     release: (id) => {
       storage.sql.exec("DELETE FROM caller_think_leases WHERE id = ?", id);
     },
@@ -64211,10 +64368,10 @@ var callerThinkHost = (ports) => ({
 });
 
 // src/escalation.ts
-import { Effect as Effect42, Option as Option22, Schema as Schema67 } from "effect";
+import { Effect as Effect42, Option as Option22, Schema as Schema69 } from "effect";
 
 // src/call-deadline.ts
-import { Effect as Effect41, Schema as Schema66 } from "effect";
+import { Effect as Effect41, Schema as Schema68 } from "effect";
 var MAILBOX_ATTEMPT_MS = 3e3;
 var GUARD_MS = 3e4;
 var LEASE_POLL_MS = GUARD_MS / 3;
@@ -64242,12 +64399,12 @@ var NEXT3 = {
   "Postbox.send": `The step is held waiting-for-provider and the run's alarm resends the stored envelope. ${POSTBOX_FIX}`,
   "Postbox.tallyThink": `This think goes untallied; the run is unaffected. ${POSTBOX_FIX}`
 };
-var ObjectCallTimedOut = class extends Schema66.TaggedError()(
+var ObjectCallTimedOut = class extends Schema68.TaggedError()(
   "ObjectCallTimedOut",
   {
-    call: Schema66.String,
-    deadlineMs: Schema66.Int,
-    next: Schema66.String
+    call: Schema68.String,
+    deadlineMs: Schema68.Int,
+    next: Schema68.String
   }
 ) {
   get message() {
@@ -64271,16 +64428,16 @@ var withDeadline = (call) => (effect) => effect.pipe(
 var TARGET = "CREATE TABLE IF NOT EXISTS mischief_escalate_to (id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL)";
 var SEALED = "CREATE TABLE IF NOT EXISTS mischief_escalations (notice TEXT PRIMARY KEY, envelope TEXT NOT NULL, message_id TEXT NOT NULL)";
 var HOST_DEFAULT = "";
-var SubmitEscalation = Schema67.Struct({
-  escalateTo: Schema67.optionalKey(EscalateToSchema)
+var SubmitEscalation = Schema69.Struct({
+  escalateTo: Schema69.optionalKey(EscalateToSchema)
 });
-var decodeSubmit = Schema67.decodeUnknownOption(
-  Schema67.fromJsonString(SubmitEscalation)
+var decodeSubmit = Schema69.decodeUnknownOption(
+  Schema69.fromJsonString(SubmitEscalation)
 );
-var TargetRow = Schema67.Struct({ name: Schema67.String });
-var SealedRow = Schema67.Struct({
-  envelope: Schema67.String,
-  message_id: Schema67.String
+var TargetRow = Schema69.Struct({ name: Schema69.String });
+var SealedRow = Schema69.Struct({
+  envelope: Schema69.String,
+  message_id: Schema69.String
 });
 var fixEscalationAtFirstSubmit = (storage, body) => {
   storage.sql.exec(TARGET);
@@ -64309,12 +64466,12 @@ var escalationTargetOf = (storage) => {
   return Option22.fromNullishOr(
     storage.sql.exec("SELECT name FROM mischief_escalate_to WHERE id = 1").toArray()[0]
   ).pipe(
-    Option22.flatMap(Schema67.decodeUnknownOption(TargetRow)),
+    Option22.flatMap(Schema69.decodeUnknownOption(TargetRow)),
     Option22.map(({ name }) => name),
     Option22.filter((name) => name !== HOST_DEFAULT)
   );
 };
-var isText4 = Schema67.is(Schema67.String);
+var isText4 = Schema69.is(Schema69.String);
 var meaningOf = (criterion) => isText4(criterion) ? criterion : JSON.stringify(criterion);
 var escalationText = (runId2, { criteria, key, options: options2, question, reason }) => [
   `Mischief run ${runId2} is waiting on a judge that could not decide at state ${key}: ${question}`,
@@ -64349,7 +64506,7 @@ var holdAlarmTargets = (text) => [
   ...new Set(
     (text ?? "").split(",").map((name) => name.trim()).filter((name) => name !== "")
   )
-].map((name) => Schema67.decodeUnknownSync(EscalateToSchema)(name));
+].map((name) => Schema69.decodeUnknownSync(EscalateToSchema)(name));
 var heldText = (runId2, { cause, key, provider: provider2, resumeAfter: resumeAfter2, since, status }) => [
   `Mischief run ${runId2} is held at state ${key}: its model provider ${provider2} is unavailable (${cause}${status === null ? "" : `, HTTP ${status}`}). The run is waiting-for-provider, not failed.`,
   "",
@@ -64373,7 +64530,7 @@ var sealedFor = (storage, notice) => Option22.fromNullishOr(
     "SELECT envelope, message_id FROM mischief_escalations WHERE notice = ?",
     notice
   ).toArray()[0]
-).pipe(Option22.flatMap(Schema67.decodeUnknownOption(SealedRow)));
+).pipe(Option22.flatMap(Schema69.decodeUnknownOption(SealedRow)));
 var posted = (name, call) => Effect42.tryPromise({
   catch: (cause) => `the Postbox did not answer: ${String(cause)}`,
   try: call
@@ -68360,8 +68517,8 @@ var ZodError = class _ZodError extends Error {
           let i = 0;
           while (i < issue.path.length) {
             const el = issue.path[i];
-            const terminal = i === issue.path.length - 1;
-            if (!terminal) {
+            const terminal2 = i === issue.path.length - 1;
+            if (!terminal2) {
               curr[el] = curr[el] || { _errors: [] };
             } else {
               curr[el] = curr[el] || { _errors: [] };
@@ -73614,7 +73771,7 @@ function resolveRefUris(obj, baseUri) {
 }
 
 // ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+4504f544_85f3e7c871d23bf3dd1d3943f587f9f7/node_modules/@rat-king/mailbox-client/index.js
-import { Schema as Schema68, SchemaGetter } from "effect";
+import { Schema as Schema70, SchemaGetter } from "effect";
 import { Effect as Effect52, Schema as Schema72 } from "effect";
 
 // ../../node_modules/.pnpm/cborg@6.1.3/node_modules/cborg/lib/is.js
@@ -73693,11 +73850,11 @@ var Type = class {
    * @param {string} name
    * @param {boolean} terminal
    */
-  constructor(major, name, terminal) {
+  constructor(major, name, terminal2) {
     this.major = major;
     this.majorEncoded = major << 5;
     this.name = name;
-    this.terminal = terminal;
+    this.terminal = terminal2;
   }
   toString() {
     return `Type[${this.major}].${this.name}`;
@@ -76587,9 +76744,9 @@ import { Effect as Effect43, Schema as Schema510 } from "effect";
 import { Schema as Schema410 } from "effect";
 import { Effect as Effect310 } from "effect";
 import { Effect as Effect210 } from "effect";
-import { Effect as Effect44, Schema as Schema69 } from "effect";
+import { Effect as Effect44, Schema as Schema610 } from "effect";
 import { Schema as Schema82 } from "effect";
-import { Context as Context29, Effect as Effect102, Layer as Layer18, Result as Result10, Schema as Schema262 } from "effect";
+import { Context as Context210, Effect as Effect102, Layer as Layer18, Result as Result10, Schema as Schema262 } from "effect";
 import { Effect as Effect62, Schema as Schema112 } from "effect";
 import { Schema as Schema92 } from "effect";
 import { Schema as Schema102, SchemaGetter as SchemaGetter2 } from "effect";
@@ -76696,67 +76853,67 @@ import { Effect as Effect352, Schema as Schema572 } from "effect";
 import { Array as Arr, Schema as Schema592 } from "effect";
 import { Schema as Schema582 } from "effect";
 import { Effect as Effect362, Option as Option62, Schema as Schema602 } from "effect";
-var Cid = Schema68.declare(
+var Cid = Schema70.declare(
   (value) => isCid(value, { flavor: "dasl" })
 );
-var CidText = Schema68.String.check(
-  Schema68.makeFilter(
+var CidText = Schema70.String.check(
+  Schema70.makeFilter(
     (value) => parseCidSafe(value, { flavor: "dasl" }) !== null,
     { expected: "CIDv1, raw or DAG-CBOR, SHA-256" }
   )
 );
-var Link = Schema68.StructWithRest(Schema68.Struct({ $link: CidText }), [
-  Schema68.Record(Schema68.String, Schema68.String)
+var Link = Schema70.StructWithRest(Schema70.Struct({ $link: CidText }), [
+  Schema70.Record(Schema70.String, Schema70.String)
 ]).check(
-  Schema68.makeFilter((value) => Object.keys(value).length === 1, {
+  Schema70.makeFilter((value) => Object.keys(value).length === 1, {
     expected: "one link wrapper key"
   })
 ).pipe(
-  Schema68.decodeTo(Cid, {
+  Schema70.decodeTo(Cid, {
     decode: SchemaGetter.transform(
       (value) => parseCid(value.$link, { flavor: "dasl" })
     ),
     encode: SchemaGetter.transform((value) => ({ $link: value.toString() }))
   })
 );
-var Bytes2 = Schema68.StructWithRest(
-  Schema68.Struct({ $bytes: Schema68.String }),
-  [Schema68.Record(Schema68.String, Schema68.String)]
+var Bytes2 = Schema70.StructWithRest(
+  Schema70.Struct({ $bytes: Schema70.String }),
+  [Schema70.Record(Schema70.String, Schema70.String)]
 ).check(
-  Schema68.makeFilter((value) => Object.keys(value).length === 1, {
+  Schema70.makeFilter((value) => Object.keys(value).length === 1, {
     expected: "one byte wrapper key"
   })
-).pipe(Schema68.decodeTo(Schema68.Struct({ $bytes: Schema68.Uint8ArrayFromBase64 }))).pipe(
-  Schema68.decodeTo(Schema68.Uint8Array, {
+).pipe(Schema70.decodeTo(Schema70.Struct({ $bytes: Schema70.Uint8ArrayFromBase64 }))).pipe(
+  Schema70.decodeTo(Schema70.Uint8Array, {
     decode: SchemaGetter.transform((value) => value.$bytes),
     encode: SchemaGetter.transform((value) => ({ $bytes: value }))
   })
 );
-var Data9 = Schema68.suspend(
-  () => Schema68.Union([
-    Schema68.Null,
-    Schema68.Boolean,
-    Schema68.Int,
-    Schema68.String,
+var Data9 = Schema70.suspend(
+  () => Schema70.Union([
+    Schema70.Null,
+    Schema70.Boolean,
+    Schema70.Int,
+    Schema70.String,
     Bytes2,
     Link,
-    Schema68.Array(Data9),
-    Schema68.Record(Schema68.String, Data9).check(
-      Schema68.makeFilter(
+    Schema70.Array(Data9),
+    Schema70.Record(Schema70.String, Data9).check(
+      Schema70.makeFilter(
         (value) => !("$bytes" in value) && !("$link" in value),
         { expected: "data map, not a malformed byte or link wrapper" }
       )
     )
   ])
 );
-var DataMap = Schema68.Record(Schema68.String, Data9).check(
-  Schema68.makeFilter((value) => !("$bytes" in value) && !("$link" in value), {
+var DataMap = Schema70.Record(Schema70.String, Data9).check(
+  Schema70.makeFilter((value) => !("$bytes" in value) && !("$link" in value), {
     expected: "data-model map"
   })
 );
-var TaggedMap = Schema68.StructWithRest(
-  Schema68.Struct({ $type: Schema68.String }),
-  [Schema68.Record(Schema68.String, Data9)]
+var TaggedMap = Schema70.StructWithRest(
+  Schema70.Struct({ $type: Schema70.String }),
+  [Schema70.Record(Schema70.String, Data9)]
 );
 var lexString2 = (definition) => {
   const validators = new Lexicons([
@@ -76772,28 +76929,28 @@ var lexString2 = (definition) => {
       lexicon: 1
     }
   ]);
-  return Schema68.String.check(
-    Schema68.makeFilter(
+  return Schema70.String.check(
+    Schema70.makeFilter(
       (value) => validators.validate("sh.mschf.ratking.lexgen", { value }).success,
       { expected: "Lexicon string constraints" }
     )
   );
 };
-var Blob2 = Schema68.StructWithRest(
-  Schema68.Struct({
-    $type: Schema68.Literal("blob"),
-    mimeType: Schema68.String,
+var Blob2 = Schema70.StructWithRest(
+  Schema70.Struct({
+    $type: Schema70.Literal("blob"),
+    mimeType: Schema70.String,
     ref: Link,
-    size: Schema68.Int.check(Schema68.isGreaterThanOrEqualTo(0))
+    size: Schema70.Int.check(Schema70.isGreaterThanOrEqualTo(0))
   }),
-  [Schema68.Record(Schema68.String, Data9)]
+  [Schema70.Record(Schema70.String, Data9)]
 );
-var XrpcErrorBody = Schema68.StructWithRest(
-  Schema68.Struct({
-    error: Schema68.String,
-    message: Schema68.optionalKey(Schema68.String)
+var XrpcErrorBody = Schema70.StructWithRest(
+  Schema70.Struct({
+    error: Schema70.String,
+    message: Schema70.optionalKey(Schema70.String)
   }),
-  [Schema68.Record(Schema68.String, Data9)]
+  [Schema70.Record(Schema70.String, Data9)]
 );
 var Main = Schema210.StructWithRest(
   Schema210.Struct({
@@ -77409,8 +77566,8 @@ var CompatibleP256Kem = class extends DhkemP256HkdfSha256 {
   }
 };
 var decodeSigned = Effect44.fn("Envelope.decodeSigned")(function* decodeSigned2(signedBytes) {
-  const signed = yield* Schema69.decodeUnknownEffect(
-    Schema69.toType(SignedMessage)
+  const signed = yield* Schema610.decodeUnknownEffect(
+    Schema610.toType(SignedMessage)
   )(yield* canonicalDecode(signedBytes));
   const bytes22 = signed.canonicalSigningBytes;
   if (!equalBytes(bytes22.subarray(0, signatureDomain.length), signatureDomain)) {
@@ -77418,8 +77575,8 @@ var decodeSigned = Effect44.fn("Envelope.decodeSigned")(function* decodeSigned2(
       new EnvelopeFailure({ reason: "Wrong signature domain" })
     );
   }
-  const payload2 = yield* Schema69.decodeUnknownEffect(
-    Schema69.toType(SigningPayload)
+  const payload2 = yield* Schema610.decodeUnknownEffect(
+    Schema610.toType(SigningPayload)
   )(yield* canonicalDecode(bytes22.subarray(signatureDomain.length)));
   return { bytes: bytes22, payload: payload2, signed };
 });
@@ -78973,7 +79130,7 @@ var responseBody = Effect102.fn("lexicon.responseBody")(function* responseBody2(
   }
   return response.body;
 });
-var MailboxClient = class extends Context29.Service()("@rat-king/lexicon/MailboxClient") {
+var MailboxClient = class extends Context210.Service()("@rat-king/lexicon/MailboxClient") {
 };
 var clientLayer = Layer18.effect(
   MailboxClient,
@@ -80375,7 +80532,7 @@ var randomTid = (millis) => {
 var transportLayer = (endpoint, audience, identity) => Layer42.effect(
   Transport,
   Effect252.gen(function* makeTransport() {
-    const http4 = yield* HttpClient2.HttpClient;
+    const http5 = yield* HttpClient2.HttpClient;
     return Transport.of({
       request: Effect252.fn("MailboxCli.request")(
         function* requestCall(request2) {
@@ -80414,7 +80571,7 @@ var transportLayer = (endpoint, audience, identity) => Layer42.effect(
               request2.input
             );
           }
-          const response = yield* http4.execute(outgoing);
+          const response = yield* http5.execute(outgoing);
           const body = yield* response.text;
           const json22 = yield* Schema442.decodeUnknownEffect(
             Schema442.fromJsonString(Schema442.toEncoded(Data9))
@@ -82534,7 +82691,7 @@ var prepare2 = Effect372.fn("Mailbox.prepare")(function* prepare22(options2) {
 });
 
 // src/fleet-names.ts
-import { Option as Option25, Schema as Schema70 } from "effect";
+import { Option as Option25, Schema as Schema71 } from "effect";
 var FLEET_TEMPLATE = "did:web:{agent}.pi.ratking-fleet.invalid";
 var RESERVED = {
   "claude-bridge-owner": {
@@ -82565,7 +82722,7 @@ var RESERVED = {
   }
 };
 var reserved = Object.entries(RESERVED);
-var isName = Schema70.is(AgentName);
+var isName = Schema71.is(AgentName);
 var canonicalName = (name) => reserved.find(([, entry3]) => entry3.aliases?.includes(name) === true)?.[0] ?? name;
 var didFor = (name) => {
   if (!isName(name)) {
@@ -82592,7 +82749,7 @@ var nameFor = (did2) => {
 };
 
 // ../../packages/plan-run/dist/sql-store.js
-import { Effect as Effect45, Option as Option26, Schema as Schema71 } from "effect";
+import { Effect as Effect45, Option as Option26, Schema as Schema73 } from "effect";
 var SCHEMA = `
 CREATE TABLE IF NOT EXISTS mischief_runs (run_id TEXT PRIMARY KEY, state TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS mischief_plans (run_id TEXT NOT NULL, version INTEGER NOT NULL, plan TEXT NOT NULL, PRIMARY KEY (run_id, version));
@@ -82602,14 +82759,14 @@ CREATE TABLE IF NOT EXISTS mischief_fingerprints (run_id TEXT NOT NULL, key TEXT
 CREATE TABLE IF NOT EXISTS mischief_paused (run_id TEXT PRIMARY KEY, paused INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS mischief_messages (message_id TEXT PRIMARY KEY, run_id TEXT NOT NULL);
 `;
-var JsonText = Schema71.fromJsonString(Schema71.Json);
-var StateText = Schema71.fromJsonString(RunStateSchema);
-var PlanText = Schema71.fromJsonString(PlanSchema);
-var PrintText = Schema71.fromJsonString(Schema71.String);
-var textOf = (value) => Schema71.is(Schema71.String)(value) ? value : "";
-var read4 = (codec, text) => Schema71.decodeUnknownEffect(codec)(text).pipe(Effect45.orDie);
+var JsonText = Schema73.fromJsonString(Schema73.Json);
+var StateText = Schema73.fromJsonString(RunStateSchema);
+var PlanText = Schema73.fromJsonString(PlanSchema);
+var PrintText = Schema73.fromJsonString(Schema73.String);
+var textOf = (value) => Schema73.is(Schema73.String)(value) ? value : "";
+var read4 = (codec, text) => Schema73.decodeUnknownEffect(codec)(text).pipe(Effect45.orDie);
 var entriesOf = (found, name, value, codec) => Effect45.all(found.map((row2) => read4(codec, textOf(row2[value])).pipe(Effect45.map((decoded) => [textOf(row2[name]), decoded]))));
-var write = (codec, value) => Schema71.encodeEffect(codec)(value).pipe(Effect45.orDie);
+var write = (codec, value) => Schema73.encodeEffect(codec)(value).pipe(Effect45.orDie);
 var docStatements = (runId2, changes) => Effect45.forEach([...changes.docs], ([name, doc]) => write(JsonText, doc).pipe(Effect45.map((text) => [
   "INSERT INTO mischief_docs (run_id, name, doc) VALUES (?, ?, ?) ON CONFLICT (run_id, name) DO UPDATE SET doc = excluded.doc",
   runId2,
@@ -82699,13 +82856,13 @@ import * as SecureRandom from "effect/crypto/SecureRandom";
 var webCrypto = Layer19.merge(Digest9.layerWebCrypto, SecureRandom.layerWebCrypto);
 
 // ../../packages/plan-run/dist/outbox.js
-import { Effect as Effect46, Layer as Layer20, Schema as Schema73 } from "effect";
+import { Effect as Effect46, Layer as Layer20, Schema as Schema74 } from "effect";
 var OUTBOX = `CREATE TABLE IF NOT EXISTS mischief_outbox (message_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, envelope TEXT NOT NULL)`;
-var EnvelopeText = Schema73.fromJsonString(Schema73.Struct({ message: Schema73.String, to: Schema73.String }));
+var EnvelopeText = Schema74.fromJsonString(Schema74.Struct({ message: Schema74.String, to: Schema74.String }));
 var mailOutboxSql = (storage) => Layer20.effect(Mail, Effect46.sync(() => {
   storage.sql.exec(OUTBOX);
   return Mail.of({
-    seal: ({ key, message, runId: runId2, to, visit }) => Schema73.encodeEffect(EnvelopeText)({ message, to }).pipe(Effect46.map((envelope) => ({
+    seal: ({ key, message, runId: runId2, to, visit }) => Schema74.encodeEffect(EnvelopeText)({ message, to }).pipe(Effect46.map((envelope) => ({
       envelope,
       messageId: `${runId2}/${key}#${visit}`
     })), Effect46.mapError(() => new StepFailed({ key, reason: "envelope did not encode" }))),
@@ -82716,7 +82873,7 @@ var mailOutboxSql = (storage) => Layer20.effect(Mail, Effect46.sync(() => {
 }));
 
 // ../../packages/capability/dist/to-http-api.js
-import { Data as Data10, Effect as Effect47, Layer as Layer21, Predicate as Predicate7, Schema as Schema74, SchemaAST } from "effect";
+import { Data as Data10, Effect as Effect47, Layer as Layer21, Predicate as Predicate7, Schema as Schema75, SchemaAST } from "effect";
 import { HttpServerRequest } from "effect/http";
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, OpenApi } from "effect/http-api";
 
@@ -82745,12 +82902,12 @@ var membersOf = (failure6) => {
   if (!SchemaAST.isUnion(failure6.ast) || failure6.ast.annotations?.httpApiStatus !== void 0 || !Predicate7.hasProperty(failure6, "members") || !Array.isArray(failure6.members)) {
     return [failure6];
   }
-  return failure6.members.filter((member) => Schema74.isSchema(member));
+  return failure6.members.filter((member) => Schema75.isSchema(member));
 };
 var UndeclaredFailure = class extends Data10.TaggedError("UndeclaredFailure") {
 };
 var declaredFailuresOnly = (contract) => {
-  const isDeclared = Schema74.is(failureSchemaOf(contract));
+  const isDeclared = Schema75.is(failureSchemaOf(contract));
   return (handled) => Effect47.catchIf(handled, (failure6) => !isDeclared(failure6), (failure6) => Effect47.die(new UndeclaredFailure({ cause: failure6, contract: contract.name })));
 };
 var httpFailure = (contract) => [
@@ -82759,21 +82916,21 @@ var httpFailure = (contract) => [
 ];
 var groupFor = (...endpoints2) => HttpApiGroup.make(GROUP).add(...endpoints2);
 var apiFor = (id, group) => HttpApi.make(id).add(group).annotateMerge(OpenApi.annotations({ title: id }));
-var routedEndpoint = (contract, http4, error) => {
-  const names3 = pathParamNames(http4.path);
+var routedEndpoint = (contract, http5, error) => {
+  const names3 = pathParamNames(http5.path);
   const { fields } = contract.input;
   for (const name of names3) {
     if (!Object.hasOwn(fields, name)) {
-      throw new Error(`toHttpApi: ${contract.name}'s path ${http4.path} names :${name}, which is not an input field`);
+      throw new Error(`toHttpApi: ${contract.name}'s path ${http5.path} names :${name}, which is not an input field`);
     }
   }
   const params2 = Object.fromEntries(Object.entries(fields).filter(([name]) => names3.includes(name)));
-  const input = names3.length === 0 ? contract.input : Schema74.Struct(Object.fromEntries(Object.entries(fields).filter(([name]) => !names3.includes(name))));
-  return route(http4.method)(contract.name, http4.path, {
+  const input = names3.length === 0 ? contract.input : Schema75.Struct(Object.fromEntries(Object.entries(fields).filter(([name]) => !names3.includes(name))));
+  return route(http5.method)(contract.name, http5.path, {
     error,
-    params: names3.length === 0 ? void 0 : Schema74.Struct(params2),
+    params: names3.length === 0 ? void 0 : Schema75.Struct(params2),
     success: contract.output,
-    ...BODY_METHODS.has(http4.method) ? { payload: input } : { query: input }
+    ...BODY_METHODS.has(http5.method) ? { payload: input } : { query: input }
   });
 };
 var inputOf = (contract, request2) => {
@@ -82784,7 +82941,7 @@ var inputOf = (contract, request2) => {
   if (pathParamNames(contract.http.path).length === 0) {
     return Effect47.succeed(parts2);
   }
-  return HttpApiError.HttpApiSchemaError.wrap("Params", Schema74.decodeEffect(Schema74.toType(contract.input))({
+  return HttpApiError.HttpApiSchemaError.wrap("Params", Schema75.decodeEffect(Schema75.toType(contract.input))({
     ...request2.params,
     ...parts2
   }));
@@ -82889,23 +83046,23 @@ var toHttpApi = (id, capabilities2, options2) => {
 };
 
 // ../../packages/plan-run/dist/plan-run.js
-import { Clock as Clock8, Effect as Effect48, Layer as Layer23, ManagedRuntime, Option as Option28, Schema as Schema77, Schedule as Schedule4, Semaphore as Semaphore3 } from "effect";
+import { Clock as Clock8, Effect as Effect48, Layer as Layer23, ManagedRuntime, Option as Option28, Schema as Schema78, Schedule as Schedule4, Semaphore as Semaphore3 } from "effect";
 import * as SecureRandom2 from "effect/crypto/SecureRandom";
 import { constVoid as constVoid3 } from "effect/Function";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder2 } from "effect/http-api";
 
 // ../../packages/plan-run/dist/drive-lease-lost.js
-import { Schema as Schema75 } from "effect";
-var DriveLeaseLost = class extends Schema75.TaggedError()("DriveLeaseLost", {
-  owner: Schema75.String,
-  reason: Schema75.String
+import { Schema as Schema76 } from "effect";
+var DriveLeaseLost = class extends Schema76.TaggedError()("DriveLeaseLost", {
+  owner: Schema76.String,
+  reason: Schema76.String
 }) {
 };
 
 // ../../packages/plan-run/dist/drive-lease.js
-import { Option as Option27, Schema as Schema76 } from "effect";
-var decode13 = Schema76.decodeUnknownSync(DriveLeaseSchema);
+import { Option as Option27, Schema as Schema77 } from "effect";
+var decode13 = Schema77.decodeUnknownSync(DriveLeaseSchema);
 var driveLease = (storage) => {
   storage.sql.exec("CREATE TABLE IF NOT EXISTS mischief_drive_lease (id INTEGER PRIMARY KEY CHECK (id = 1), epoch INTEGER NOT NULL, holder TEXT, lease_until INTEGER NOT NULL)");
   storage.sql.exec("INSERT OR IGNORE INTO mischief_drive_lease VALUES (1, 0, NULL, 0)");
@@ -82935,13 +83092,13 @@ var driveLease = (storage) => {
 };
 
 // ../../packages/plan-run/dist/plan-run.js
-var isText5 = Schema77.is(Schema77.String);
-var decodeState = Schema77.decodeUnknownOption(Schema77.fromJsonString(RunStateSchema));
+var isText5 = Schema78.is(Schema78.String);
+var decodeState = Schema78.decodeUnknownOption(Schema78.fromJsonString(RunStateSchema));
 var runsOf = (storage) => storage.sql.exec("SELECT run_id, state FROM mischief_runs WHERE run_id NOT IN (SELECT run_id FROM mischief_paused WHERE paused = 1) OR run_id IN (SELECT run_id FROM mischief_journal WHERE key = 'abort-reason' AND run_id NOT IN (SELECT run_id FROM mischief_journal WHERE key = 'done:abort-notices')) ORDER BY run_id").toArray().flatMap((row2) => {
   const state3 = decodeState(row2.state);
   return isText5(row2.run_id) && Option28.isSome(state3) ? [{ runId: row2.run_id, state: state3.value }] : [];
 });
-var decodeSubmit2 = Schema77.decodeUnknownOption(Schema77.Struct({ runId: Schema77.String }));
+var decodeSubmit2 = Schema78.decodeUnknownOption(Schema78.Struct({ runId: Schema78.String }));
 var stored = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_runs WHERE run_id = ?", runId2).toArray().length > 0;
 var alarmPending = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = ?", runId2, "done:hold-alarm").toArray().length === 0;
 var abortNoticePending = (storage, runId2) => storage.sql.exec("SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = 'abort-reason' AND NOT EXISTS (SELECT 1 FROM mischief_journal WHERE run_id = ? AND key = 'done:abort-notices')", runId2, runId2).toArray().length > 0;
@@ -83029,8 +83186,8 @@ var makePlanRun = ({ alarms, guardMs, services, storage }) => {
     onNone: () => Effect48.die(new Error("The writer wait ended without a lease; retry the capability and inspectRun.")),
     onSome: Effect48.succeed
   })), requests.withPermits(1), Effect48.ensuring(reconcile(true)));
-  const http4 = toHttpApi("Mischief", aroundHandlers(runCapabilities, (contract, input, effect) => contract.annotations.readOnly || contract.name === "submitPlan" && Option28.exists(decodeSubmit2(input), ({ runId: runId2 }) => stored(storage, runId2)) ? effect : mutate(effect)));
-  const { handler } = HttpRouter.toWebHandler(HttpApiBuilder2.layer(http4.api).pipe(Layer23.provide(http4.layer), Layer23.provide(Layer23.merge(host, HttpServer.layerServices))), { disableLogger: true, memoMap });
+  const http5 = toHttpApi("Mischief", aroundHandlers(runCapabilities, (contract, input, effect) => contract.annotations.readOnly || contract.name === "submitPlan" && Option28.exists(decodeSubmit2(input), ({ runId: runId2 }) => stored(storage, runId2)) ? effect : mutate(effect)));
+  const { handler } = HttpRouter.toWebHandler(HttpApiBuilder2.layer(http5.api).pipe(Layer23.provide(http5.layer), Layer23.provide(Layer23.merge(host, HttpServer.layerServices))), { disableLogger: true, memoMap });
   return {
     alarm: async (signal) => {
       const controller = new AbortController();
@@ -83067,21 +83224,21 @@ import { HttpRouter as HttpRouter2, HttpServer as HttpServer2 } from "effect/htt
 import { HttpApiBuilder as HttpApiBuilder3, OpenApi as OpenApi2 } from "effect/http-api";
 
 // ../../packages/plan-run/dist/schedule-store.js
-import { Effect as Effect49, Option as Option29, Schema as Schema78 } from "effect";
+import { Effect as Effect49, Option as Option29, Schema as Schema79 } from "effect";
 var SCHEMA2 = "CREATE TABLE IF NOT EXISTS mischief_schedule (id INTEGER PRIMARY KEY CHECK (id = 1), state TEXT NOT NULL)";
-var StateText2 = Schema78.fromJsonString(ScheduleStateSchema);
-var StateRow = Schema78.Struct({ state: Schema78.String });
+var StateText2 = Schema79.fromJsonString(ScheduleStateSchema);
+var StateRow = Schema79.Struct({ state: Schema79.String });
 var scheduleStoreSql = (storage) => {
   const rows = (query, ...bindings) => {
     storage.sql.exec(SCHEMA2);
     return storage.sql.exec(query, ...bindings).toArray();
   };
   return ScheduleStore.of({
-    load: Effect49.suspend(() => Option29.match(Schema78.decodeUnknownOption(StateRow)(rows("SELECT state FROM mischief_schedule WHERE id = 1")[0]), {
+    load: Effect49.suspend(() => Option29.match(Schema79.decodeUnknownOption(StateRow)(rows("SELECT state FROM mischief_schedule WHERE id = 1")[0]), {
       onNone: () => Effect49.succeedNone,
-      onSome: ({ state: state3 }) => Schema78.decodeUnknownEffect(StateText2)(state3).pipe(Effect49.map(Option29.some), Effect49.orDie)
+      onSome: ({ state: state3 }) => Schema79.decodeUnknownEffect(StateText2)(state3).pipe(Effect49.map(Option29.some), Effect49.orDie)
     })),
-    save: (state3) => Schema78.encodeEffect(StateText2)(state3).pipe(Effect49.orDie, Effect49.flatMap((text) => Effect49.sync(() => {
+    save: (state3) => Schema79.encodeEffect(StateText2)(state3).pipe(Effect49.orDie, Effect49.flatMap((text) => Effect49.sync(() => {
       rows("INSERT INTO mischief_schedule (id, state) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET state = excluded.state", text);
     })))
   });
@@ -83125,39 +83282,39 @@ var makeSchedule = ({ alarms, guardMs, notices, runs, storage }) => {
 
 // src/postbox-object.ts
 import { DurableObject } from "cloudflare:workers";
-import { Effect as Effect63, Exit as Exit6, Layer as Layer26, Option as Option48, Schema as Schema99, Scope as Scope2 } from "effect";
+import { Effect as Effect63, Exit as Exit6, Layer as Layer26, Option as Option48, Schema as Schema100, Scope as Scope2 } from "effect";
 import { FetchHttpClient } from "effect/http";
 
 // src/decode-delivery.ts
-import { Effect as Effect51, Option as Option30, Predicate as Predicate8, Schema as Schema81 } from "effect";
+import { Effect as Effect51, Option as Option30, Predicate as Predicate8, Schema as Schema83 } from "effect";
 
 // src/postbox-failed.ts
-import { Schema as Schema79 } from "effect";
-var PostboxFailed = class extends Schema79.TaggedError()(
+import { Schema as Schema80 } from "effect";
+var PostboxFailed = class extends Schema80.TaggedError()(
   "PostboxFailed",
-  { reason: Schema79.String }
+  { reason: Schema80.String }
 ) {
 };
 
 // src/runs-port.ts
-import { Context as Context31, Schema as Schema80 } from "effect";
-var Delivered = Schema80.TaggedUnion({
+import { Context as Context31, Schema as Schema81 } from "effect";
+var Delivered = Schema81.TaggedUnion({
   AlreadyJournaled: {},
   Journaled: {},
-  Refused: { reason: Schema80.String }
+  Refused: { reason: Schema81.String }
 });
 var Runs3 = class extends Context31.Service()("@mischief/worker/Runs") {
 };
 
 // src/decode-delivery.ts
-var Outcome = Schema81.fromJsonString(
-  Schema81.Union([AlreadyJournaled, ReplyRefused])
+var Outcome = Schema83.fromJsonString(
+  Schema83.Union([AlreadyJournaled, ReplyRefused])
 );
 var decodeDelivery = (objectName, status, body) => {
   if (status === 200) {
     return Effect51.succeed(Delivered.cases.Journaled.make({}));
   }
-  return Option30.match(Schema81.decodeUnknownOption(Outcome)(body), {
+  return Option30.match(Schema83.decodeUnknownOption(Outcome)(body), {
     onNone: () => Effect51.fail(
       new PostboxFailed({
         reason: `run ${objectName} answered HTTP ${status}`
@@ -83170,29 +83327,29 @@ var decodeDelivery = (objectName, status, body) => {
 };
 
 // ../../packages/core/dist/desk-wake.js
-import { Schema as Schema83 } from "effect";
-var DeskName = Schema83.String.check(Schema83.isPattern(/^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z][a-z0-9_-]{0,31}$/u), Schema83.isMaxLength(128));
-var DeskMessageId = Schema83.String.check(Schema83.isPattern(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u));
-var DeskWakeBody = Schema83.Struct({ messageId: DeskMessageId });
-var DeskWakeResult = Schema83.Struct({
-  inProgress: Schema83.optionalKey(Schema83.Literal(true)),
-  permanent: Schema83.optionalKey(Schema83.Literal(true)),
-  ready: Schema83.optional(Schema83.Boolean),
-  reason: Schema83.String,
-  result: Schema83.Literals(["restored", "lost", "failed"])
+import { Schema as Schema84 } from "effect";
+var DeskName = Schema84.String.check(Schema84.isPattern(/^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z][a-z0-9_-]{0,31}$/u), Schema84.isMaxLength(128));
+var DeskMessageId = Schema84.String.check(Schema84.isPattern(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u));
+var DeskWakeBody = Schema84.Struct({ messageId: DeskMessageId });
+var DeskWakeResult = Schema84.Struct({
+  inProgress: Schema84.optionalKey(Schema84.Literal(true)),
+  permanent: Schema84.optionalKey(Schema84.Literal(true)),
+  ready: Schema84.optional(Schema84.Boolean),
+  reason: Schema84.String,
+  result: Schema84.Literals(["restored", "lost", "failed"])
 });
-var DeskLease = Schema83.Union([
-  Schema83.Struct({ live: Schema83.Boolean }),
-  Schema83.Struct({ permanent: Schema83.Literal(true), reason: Schema83.String })
+var DeskLease = Schema84.Union([
+  Schema84.Struct({ live: Schema84.Boolean }),
+  Schema84.Struct({ permanent: Schema84.Literal(true), reason: Schema84.String })
 ]);
-var DeskInspection = Schema83.Struct({
-  alarmAt: Schema83.NullOr(Schema83.Int),
-  attempts: Schema83.Int,
-  messageId: Schema83.NullOr(DeskMessageId),
-  pending: Schema83.NullOr(Schema83.Struct({ messageId: DeskMessageId, probeAt: Schema83.Int })),
-  ready: Schema83.NullOr(Schema83.Boolean),
-  reason: Schema83.String,
-  state: Schema83.Literals([
+var DeskInspection = Schema84.Struct({
+  alarmAt: Schema84.NullOr(Schema84.Int),
+  attempts: Schema84.Int,
+  messageId: Schema84.NullOr(DeskMessageId),
+  pending: Schema84.NullOr(Schema84.Struct({ messageId: DeskMessageId, probeAt: Schema84.Int })),
+  ready: Schema84.NullOr(Schema84.Boolean),
+  reason: Schema84.String,
+  state: Schema84.Literals([
     "asleep",
     "waking",
     "reading",
@@ -83202,42 +83359,42 @@ var DeskInspection = Schema83.Struct({
 });
 
 // src/desk-wake-mail.ts
-import { DateTime as DateTime3, Effect as Effect53, Option as Option31, Schema as Schema84 } from "effect";
+import { DateTime as DateTime3, Effect as Effect53, Option as Option31, Schema as Schema85 } from "effect";
 var NSID = "sh.mschf.ratking.desk.wake";
-var Tid = Schema84.String.check(
-  Schema84.isPattern(
+var Tid = Schema85.String.check(
+  Schema85.isPattern(
     /^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}$/u
   )
-).pipe(Schema84.brand("Lexicon:tid"));
-var Datetime = Schema84.String.check(
-  Schema84.isMaxLength(64),
-  Schema84.isPattern(
+).pipe(Schema85.brand("Lexicon:tid"));
+var Datetime = Schema85.String.check(
+  Schema85.isMaxLength(64),
+  Schema85.isPattern(
     /^\d{4}-\d{2}-\d{2}(?:[Tt ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:[Zz]|[+-]\d{2}:?\d{2})?)?$/u
   ),
-  Schema84.makeFilter((value) => Option31.isSome(DateTime3.make(value)), {
+  Schema85.makeFilter((value) => Option31.isSome(DateTime3.make(value)), {
     expected: "an ISO datetime"
   })
-).pipe(Schema84.brand("Lexicon:datetime"));
-var WakeFields = Schema84.Struct({
-  $type: Schema84.Literal(NSID),
+).pipe(Schema85.brand("Lexicon:datetime"));
+var WakeFields = Schema85.Struct({
+  $type: Schema85.Literal(NSID),
   messageId: Tid,
-  name: Schema84.String.check(Schema84.isMinLength(1), Schema84.isMaxLength(128)),
+  name: Schema85.String.check(Schema85.isMinLength(1), Schema85.isMaxLength(128)),
   recordedAt: Datetime,
-  seq: Schema84.optionalKey(
-    Schema84.Int.check(
-      Schema84.isBetween({ maximum: Number.MAX_SAFE_INTEGER, minimum: 1 })
+  seq: Schema85.optionalKey(
+    Schema85.Int.check(
+      Schema85.isBetween({ maximum: Number.MAX_SAFE_INTEGER, minimum: 1 })
     )
   ),
-  wake: Schema84.Literal(true)
+  wake: Schema85.Literal(true)
 });
-var DeskWakeRecord = Schema84.StructWithRest(WakeFields, [
-  Schema84.Record(Schema84.String, Schema84.Json)
+var DeskWakeRecord = Schema85.StructWithRest(WakeFields, [
+  Schema85.Record(Schema85.String, Schema85.Json)
 ]);
-var decode14 = Schema84.decodeUnknownOption(
-  Schema84.fromJsonString(DeskWakeRecord)
+var decode14 = Schema85.decodeUnknownOption(
+  Schema85.fromJsonString(DeskWakeRecord)
 );
-var isDesk = Schema84.is(DeskName);
-var payload = Schema84.decodeUnknownOption(PayloadJson);
+var isDesk = Schema85.is(DeskName);
+var payload = Schema85.decodeUnknownOption(PayloadJson);
 var bodyOf = (body) => Option31.match(payload(body), {
   onNone: () => body,
   onSome: (opened) => opened.kind === "data" ? opened.body : body
@@ -83261,19 +83418,19 @@ var routeDeskWake = (message, enabled, sender, wake2, otherwise) => {
     onNone: () => Effect53.logWarning(
       "Postbox rejected desk wake: invalid sh.mschf.ratking.desk.wake record"
     ),
-    onSome: (record) => isDesk(record.name) ? wake2(Schema84.encodeSync(WakeFields)(record)) : Effect53.logWarning(
+    onSome: (record) => isDesk(record.name) ? wake2(Schema85.encodeSync(WakeFields)(record)) : Effect53.logWarning(
       "Postbox rejected desk wake: name is not a safe Rat King project/role"
     )
   });
 };
 
 // src/mailroom-port.ts
-import { Context as Context33, Schema as Schema85 } from "effect";
-var SendVerdict = Schema85.TaggedUnion({
+import { Context as Context33, Schema as Schema86 } from "effect";
+var SendVerdict = Schema86.TaggedUnion({
   Accepted: {},
   Conflict: {},
-  Refused: { reason: Schema85.String },
-  Uncertain: { reason: Schema85.String }
+  Refused: { reason: Schema86.String },
+  Uncertain: { reason: Schema86.String }
 });
 var Mailroom = class extends Context33.Service()("@mischief/worker/Mailroom") {
 };
@@ -83287,12 +83444,12 @@ import {
   Layer as Layer25,
   Option as Option36,
   Predicate as Predicate9,
-  Schema as Schema88,
+  Schema as Schema89,
   Stream as Stream4
 } from "effect";
 
 // src/postbox.ts
-import { Duration as Duration5, Effect as Effect55, Option as Option35, Schedule as Schedule5, Schema as Schema87 } from "effect";
+import { Duration as Duration5, Effect as Effect55, Option as Option35, Schedule as Schedule5, Schema as Schema88 } from "effect";
 
 // src/mail-attribution.ts
 import { Option as Option33 } from "effect";
@@ -83308,20 +83465,20 @@ Mischief caller: ${caller}; run: ${runId2}`;
 };
 
 // src/postbox-aborts.ts
-import { Effect as Effect54, Option as Option34, Schema as Schema86, Semaphore as Semaphore5 } from "effect";
-var Column = Schema86.Struct({ name: Schema86.String });
-var Pending = Schema86.Struct({
-  envelope: Schema86.NullOr(Schema86.String),
-  message_id: Schema86.String,
-  reason: Schema86.String,
-  run_id: Schema86.String,
-  sender: Schema86.String
+import { Effect as Effect54, Option as Option34, Schema as Schema87, Semaphore as Semaphore5 } from "effect";
+var Column = Schema87.Struct({ name: Schema87.String });
+var Pending = Schema87.Struct({
+  envelope: Schema87.NullOr(Schema87.String),
+  message_id: Schema87.String,
+  reason: Schema87.String,
+  run_id: Schema87.String,
+  sender: Schema87.String
 });
 var abortReplyText = (runId2, messageId, reason) => `Your reply ${messageId} reached Mischief run ${runId2}. The run was aborted before it finished: ${reason}. Nothing your reply fed carried forward. Resend it as a reply to the next wake's ask, or contact the run's owner. SR \u{1F400}`;
 var postboxAborts = (storage, send3) => {
   const columns = new Set(
     storage.sql.exec("PRAGMA table_info(postbox_delivered)").toArray().flatMap(
-      (row2) => Option34.toArray(Schema86.decodeUnknownOption(Column)(row2)).map(
+      (row2) => Option34.toArray(Schema87.decodeUnknownOption(Column)(row2)).map(
         ({ name }) => name
       )
     )
@@ -83355,7 +83512,7 @@ var postboxAborts = (storage, send3) => {
       if (raw === void 0) {
         break;
       }
-      const row2 = yield* Schema86.decodeUnknownEffect(Pending)(raw).pipe(
+      const row2 = yield* Schema87.decodeUnknownEffect(Pending)(raw).pipe(
         Effect54.orDie
       );
       after = row2.message_id;
@@ -83409,11 +83566,11 @@ var DELIVERED = "CREATE TABLE IF NOT EXISTS postbox_delivered (message_id TEXT P
 var CURSOR = "CREATE TABLE IF NOT EXISTS postbox_cursor (id INTEGER PRIMARY KEY CHECK (id = 1), seq INTEGER NOT NULL)";
 var OWN_NAME = "mischief/worker";
 var DESK = "pi-durable/desk";
-var RunRow = Schema87.Struct({ run_id: Schema87.String });
-var SeqRow = Schema87.Struct({ seq: Schema87.Number });
-var Addressed = Schema87.fromJsonString(Schema87.Struct({ to: Schema87.String }));
+var RunRow = Schema88.Struct({ run_id: Schema88.String });
+var SeqRow = Schema88.Struct({ seq: Schema88.Number });
+var Addressed = Schema88.fromJsonString(Schema88.Struct({ to: Schema88.String }));
 var addressedElsewhere = (body) => Option35.exists(
-  Schema87.decodeUnknownOption(Addressed)(body),
+  Schema88.decodeUnknownOption(Addressed)(body),
   ({ to }) => to !== OWN_NAME
 );
 var settle3 = (verdict) => SendVerdict.match(verdict, {
@@ -83460,7 +83617,7 @@ var postbox = (storage) => {
       messageId
     ).toArray()[0]
   ).pipe(
-    Option35.flatMap(Schema87.decodeUnknownOption(RunRow)),
+    Option35.flatMap(Schema88.decodeUnknownOption(RunRow)),
     Option35.map(({ run_id }) => run_id)
   );
   const park = (message, sender, reason, quiet = false) => Effect55.gen(function* parkMessage() {
@@ -83577,7 +83734,7 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
   const cursor = () => Option35.fromNullishOr(
     storage.sql.exec("SELECT seq FROM postbox_cursor WHERE id = 1").toArray()[0]
   ).pipe(
-    Option35.flatMap(Schema87.decodeUnknownOption(SeqRow)),
+    Option35.flatMap(Schema88.decodeUnknownOption(SeqRow)),
     Option35.match({ onNone: () => 0, onSome: ({ seq }) => seq })
   );
   return {
@@ -83594,16 +83751,16 @@ Naming to lets it work even if your reader no longer holds the ask (pi-ratking f
 
 // src/mailroom.ts
 var MESSAGE_EVENT = "sh.mschf.ratking.defs#messageEvent";
-var ReplyReference = Schema88.Struct({
-  messageId: Schema88.String.check(Schema88.isPattern(/^[2-7a-z]{13}$/u)).pipe(
-    Schema88.brand("Lexicon:tid")
+var ReplyReference = Schema89.Struct({
+  messageId: Schema89.String.check(Schema89.isPattern(/^[2-7a-z]{13}$/u)).pipe(
+    Schema89.brand("Lexicon:tid")
   ),
-  senderDid: Schema88.String.check(Schema88.isPattern(/^did:[a-z0-9]+:.+$/u)).pipe(
-    Schema88.brand("Lexicon:did")
+  senderDid: Schema89.String.check(Schema89.isPattern(/^did:[a-z0-9]+:.+$/u)).pipe(
+    Schema89.brand("Lexicon:did")
   )
 });
 var isMessage = (event) => event.$type === MESSAGE_EVENT && "envelope" in event && "receipt" in event;
-var seqOf = Schema88.decodeUnknownOption(Schema88.Struct({ seq: Schema88.Int }));
+var seqOf = Schema89.decodeUnknownOption(Schema89.Struct({ seq: Schema89.Int }));
 var failed2 = (reason) => new PostboxFailed({ reason });
 var ATTEMPT_MS2 = 3e3;
 var HARNESS = {
@@ -83626,10 +83783,10 @@ var skipOf = (state3) => {
   }
   return state3 === "acked" ? Option36.some("settled") : Option36.none();
 };
-var StoredEnvelope = Schema88.fromJsonString(
-  Schema88.StructWithRest(
-    Schema88.Struct({ ciphertext: Schema88.String, enc: Schema88.String }),
-    [Schema88.Record(Schema88.String, Schema88.Json)]
+var StoredEnvelope = Schema89.fromJsonString(
+  Schema89.StructWithRest(
+    Schema89.Struct({ ciphertext: Schema89.String, enc: Schema89.String }),
+    [Schema89.Record(Schema89.String, Schema89.Json)]
   )
 );
 var encodeEnvelope = (envelope) => JSON.stringify({
@@ -83637,7 +83794,7 @@ var encodeEnvelope = (envelope) => JSON.stringify({
   ciphertext: base64url22(envelope.ciphertext),
   enc: base64url22(envelope.enc)
 });
-var decodeEnvelope = (text) => Schema88.decodeUnknownEffect(StoredEnvelope)(text).pipe(
+var decodeEnvelope = (text) => Schema89.decodeUnknownEffect(StoredEnvelope)(text).pipe(
   Effect56.map((stored2) => {
     const restored = {
       ...stored2,
@@ -83757,6 +83914,24 @@ var openMailroom = (config) => Effect56.gen(function* openMailroomFor() {
       )
     })
   );
+  const sendWatch = (to, envelope, wake2) => Effect56.gen(function* sendWatchEnvelope() {
+    const decoded = yield* decodeEnvelope(envelope);
+    const did2 = decoded.aad.recipientDid;
+    if (!Option36.contains(didFor(canonicalName(to)), did2)) {
+      return yield* failed2(
+        "Stored watch mail no longer addresses its recorded recipient. Inspect the watch before retrying."
+      );
+    }
+    yield* peer(to, did2);
+    const held = yield* fence;
+    const intent = { wakeReason: wake2 ? "to" : "cc", woke: wake2 };
+    return verdictOf3(
+      yield* prepared.send(
+        decoded,
+        held === void 0 ? intent : { ...intent, fence: held }
+      )
+    );
+  });
   const tell = (to, summary, body) => seal5(to, `${summary}
 
 ${body}`).pipe(
@@ -83777,7 +83952,7 @@ ${body}`).pipe(
     Mailroom.of({
       nameOf: (did2) => Effect56.succeed(nameFor(did2)),
       seal: seal5,
-      sealReply: (to, messageId, thread, summary, body) => Schema88.decodeUnknownEffect(ReplyReference)({
+      sealReply: (to, messageId, thread, summary, body) => Schema89.decodeUnknownEffect(ReplyReference)({
         messageId,
         senderDid: didFor(canonicalName(to)).pipe(
           Option36.getOrElse(() => to)
@@ -83792,6 +83967,8 @@ ${body}`).pipe(
           (replyTo) => seal5(to, body, { encrypt: true, replyTo, summary, thread })
         )
       ),
+      sealWatch: (to, summary, body, thread) => seal5(to, body, { summary, thread }),
+      sendWatch,
       send: send3,
       surface: (summary, body) => tell(DESK, summary, body),
       tell
@@ -83868,7 +84045,7 @@ ${body}`).pipe(
         leaseId: lease.leaseId
       })),
       Effect56.mapError(
-        (failure6) => Schema88.is(PostboxFailed)(failure6) ? failure6 : clientFailed("acquire")(failure6)
+        (failure6) => Schema89.is(PostboxFailed)(failure6) ? failure6 : clientFailed("acquire")(failure6)
       )
     ),
     page: (held, afterSeq, limit2) => mailbox.list({ afterSeq, limit: limit2 }).pipe(
@@ -83893,30 +84070,30 @@ ${body}`).pipe(
       orElse: () => Effect56.fail(failed2(`head: no answer in ${ATTEMPT_MS2} ms`))
     }),
     Effect56.mapError(
-      (failure6) => Schema88.is(PostboxFailed)(failure6) ? failure6 : clientFailed("head")(failure6)
+      (failure6) => Schema89.is(PostboxFailed)(failure6) ? failure6 : clientFailed("head")(failure6)
     )
   );
   return { head, inbox, layer: layer2 };
 });
 
 // src/peon-address.ts
-import { Option as Option37, Schema as Schema89 } from "effect";
-var Address = Schema89.fromJsonString(
-  Schema89.Struct({
-    body: Schema89.optionalKey(Schema89.String),
-    peonId: Schema89.optionalKey(PeonId),
-    text: Schema89.optionalKey(Schema89.String),
-    thread: Schema89.optionalKey(Schema89.String)
+import { Option as Option37, Schema as Schema90 } from "effect";
+var Address = Schema90.fromJsonString(
+  Schema90.Struct({
+    body: Schema90.optionalKey(Schema90.String),
+    peonId: Schema90.optionalKey(PeonId),
+    text: Schema90.optionalKey(Schema90.String),
+    thread: Schema90.optionalKey(Schema90.String)
   })
 );
 var resolvePeonAddress = (thread, body, instance) => {
-  const outer = Schema89.decodeOption(Address)(body).pipe(Option37.getOrUndefined);
-  const inside = Schema89.decodeOption(Address)(outer?.body ?? "").pipe(
+  const outer = Schema90.decodeOption(Address)(body).pipe(Option37.getOrUndefined);
+  const inside = Schema90.decodeOption(Address)(outer?.body ?? "").pipe(
     Option37.getOrUndefined
   );
   const id = instance ?? outer?.peonId ?? inside?.peonId;
   const key = thread ?? outer?.thread;
-  const peonId = Schema89.decodeUnknownOption(PeonId)(
+  const peonId = Schema90.decodeUnknownOption(PeonId)(
     id ?? (key?.startsWith("peon:") === true ? key.slice(5) : void 0)
   );
   const text = inside?.text ?? outer?.text ?? outer?.body ?? body;
@@ -83924,20 +84101,20 @@ var resolvePeonAddress = (thread, body, instance) => {
 };
 
 // src/peon-mail.ts
-import { Effect as Effect57, Option as Option39, Schema as Schema93 } from "effect";
+import { Effect as Effect57, Option as Option39, Schema as Schema94 } from "effect";
 
 // src/peon-grants.ts
-import { Option as Option38, Schema as Schema90 } from "effect";
-var PeonGrants = Schema90.Record(
-  Schema90.String,
-  Schema90.Array(
-    Schema90.String.check(
-      Schema90.makeFilter((name) => peonCapabilityNames.has(name))
+import { Option as Option38, Schema as Schema91 } from "effect";
+var PeonGrants = Schema91.Record(
+  Schema91.String,
+  Schema91.Array(
+    Schema91.String.check(
+      Schema91.makeFilter((name) => peonCapabilityNames.has(name))
     )
   )
 );
 var peonGranted = (grants, owner, capability) => Option38.exists(
-  Schema90.decodeUnknownOption(Schema90.fromJsonString(PeonGrants))(
+  Schema91.decodeUnknownOption(Schema91.fromJsonString(PeonGrants))(
     grants ?? "{}"
   ),
   (value) => {
@@ -83947,14 +84124,14 @@ var peonGranted = (grants, owner, capability) => Option38.exists(
 );
 
 // src/peon-state.ts
-import { Schema as Schema91 } from "effect";
+import { Schema as Schema93 } from "effect";
 var PEON_REGISTRY = "peons-v1";
-var PeonPending = Schema91.Struct({
-  boxRequestId: Schema91.String,
-  inputHash: Schema91.String,
-  discardWorkspace: Schema91.optional(Schema91.Literal(true)),
-  landedHead: Schema91.optional(Schema91.String),
-  kind: Schema91.Literals([
+var PeonPending = Schema93.Struct({
+  boxRequestId: Schema93.String,
+  inputHash: Schema93.String,
+  discardWorkspace: Schema93.optional(Schema93.Literal(true)),
+  landedHead: Schema93.optional(Schema93.String),
+  kind: Schema93.Literals([
     "spawn",
     "prompt",
     "suspend",
@@ -83963,54 +84140,55 @@ var PeonPending = Schema91.Struct({
     "clone",
     "destroy"
   ]),
-  mail: Schema91.optionalKey(Schema91.Boolean),
-  newPeonId: Schema91.optional(PeonId),
-  requestId: Schema91.String,
-  resumeRequestId: Schema91.String,
-  sender: Schema91.optional(Schema91.String),
-  text: Schema91.optional(Schema91.String),
-  textHash: Schema91.optional(Schema91.String)
+  mail: Schema93.optionalKey(Schema93.Boolean),
+  newPeonId: Schema93.optional(PeonId),
+  requestId: Schema93.String,
+  resumeRequestId: Schema93.String,
+  sender: Schema93.optional(Schema93.String),
+  text: Schema93.optional(Schema93.String),
+  textHash: Schema93.optional(Schema93.String)
 });
-var PeonStored = Schema91.Struct({
-  idleAt: Schema91.Finite,
-  pending: Schema91.NullOr(PeonPending),
+var PeonStored = Schema93.Struct({
+  idleAt: Schema93.Finite,
+  lastTurnId: Schema93.optionalKey(Schema93.String),
+  pending: Schema93.NullOr(PeonPending),
   report: PeonReport
 });
-var PeonCompleted = Schema91.Struct({
-  hash: Schema91.String,
+var PeonCompleted = Schema93.Struct({
+  hash: Schema93.String,
   report: PeonReport
 });
-var PeonBoxState = Schema91.Struct({
+var PeonBoxState = Schema93.Struct({
   processes: PeonReport.fields.processes,
   bytes: PeonReport.fields.bytes,
-  container: Schema91.NullOr(Schema91.String),
-  lastPromptAt: Schema91.NullOr(Schema91.Union([Schema91.String, Schema91.Finite])),
-  state: Schema91.String
+  container: Schema93.NullOr(Schema93.String),
+  lastPromptAt: Schema93.NullOr(Schema93.Union([Schema93.String, Schema93.Finite])),
+  state: Schema93.String
 });
-var PeonBoxCreated = Schema91.Struct({
-  image: Schema91.String,
+var PeonBoxCreated = Schema93.Struct({
+  image: Schema93.String,
   peonId: PeonId,
-  state: Schema91.Literal("idle"),
+  state: Schema93.Literal("idle"),
   workspace: PeonWorkspace
 });
-var PeonBoxCloned = Schema91.Struct({
+var PeonBoxCloned = Schema93.Struct({
   peonId: PeonId,
-  state: Schema91.Literal("suspended")
+  state: Schema93.Literal("suspended")
 });
 
 // src/peon-mail.ts
-var Envelope = Schema93.Struct({
-  envelope: Schema93.String,
-  sent: Schema93.Finite
+var Envelope = Schema94.Struct({
+  envelope: Schema94.String,
+  sent: Schema94.Finite
 });
 var peonReplies = (storage) => {
   storage.sql.exec(
     "CREATE TABLE IF NOT EXISTS peon_replies (id TEXT PRIMARY KEY, envelope TEXT NOT NULL, sent INTEGER NOT NULL DEFAULT 0)"
   );
-  return Effect57.fn("Peon.reply")(function* reply(toDid, messageId, peonId, text) {
+  return Effect57.fn("Peon.reply")(function* reply2(toDid, messageId, peonId, text) {
     const [row2] = storage.sql.exec("SELECT envelope, sent FROM peon_replies WHERE id = ?", messageId).toArray();
     const mailroom = yield* Mailroom;
-    const previous2 = row2 === void 0 ? void 0 : yield* Schema93.decodeUnknownEffect(Envelope)(row2).pipe(Effect57.orDie);
+    const previous2 = row2 === void 0 ? void 0 : yield* Schema94.decodeUnknownEffect(Envelope)(row2).pipe(Effect57.orDie);
     if (previous2?.sent === 1) {
       return yield* Effect57.void;
     }
@@ -84072,10 +84250,10 @@ var peonMailHost = (env) => ({
   })
 });
 var receivePeonMail = Effect57.fn("Peon.receiveMail")(
-  function* receivePeonMail2(host, message, address, reply) {
+  function* receivePeonMail2(host, message, address, reply2) {
     const { peonId, text } = address;
     if (!host.enabled) {
-      return yield* reply(
+      return yield* reply2(
         message.senderDid,
         message.messageId,
         peonId,
@@ -84092,7 +84270,7 @@ var receivePeonMail = Effect57.fn("Peon.receiveMail")(
       refusal3 = `Sender has no promptPeon grant; a wake can write files. Ask the desk to grant promptPeon in callers.json, then resend this message.`;
     }
     if (refusal3 !== void 0) {
-      return yield* reply(
+      return yield* reply2(
         message.senderDid,
         message.messageId,
         peonId,
@@ -84105,7 +84283,7 @@ var receivePeonMail = Effect57.fn("Peon.receiveMail")(
 );
 
 // src/postbox-inbox.ts
-import { Clock as Clock11, Effect as Effect58, Option as Option40, Schema as Schema94 } from "effect";
+import { Clock as Clock11, Effect as Effect58, Option as Option40, Schema as Schema95 } from "effect";
 var LEASE_TTL_MS2 = 3e5;
 var LONG_POLL_MS = 2e4;
 var PAGE_LIMIT = 10;
@@ -84158,7 +84336,7 @@ var readInboxBatch = Effect58.fn("readPostboxBatch")(function* readInboxBatch2(i
 var readBatch = (inbox, inlet, window2) => readInboxBatch(inbox, inlet, window2).pipe(
   Effect58.tapError(
     (failure6) => Effect58.sync(() => {
-      if (Schema94.is(PostboxFailed)(failure6) && failure6.reason.includes("(LeaseMismatch)")) {
+      if (Schema95.is(PostboxFailed)(failure6) && failure6.reason.includes("(LeaseMismatch)")) {
         const held = inlet.leases.held(0);
         if (Option40.isSome(held)) {
           inlet.leases.save({ ...held.value, expiresAt: 0 });
@@ -84169,13 +84347,13 @@ var readBatch = (inbox, inlet, window2) => readInboxBatch(inbox, inlet, window2)
 );
 
 // src/postbox-lease.ts
-import { Option as Option41, Schema as Schema95 } from "effect";
+import { Option as Option41, Schema as Schema96 } from "effect";
 var LEASE = "CREATE TABLE IF NOT EXISTS postbox_lease (id INTEGER PRIMARY KEY CHECK (id = 1), did TEXT NOT NULL, lease_id TEXT NOT NULL, generation INTEGER NOT NULL, expires_at INTEGER NOT NULL)";
-var Row = Schema95.Struct({
-  did: Schema95.String,
-  expires_at: Schema95.Number,
-  generation: Schema95.Number,
-  lease_id: Schema95.String
+var Row = Schema96.Struct({
+  did: Schema96.String,
+  expires_at: Schema96.Number,
+  generation: Schema96.Number,
+  lease_id: Schema96.String
 });
 var leaseBook = (storage) => {
   storage.sql.exec(LEASE);
@@ -84187,7 +84365,7 @@ var leaseBook = (storage) => {
             "SELECT did, lease_id, generation, expires_at FROM postbox_lease WHERE id = 1"
           ).toArray()[0]
         ),
-        (row2) => Schema95.decodeUnknownOption(Row)(row2)
+        (row2) => Schema96.decodeUnknownOption(Row)(row2)
       ).pipe(Option41.flatten),
       (row2) => row2.expires_at > now
     ).pipe(
@@ -84211,18 +84389,18 @@ var leaseBook = (storage) => {
 };
 
 // src/postbox-reader-failed.ts
-import { Cause as Cause7, Option as Option43, Schema as Schema96 } from "effect";
-var PostboxReaderFailed = class _PostboxReaderFailed extends Schema96.TaggedError()(
+import { Cause as Cause7, Option as Option43, Schema as Schema97 } from "effect";
+var PostboxReaderFailed = class _PostboxReaderFailed extends Schema97.TaggedError()(
   "PostboxReaderFailed",
   {
-    kind: Schema96.Literals(["DatabaseMissing", "Unavailable"]),
-    reason: Schema96.String
+    kind: Schema97.Literals(["DatabaseMissing", "Unavailable"]),
+    reason: Schema97.String
   }
 ) {
   static fromCause(cause) {
     const reason = Option43.match(Cause7.findErrorOption(cause), {
       onNone: () => Cause7.pretty(cause),
-      onSome: (error) => Schema96.is(PostboxFailed)(error) ? error.reason : Cause7.pretty(cause)
+      onSome: (error) => Schema97.is(PostboxFailed)(error) ? error.reason : Cause7.pretty(cause)
     });
     return new _PostboxReaderFailed({
       kind: reason.includes("no db for Postbox:") ? "DatabaseMissing" : "Unavailable",
@@ -84451,14 +84629,14 @@ var readerHost = (alarms, store, lookout, reader) => {
 };
 
 // src/postbox-reader-marks.ts
-import { Effect as Effect61, Option as Option46, Schema as Schema97 } from "effect";
+import { Effect as Effect61, Option as Option46, Schema as Schema98 } from "effect";
 var MARKS = "CREATE TABLE IF NOT EXISTS postbox_reader_marks (id INTEGER PRIMARY KEY CHECK (id = 1), last_read_at INTEGER NOT NULL, empty_turns INTEGER NOT NULL, noticed INTEGER NOT NULL)";
-var Row2 = Schema97.Struct({
-  empty_turns: Schema97.Finite,
-  last_read_at: Schema97.Finite,
-  noticed: Schema97.Finite,
-  retry_attempts: Schema97.optionalKey(
-    Schema97.Int.check(Schema97.isGreaterThanOrEqualTo(0))
+var Row2 = Schema98.Struct({
+  empty_turns: Schema98.Finite,
+  last_read_at: Schema98.Finite,
+  noticed: Schema98.Finite,
+  retry_attempts: Schema98.optionalKey(
+    Schema98.Int.check(Schema98.isGreaterThanOrEqualTo(0))
   )
 });
 var readerMarks = (storage) => {
@@ -84476,7 +84654,7 @@ var readerMarks = (storage) => {
           "SELECT last_read_at, empty_turns, noticed, retry_attempts FROM postbox_reader_marks WHERE id = 1"
         ).toArray()[0]
       ).pipe(
-        Option46.flatMap((row2) => Schema97.decodeUnknownOption(Row2)(row2)),
+        Option46.flatMap((row2) => Schema98.decodeUnknownOption(Row2)(row2)),
         Option46.map((row2) => {
           const marks = {
             emptyTurns: row2.empty_turns,
@@ -84501,7 +84679,7 @@ var readerMarks = (storage) => {
 };
 
 // src/think-tally.ts
-import { DateTime as DateTime6, Option as Option47, Schema as Schema98 } from "effect";
+import { DateTime as DateTime6, Option as Option47, Schema as Schema99 } from "effect";
 var DAY_WARN_FLOOR_TOKENS = 15e5;
 var DAY_WARN_HISTORY_DAYS = 7;
 var DAY_WARN_MEDIAN_MULTIPLE = 2;
@@ -84511,10 +84689,10 @@ var DAYS2 = "CREATE TABLE IF NOT EXISTS mischief_think_days (day TEXT PRIMARY KE
 var RUNS = "CREATE TABLE IF NOT EXISTS mischief_think_runs (run_id TEXT PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL)";
 var STEPS = "CREATE TABLE IF NOT EXISTS mischief_think_steps (run_id TEXT NOT NULL, key TEXT NOT NULL, calls INTEGER NOT NULL, PRIMARY KEY (run_id, key))";
 var BIG_CALLS = "CREATE TABLE IF NOT EXISTS mischief_think_big_calls (run_id TEXT PRIMARY KEY)";
-var Totals = Schema98.Struct({ calls: Schema98.Finite, tokens: Schema98.Finite });
+var Totals = Schema99.Struct({ calls: Schema99.Finite, tokens: Schema99.Finite });
 var totalsOf = (rows) => Option47.getOrElse(
   Option47.fromNullishOr(rows[0]).pipe(
-    Option47.flatMap(Schema98.decodeUnknownOption(Totals))
+    Option47.flatMap(Schema99.decodeUnknownOption(Totals))
   ),
   () => ({ calls: 0, tokens: 0 })
 );
@@ -84525,7 +84703,7 @@ var dedupeKey = (crossing, day, runId2, key) => ({
 })[crossing];
 var dayWarning = (storage, day) => {
   storage.sql.exec(DAYS2);
-  const history = Schema98.decodeUnknownSync(Schema98.Array(Totals))(
+  const history = Schema99.decodeUnknownSync(Schema99.Array(Totals))(
     storage.sql.exec(
       "SELECT calls, tokens FROM mischief_think_days WHERE day < ? ORDER BY day DESC LIMIT ?",
       day,
@@ -84803,8 +84981,8 @@ ${body}`).pipe(Effect63.flatMap(({ envelope }) => mailroom.send(envelope)))
     });
   }
   open() {
-    const identity = Schema99.decodeUnknownOption(
-      Schema99.fromJsonString(Identity2)
+    const identity = Schema100.decodeUnknownOption(
+      Schema100.fromJsonString(Identity2)
     )(this.env.MISCHIEF_IDENTITY ?? "");
     const endpoint = this.env.MISCHIEF_MAILBOX_URL ?? "";
     const serviceDid = this.env.MISCHIEF_MAILBOX_DID ?? "";
@@ -84887,6 +85065,39 @@ ${body}`).pipe(Effect63.flatMap(({ envelope }) => mailroom.send(envelope)))
       )
     );
     return { ok: true };
+  }
+  async sealWatch(to, summary, body, thread) {
+    await this.start();
+    return await posted2(
+      this.sender().pipe(
+        Effect63.flatMap(
+          ({ layer: layer2 }) => Mailroom.use(
+            ({ sealWatch }) => sealWatch?.(to, summary, body, thread) ?? Effect63.fail(new PostboxFailed({ reason: NOT_WIRED }))
+          ).pipe(Effect63.provide(layer2))
+        )
+      )
+    );
+  }
+  async sendWatch(to, envelope, wake2) {
+    return await posted2(
+      this.sender().pipe(
+        Effect63.flatMap(
+          ({ layer: layer2 }) => Mailroom.use(
+            ({ sendWatch }) => sendWatch?.(to, envelope, wake2) ?? Effect63.fail(new PostboxFailed({ reason: NOT_WIRED }))
+          ).pipe(
+            Effect63.flatMap(
+              (verdict) => SendVerdict.match(verdict, {
+                Accepted: () => Effect63.succeed({}),
+                Conflict: () => Effect63.succeed({}),
+                Refused: ({ reason }) => Effect63.fail(new PostboxFailed({ reason })),
+                Uncertain: ({ reason }) => Effect63.fail(new PostboxFailed({ reason }))
+              })
+            ),
+            Effect63.provide(layer2)
+          )
+        )
+      )
+    );
   }
   async send(envelope) {
     return await posted2(
@@ -85000,10 +85211,10 @@ var CallerThinks = class extends DurableObject2 {
 
 // src/peon-object.ts
 import { DurableObject as DurableObject3 } from "cloudflare:workers";
-import { Effect as Effect69, Option as Option51, Schema as Schema103, Semaphore as Semaphore6 } from "effect";
+import { Effect as Effect69, Option as Option51, Schema as Schema104, Semaphore as Semaphore6 } from "effect";
 
 // src/peon-box.ts
-import { Effect as Effect65, Option as Option50, Schema as Schema100 } from "effect";
+import { Effect as Effect65, Option as Option50, Schema as Schema101 } from "effect";
 import { FetchHttpClient as FetchHttpClient2, HttpClient as HttpClient3, HttpClientRequest as HttpClientRequest3 } from "effect/http";
 var methodOf = (operation) => {
   if (operation === "inspect") {
@@ -85011,15 +85222,15 @@ var methodOf = (operation) => {
   }
   return operation === "destroy" ? "DELETE" : "POST";
 };
-var custodyRefusal = Schema100.fromJsonString(
-  Schema100.Struct({
-    error: Schema100.Struct({
+var custodyRefusal = Schema101.fromJsonString(
+  Schema101.Struct({
+    error: Schema101.Struct({
       code: PeonBoxRefusalCode,
-      message: Schema100.optionalKey(Schema100.String),
-      state: Schema100.optionalKey(PeonState),
-      dirtyPaths: Schema100.optionalKey(Schema100.Array(Schema100.String)),
-      dirtyTotal: Schema100.optionalKey(Schema100.Int),
-      refs: Schema100.optionalKey(Schema100.Array(Schema100.String))
+      message: Schema101.optionalKey(Schema101.String),
+      state: Schema101.optionalKey(PeonState),
+      dirtyPaths: Schema101.optionalKey(Schema101.Array(Schema101.String)),
+      dirtyTotal: Schema101.optionalKey(Schema101.Int),
+      refs: Schema101.optionalKey(Schema101.Array(Schema101.String))
     })
   })
 );
@@ -85070,20 +85281,20 @@ var unlandedDetails = ({
   );
   return paths + refDetails;
 };
-var exportReply = Schema100.fromJsonString(
-  Schema100.Struct({ exportReceipt: PeonExportReceipt })
+var exportReply = Schema101.fromJsonString(
+  Schema101.Struct({ exportReceipt: PeonExportReceipt })
 );
-var jsonObject = Schema100.fromJsonString(
-  Schema100.Record(Schema100.String, Schema100.Json)
+var jsonObject = Schema101.fromJsonString(
+  Schema101.Record(Schema101.String, Schema101.Json)
 );
 var requireSuccess = (peonId, operation, response) => Effect65.gen(function* checkBoxResponse() {
   if (response.status >= 200 && response.status < 300) {
     return response.text;
   }
-  const reply = Schema100.decodeOption(custodyRefusal)(response.text);
+  const reply2 = Schema101.decodeOption(custodyRefusal)(response.text);
   const context = `Box ${peonId} ${operation} returned HTTP ${response.status}`;
-  if (Option50.isSome(reply)) {
-    const { error } = reply.value;
+  if (Option50.isSome(reply2)) {
+    const { error } = reply2.value;
     const bridgeMessage = error.message ?? "";
     const message = bridgeMessage.length > 512 ? `${bridgeMessage.slice(0, 511)}\u2026` : bridgeMessage;
     const prefix = `${context} (${error.code}).${message === "" ? "" : ` ${message}`}`;
@@ -85101,9 +85312,9 @@ var requireSuccess = (peonId, operation, response) => Effect65.gen(function* che
     reason: `${context}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`
   });
 });
-var custody = Schema100.fromJsonString(
-  Schema100.Struct({
-    error: Schema100.Struct({ code: Schema100.Literal("ReceiptMismatch") })
+var custody = Schema101.fromJsonString(
+  Schema101.Struct({
+    error: Schema101.Struct({ code: Schema101.Literal("ReceiptMismatch") })
   })
 );
 var peonBox = (url, key) => {
@@ -85146,7 +85357,7 @@ var peonBox = (url, key) => {
         });
       }
       const response = yield* send3(peonId, operation, body);
-      const needsExport = operation === "destroy" && response.status === 409 && Option50.isSome(Schema100.decodeOption(custody)(response.text));
+      const needsExport = operation === "destroy" && response.status === 409 && Option50.isSome(Schema101.decodeOption(custody)(response.text));
       let receipt;
       if (needsExport) {
         const exported = yield* send3(
@@ -85159,7 +85370,7 @@ var peonBox = (url, key) => {
           "export",
           exported
         );
-        receipt = (yield* Schema100.decodeEffect(exportReply)(exportedText).pipe(
+        receipt = (yield* Schema101.decodeEffect(exportReply)(exportedText).pipe(
           Effect65.mapError(
             () => new PeonRefused({
               reason: "Box export returned no valid custody receipt. Check the box manager version."
@@ -85169,12 +85380,12 @@ var peonBox = (url, key) => {
       }
       const final = needsExport ? yield* send3(peonId, operation, body) : response;
       const text = yield* requireSuccess(peonId, operation, final);
-      const responseObject = receipt === void 0 ? Option50.none() : Schema100.decodeOption(jsonObject)(text);
+      const responseObject = receipt === void 0 ? Option50.none() : Schema101.decodeOption(jsonObject)(text);
       const payload2 = Option50.isSome(responseObject) && responseObject.value.exportReceipt === void 0 ? JSON.stringify({
         ...responseObject.value,
         exportReceipt: receipt
       }) : text;
-      return yield* Schema100.decodeEffect(Schema100.fromJsonString(schema2))(
+      return yield* Schema101.decodeEffect(Schema101.fromJsonString(schema2))(
         payload2
       ).pipe(
         Effect65.mapError(
@@ -85188,7 +85399,7 @@ var peonBox = (url, key) => {
 };
 
 // src/peon-host.ts
-import { Clock as Clock13, Effect as Effect67, Schema as Schema101 } from "effect";
+import { Clock as Clock13, Effect as Effect67, Schema as Schema103 } from "effect";
 
 // src/peon-crypto.ts
 import { Effect as Effect66 } from "effect";
@@ -85216,7 +85427,7 @@ var reportWithMeasurements = (report2, measured) => {
   }
   return measuredReport;
 };
-var indexOf = Schema101.decodeUnknownSync(PeonIndexEntry);
+var indexOf = Schema103.decodeUnknownSync(PeonIndexEntry);
 var acknowledgedStates = {
   destroy: "destroyed",
   hibernate: "hibernated",
@@ -85266,7 +85477,7 @@ var peonHost = ({
   publish: publish2,
   clone: clone2,
   reserveClone,
-  reply,
+  reply: reply2,
   guardMs
 }) => {
   const requirePeon = storage.load.pipe(
@@ -85359,6 +85570,7 @@ var peonHost = ({
         next = yield* move(stored2, "TURN_DONE");
         next = {
           ...next,
+          lastTurnId: pending.requestId,
           report: {
             ...next.report,
             lastTurn: turn,
@@ -85410,9 +85622,9 @@ var peonHost = ({
             landedHead: pending.landedHead,
             discardWorkspace: pending.discardWorkspace
           },
-          Schema101.Struct({
-            state: Schema101.Literal(acknowledgedStates[pending.kind]),
-            exportReceipt: Schema101.optionalKey(PeonExportReceipt)
+          Schema103.Struct({
+            state: Schema103.Literal(acknowledgedStates[pending.kind]),
+            exportReceipt: Schema103.optionalKey(PeonExportReceipt)
           })
         );
         if (pending.kind === "resume") {
@@ -85466,7 +85678,7 @@ var peonHost = ({
     yield* publish2(indexOf(finished.report));
     const { turn } = performed;
     if (pending.mail === true && pending.sender !== void 0 && turn !== void 0) {
-      yield* reply(
+      yield* reply2(
         pending.sender,
         pending.requestId,
         finished.report.peonId,
@@ -85519,7 +85731,7 @@ var peonHost = ({
     return yield* fault;
   });
   const recover = drive().pipe(Effect67.catchTag("PeonRefused", recordFault));
-  const begin = Effect67.fn("Peon.begin")(function* begin2(kind, requestId2, event, options2 = {}) {
+  const begin = Effect67.fn("Peon.begin")(function* begin2(kind, requestId3, event, options2 = {}) {
     const inputHash = yield* hashPeonText(
       JSON.stringify({
         kind,
@@ -85529,18 +85741,18 @@ var peonHost = ({
         discardWorkspace: options2.discardWorkspace
       })
     );
-    const completed = yield* storage.completed(requestId2);
+    const completed = yield* storage.completed(requestId3);
     if (completed !== void 0) {
       if (completed.hash !== inputHash) {
         return yield* failure4(
-          `requestId ${requestId2} already completed with different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
+          `requestId ${requestId3} already completed with different input; reusing it would conceal changed work. Use a new requestId for a new operation.`
         );
       }
       return completed.report;
     }
     let stored2 = yield* requirePeon;
     if (stored2.pending !== null) {
-      if (stored2.pending.requestId === requestId2 && stored2.pending.inputHash === inputHash) {
+      if (stored2.pending.requestId === requestId3 && stored2.pending.inputHash === inputHash) {
         return options2.defer === true ? stored2.report : yield* recover;
       }
       if (kind !== "destroy" || stored2.report.fault === null) {
@@ -85558,7 +85770,7 @@ var peonHost = ({
           stored2.idleAt,
           stored2.report.resolvedTemplate
         ),
-        { requestId: requestId2, value: { hash: inputHash, report: stored2.report } }
+        { requestId: requestId3, value: { hash: inputHash, report: stored2.report } }
       );
       return stored2.report;
     }
@@ -85571,15 +85783,15 @@ var peonHost = ({
       landedHead: options2.landedHead,
       discardWorkspace: options2.discardWorkspace,
       boxRequestId: yield* hashPeonText(
-        JSON.stringify([stored2.report.peonId, kind, requestId2, "main"])
+        JSON.stringify([stored2.report.peonId, kind, requestId3, "main"])
       ),
       inputHash,
       kind,
       mail: options2.mail ?? false,
       newPeonId: options2.newPeonId,
-      requestId: requestId2,
+      requestId: requestId3,
       resumeRequestId: yield* hashPeonText(
-        JSON.stringify([stored2.report.peonId, kind, requestId2, "resume"])
+        JSON.stringify([stored2.report.peonId, kind, requestId3, "resume"])
       ),
       sender: options2.sender,
       text: options2.text,
@@ -85653,18 +85865,18 @@ var peonHost = ({
         return suspended.report;
       }
       const attaching = yield* move(initial, "SPAWN");
-      const requestId2 = `spawn/${entry3.peonId}`;
+      const requestId3 = `spawn/${entry3.peonId}`;
       const pending = {
         landedHead: void 0,
         discardWorkspace: void 0,
         boxRequestId: yield* hashPeonText(
-          JSON.stringify([entry3.peonId, "spawn", requestId2, "main"])
+          JSON.stringify([entry3.peonId, "spawn", requestId3, "main"])
         ),
         inputHash: yield* hashPeonText(JSON.stringify({ kind: "spawn" })),
         kind: "spawn",
-        requestId: requestId2,
+        requestId: requestId3,
         resumeRequestId: yield* hashPeonText(
-          JSON.stringify([entry3.peonId, "spawn", requestId2, "resume"])
+          JSON.stringify([entry3.peonId, "spawn", requestId3, "resume"])
         )
       };
       yield* commit({ ...attaching, pending });
@@ -85762,9 +85974,9 @@ var Peon = class extends DurableObject3 {
         env.MISCHIEF_BOX_URL ?? "http://192.0.2.1",
         env.MISCHIEF_BOX_KEY ?? ""
       ),
-      clone: (id, source, requestId2) => Effect69.gen(function* initializeClone() {
+      clone: (id, source, requestId3) => Effect69.gen(function* initializeClone() {
         const entry3 = {
-          creationKey: `clone/${source.peonId}/${requestId2}`,
+          creationKey: `clone/${source.peonId}/${requestId3}`,
           owner: source.owner,
           peonId: id,
           state: "suspended",
@@ -85791,9 +86003,9 @@ var Peon = class extends DurableObject3 {
           text
         );
       }),
-      reserveClone: (id, source, requestId2) => peonRpc(async () => {
+      reserveClone: (id, source, requestId3) => peonRpc(async () => {
         await registry().claim({
-          creationKey: `clone/${source.peonId}/${requestId2}`,
+          creationKey: `clone/${source.peonId}/${requestId3}`,
           owner: source.owner,
           peonId: id,
           state: "spawned",
@@ -85811,7 +86023,7 @@ var Peon = class extends DurableObject3 {
           await ctx.storage.transaction(async (transaction) => {
             await transaction.put(
               "peon",
-              Schema103.decodeUnknownSync(PeonStored)(stored2)
+              Schema104.decodeUnknownSync(PeonStored)(stored2)
             );
             if (completed !== void 0) {
               await transaction.put(
@@ -85828,16 +86040,16 @@ var Peon = class extends DurableObject3 {
             await (alarm === null ? transaction.deleteAlarm() : transaction.setAlarm(alarm));
           });
         }),
-        completed: (requestId2) => Effect69.promise(
-          async () => await ctx.storage.get(`request:${requestId2}`)
+        completed: (requestId3) => Effect69.promise(
+          async () => await ctx.storage.get(`request:${requestId3}`)
         ).pipe(
           Effect69.map(
-            (value) => value === void 0 ? void 0 : Schema103.decodeUnknownSync(PeonCompleted)(value)
+            (value) => value === void 0 ? void 0 : Schema104.decodeUnknownSync(PeonCompleted)(value)
           )
         ),
         load: Effect69.promise(async () => await ctx.storage.get("peon")).pipe(
           Effect69.map(
-            (value) => value === void 0 ? void 0 : Schema103.decodeUnknownSync(PeonStored)(value)
+            (value) => value === void 0 ? void 0 : Schema104.decodeUnknownSync(PeonStored)(value)
           )
         )
       }
@@ -85864,9 +86076,9 @@ var Peon = class extends DurableObject3 {
   async initialize(entry3, template, cloned = false) {
     return await this.run(this.host.initialize(entry3, template, cloned));
   }
-  async command(kind, requestId2, text, newPeonId, sender, disposition) {
+  async command(kind, requestId3, text, newPeonId, sender, disposition) {
     return await this.run(
-      this.host.command(kind, requestId2, events[kind], {
+      this.host.command(kind, requestId3, events[kind], {
         ...disposition,
         newPeonId,
         sender,
@@ -85881,9 +86093,9 @@ var Peon = class extends DurableObject3 {
       )
     );
   }
-  async acceptMail(requestId2, text, sender) {
+  async acceptMail(requestId3, text, sender) {
     const report2 = await this.run(
-      this.host.command("prompt", requestId2, "PROMPT", {
+      this.host.command("prompt", requestId3, "PROMPT", {
         defer: true,
         mail: true,
         sender,
@@ -85897,6 +86109,18 @@ var Peon = class extends DurableObject3 {
     return await Effect69.runPromise(
       this.env.MISCHIEF_PEON_BOXES === "on" ? this.host.inspect : this.host.inspectStored
     );
+  }
+  async watchContext(owner) {
+    const raw = await this.ctx.storage.get("peon");
+    if (raw === void 0) {
+      return null;
+    }
+    const { lastTurnId, pending, report: report2 } = Schema104.decodeUnknownSync(PeonStored)(raw);
+    return report2.owner === owner ? {
+      lastTurnId: lastTurnId ?? null,
+      pending: pending !== null,
+      state: report2.state
+    } : null;
   }
   async tailContext() {
     const { lastTurn, state: state3 } = await this.run(this.host.inspectStored);
@@ -85913,11 +86137,11 @@ var Peon = class extends DurableObject3 {
 
 // src/peon-registry.ts
 import { DurableObject as DurableObject4 } from "cloudflare:workers";
-import { Effect as Effect70, Option as Option53, Schema as Schema105 } from "effect";
+import { Effect as Effect70, Option as Option53, Schema as Schema106 } from "effect";
 
 // src/peon-list.ts
-import { Schema as Schema104 } from "effect";
-var StateList = Schema104.Array(PeonState);
+import { Schema as Schema105 } from "effect";
+var StateList = Schema105.Array(PeonState);
 var listedPeonStates = (state3) => {
   if (state3 === void 0) {
     return ["running", "idle"];
@@ -85925,7 +86149,7 @@ var listedPeonStates = (state3) => {
   if (state3 === "all") {
     return null;
   }
-  return Schema104.is(StateList)(state3) ? state3 : [state3];
+  return Schema105.is(StateList)(state3) ? state3 : [state3];
 };
 var peonMatches = (entry3, filter, owner) => {
   if (entry3.owner !== owner || filter.owner !== void 0 && filter.owner !== entry3.owner || filter.template !== void 0 && filter.template !== entry3.template.name) {
@@ -85934,22 +86158,22 @@ var peonMatches = (entry3, filter, owner) => {
   if (filter.state === void 0) {
     return entry3.state === "running" || entry3.state === "idle";
   }
-  if (Schema104.is(StateList)(filter.state)) {
+  if (Schema105.is(StateList)(filter.state)) {
     return filter.state.includes(entry3.state);
   }
   return filter.state === "all" || entry3.state === filter.state;
 };
 
 // src/peon-registry.ts
-var Row3 = Schema105.Struct({ value: Schema105.String });
-var decodeRow = Schema105.decodeUnknownSync(Row3);
-var decodeId = Schema105.decodeUnknownSync(PeonId);
-var decodeIndex = Schema105.decodeUnknownSync(PeonIndexEntry);
-var decodeVersion = Schema105.decodeUnknownSync(
-  Schema105.fromJsonString(PeonTemplateVersion)
+var Row3 = Schema106.Struct({ value: Schema106.String });
+var decodeRow = Schema106.decodeUnknownSync(Row3);
+var decodeId = Schema106.decodeUnknownSync(PeonId);
+var decodeIndex = Schema106.decodeUnknownSync(PeonIndexEntry);
+var decodeVersion = Schema106.decodeUnknownSync(
+  Schema106.fromJsonString(PeonTemplateVersion)
 );
-var decodeEntry = Schema105.decodeUnknownSync(
-  Schema105.fromJsonString(PeonIndexEntry)
+var decodeEntry = Schema106.decodeUnknownSync(
+  Schema106.fromJsonString(PeonIndexEntry)
 );
 var registryFailure = (reason) => new PeonRefused({ reason });
 var PeonTemplates = class extends DurableObject4 {
@@ -85981,7 +86205,7 @@ var PeonTemplates = class extends DurableObject4 {
   }
   resolveEffect(ref) {
     return Effect70.gen({ self: this }, function* resolveTemplate() {
-      const valid = yield* Schema105.decodeUnknownEffect(PeonTemplateRef)(
+      const valid = yield* Schema106.decodeUnknownEffect(PeonTemplateRef)(
         ref
       ).pipe(
         Effect70.mapError(
@@ -86030,7 +86254,7 @@ var PeonTemplates = class extends DurableObject4 {
           input.name
         ).toArray();
         const version = last === void 0 ? 1 : decodeVersion(decodeRow(last).value).version + 1;
-        const saved = yield* Schema105.decodeUnknownEffect(PeonTemplateVersion)({
+        const saved = yield* Schema106.decodeUnknownEffect(PeonTemplateVersion)({
           extends: { name: parent.name, version: parent.version },
           name: input.name,
           template,
@@ -86084,7 +86308,7 @@ var PeonTemplates = class extends DurableObject4 {
     this.writable();
     return await Effect70.runPromise(
       Effect70.gen({ self: this }, function* claimPeon() {
-        const valid = yield* Schema105.decodeUnknownEffect(PeonIndexEntry)(
+        const valid = yield* Schema106.decodeUnknownEffect(PeonIndexEntry)(
           entry3
         ).pipe(
           Effect70.mapError(
@@ -86858,9 +87082,9 @@ var SqliteStorage = class _SqliteStorage {
     const rows = await this.db.all(`SELECT record FROM ${this.schema.tables.submissions} WHERE ${clauses.join(" AND ")} ORDER BY id ${scan.direction} LIMIT ?`, ...params2);
     return page2(rows.map((row2) => parseJson(row2.record)), limit2, start.order);
   }
-  async submissionByRequest(conversationId, requestId2, _context) {
+  async submissionByRequest(conversationId, requestId3, _context) {
     this.assertOpen();
-    const row2 = await this.db.get(`SELECT record FROM ${this.schema.tables.submissions} WHERE conversation_id = ? AND request_id = ?`, conversationId, encodeIndexedString(requestId2));
+    const row2 = await this.db.get(`SELECT record FROM ${this.schema.tables.submissions} WHERE conversation_id = ? AND request_id = ?`, conversationId, encodeIndexedString(requestId3));
     return row2 === void 0 ? void 0 : parseJson(row2.record);
   }
   async findDocument(address, at, _context) {
@@ -87178,14 +87402,14 @@ function openDurableObjectSqliteStorage(storage, options2 = {}) {
 
 // src/plan-run-object.ts
 import { DurableObject as DurableObject5 } from "cloudflare:workers";
-import { Clock as Clock14, Effect as Effect77, Layer as Layer30, Option as Option58, Redacted as Redacted3, Schema as Schema109 } from "effect";
+import { Clock as Clock14, Effect as Effect77, Layer as Layer30, Option as Option58, Redacted as Redacted3, Schema as Schema110 } from "effect";
 import { FetchHttpClient as FetchHttpClient4 } from "effect/http";
 
 // src/abort-notices.ts
 import { Effect as Effect73, Option as Option55 } from "effect";
 
 // src/postbox-mail.ts
-import { Effect as Effect71, Layer as Layer27, Option as Option54, Schema as Schema106 } from "effect";
+import { Effect as Effect71, Layer as Layer27, Option as Option54, Schema as Schema107 } from "effect";
 var OBJECT = "CREATE TABLE IF NOT EXISTS mischief_object (id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL)";
 var OBJECT_HEADER = "x-mischief-object";
 var rememberObject = (storage, name) => {
@@ -87197,13 +87421,13 @@ var rememberObject = (storage, name) => {
     );
   }
 };
-var ObjectRow = Schema106.Struct({ name: Schema106.String });
+var ObjectRow = Schema107.Struct({ name: Schema107.String });
 var objectOf = (storage) => {
   storage.sql.exec(OBJECT);
   return Option54.fromNullishOr(
     storage.sql.exec("SELECT name FROM mischief_object WHERE id = 1").toArray()[0]
   ).pipe(
-    Option54.flatMap(Schema106.decodeUnknownOption(ObjectRow)),
+    Option54.flatMap(Schema107.decodeUnknownOption(ObjectRow)),
     Option54.map(({ name }) => name)
   );
 };
@@ -87231,10 +87455,10 @@ var settled = (key, name, call) => Effect71.tryPromise({
     (result) => result.ok ? Effect71.succeed(result) : Effect71.fail(new StepFailed({ key, reason: result.reason }))
   )
 );
-var OutboxEnvelope = Schema106.fromJsonString(
-  Schema106.Struct({ message: Schema106.String, to: Schema106.String })
+var OutboxEnvelope = Schema107.fromJsonString(
+  Schema107.Struct({ message: Schema107.String, to: Schema107.String })
 );
-var recordOnly = (envelope) => Option54.isSome(Schema106.decodeUnknownOption(OutboxEnvelope)(envelope));
+var recordOnly = (envelope) => Option54.isSome(Schema107.decodeUnknownOption(OutboxEnvelope)(envelope));
 var postboxMail = (storage, postbox2) => Layer27.effect(
   Mail,
   Effect71.gen(function* routedMail() {
@@ -87310,17 +87534,17 @@ var callerThinkPermit = (ports) => CallerThinkShare.of({
 });
 
 // src/judge-choice.ts
-import { Effect as Effect75, Layer as Layer28, Option as Option56, Schema as Schema107 } from "effect";
+import { Effect as Effect75, Layer as Layer28, Option as Option56, Schema as Schema108 } from "effect";
 var CHOICE = "CREATE TABLE IF NOT EXISTS mischief_judge (id INTEGER PRIMARY KEY CHECK (id = 1), mode TEXT NOT NULL)";
 var HOST_DEFAULT2 = "default";
-var SubmitJudge = Schema107.Struct({
-  judge: Schema107.optionalKey(JudgeModeSchema)
+var SubmitJudge = Schema108.Struct({
+  judge: Schema108.optionalKey(JudgeModeSchema)
 });
-var decodeSubmit3 = Schema107.decodeUnknownOption(
-  Schema107.fromJsonString(SubmitJudge)
+var decodeSubmit3 = Schema108.decodeUnknownOption(
+  Schema108.fromJsonString(SubmitJudge)
 );
-var ChoiceRow = Schema107.Struct({ mode: Schema107.String });
-var decodeMode = Schema107.decodeUnknownOption(JudgeModeSchema);
+var ChoiceRow = Schema108.Struct({ mode: Schema108.String });
+var decodeMode = Schema108.decodeUnknownOption(JudgeModeSchema);
 var fixJudgeAtFirstSubmit = (storage, body) => {
   storage.sql.exec(CHOICE);
   const mode = decodeSubmit3(body).pipe(
@@ -87348,7 +87572,7 @@ var judgeModeOf = (storage) => {
   return Option56.fromNullishOr(
     storage.sql.exec("SELECT mode FROM mischief_judge WHERE id = 1").toArray()[0]
   ).pipe(
-    Option56.flatMap(Schema107.decodeUnknownOption(ChoiceRow)),
+    Option56.flatMap(Schema108.decodeUnknownOption(ChoiceRow)),
     Option56.flatMap(({ mode }) => decodeMode(mode))
   );
 };
@@ -87404,11 +87628,11 @@ var forgetUnlessStored = (storage, ...forgets) => {
 };
 
 // src/mail-reach.ts
-import { Effect as Effect76, Layer as Layer29, Option as Option57, Schema as Schema108 } from "effect";
-var Recipient = Schema108.fromJsonString(
-  Schema108.Union([
-    Schema108.Struct({ to: Schema108.String }),
-    Schema108.Struct({ aad: Schema108.Struct({ recipientDid: Schema108.String }) })
+import { Effect as Effect76, Layer as Layer29, Option as Option57, Schema as Schema109 } from "effect";
+var Recipient = Schema109.fromJsonString(
+  Schema109.Union([
+    Schema109.Struct({ to: Schema109.String }),
+    Schema109.Struct({ aad: Schema109.Struct({ recipientDid: Schema109.String }) })
   ])
 );
 var reachableMail = (objectName, config) => {
@@ -87445,7 +87669,7 @@ var reachableMail = (objectName, config) => {
             (name) => mail.seal({ ...call, message: attributeMail(name, call.message) })
           )
         ),
-        send: (call, sealed) => Schema108.decodeEffect(Recipient)(sealed.envelope).pipe(
+        send: (call, sealed) => Schema109.decodeEffect(Recipient)(sealed.envelope).pipe(
           Effect76.mapError(
             () => new StepFailed({
               key: call.key,
@@ -87462,7 +87686,7 @@ var reachableMail = (objectName, config) => {
 
 // src/plan-run-object.ts
 var TELEMETRY_DESK = "pi-durable/desk";
-var decodeHostJudge = Schema109.decodeUnknownOption(JudgeModeSchema);
+var decodeHostJudge = Schema110.decodeUnknownOption(JudgeModeSchema);
 var thinkerFor = (env, storageFor) => {
   if (env.MISCHIEF_MODEL === "faux") {
     return piThinker(fauxThinkerOptions(storageFor));
@@ -87716,8 +87940,8 @@ var planRunClass = (callables) => {
 };
 
 // src/registered-callables.ts
-import { Schema as Schema110 } from "effect";
-var validName = Schema110.is(CapabilityName);
+import { Schema as Schema111 } from "effect";
+var validName = Schema111.is(CapabilityName);
 var registeredCallables = (entries2) => {
   const registry = /* @__PURE__ */ new Map();
   for (const [name, capability] of entries2) {
@@ -87767,11 +87991,11 @@ var scheduleNotices = (ports) => ScheduleNotices.of({
 });
 
 // src/wake-runs.ts
-import { Effect as Effect79, Option as Option60, Schema as Schema111 } from "effect";
+import { Effect as Effect79, Option as Option60, Schema as Schema113 } from "effect";
 var SUBMIT_WAIT_MS = 5e3;
-var decodeReport = Schema111.decodeUnknownOption(RunReportSchema);
-var decodeRefused = Schema111.decodeUnknownOption(PlanRefused);
-var decodeUnknown = Schema111.decodeUnknownOption(UnknownRun);
+var decodeReport = Schema113.decodeUnknownOption(RunReportSchema);
+var decodeRefused = Schema113.decodeUnknownOption(PlanRefused);
+var decodeUnknown = Schema113.decodeUnknownOption(UnknownRun);
 var bodyOf2 = async (response) => {
   try {
     return await response.json();
@@ -88022,11 +88246,740 @@ var ServiceTokenLedger = class extends DurableObject7 {
   }
 };
 
+// src/watch-object.ts
+import { DurableObject as DurableObject8 } from "cloudflare:workers";
+import { DateTime as DateTime7, Effect as Effect84, Result as Result13, Schema as Schema117, Semaphore as Semaphore7 } from "effect";
+
+// src/watch-budget.ts
+var MAX_DAILY_WAKES = 20;
+var reserveWatchWake = (used, key) => {
+  if (used.includes(key)) {
+    return { allowed: true, used };
+  }
+  return used.length < MAX_DAILY_WAKES ? { allowed: true, used: [...used, key] } : { allowed: false, used };
+};
+
+// src/watch-check.ts
+import { Effect as Effect81, Equal as Equal2, Option as Option63, Predicate as Predicate10, Schema as Schema114 } from "effect";
+var MAX_BODY_BYTES = 64 * 1024;
+var pathPattern = /^(?:\$|[A-Za-z_][\w-]*)(?:\.[A-Za-z_][\w-]*|\[(?:0|[1-9]\d*)\])*$/u;
+var pathToken = /[A-Za-z_][\w-]*|\d+/gu;
+var githubPath = /^\$\.check_runs\[\?\(@\.name==(?<name>"(?:[^"\\]|\\.)*")\)\]\.status$/u;
+var selectorName = Schema114.decodeUnknownOption(
+  Schema114.fromJsonString(Schema114.String)
+);
+var checkRuns = Schema114.decodeUnknownOption(
+  Schema114.Struct({
+    check_runs: Schema114.Array(
+      Schema114.Struct({ name: Schema114.String, status: Schema114.String })
+    )
+  })
+);
+var githubName = (path2) => selectorName(githubPath.exec(path2)?.groups?.name);
+var costlyRegex = /[()*+?{}]|\\[1-9]/u;
+var watchRefusal = (code, reason) => new WatchRefused({ code, reason });
+var badHttp = (reason) => watchRefusal(
+  "BadCondition",
+  `${reason} Retry armWatch with an HTTPS URL and valid HTTP matcher.`
+);
+var watchUrl = (url, allowlist) => {
+  const parsed = URL.parse(url);
+  if (parsed === null || parsed.protocol !== "https:" || parsed.port !== "" || parsed.username !== "" || parsed.password !== "" || parsed.hash !== "") {
+    return badHttp(
+      "HTTP conditions need HTTPS on the default port, without credentials or fragments."
+    );
+  }
+  if (!(allowlist ?? "").split(",").some((entry3) => entry3.trim().toLowerCase() === parsed.hostname)) {
+    return watchRefusal(
+      "HostNotAllowed",
+      "The HTTP host is not in MISCHIEF_WATCH_HTTP_HOSTS. Use an allowed host or ask the desk to allow the exact hostname, then retry armWatch."
+    );
+  }
+  return parsed;
+};
+var validRegex = (pattern) => {
+  if (costlyRegex.test(pattern)) {
+    return false;
+  }
+  try {
+    return pattern !== "" && new RegExp(pattern, "u").source.length > 0;
+  } catch {
+    return false;
+  }
+};
+var validateHttp = ({ expect, url }, allowlist) => {
+  const target = watchUrl(url, allowlist);
+  if (Schema114.is(WatchRefused)(target)) {
+    return target;
+  }
+  if (expect.status !== void 0 && (expect.status < 100 || expect.status > 499)) {
+    return badHttp(
+      "HTTP expected status must be from 100 to 499; 5xx always means checkError."
+    );
+  }
+  if (expect.jsonPath !== void 0 && !pathPattern.test(expect.jsonPath) && Option63.isNone(githubName(expect.jsonPath))) {
+    return badHttp(
+      "Use a JSON path such as $.checks[0].status or the GitHub exact-name check_runs selector."
+    );
+  }
+  if (expect.regex !== void 0 && !validRegex(expect.regex)) {
+    return badHttp(
+      "Use a valid regex without groups, quantifiers or backreferences so a check cannot stall the worker."
+    );
+  }
+  return null;
+};
+var decodeJson2 = Schema114.decodeUnknownSync(Schema114.fromJsonString(Schema114.Json));
+var jsonRecord = Schema114.decodeUnknownOption(
+  Schema114.Record(Schema114.String, Schema114.Json)
+);
+var jsonElement = Schema114.decodeUnknownOption(Schema114.Json);
+var descend = (at, key) => {
+  if (Array.isArray(at)) {
+    return /^(?:0|[1-9]\d*)$/u.test(key) ? jsonElement(at[Number(key)]) : Option63.none();
+  }
+  return Option63.flatMap(
+    jsonRecord(at),
+    (record) => Object.hasOwn(record, key) ? Option63.fromUndefinedOr(record[key]) : Option63.none()
+  );
+};
+var atPath = (value, path2 = "") => {
+  const named2 = githubName(path2);
+  if (Option63.isSome(named2)) {
+    const runs = checkRuns(value);
+    if (Option63.isNone(runs)) {
+      throw new Error("The GitHub check_runs response did not decode.");
+    }
+    const matches = runs.value.check_runs.filter(
+      ({ name }) => name === named2.value
+    );
+    return matches.length === 1 ? matches[0]?.status : void 0;
+  }
+  let at = value;
+  for (const [key] of path2.matchAll(pathToken)) {
+    const child = descend(at, key);
+    if (Option63.isNone(child)) {
+      return Option63.getOrUndefined(child);
+    }
+    at = child.value;
+  }
+  return at;
+};
+var watchEvidence = (text) => clipTailText(sanitizeTailText(text).split("\n", 12).join("\n"), 2048);
+var readChunk = Schema114.decodeUnknownSync(Schema114.Uint8Array);
+var readBody = async (body) => {
+  if (body === null) {
+    return "";
+  }
+  const decoder2 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
+  const pieces = [];
+  let bytes3 = 0;
+  for await (const raw of body) {
+    const chunk = readChunk(raw);
+    bytes3 += chunk.byteLength;
+    if (bytes3 > MAX_BODY_BYTES) {
+      throw new Error("HTTP response exceeds 64 KB");
+    }
+    pieces.push(decoder2.decode(chunk, { stream: true }));
+  }
+  return pieces.join("") + decoder2.decode();
+};
+var noMatch = (detail) => ({ detail, outcome: "false" });
+var checkError = (detail) => ({
+  detail,
+  outcome: "checkError"
+});
+var matched = (value, detail, evidence) => hashPeonText(JSON.stringify(value)).pipe(
+  Effect81.map((cursor) => ({
+    cursor,
+    detail,
+    evidence: watchEvidence(evidence),
+    outcome: "true"
+  }))
+);
+var matchContents = (body, expect) => {
+  const value = expect.jsonPath !== void 0 || expect.equals !== void 0 ? atPath(decodeJson2(body), expect.jsonPath) : body;
+  if (value === void 0 || expect.equals !== void 0 && !Equal2.equals(expect.equals, value)) {
+    return noMatch("HTTP JSON value did not match.");
+  }
+  const evidence = Predicate10.isString(value) ? value : JSON.stringify(value);
+  if (expect.regex === void 0) {
+    return { value: expect.equals ?? value, evidence };
+  }
+  const match = new RegExp(expect.regex, "u").exec(evidence)?.[0];
+  return match === void 0 ? noMatch("HTTP value did not match the regex.") : { value: match, evidence: match };
+};
+var closeBody = (body) => {
+  void body?.cancel().catch(() => null);
+};
+var observe = async (response, expect) => {
+  const { status, body } = response;
+  if (status >= 500 || status >= 300 && status < 400 && status !== 304 || status === 0) {
+    closeBody(body);
+    return checkError(
+      `HTTP ${status} is a server failure or an untrusted redirect.`
+    );
+  }
+  if (status !== (expect.status ?? 200)) {
+    closeBody(body);
+    return noMatch(`HTTP ${status} did not match the expected status.`);
+  }
+  if (expect.jsonPath === void 0 && expect.equals === void 0 && expect.regex === void 0) {
+    closeBody(body);
+    return {
+      status,
+      value: [status, response.headers.get("etag")],
+      evidence: `HTTP ${status}`
+    };
+  }
+  const match = matchContents(await readBody(body), expect);
+  return "outcome" in match ? match : { ...match, status };
+};
+var checkHttp = Effect81.fn("Watch.checkHttp")(function* checkHttp2(condition, allowlist, get) {
+  const refusal3 = validateHttp(condition, allowlist);
+  if (refusal3 !== null) {
+    return checkError(refusal3.reason);
+  }
+  const { expect, url } = condition;
+  const observed = yield* Effect81.tryPromise({
+    catch: () => "HTTP GET failed, timed out or returned an unreadable body within the 64 KB limit.",
+    try: async (signal) => await observe(
+      await get(url, { method: "GET", redirect: "manual", signal }),
+      expect
+    )
+  }).pipe(
+    Effect81.timeoutOrElse({
+      duration: "10 seconds",
+      orElse: () => Effect81.fail("HTTP GET exceeded the 10 second limit.")
+    }),
+    Effect81.catch((error) => Effect81.succeed(checkError(error)))
+  );
+  if ("outcome" in observed) {
+    return observed;
+  }
+  return yield* matched(
+    observed.value,
+    `HTTP ${observed.status} matched.`,
+    observed.evidence
+  );
+});
+var checkPeon = ({ expect }, observation) => {
+  if (observation === null) {
+    return Effect81.succeed(
+      checkError(
+        "Peon registry or owned checkpoint did not return a current observation."
+      )
+    );
+  }
+  const { state: state3, pending, lastTurnId } = observation;
+  if (expect.state !== void 0 && expect.state !== state3 || expect.pendingClear === true && pending) {
+    return Effect81.succeed(
+      noMatch(`Peon state ${state3} or pending status did not match.`)
+    );
+  }
+  return matched(
+    [state3, lastTurnId],
+    `Peon state ${state3} matched.`,
+    `Peon state: ${state3}; pending: ${pending ? "yes" : "no"}`
+  );
+};
+
+// src/watch-engine.ts
+import { Clock as Clock15, Effect as Effect83, Option as Option64, Result as Result12, Schema as Schema116 } from "effect";
+
+// src/watch-machine.ts
+import { Schema as Schema115 } from "effect";
+var WatchDelivery = Schema115.Struct({
+  name: Schema115.String,
+  wake: Schema115.Boolean,
+  ownerNotice: Schema115.Boolean,
+  envelope: Schema115.optionalKey(Schema115.String)
+});
+var WatchPending = Schema115.Struct({
+  firing: WatchInspection.fields.firings.value,
+  deliveries: Schema115.NullOr(Schema115.Array(WatchDelivery))
+});
+var WatchCheckpoint = Schema115.Struct({
+  ...WatchInspection.fields,
+  requestHash: Schema115.String,
+  nextAt: Schema115.NullOr(Schema115.Finite),
+  pending: Schema115.NullOr(WatchPending)
+});
+var intervalMs = (watch2) => watch2.intervalSeconds * 1e3;
+var following = (watch2, at) => Math.min(watch2.expiresAt, at + intervalMs(watch2));
+var newCheckpoint = (watch2, requestHash) => ({
+  watch: watch2,
+  requestHash,
+  cursor: null,
+  evidence: [],
+  firings: [],
+  lastCheck: null,
+  nextAt: following(watch2, watch2.armedAt),
+  pending: null
+});
+var setState = (record, state3, nextAt) => ({
+  ...record,
+  nextAt,
+  watch: { ...record.watch, state: state3 }
+});
+var transitionWatch = (record, event) => {
+  const { watch: watch2 } = record;
+  switch (event.type) {
+    case "stop": {
+      return record.nextAt === null ? record : setState({ ...record, pending: null }, event.state, null);
+    }
+    case "tick": {
+      if (watch2.state !== "armed" && watch2.state !== "checking") {
+        return record;
+      }
+      return event.at >= watch2.expiresAt ? setState(record, "expired", null) : setState(record, "checking", following(watch2, event.at));
+    }
+    case "check": {
+      const { at, result, firing } = event;
+      const checked = {
+        ...record,
+        lastCheck: { at, detail: result.detail, outcome: result.outcome },
+        evidence: result.outcome === "true" ? [...record.evidence, { at, text: result.evidence }].slice(-20) : record.evidence
+      };
+      if (firing !== null) {
+        return setState(
+          {
+            ...checked,
+            cursor: firing.cursor,
+            pending: { firing, deliveries: null }
+          },
+          "fired",
+          at + 6e4
+        );
+      }
+      return at >= watch2.expiresAt ? setState(checked, "expired", null) : setState(checked, "armed", following(watch2, at));
+    }
+    case "sent": {
+      if (record.pending === null) {
+        return record;
+      }
+      const delivered = {
+        ...record,
+        firings: [...record.firings, record.pending.firing].slice(-20),
+        pending: null
+      };
+      if (watch2.kind === "once") {
+        return setState(delivered, "done", null);
+      }
+      return event.at >= watch2.expiresAt ? setState(delivered, "expired", null) : setState(delivered, "armed", following(watch2, event.at));
+    }
+    default: {
+      return event;
+    }
+  }
+};
+
+// src/watch-engine.ts
+var validateWatch = (definition, allowlist) => {
+  const { condition, intervalSeconds, timeoutSeconds, notify } = definition;
+  if (intervalSeconds < 60) {
+    return watchRefusal(
+      "IntervalTooShort",
+      "A durable watch checks at most once per minute. Retry armWatch with intervalSeconds of at least 60."
+    );
+  }
+  if (notify.to.length > 4 || notify.cc.length > 20) {
+    return watchRefusal(
+      "TooManyTargets",
+      "A watch can wake up to 4 names and quietly copy up to 20. Retry armWatch with fewer targets."
+    );
+  }
+  if ([...notify.to, ...notify.cc].some(
+    (name) => canonicalName(name) === "joel-iphone"
+  )) {
+    return watchRefusal(
+      "BadCondition",
+      "A watch cannot address Joel's phone directly. Notify a desk and use message_shitrat for a phone notification that needs Joel."
+    );
+  }
+  if (timeoutSeconds <= 0 || !Number.isSafeInteger(timeoutSeconds * 1e3) || !Number.isSafeInteger(intervalSeconds * 1e3) || notify.to.length + notify.cc.length === 0) {
+    return watchRefusal(
+      "BadCondition",
+      "A watch needs a positive, representable timeout and at least one recipient. Correct timeoutSeconds, intervalSeconds and notify, then retry armWatch."
+    );
+  }
+  if (condition.type === "peon") {
+    return condition.expect.state === void 0 && condition.expect.pendingClear === void 0 ? watchRefusal(
+      "BadCondition",
+      "A peon watch needs an expected state or pendingClear: true. Add a matcher and retry armWatch."
+    ) : null;
+  }
+  return validateHttp(condition, allowlist);
+};
+var initialDeliveries = ({
+  to,
+  cc
+}) => {
+  const awake = new Set(to.map(canonicalName));
+  return [.../* @__PURE__ */ new Set([...awake, ...cc.map(canonicalName)])].map((name) => ({
+    name,
+    ownerNotice: false,
+    wake: awake.has(name)
+  }));
+};
+var deliveriesFor = (ports, watch2, pending, at) => Effect83.gen(function* assignWakeBudget() {
+  const { firing } = pending;
+  const deliveries = [];
+  const downgraded = new Set(firing.downgraded);
+  for (const delivery of pending.deliveries ?? initialDeliveries(watch2.notify)) {
+    if (delivery.wake && !(yield* ports.reserve(delivery.name, at, firing.messageId))) {
+      downgraded.add(delivery.name);
+      deliveries.push({ ...delivery, wake: false });
+    } else {
+      deliveries.push(delivery);
+    }
+  }
+  const owner = nameFor(watch2.owner);
+  if (downgraded.size > firing.downgraded.length && Option64.isSome(owner) && owner.value !== "joel-iphone" && !deliveries.some(
+    ({ ownerNotice, envelope }) => ownerNotice && envelope === void 0
+  )) {
+    deliveries.push({ name: owner.value, ownerNotice: true, wake: false });
+  }
+  return { deliveries, firing: { ...firing, downgraded: [...downgraded] } };
+});
+var noticeText = (record, delivery, pending) => {
+  if (delivery.ownerNotice) {
+    return `Watch ${record.watch.watchId} exceeded the daily wake budget for ${pending.firing.downgraded.join(", ")}. Those names received a quiet copy.`;
+  }
+  return `${record.watch.message.body}
+
+Watch evidence:
+${record.evidence.at(-1)?.text ?? ""}`;
+};
+var unknownWatch = () => watchRefusal(
+  "UnknownWatch",
+  "No watch has this id. Call listWatches and retry using an existing watchId."
+);
+var watchEngine = (ports) => {
+  const existing = ports.load.pipe(
+    Effect83.flatMap(
+      (stored2) => stored2 === void 0 ? Effect83.fail(unknownWatch()) : Effect83.succeed(stored2)
+    )
+  );
+  const owned = (caller) => existing.pipe(
+    Effect83.flatMap(
+      (record) => record.watch.owner === caller || caller === RESERVED.switchboard.did ? Effect83.succeed(record) : Effect83.fail(
+        watchRefusal(
+          "NotOwner",
+          "Only the watch owner or Switchboard can inspect or change this watch. Call listWatches to find watches you own."
+        )
+      )
+    )
+  );
+  const deliver = (checkpoint) => Effect83.gen(function* deliverPending() {
+    const { pending } = checkpoint;
+    if (pending === null) {
+      return;
+    }
+    const at = yield* Clock15.currentTimeMillis;
+    const guarded = { ...checkpoint, nextAt: at + 6e4 };
+    yield* ports.save(guarded);
+    const dispatch = yield* deliveriesFor(
+      ports,
+      checkpoint.watch,
+      pending,
+      at
+    );
+    const armed = { ...guarded, pending: dispatch };
+    yield* ports.save(armed);
+    const delayed = [];
+    for (const [index3, delivery] of dispatch.deliveries.entries()) {
+      const rest = dispatch.deliveries.slice(index3 + 1);
+      const sealed = delivery.envelope === void 0 ? yield* ports.seal(
+        delivery,
+        checkpoint.watch,
+        noticeText(checkpoint, delivery, dispatch),
+        dispatch.firing.messageId
+      ).pipe(Effect83.result) : Result12.succeed(delivery.envelope);
+      if (Result12.isFailure(sealed)) {
+        delayed.push(delivery);
+        continue;
+      }
+      const envelope = sealed.success;
+      const inFlight = { ...delivery, envelope };
+      yield* ports.save({
+        ...armed,
+        pending: { ...dispatch, deliveries: [...delayed, inFlight, ...rest] }
+      });
+      const sent = yield* ports.send(delivery, envelope).pipe(Effect83.result);
+      if (Result12.isFailure(sent)) {
+        delayed.push(inFlight);
+      }
+      yield* ports.save({
+        ...armed,
+        pending: { ...dispatch, deliveries: [...delayed, ...rest] }
+      });
+    }
+    if (delayed.length === 0) {
+      yield* ports.save(
+        transitionWatch(armed, {
+          at: yield* Clock15.currentTimeMillis,
+          type: "sent"
+        })
+      );
+    }
+  });
+  const alarm = Effect83.gen(function* runAlarm() {
+    const record = yield* ports.load;
+    const at = yield* Clock15.currentTimeMillis;
+    if (record?.nextAt === null || record === void 0 || record.nextAt > at) {
+      return;
+    }
+    if (record.pending !== null) {
+      yield* deliver(record);
+      return;
+    }
+    const checking = transitionWatch(record, { at, type: "tick" });
+    yield* ports.save(checking);
+    if (checking.watch.state !== "checking") {
+      return;
+    }
+    const result = yield* ports.check(checking.watch);
+    const finished = yield* Clock15.currentTimeMillis;
+    const firing = result.outcome === "true" && finished < checking.watch.expiresAt && !(yield* ports.seen(result.cursor)) ? {
+      at: finished,
+      cursor: result.cursor,
+      messageId: yield* hashPeonText(
+        JSON.stringify([checking.watch.watchId, result.cursor])
+      ),
+      downgraded: []
+    } : null;
+    const checked = transitionWatch(checking, {
+      at: finished,
+      result,
+      firing,
+      type: "check"
+    });
+    yield* ports.save(checked);
+    if (firing !== null) {
+      yield* deliver(checked);
+    }
+  });
+  const arm = Effect83.fn("Watch.arm")(function* armWatch(watchId, owner, definition) {
+    const requestHash = yield* hashPeonText(JSON.stringify(definition));
+    const previous2 = yield* ports.load;
+    if (previous2 === void 0) {
+      const armedAt = yield* Clock15.currentTimeMillis;
+      yield* ports.save(
+        newCheckpoint(
+          {
+            ...definition,
+            watchId,
+            owner,
+            armedAt,
+            expiresAt: armedAt + definition.timeoutSeconds * 1e3,
+            state: "armed"
+          },
+          requestHash
+        )
+      );
+    } else if (previous2.requestHash !== requestHash || previous2.watch.owner !== owner) {
+      return yield* watchRefusal(
+        "BadCondition",
+        "This requestId already armed a different watch. Retry with the original inputs or use a new requestId."
+      );
+    }
+    return { watchId, state: "armed" };
+  });
+  const stop2 = (caller, state3) => owned(caller).pipe(
+    Effect83.flatMap((record) => {
+      const stopped = transitionWatch(record, { state: state3, type: "stop" });
+      return ports.save(stopped).pipe(Effect83.as({ state: stopped.watch.state }));
+    })
+  );
+  return {
+    alarm,
+    arm,
+    inspect: (caller) => owned(caller).pipe(
+      Effect83.map(
+        ({
+          watch: watch2,
+          lastCheck,
+          cursor,
+          evidence,
+          firings,
+          pending
+        }) => ({
+          watch: watch2,
+          lastCheck,
+          cursor,
+          evidence,
+          firings: pending === null ? firings : [...firings, pending.firing].slice(-20)
+        })
+      )
+    ),
+    stop: stop2,
+    summary: ports.load.pipe(
+      Effect83.map(
+        (record) => record === void 0 ? null : Schema116.decodeSync(WatchSummary)(record.watch)
+      )
+    )
+  };
+};
+
+// src/watch-object.ts
+var WATCH_DIRECTORY = "watch-directory";
+var watchBudgetName = (name) => `budget/${name}`;
+var RECORD = "watch";
+var wakeKeys = Schema117.decodeUnknownSync(Schema117.Array(Schema117.String));
+var readRecorded = Schema117.decodeUnknownSync(WatchCheckpoint);
+var writeRecorded = Schema117.encodeSync(WatchCheckpoint);
+var readRefusal = Schema117.encodeSync(WatchRefused);
+var reply = async (effect) => await Effect84.runPromise(
+  effect.pipe(
+    Effect84.result,
+    Effect84.map(
+      (result) => Result13.isSuccess(result) ? { value: result.success } : { refusal: readRefusal(result.failure) }
+    )
+  )
+);
+var postboxCall = (call) => Effect84.tryPromise({
+  try: call,
+  catch: () => new PostboxFailed({
+    reason: "The Postbox did not answer. The watch retains its delivery for the next alarm."
+  })
+}).pipe(
+  Effect84.flatMap(
+    (result) => result.ok ? Effect84.succeed(result) : Effect84.fail(new PostboxFailed({ reason: result.reason }))
+  )
+);
+var WatchObject = class extends DurableObject8 {
+  lock = Semaphore7.makeUnsafe(1);
+  storage = this.ctx.storage;
+  engine = watchEngine({
+    load: Effect84.promise(async () => {
+      const raw = await this.storage.get(RECORD);
+      return raw === void 0 ? void 0 : readRecorded(raw);
+    }),
+    save: (checkpoint) => Effect84.promise(async () => {
+      await this.storage.transaction(async (transaction) => {
+        await transaction.put(RECORD, writeRecorded(checkpoint));
+        if (checkpoint.pending !== null) {
+          await transaction.put(
+            `cursor:${checkpoint.pending.firing.cursor}`,
+            true
+          );
+        }
+        await (checkpoint.nextAt === null ? transaction.deleteAlarm() : transaction.setAlarm(checkpoint.nextAt));
+      });
+    }),
+    seen: (cursor) => Effect84.promise(
+      async () => await this.storage.get(`cursor:${cursor}`) !== void 0
+    ),
+    check: (watch2) => {
+      const { condition, owner } = watch2;
+      if (condition.type === "http") {
+        return checkHttp(condition, this.env.MISCHIEF_WATCH_HTTP_HOSTS, fetch);
+      }
+      return Effect84.tryPromise({
+        catch: () => null,
+        try: async () => {
+          const entry3 = await this.env.PEON_TEMPLATES.getByName(
+            PEON_REGISTRY
+          ).lookup(condition.peonId);
+          if (entry3 === null || entry3.owner !== owner) {
+            return null;
+          }
+          if (entry3.state === "destroyed") {
+            return { lastTurnId: null, pending: false, state: entry3.state };
+          }
+          return await this.env.PEON.getByName(condition.peonId).watchContext(
+            owner
+          );
+        }
+      }).pipe(
+        Effect84.orElseSucceed(() => null),
+        Effect84.flatMap((observation) => checkPeon(condition, observation))
+      );
+    },
+    reserve: (name, at, key) => Effect84.promise(async () => {
+      const binding = this.env.WATCH;
+      if (binding === void 0) {
+        throw new Error("Bind WATCH before retrying this alarm.");
+      }
+      const day = DateTime7.formatIsoDateUtc(DateTime7.makeUnsafe(at));
+      return await binding.getByName(watchBudgetName(name)).reserveWake(day, key);
+    }),
+    seal: (delivery, watch2, text, messageId) => postboxCall(
+      async () => await this.env.POSTBOX.getByName(POSTBOX_NAME).sealWatch(
+        delivery.name,
+        delivery.ownerNotice ? "Watch wake budget exceeded" : watch2.message.summary,
+        text,
+        messageId
+      )
+    ).pipe(Effect84.map(({ envelope }) => envelope)),
+    send: (delivery, envelope) => postboxCall(
+      async () => await this.env.POSTBOX.getByName(POSTBOX_NAME).sendWatch(
+        delivery.name,
+        envelope,
+        delivery.wake
+      )
+    ).pipe(Effect84.asVoid)
+  });
+  async arm(watchId, owner, definition) {
+    return await reply(
+      this.lock.withPermit(
+        this.engine.arm(
+          watchId,
+          owner,
+          Schema117.decodeSync(WatchDefinition)(definition)
+        )
+      )
+    );
+  }
+  async inspect(owner) {
+    return await reply(this.engine.inspect(owner));
+  }
+  async stop(owner, state3) {
+    return await reply(this.lock.withPermit(this.engine.stop(owner, state3)));
+  }
+  async summary() {
+    return await Effect84.runPromise(this.engine.summary);
+  }
+  async register(watchId) {
+    await this.storage.put(`id:${watchId}`, true);
+  }
+  async page(after) {
+    const options2 = { prefix: "id:", limit: 64 };
+    if (after !== void 0) {
+      options2.startAfter = after;
+    }
+    const page3 = await this.storage.list(options2);
+    return [...page3.keys()];
+  }
+  async reserveWake(day, key) {
+    return await this.storage.transaction(async (transaction) => {
+      const dayKey = `day:${day}`;
+      const stored2 = await transaction.get(dayKey);
+      const budget = reserveWatchWake(
+        stored2 === void 0 ? [] : wakeKeys(stored2),
+        key
+      );
+      if (budget.allowed) {
+        await transaction.put(dayKey, budget.used);
+      }
+      return budget.allowed;
+    });
+  }
+  async alarm() {
+    await Effect84.runPromise(this.lock.withPermit(this.engine.alarm));
+  }
+};
+var watchUnavailable = () => watchRefusal(
+  "NotGranted",
+  "Durable watches are not configured on this host. Ask the desk to bind WATCH and retry the watch call."
+);
+
 // ../../node_modules/.pnpm/@rat-king+mailbox-client@https+++codeload.github.com+joelhooks+rat-king+tar.gz+4504f544_85f3e7c871d23bf3dd1d3943f587f9f7/node_modules/@rat-king/mailbox-client/auth.js
 import { Effect as Effect211 } from "effect";
-import { Schema as Schema113 } from "effect";
-import { Effect as Effect81 } from "effect";
-import { Context as Context210, Effect as Effect311, Layer as Layer31, Schema as Schema311 } from "effect";
+import { Schema as Schema118 } from "effect";
+import { Effect as Effect85 } from "effect";
+import { Context as Context211, Effect as Effect311, Layer as Layer31, Schema as Schema311 } from "effect";
 import { Schema as Schema211 } from "effect";
 import { Context as Context35 } from "effect";
 var concatenate2 = (...parts2) => {
@@ -88040,12 +88993,12 @@ var concatenate2 = (...parts2) => {
   }
   return result;
 };
-var EnvelopeFailure2 = class extends Schema113.TaggedError()(
+var EnvelopeFailure2 = class extends Schema118.TaggedError()(
   "EnvelopeFailure",
-  { reason: Schema113.String }
+  { reason: Schema118.String }
 ) {
 };
-var cryptoOperation2 = (operation) => Effect81.tryPromise({
+var cryptoOperation2 = (operation) => Effect85.tryPromise({
   catch: () => new EnvelopeFailure2({ reason: "Cryptographic operation rejected" }),
   try: operation
 });
@@ -88148,7 +89101,7 @@ var Document2 = Schema311.Struct({
   )
 });
 var Documents2 = Schema311.Array(Document2);
-var DidResolver2 = class extends Context210.Service()("mailbox/DidResolver") {
+var DidResolver2 = class extends Context211.Service()("mailbox/DidResolver") {
 };
 var documentResolver2 = (lookup) => Layer31.succeed(
   DidResolver2,
@@ -88250,21 +89203,21 @@ var serviceToken3 = Effect311.fn("ServiceAuth.sign")(
 );
 
 // src/worker-handler.ts
-import { Effect as Effect88, Layer as Layer37, Option as Option65, Result as Result12, Schema as Schema119 } from "effect";
+import { Effect as Effect93, Layer as Layer38, Option as Option67, Result as Result14, Schema as Schema125 } from "effect";
 
 // src/desk-waker-http.ts
-import { Effect as Effect83, Layer as Layer33, Schema as Schema114 } from "effect";
+import { Effect as Effect86, Layer as Layer33, Schema as Schema119 } from "effect";
 import { HttpRouter as HttpRouter3, HttpServer as HttpServer3 } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder4 } from "effect/http-api";
-var InspectFailed = class extends Schema114.TaggedError()("InspectDeskWakeFailed", {
-  reason: Schema114.String
+var InspectFailed = class extends Schema119.TaggedError()("InspectDeskWakeFailed", {
+  reason: Schema119.String
 }) {
 };
 var inspectDeskWake = defineContract("inspectDeskWake", {
   annotations: { idempotent: true, readOnly: true },
   description: "Read the desk wake state, last message, attempts and next alarm",
   failure: InspectFailed,
-  input: Schema114.Struct({ name: DeskName }),
+  input: Schema119.Struct({ name: DeskName }),
   output: DeskInspection
 });
 var serveDeskWake = async (request2, env, issuer) => {
@@ -88285,10 +89238,10 @@ var serveDeskWake = async (request2, env, issuer) => {
       { status: 403 }
     );
   }
-  const http4 = toHttpApi("Mischief desk wakes", [
+  const http5 = toHttpApi("Mischief desk wakes", [
     implement(
       inspectDeskWake,
-      ({ name }) => Effect83.tryPromise({
+      ({ name }) => Effect86.tryPromise({
         catch: () => new InspectFailed({
           reason: "DeskWaker did not answer. Check the celld journal and retry inspectDeskWake."
         }),
@@ -88297,8 +89250,8 @@ var serveDeskWake = async (request2, env, issuer) => {
     )
   ]);
   const { dispose, handler } = HttpRouter3.toWebHandler(
-    HttpApiBuilder4.layer(http4.api).pipe(
-      Layer33.provide(http4.layer),
+    HttpApiBuilder4.layer(http5.api).pipe(
+      Layer33.provide(http5.layer),
       Layer33.provide(HttpServer3.layerServices)
     ),
     { disableLogger: true }
@@ -88311,17 +89264,17 @@ var serveDeskWake = async (request2, env, issuer) => {
 };
 
 // src/peon-http.ts
-import { Clock as Clock15, Effect as Effect84, Layer as Layer34, Schema as Schema115 } from "effect";
+import { Clock as Clock16, Effect as Effect87, Layer as Layer34, Schema as Schema120 } from "effect";
 import { HttpRouter as HttpRouter4, HttpServer as HttpServer4 } from "effect/http";
 import { HttpApiBuilder as HttpApiBuilder5 } from "effect/http-api";
 var peonCommandRpc = (operation) => peonRpc(operation).pipe(
-  Effect84.flatMap(
-    (reply) => "refusal" in reply ? Effect84.fail(new PeonRefused(reply.refusal)) : Effect84.succeed(reply)
+  Effect87.flatMap(
+    (reply2) => "refusal" in reply2 ? Effect87.fail(new PeonRefused(reply2.refusal)) : Effect87.succeed(reply2)
   )
 );
 var peonServices = (env, owner) => {
   const registry = () => env.PEON_TEMPLATES.getByName(PEON_REGISTRY);
-  const entryFor = Effect84.fn("Peon.entryFor")(function* entryFor2(id) {
+  const entryFor = Effect87.fn("Peon.entryFor")(function* entryFor2(id) {
     const entry3 = yield* peonRpc(async () => await registry().lookup(id));
     if (entry3 === null || entry3.owner !== owner) {
       return yield* new PeonRefused({
@@ -88330,7 +89283,7 @@ var peonServices = (env, owner) => {
     }
     return entry3;
   });
-  const owned = Effect84.fn("Peon.owned")(function* owned2(id) {
+  const owned = Effect87.fn("Peon.owned")(function* owned2(id) {
     const entry3 = yield* entryFor(id);
     if (entry3.state === "destroyed") {
       return yield* new PeonRefused({
@@ -88339,13 +89292,13 @@ var peonServices = (env, owner) => {
     }
     return env.PEON.getByName(id);
   });
-  const command = Effect84.fn("Peon.command")(function* command2(kind, input) {
+  const command = Effect87.fn("Peon.command")(function* command2(kind, input) {
     const object2 = yield* owned(input.peonId);
-    const requestId2 = input.requestId ?? (yield* freshPeonId);
+    const requestId3 = input.requestId ?? (yield* freshPeonId);
     return yield* peonCommandRpc(
       async () => await object2.command(
         kind,
-        requestId2,
+        requestId3,
         input.text,
         void 0,
         owner,
@@ -88354,11 +89307,11 @@ var peonServices = (env, owner) => {
     );
   });
   return Peons.of({
-    clonePeon: (input) => Effect84.gen(function* clone2() {
+    clonePeon: (input) => Effect87.gen(function* clone2() {
       const object2 = yield* owned(input.peonId);
-      const requestId2 = input.requestId ?? (yield* freshPeonId);
+      const requestId3 = input.requestId ?? (yield* freshPeonId);
       const hash = yield* hashPeonText(
-        JSON.stringify([owner, input.peonId, requestId2])
+        JSON.stringify([owner, input.peonId, requestId3])
       );
       const newPeonId = input.newPeonId ?? `clone-${hash.slice(0, 32)}`;
       if (newPeonId === input.peonId) {
@@ -88367,24 +89320,24 @@ var peonServices = (env, owner) => {
         });
       }
       return yield* peonCommandRpc(
-        async () => await object2.command("clone", requestId2, void 0, newPeonId)
+        async () => await object2.command("clone", requestId3, void 0, newPeonId)
       );
     }),
-    destroyPeon: (input) => Effect84.gen(function* destroy() {
+    destroyPeon: (input) => Effect87.gen(function* destroy() {
       const entry3 = yield* entryFor(input.peonId);
       if (entry3.state === "destroyed") {
-        return yield* Schema115.decodeUnknownEffect(PeonTombstone)(entry3).pipe(
-          Effect84.orDie
+        return yield* Schema120.decodeUnknownEffect(PeonTombstone)(entry3).pipe(
+          Effect87.orDie
         );
       }
       return yield* command("destroy", input);
     }),
     hibernatePeon: (input) => command("hibernate", input),
-    inspectPeon: ({ peonId }) => Effect84.gen(function* inspect() {
+    inspectPeon: ({ peonId }) => Effect87.gen(function* inspect() {
       const entry3 = yield* entryFor(peonId);
       if (entry3.state === "destroyed") {
-        return yield* Schema115.decodeUnknownEffect(PeonTombstone)(entry3).pipe(
-          Effect84.orDie
+        return yield* Schema120.decodeUnknownEffect(PeonTombstone)(entry3).pipe(
+          Effect87.orDie
         );
       }
       return yield* peonRpc(
@@ -88396,7 +89349,7 @@ var peonServices = (env, owner) => {
     promptPeon: (input) => command("prompt", input),
     resumePeon: (input) => command("resume", input),
     savePeonTemplate: (input) => peonRpc(async () => await registry().save(input)),
-    spawnPeon: (input) => Effect84.gen(function* spawn() {
+    spawnPeon: (input) => Effect87.gen(function* spawn() {
       const version = yield* peonRpc(
         async () => await registry().resolve(peonTemplateReference(input.template))
       );
@@ -88406,7 +89359,7 @@ var peonServices = (env, owner) => {
       );
       yield* assertPeonSpawnable(template);
       const peonId = input.peonId ?? (yield* freshPeonId);
-      const now = yield* Clock15.currentTimeMillis;
+      const now = yield* Clock16.currentTimeMillis;
       const entry3 = {
         creationKey: `spawn/${peonId}`,
         owner,
@@ -88421,7 +89374,7 @@ var peonServices = (env, owner) => {
       );
     }),
     suspendPeon: (input) => command("suspend", input),
-    tailPeon: (input) => Effect84.gen(function* tail() {
+    tailPeon: (input) => Effect87.gen(function* tail() {
       const { peonId } = input;
       const entry3 = yield* peonRpc(
         async () => await registry().lookup(peonId)
@@ -88495,16 +89448,16 @@ var servePeon = async (request2, env, owner, capability) => {
 };
 
 // src/replay-ledger.ts
-import { Effect as Effect86, Layer as Layer35 } from "effect";
+import { Effect as Effect89, Layer as Layer35 } from "effect";
 
 // src/service-auth.ts
-import { Clock as Clock16, Effect as Effect85 } from "effect";
+import { Clock as Clock17, Effect as Effect88 } from "effect";
 
 // src/auth-refused.ts
-import { Schema as Schema116 } from "effect";
-var AuthRefused = class extends Schema116.TaggedError()(
+import { Schema as Schema121 } from "effect";
+var AuthRefused = class extends Schema121.TaggedError()(
   "AuthRefused",
-  { reason: Schema116.String }
+  { reason: Schema121.String }
 ) {
 };
 
@@ -88512,9 +89465,9 @@ var AuthRefused = class extends Schema116.TaggedError()(
 var NSID_PREFIX = "sh.mschf.mischief.";
 var SKEW_SECONDS = 5;
 var MINT = `Mint a fresh Rat King service token with serviceToken from @rat-king/mailbox-client/auth (ES256, signed with your DID's #atproto key): iss your DID, aud the host's audience, lxm ${NSID_PREFIX}<capability>, a unique jti of at least 16 characters, iat now and exp at most 60 seconds later. Send it as Authorization: Bearer <token>. If your DID is not on the host's allowlist, ask the Mischief operator to add your DID document.`;
-var authenticate = Effect85.fn("Mischief.authenticate")(
+var authenticate = Effect88.fn("Mischief.authenticate")(
   function* authenticate2(request2) {
-    const now = yield* Clock16.currentTimeMillis;
+    const now = yield* Clock17.currentTimeMillis;
     const claims = yield* authenticateClaims3({
       audience: request2.audience,
       authorization: request2.authorization,
@@ -88522,9 +89475,9 @@ var authenticate = Effect85.fn("Mischief.authenticate")(
       nsid: request2.lxm,
       skewSeconds: SKEW_SECONDS
     }).pipe(
-      Effect85.catchTag(
+      Effect88.catchTag(
         "XrpcFailure",
-        (failure6) => Effect85.fail(
+        (failure6) => Effect88.fail(
           new AuthRefused({
             reason: `${failure6.message ?? failure6.error} (this request calls ${request2.lxm} on ${request2.audience}). ${MINT}`
           })
@@ -88541,7 +89494,8 @@ var READ_ONLY = new Set(
     ...[
       ...runCapabilities,
       ...scheduleCapabilities,
-      ...peonCapabilities
+      ...peonCapabilities,
+      ...watchCapabilities
     ].flatMap(
       ({ contract }) => contract.annotations.readOnly ? [contract.name] : []
     ),
@@ -88552,7 +89506,7 @@ var READ_ONLY = new Set(
 var replayLedger = (ledgerFor, readOnly) => Layer35.succeed(
   ReplayAuthority2,
   ReplayAuthority2.of({
-    consume: (claims, now) => Effect86.tryPromise({
+    consume: (claims, now) => Effect89.tryPromise({
       catch: () => new ServiceAuthFailure2({
         error: "ReplayUnavailable",
         message: "the host could not record this token's jti, so it refuses it. Send a fresh token again shortly",
@@ -88566,8 +89520,8 @@ var replayLedger = (ledgerFor, readOnly) => Layer35.succeed(
         !readOnly.has(claims.lxm)
       )
     }).pipe(
-      Effect86.flatMap(
-        (fresh) => fresh ? Effect86.void : Effect86.fail(
+      Effect89.flatMap(
+        (fresh) => fresh ? Effect89.void : Effect89.fail(
           new ServiceAuthFailure2({
             error: "AuthRequired",
             message: `this token (jti ${claims.jti}) was already used. Every request needs a fresh jti`,
@@ -88581,43 +89535,43 @@ var replayLedger = (ledgerFor, readOnly) => Layer35.succeed(
 );
 
 // src/run-address.ts
-import { Option as Option63, Schema as Schema117 } from "effect";
-var decodeAddress = Schema117.decodeUnknownOption(
-  Schema117.fromJsonString(
-    Schema117.Struct({
-      replyTo: Schema117.optionalKey(Schema117.String),
-      runId: Schema117.optionalKey(Schema117.String)
+import { Option as Option65, Schema as Schema123 } from "effect";
+var decodeAddress = Schema123.decodeUnknownOption(
+  Schema123.fromJsonString(
+    Schema123.Struct({
+      replyTo: Schema123.optionalKey(Schema123.String),
+      runId: Schema123.optionalKey(Schema123.String)
     })
   )
 );
 var runIdOf = (body) => decodeAddress(body).pipe(
-  Option63.flatMap(
-    ({ replyTo, runId: runId2 }) => Option63.orElse(
-      Option63.fromUndefinedOr(runId2),
-      () => Option63.fromUndefinedOr(
+  Option65.flatMap(
+    ({ replyTo, runId: runId2 }) => Option65.orElse(
+      Option65.fromUndefinedOr(runId2),
+      () => Option65.fromUndefinedOr(
         replyTo?.includes("/") === true ? replyTo.split("/")[0] : void 0
       )
     )
   ),
-  Option63.filter((runId2) => runId2 !== "")
+  Option65.filter((runId2) => runId2 !== "")
 );
 var NO_RUN_ID = "this request names no run. Every run capability takes a JSON body with runId. deliverReply can find its run from replyTo only when replyTo is <runId>/<step>#<visit>; a Rat King message id (an ask sent as real mail, like 3mxoabjvtfwka) has no run in it, so add the run's runId (inspectRun shows the ask under awaiting). Add runId to the body and send it again; GET /openapi.json lists every capability";
 
 // src/schedule-address.ts
-import { Option as Option64, Schema as Schema118 } from "effect";
+import { Option as Option66, Schema as Schema124 } from "effect";
 var SCHEDULE_CAPABILITIES = /* @__PURE__ */ new Set([
   "createSchedule",
   "inspectSchedule",
   "completeSchedule"
 ]);
-var decodeAddress2 = Schema118.decodeUnknownOption(
-  Schema118.fromJsonString(
-    Schema118.Struct({ scheduleId: Schema118.optionalKey(Schema118.String) })
+var decodeAddress2 = Schema124.decodeUnknownOption(
+  Schema124.fromJsonString(
+    Schema124.Struct({ scheduleId: Schema124.optionalKey(Schema124.String) })
   )
 );
 var scheduleIdOf = (body) => decodeAddress2(body).pipe(
-  Option64.flatMap(({ scheduleId: scheduleId2 }) => Option64.fromUndefinedOr(scheduleId2)),
-  Option64.filter((scheduleId2) => scheduleId2 !== "")
+  Option66.flatMap(({ scheduleId: scheduleId2 }) => Option66.fromUndefinedOr(scheduleId2)),
+  Option66.filter((scheduleId2) => scheduleId2 !== "")
 );
 var NO_SCHEDULE_ID = "this request names no schedule. createSchedule, inspectSchedule and completeSchedule each take a JSON body with scheduleId; add it and send the request again. GET /openapi.json lists every capability";
 
@@ -88640,15 +89594,15 @@ var thinkStatusHttp = (telemetry) => HttpRouter5.toWebHandler(
 );
 
 // src/think-telemetry.ts
-import { Clock as Clock17, Effect as Effect87 } from "effect";
+import { Clock as Clock18, Effect as Effect90 } from "effect";
 var thinkTelemetry = ({
   cliproxyKey,
   cliproxyUrl,
   model: model2,
   readDay
 }) => ThinkTelemetry.of({
-  read: Effect87.gen(function* readThinkTelemetry() {
-    const day = utcDay(yield* Clock17.currentTimeMillis);
+  read: Effect90.gen(function* readThinkTelemetry() {
+    const day = utcDay(yield* Clock18.currentTimeMillis);
     const today = yield* readDay(day);
     return {
       default: {
@@ -88673,46 +89627,170 @@ var thinkTelemetry = ({
   })
 });
 
+// src/watch-http.ts
+import { Effect as Effect91, Layer as Layer37 } from "effect";
+import { HttpRouter as HttpRouter6, HttpServer as HttpServer6 } from "effect/http";
+import { HttpApiBuilder as HttpApiBuilder7, OpenApi as OpenApi3 } from "effect/http-api";
+var http4 = toHttpApi("Mischief watches", watchCapabilities);
+var watchApiSpec = () => OpenApi3.fromApi(http4.api);
+var rpc = (call) => Effect91.promise(call).pipe(
+  Effect91.flatMap(
+    (result) => "refusal" in result ? Effect91.fail(new WatchRefused(result.refusal)) : Effect91.succeed(result.value)
+  )
+);
+var listWatches = Effect91.fn("Watch.list")(function* listWatchPage(binding, { owner, target }) {
+  const directory = binding.getByName(WATCH_DIRECTORY);
+  const watches = [];
+  let after;
+  for (; ; ) {
+    const startAfter = after;
+    const page3 = yield* Effect91.promise(
+      async () => await directory.page(startAfter)
+    );
+    const summaries = yield* Effect91.forEach(
+      page3,
+      (key) => Effect91.promise(
+        async () => await binding.getByName(key.slice(3)).summary()
+      ),
+      { concurrency: 8 }
+    );
+    for (const watch2 of summaries) {
+      if (watch2 !== null && (owner === void 0 || owner === watch2.owner) && (target === void 0 || [...watch2.notify.to, ...watch2.notify.cc].some(
+        (name) => canonicalName(name) === canonicalName(target)
+      ))) {
+        watches.push(watch2);
+      }
+    }
+    after = page3.at(-1);
+    if (after === void 0) {
+      return { watches };
+    }
+  }
+});
+var watchServices = (env, owner) => {
+  const grant = Effect91.suspend(() => {
+    if (!peonGranted(env.MISCHIEF_PEON_GRANTS, owner, "armWatch")) {
+      return Effect91.fail(
+        watchRefusal(
+          "NotGranted",
+          "This caller has no armWatch grant. Ask the desk to add armWatch to mischief.peonCapabilities in callers.json and retry with a fresh signed request."
+        )
+      );
+    }
+    return env.WATCH === void 0 ? Effect91.fail(watchUnavailable()) : Effect91.succeed(env.WATCH);
+  });
+  return Watches.of({
+    armWatch: ({ requestId: requestId3, ...definition }) => Effect91.gen(function* armWatchForCaller() {
+      const binding = yield* grant;
+      const refusal3 = validateWatch(
+        definition,
+        env.MISCHIEF_WATCH_HTTP_HOSTS
+      );
+      if (refusal3 !== null) {
+        return yield* refusal3;
+      }
+      const id = yield* hashPeonText(JSON.stringify([owner, requestId3]));
+      const watchId = `watch-${id}`;
+      yield* Effect91.promise(async () => {
+        await binding.getByName(WATCH_DIRECTORY).register(watchId);
+      });
+      return yield* rpc(
+        async () => await binding.getByName(watchId).arm(watchId, owner, definition)
+      );
+    }),
+    listWatches: (input) => grant.pipe(Effect91.flatMap((binding) => listWatches(binding, input))),
+    inspectWatch: ({ watchId }) => grant.pipe(
+      Effect91.flatMap(
+        (binding) => rpc(async () => await binding.getByName(watchId).inspect(owner))
+      )
+    ),
+    cancelWatch: ({ watchId }) => grant.pipe(
+      Effect91.flatMap(
+        (binding) => rpc(
+          async () => await binding.getByName(watchId).stop(owner, "cancelled")
+        )
+      )
+    ),
+    completeWatch: ({ watchId }) => grant.pipe(
+      Effect91.flatMap(
+        (binding) => rpc(async () => await binding.getByName(watchId).stop(owner, "done"))
+      )
+    )
+  });
+};
+var serveWatch = async (request2, env, owner) => {
+  const { handler, dispose } = HttpRouter6.toWebHandler(
+    HttpApiBuilder7.layer(http4.api).pipe(
+      Layer37.provide(http4.layer),
+      Layer37.provide(
+        Layer37.merge(
+          Layer37.succeed(Watches, watchServices(env, owner)),
+          HttpServer6.layerServices
+        )
+      )
+    ),
+    { disableLogger: true }
+  );
+  try {
+    return await handler(request2);
+  } finally {
+    await dispose();
+  }
+};
+
 // src/worker-handler.ts
 var NOT_CONFIGURED = "this Mischief host has no MISCHIEF_DID or no valid MISCHIEF_CALLERS (a JSON array of the allowed callers' DID documents), so it serves nobody. Ask the Mischief desk (pi-durable/desk) to deploy it with both";
-var CallersFromJson = Schema119.fromJsonString(Documents2);
-var servicesFor = (env, callers) => Layer37.merge(
+var CallersFromJson = Schema125.fromJsonString(Documents2);
+var servicesFor = (env, callers) => Layer38.merge(
   staticResolver2(callers),
   replayLedger((issuer) => env.SERVICE_TOKENS.getByName(issuer), READ_ONLY)
 );
 var refused2 = (error) => Response.json({ error: error.reason }, { status: 401 });
 var VERSION_PATH = "/.well-known/rat-king/version";
+var isVersionRequest = (request2) => request2.method === "GET" && new URL(request2.url).pathname === VERSION_PATH;
 var worker_handler_default = {
   async fetch(request2, env) {
-    if (request2.method === "GET" && new URL(request2.url).pathname === VERSION_PATH) {
+    if (isVersionRequest(request2)) {
       return Response.json({
         commit: __BUNDLE_COMMIT__,
         version: __BUNDLE_VERSION__
       });
     }
-    const callers = Schema119.decodeUnknownOption(CallersFromJson)(
+    const callers = Schema125.decodeUnknownOption(CallersFromJson)(
       env.MISCHIEF_CALLERS ?? ""
     );
-    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option65.isNone(callers)) {
+    if (env.MISCHIEF_DID === void 0 || env.MISCHIEF_DID === "" || Option67.isNone(callers)) {
       return Response.json({ error: NOT_CONFIGURED }, { status: 503 });
     }
     const { pathname } = new URL(request2.url);
     const capability = pathname === "/openapi.json" ? "openApi" : pathname.slice(1);
-    const caller = await Effect88.runPromise(
+    const caller = await Effect93.runPromise(
       authenticate({
         audience: `${env.MISCHIEF_DID}#mischief`,
         authorization: request2.headers.get("authorization"),
         lxm: `${NSID_PREFIX}${capability}`
-      }).pipe(Effect88.result, Effect88.provide(servicesFor(env, callers.value)))
+      }).pipe(Effect93.result, Effect93.provide(servicesFor(env, callers.value)))
     );
-    if (Result12.isFailure(caller)) {
+    if (Result14.isFailure(caller)) {
       return refused2(caller.failure);
     }
     if (request2.method === "GET" && pathname === "/openapi.json") {
-      return Response.json(mischiefApiSpec());
+      const base3 = mischiefApiSpec();
+      const watch2 = watchApiSpec();
+      return Response.json({
+        ...base3,
+        paths: { ...base3.paths, ...watch2.paths },
+        components: {
+          ...base3.components,
+          schemas: { ...base3.components.schemas, ...watch2.components.schemas }
+        }
+      });
     }
     if (capability === "inspectDeskWake") {
       return await serveDeskWake(request2, env, caller.success.iss);
+    }
+    if (watchCapabilityNames.has(capability)) {
+      return await serveWatch(request2, env, caller.success.iss);
     }
     if (peonCapabilityNames.has(capability)) {
       return await servePeon(request2, env, caller.success.iss, capability);
@@ -88723,7 +89801,7 @@ var worker_handler_default = {
           cliproxyKey: env.MISCHIEF_CLIPROXY_KEY,
           cliproxyUrl: env.MISCHIEF_CLIPROXY_URL,
           model: env.MISCHIEF_MODEL,
-          readDay: (day) => Effect88.promise(
+          readDay: (day) => Effect93.promise(
             async () => await env.POSTBOX.get(
               env.POSTBOX.idFromName(POSTBOX_NAME)
             ).thinkDay(day)
@@ -88755,7 +89833,7 @@ var worker_handler_default = {
     }
     if (SCHEDULE_CAPABILITIES.has(capability)) {
       const scheduleId2 = scheduleIdOf(body);
-      if (Option65.isNone(scheduleId2)) {
+      if (Option67.isNone(scheduleId2)) {
         return Response.json({ error: NO_SCHEDULE_ID }, { status: 400 });
       }
       const name = `${caller.success.iss}/${scheduleId2.value}`;
@@ -88771,7 +89849,7 @@ var worker_handler_default = {
       );
     }
     const runId2 = runIdOf(body);
-    if (Option65.isNone(runId2)) {
+    if (Option67.isNone(runId2)) {
       return Response.json({ error: NO_RUN_ID }, { status: 400 });
     }
     const run2 = env.PLAN_RUN.get(
@@ -88799,6 +89877,7 @@ var planRunWorker = ({ callables }) => ({
   Postbox,
   Schedule: Schedule6,
   ServiceTokenLedger,
+  WatchObject,
   default: worker_handler_default
 });
 export {

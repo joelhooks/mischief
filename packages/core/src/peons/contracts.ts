@@ -1,6 +1,7 @@
 import { defineContract } from "@mischief/capability/contract";
 import { Schema } from "effect";
 
+import { armWatchContract } from "../watches/capabilities.js";
 import {
   PeonId,
   PeonIndexEntry,
@@ -172,5 +173,5 @@ export const peonContracts = [
 ] as const;
 
 export const peonCapabilityNames: ReadonlySet<string> = new Set(
-  peonContracts.map(({ name }) => name)
+  [...peonContracts, armWatchContract].map(({ name }) => name)
 );

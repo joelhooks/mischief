@@ -313,6 +313,7 @@ export const peonHost = ({
         next = yield* move(stored, "TURN_DONE");
         next = {
           ...next,
+          lastTurnId: pending.requestId,
           report: {
             ...next.report,
             lastTurn: turn,

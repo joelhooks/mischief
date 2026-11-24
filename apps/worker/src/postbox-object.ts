@@ -302,6 +302,48 @@ export class Postbox extends DurableObject<Env> {
     return { ok: true as const };
   }
 
+  async sealWatch(to: string, summary: string, body: string, thread: string) {
+    await this.start();
+
+    return await posted(
+      this.sender().pipe(
+        Effect.flatMap(({ layer }) =>
+          Mailroom.use(
+            ({ sealWatch }) =>
+              sealWatch?.(to, summary, body, thread) ??
+              Effect.fail(new PostboxFailed({ reason: NOT_WIRED }))
+          ).pipe(Effect.provide(layer))
+        )
+      )
+    );
+  }
+
+  async sendWatch(to: string, envelope: string, wake: boolean) {
+    return await posted(
+      this.sender().pipe(
+        Effect.flatMap(({ layer }) =>
+          Mailroom.use(
+            ({ sendWatch }) =>
+              sendWatch?.(to, envelope, wake) ??
+              Effect.fail(new PostboxFailed({ reason: NOT_WIRED }))
+          ).pipe(
+            Effect.flatMap((verdict) =>
+              SendVerdict.match(verdict, {
+                Accepted: () => Effect.succeed({}),
+                Conflict: () => Effect.succeed({}),
+                Refused: ({ reason }) =>
+                  Effect.fail(new PostboxFailed({ reason })),
+                Uncertain: ({ reason }) =>
+                  Effect.fail(new PostboxFailed({ reason })),
+              })
+            ),
+            Effect.provide(layer)
+          )
+        )
+      )
+    );
+  }
+
   async send(envelope: string) {
     return await posted(
       this.sender().pipe(

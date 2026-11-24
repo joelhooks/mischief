@@ -56864,6 +56864,7 @@ var PeonBoxRefusalCode = Schema4.Literals([
   "BoxBuildRefused",
   "BoxCapacity",
   "BoxImageMissing",
+  "BoxNetworkStale",
   "CustodyMissing",
   "CustodyIncomplete",
   "DestroyInProgress",
@@ -56915,6 +56916,16 @@ var PeonRefused = class extends Schema4.TaggedError()("PeonRefused", {
     return this.reason;
   }
 };
+var ResumePeonRefusal = Schema4.Union([
+  Schema4.Struct({
+    ...PeonRefused.fields,
+    code: Schema4.Literal("BoxNetworkStale")
+  }).pipe(Schema4.decodeTo(PeonRefused)).annotate({ httpApiStatus: 409 }),
+  Schema4.Struct({
+    ...PeonRefused.fields,
+    code: Schema4.optionalKey(Schema4.Literals(PeonBoxRefusalCode.literals.filter((code) => code !== "BoxNetworkStale")))
+  }).pipe(Schema4.decodeTo(PeonRefused))
+]);
 var emptyPeonUsage = {
   cacheRead: 0,
   cacheWrite: 0,
@@ -57785,7 +57796,8 @@ var suspendPeonContract = defineContract("suspendPeon", {
 var resumePeonContract = defineContract("resumePeon", {
   ...lifecycle,
   annotations: { idempotent: true },
-  description: "Wake a suspended or hibernated box without starting a turn."
+  description: "Wake a suspended or hibernated box without starting a turn.",
+  failure: ResumePeonRefusal
 });
 var hibernatePeonContract = defineContract("hibernatePeon", {
   ...lifecycle,
@@ -85295,6 +85307,7 @@ var nextStep = {
   BoxBuildRefused: "Ask the box host operator to fix the pinned Burrow build and receipt, then retry.",
   BoxCapacity: "Suspend or destroy a browser box on the host, then retry the refused operation.",
   BoxImageMissing: "Ask the box host operator to configure the browser image, then retry.",
+  BoxNetworkStale: "Recreate the browser box or use destroyPeon before retrying.",
   CustodyMissing: "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete: "Recover the skipped session files, then retry destroyPeon.",
   DestroyInProgress: "Retry destroyPeon with the original workspace disposition.",
@@ -85347,13 +85360,25 @@ var exportReply = Schema101.fromJsonString(
 var jsonObject = Schema101.fromJsonString(
   Schema101.Record(Schema101.String, Schema101.Json)
 );
+var boxResponseContext = (peonId, operation, status) => `Box ${peonId} ${operation} returned HTTP ${status}`;
+var uncodedRefusalSuffix = ". Call inspectPeon before retrying.";
+var isLegacyStaleResume = (peonId, fault) => {
+  const prefix = `${boxResponseContext(peonId, "resume", 409)}: `;
+  if (fault === null || !fault.startsWith(prefix) || !fault.endsWith(uncodedRefusalSuffix)) {
+    return false;
+  }
+  const body = fault.slice(prefix.length, -uncodedRefusalSuffix.length);
+  const reply2 = Schema101.decodeOption(custodyRefusal)(body);
+  return Option50.isSome(reply2) && reply2.value.error.code === "BoxNetworkStale";
+};
+var isDefinitiveRefusal = (operation, status, code) => status >= 400 && status < 500 || status >= 500 && operation === "prompt" && code === "PromptFailed" || status === 503 && operation === "spawn" && code === "BoxImageMissing" || status === 503 && (operation === "destroy" || operation === "export") && code === "CustodyMissing";
 var requireSuccess = (peonId, operation, response) => Effect65.gen(function* checkBoxResponse() {
   if (response.status >= 200 && response.status < 300) {
     return response.text;
   }
   const reply2 = Schema101.decodeOption(custodyRefusal)(response.text);
-  const context = `Box ${peonId} ${operation} returned HTTP ${response.status}`;
-  if (Option50.isSome(reply2)) {
+  const context = boxResponseContext(peonId, operation, response.status);
+  if (Option50.isSome(reply2) && isDefinitiveRefusal(operation, response.status, reply2.value.error.code)) {
     const { error } = reply2.value;
     const bridgeMessage = error.message ?? "";
     const message = bridgeMessage.length > 512 ? `${bridgeMessage.slice(0, 511)}\u2026` : bridgeMessage;
@@ -85369,7 +85394,7 @@ var requireSuccess = (peonId, operation, response) => Effect65.gen(function* che
     );
   }
   return yield* new PeonRefused({
-    reason: `${context}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`
+    reason: `${context}: ${response.text.slice(0, 1024)}${uncodedRefusalSuffix}`
   });
 });
 var custody = Schema101.fromJsonString(
@@ -85775,16 +85800,22 @@ var peonHost = ({
       return yield* fault;
     }
     const refused3 = fault.code !== void 0;
+    const staleResume = stored2.pending.kind === "resume" && fault.code === "BoxNetworkStale";
     const promptFinished = fault.code === "PromptFailed" && stored2.pending.kind === "prompt" && stored2.report.state === "running";
     const reportedState = promptFinished || fault.code === "BoxCapacity" || fault.code === "BoxBuildRefused" || fault.code === "BoxImageMissing" ? fault.boxState : void 0;
     const observed = reportedState ?? (promptFinished ? "idle" : stored2.report.state);
-    const state3 = refused3 || observed === "destroyed" ? observed : peonTransition(observed, "BOX_LOST");
+    const state3 = refused3 && !staleResume || observed === "destroyed" ? observed : peonTransition(observed, "BOX_LOST");
     const updatedAt = promptFinished ? yield* Clock14.currentTimeMillis : stored2.report.updatedAt;
     const faulted = {
       ...stored2,
       idleAt: promptFinished ? updatedAt : stored2.idleAt,
       pending: refused3 ? null : stored2.pending,
-      report: { ...stored2.report, fault: fault.reason, state: state3, updatedAt }
+      report: {
+        ...stored2.report,
+        fault: staleResume ? null : fault.reason,
+        state: state3,
+        updatedAt
+      }
     };
     yield* commit(faulted);
     if (state3 !== "destroyed") {
@@ -85955,6 +85986,15 @@ var peonHost = ({
       }
       const report2 = reportWithMeasurements(stored2.report, measured);
       const { pending } = stored2;
+      if (pending?.kind === "resume" && report2.state === "suspended" && measured.state === "suspended" && isLegacyStaleResume(report2.peonId, report2.fault)) {
+        const settled2 = {
+          ...stored2,
+          pending: null,
+          report: { ...report2, fault: null }
+        };
+        yield* commit(settled2);
+        return reportWithPending(settled2);
+      }
       if (pending?.kind !== "suspend" || measured.state !== "suspended") {
         return reportWithPending({ ...stored2, report: report2 });
       }

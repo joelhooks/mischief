@@ -75,6 +75,8 @@ const nextStep = {
     "Suspend or destroy a browser box on the host, then retry the refused operation.",
   BoxImageMissing:
     "Ask the box host operator to configure the browser image, then retry.",
+  BoxNetworkStale:
+    "Recreate the browser box or use destroyPeon before retrying.",
   CustodyMissing:
     "Custody is off on this host; destroy is unavailable until custody-on.",
   CustodyIncomplete:
@@ -155,6 +157,43 @@ const jsonObject = Schema.fromJsonString(
   Schema.Record(Schema.String, Schema.Json)
 );
 
+const boxResponseContext = (
+  peonId: string,
+  operation: BoxHttpOperation,
+  status: number
+) => `Box ${peonId} ${operation} returned HTTP ${status}`;
+
+const uncodedRefusalSuffix = ". Call inspectPeon before retrying.";
+
+export const isLegacyStaleResume = (peonId: string, fault: string | null) => {
+  const prefix = `${boxResponseContext(peonId, "resume", 409)}: `;
+
+  if (
+    fault === null ||
+    !fault.startsWith(prefix) ||
+    !fault.endsWith(uncodedRefusalSuffix)
+  ) {
+    return false;
+  }
+
+  const body = fault.slice(prefix.length, -uncodedRefusalSuffix.length);
+  const reply = Schema.decodeOption(custodyRefusal)(body);
+
+  return Option.isSome(reply) && reply.value.error.code === "BoxNetworkStale";
+};
+
+const isDefinitiveRefusal = (
+  operation: BoxHttpOperation,
+  status: number,
+  code: typeof PeonBoxRefusalCode.Type
+) =>
+  (status >= 400 && status < 500) ||
+  (status >= 500 && operation === "prompt" && code === "PromptFailed") ||
+  (status === 503 && operation === "spawn" && code === "BoxImageMissing") ||
+  (status === 503 &&
+    (operation === "destroy" || operation === "export") &&
+    code === "CustodyMissing");
+
 export const requireSuccess = (
   peonId: string,
   operation: BoxHttpOperation,
@@ -166,9 +205,12 @@ export const requireSuccess = (
     }
 
     const reply = Schema.decodeOption(custodyRefusal)(response.text);
-    const context = `Box ${peonId} ${operation} returned HTTP ${response.status}`;
+    const context = boxResponseContext(peonId, operation, response.status);
 
-    if (Option.isSome(reply)) {
+    if (
+      Option.isSome(reply) &&
+      isDefinitiveRefusal(operation, response.status, reply.value.error.code)
+    ) {
       const { error } = reply.value;
       const bridgeMessage = error.message ?? "";
 
@@ -202,7 +244,7 @@ export const requireSuccess = (
     }
 
     return yield* new PeonRefused({
-      reason: `${context}: ${response.text.slice(0, 1024)}. Call inspectPeon before retrying.`,
+      reason: `${context}: ${response.text.slice(0, 1024)}${uncodedRefusalSuffix}`,
     });
   });
 

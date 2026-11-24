@@ -10,6 +10,10 @@ const RequestBody = Schema.Struct({
   requestId: Schema.String,
   template: Schema.optionalKey(
     Schema.Struct({
+      browser: Schema.optionalKey(
+        Schema.Struct({ hosts: Schema.Array(Schema.String) })
+      ),
+      imageKey: Schema.optionalKey(Schema.Literal("browser")),
       limits: Schema.Struct({
         cpus: Schema.Int,
         memory: Schema.String,
@@ -111,6 +115,30 @@ const failedPrompt = () =>
     { status: 503 }
   );
 
+const resumeRefusal = (path: string) => {
+  if (path === "/v1/boxes/stale-browser/resume") {
+    return Response.json(
+      {
+        error: {
+          code: "BoxNetworkStale",
+          message:
+            "A browser box must be attached only to the browser network. Recreate or destroy this browser box before retrying.",
+        },
+      },
+      { status: 409 }
+    );
+  }
+
+  if (path === "/v1/boxes/unavailable-resume/resume") {
+    return Response.json(
+      { error: { code: "BoxCapacity", message: "Manager unavailable." } },
+      { status: 503 }
+    );
+  }
+
+  return null;
+};
+
 const custodyMissing = {
   code: "CustodyMissing",
   message:
@@ -169,13 +197,13 @@ export class FakeBox extends DurableObject {
   private readonly releaseStoppedInspect = Deferred.makeUnsafe<undefined>();
   private stoppedInspects = 0;
 
-  private async writeSuspendRaceState(path: string) {
-    const key = "/v1/boxes/stuck-suspend";
-
-    if (path === `${key}/suspend`) {
-      await this.ctx.storage.put(`${key}/state`, "suspended");
-    } else if (path === `${key}/resume`) {
-      await this.ctx.storage.put(`${key}/state`, "idle");
+  private async writeLifecycleState(path: string) {
+    if (path.endsWith("/suspend") || path.endsWith("/resume")) {
+      const key = path.replace(/\/(?:suspend|resume)$/u, "/state");
+      await this.ctx.storage.put(
+        key,
+        path.endsWith("/suspend") ? "suspended" : "idle"
+      );
     }
   }
 
@@ -373,6 +401,12 @@ export class FakeBox extends DurableObject {
       return await this.promptBox(path, key, body.text);
     }
 
+    const resumeDenied = resumeRefusal(path);
+
+    if (resumeDenied !== null) {
+      return resumeDenied;
+    }
+
     const previous = await this.ctx.storage.get(key);
 
     if (previous !== undefined) {
@@ -422,7 +456,7 @@ export class FakeBox extends DurableObject {
       response = { restored: true, state: "idle" };
     }
 
-    await this.writeSuspendRaceState(path);
+    await this.writeLifecycleState(path);
     await this.ctx.storage.put(key, response);
 
     return Response.json(response);

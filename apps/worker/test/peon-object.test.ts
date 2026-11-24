@@ -188,6 +188,97 @@ it.live(
   30_000
 );
 
+it.live(
+  "a stale browser resume returns a coded conflict and leaves the peon suspended",
+  () =>
+    Effect.gen(function* staleResume() {
+      const world = yield* prepare(200, [], undefined, { peons: true });
+      yield* start(world);
+      const peonId = "stale-browser";
+
+      const spawned = yield* post(world, "spawnPeon", {
+        peonId,
+        template: "browser",
+        overrides: {
+          browser: { hosts: ["browser.example.invalid"] },
+          workspace,
+        },
+      });
+
+      expect(spawned.status).toBe(200);
+      expect((yield* post(world, "suspendPeon", { peonId })).status).toBe(200);
+
+      const refusal = yield* post(world, "resumePeon", {
+        peonId,
+        requestId: "stale-resume",
+      });
+
+      expect(refusal.status, JSON.stringify(refusal.body)).toBe(409);
+
+      const decoded = yield* Schema.decodeUnknownEffect(PeonRefused)(
+        refusal.body
+      );
+
+      expect(decoded._tag).toBe("PeonRefused");
+      expect(decoded.code).toBe("BoxNetworkStale");
+      expect(decoded.reason).toContain(
+        "Recreate or destroy this browser box before retrying."
+      );
+
+      const inspection = yield* post(world, "inspectPeon", { peonId });
+      expect(inspection.status).toBe(200);
+      expect(inspection.body).toMatchObject({
+        fault: null,
+        pending: null,
+        state: "suspended",
+      });
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  30_000
+);
+
+it.live(
+  "a 503 on resume keeps the pending intent and retries the same box request",
+  () =>
+    Effect.gen(function* unavailableResume() {
+      const world = yield* prepare(200, [], undefined, { peons: true });
+      yield* start(world);
+      const peonId = "unavailable-resume";
+      const requestId = "transient-resume";
+
+      const spawned = yield* post(world, "spawnPeon", {
+        peonId,
+        template: "full",
+        overrides: { workspace },
+      });
+
+      expect(spawned.status).toBe(200);
+      expect((yield* post(world, "suspendPeon", { peonId })).status).toBe(200);
+
+      const refusal = yield* post(world, "resumePeon", { peonId, requestId });
+      expect(refusal.status).toBe(422);
+
+      const inspection = yield* post(world, "inspectPeon", { peonId });
+      expect(inspection.body).toMatchObject({
+        pending: { kind: "resume", requestId },
+        state: "suspended",
+      });
+
+      const calls = yield* readCalls(world).pipe(
+        Effect.map((rows) =>
+          rows.filter(({ path }) => path === `/v1/boxes/${peonId}/resume`)
+        ),
+        Effect.filterOrFail(
+          (rows) => rows.length >= 2,
+          () => "The resume alarm has not retried"
+        ),
+        Effect.retry({ schedule: Schedule.spaced("25 millis"), times: 200 })
+      );
+
+      expect(new Set(calls.map((call) => call.requestId)).size).toBe(1);
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  30_000
+);
+
 const custodyCases = [
   [
     "custody-incomplete",

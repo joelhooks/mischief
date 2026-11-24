@@ -235,6 +235,56 @@ it.effect(
 );
 
 it.effect(
+  "inspect reconciles the legacy stale resume without replaying it",
+  () =>
+    Effect.gen(function* legacyStaleResume() {
+      const test = fixture();
+      yield* test.host().initialize(entry, template, false);
+      yield* test.host().command("suspend", "setup-suspend", "SUSPEND");
+
+      const raw = JSON.stringify({
+        error: {
+          code: "BoxNetworkStale",
+          message:
+            "A browser box must be attached only to the browser network. Recreate or destroy this browser box before retrying.",
+        },
+      });
+
+      const call = (requestId: string) =>
+        test.host().command("resume", requestId, "RESUME");
+
+      const legacyFault = (body: string) =>
+        new PeonRefused({
+          reason: `Box ${entry.peonId} resume returned HTTP 409: ${body}. Call inspectPeon before retrying.`,
+        });
+
+      test.fail(legacyFault(raw.slice(0, -1)));
+      yield* call("legacy-resume").pipe(Effect.flip);
+      expect((yield* test.host().inspect).pending).toEqual({
+        kind: "resume",
+        requestId: "legacy-resume",
+      });
+      test.fail(legacyFault(raw));
+      yield* call("legacy-resume").pipe(Effect.flip);
+      const parked = yield* test.host().inspectStored;
+      expect(parked.fault).toContain("BoxNetworkStale");
+      expect(parked).toMatchObject({
+        pending: { kind: "resume", requestId: "legacy-resume" },
+        state: "suspended",
+      });
+
+      const beforeInspect = test.calls.length;
+      const settled = { fault: null, pending: null, state: "suspended" };
+      expect(yield* test.host().inspect).toMatchObject(settled);
+      expect(yield* test.host().inspectStored).toMatchObject(settled);
+      expect(
+        test.calls.slice(beforeInspect).map(({ operation }) => operation)
+      ).toEqual(["inspect"]);
+      expect(test.alarm()).toBe(template.hibernateAfter);
+    })
+);
+
+it.effect(
   "an interrupted prompt replays the same box request and accounts usage once",
   () =>
     Effect.gen(function* interrupted() {

@@ -678,7 +678,7 @@ const runGenerator = Effect.fn("runCallerGeneratorCli")(function* runGenerator(
 });
 
 it.effect(
-  "the CLI counts Rat King ephemeral entries from each source without filtering the seed",
+  "the CLI lists and counts Rat King ephemeral entries from each source without filtering the seed",
   () =>
     Effect.gen(function* filtersEphemeralCallers() {
       const fs = yield* FileSystem.FileSystem;
@@ -721,7 +721,8 @@ it.effect(
       );
 
       for (const source of [bundle, directory]) {
-        const target = `${out}.${source === bundle ? "snapshot" : "export"}`;
+        const sourceKind = source === bundle ? "snapshot" : "export";
+        const target = `${out}.${sourceKind}`;
 
         const result = yield* runGenerator([
           source,
@@ -733,8 +734,24 @@ it.effect(
 
         expect(Number(result.code), result.stderr + result.stdout).toBe(0);
         expect(result.stdout.trim()).toBe('{"added":4,"legacy":1,"total":5}');
-        expect(result.stderr.trim()).toBe(
-          "Skipped ephemeral caller entries: probe/canary=7, session=9"
+
+        const warnings = [
+          "Skipped ephemeral caller canary (probe/canary, reserved)",
+          "Skipped ephemeral caller entries: probe/canary=7, session=9",
+        ];
+
+        for (const kind of [sourceKind, "reserved", "extras"]) {
+          warnings.push(
+            `Skipped ephemeral caller probe/desk (probe/canary, ${kind})`,
+            `Skipped ephemeral caller team/desk_canary (probe/canary, ${kind})`,
+            `Skipped ephemeral caller pi-12345678 (session, ${kind})`,
+            `Skipped ephemeral caller team/pi-01arz3ndektsv4rrffq69g5fav (session, ${kind})`,
+            `Skipped ephemeral caller team/pi-12345678-abcd-1234-abcd-123456789abc (session, ${kind})`
+          );
+        }
+
+        expect(result.stderr.trim().split("\n")).toStrictEqual(
+          warnings.toSorted()
         );
 
         const { callers } = yield* loadCallers(target);

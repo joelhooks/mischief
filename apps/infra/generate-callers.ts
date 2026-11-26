@@ -20,35 +20,49 @@ const PROBE_OR_CANARY = /(?:^|[/_-])(?:probe|canary)(?:$|[/_-])/iu;
 const PI_SESSION =
   /(?:^|\/)pi-(?:[0-9a-hjkmnp-tv-z]{26}|[0-9a-f]{8,}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{5,12})$/iu;
 
-type SkipGeneratedName = (name: string) => boolean;
+type GeneratedSource = "snapshot" | "export" | "reserved" | "extras";
 
-const countEphemeralNames = () => {
-  const counts = { probeOrCanary: 0, session: 0 };
+type SkipGeneratedName = (name: string, source: GeneratedSource) => boolean;
 
-  const skip = (name: string) => {
-    if (PROBE_OR_CANARY.test(name)) {
-      counts.probeOrCanary += 1;
+const ephemeralClass = (name: string) => {
+  if (PROBE_OR_CANARY.test(name)) {
+    return "probe/canary";
+  }
 
-      return true;
+  return PI_SESSION.test(name) ? "session" : undefined;
+};
+
+const collectEphemeralNames = () => {
+  const counts = { "probe/canary": 0, session: 0 };
+  const skipped: string[] = [];
+
+  const skip: SkipGeneratedName = (name, source) => {
+    const kind = ephemeralClass(name);
+
+    if (kind === undefined) {
+      return false;
     }
 
-    if (PI_SESSION.test(name)) {
-      counts.session += 1;
+    const printable = name.replaceAll(
+      /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu,
+      (character) => `\\u{${character.codePointAt(0)?.toString(16)}}`
+    );
 
-      return true;
-    }
+    counts[kind] += 1;
+    skipped.push(`Skipped ephemeral caller ${printable} (${kind}, ${source})`);
 
-    return false;
+    return true;
   };
 
-  const warning = () =>
-    counts.probeOrCanary + counts.session === 0
+  const warnings = () =>
+    skipped.length === 0
       ? []
       : [
-          `Skipped ephemeral caller entries: probe/canary=${counts.probeOrCanary}, session=${counts.session}`,
+          ...skipped,
+          `Skipped ephemeral caller entries: probe/canary=${counts["probe/canary"]}, session=${counts.session}`,
         ];
 
-  return { skip, warning };
+  return { skip, warnings };
 };
 
 const skipReservedDid = (did: string, skip: SkipGeneratedName) => {
@@ -66,7 +80,7 @@ const skipReservedDid = (did: string, skip: SkipGeneratedName) => {
     ? /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)?$/iu
     : /^[a-z0-9_-]+$/iu;
 
-  return encodedName.test(label) && skip(label.replace(".", "/"));
+  return encodedName.test(label) && skip(label.replace(".", "/"), "reserved");
 };
 
 const matchesFleetName = (did: string, name: string) =>
@@ -155,7 +169,7 @@ const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
     const extraEntries: Candidate[] = [];
 
     for (const { document, name } of extras) {
-      if (skip(name)) {
+      if (skip(name, "extras")) {
         continue;
       }
 
@@ -511,7 +525,9 @@ const generateWithWarnings = Effect.fn("generateCallersWithWarnings")(
     const added = yield* mergeAdditions(
       {
         ...directory,
-        names: directory.names.filter(({ name }) => !skip(name)),
+        names: directory.names.filter(
+          ({ name }) => !skip(name, directory.snapshot ? "snapshot" : "export")
+        ),
       },
       legacy,
       reserved,
@@ -574,7 +590,7 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
     documents?: CallerDocumentFiles
   ) {
     const warnings = new Set<string>();
-    const ephemeral = countEphemeralNames();
+    const ephemeral = collectEphemeralNames();
 
     return yield* generateWithWarnings(
       directorySource,
@@ -587,7 +603,7 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
       Effect.ensuring(
         Effect.suspend(() =>
           Effect.forEach(
-            [...warnings, ...ephemeral.warning()].toSorted(),
+            [...warnings, ...ephemeral.warnings()].toSorted(),
             (warning) => Console.error(warning),
             { discard: true }
           )

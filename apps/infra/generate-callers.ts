@@ -1,18 +1,27 @@
+import { isDeepStrictEqual } from "node:util";
+
 import { callerName } from "@mischief/core";
 import { Document, Documents } from "@rat-king/mailbox-client/auth";
-import { Effect, FileSystem, Option, Path, Schema } from "effect";
+import { Console, Effect, FileSystem, Option, Path, Schema } from "effect";
 
 import {
   CallerGenerationRefused,
   readCallerDirectory,
   refuseDirectory,
-  sameDocument,
 } from "./caller-directory.ts";
 import { decodeCallers } from "./callers.ts";
 
 const FLEET_SUFFIX = ".pi.ratking-fleet.invalid";
 
 const RESERVED_FLEET_SUFFIX = ".ratking-fleet.invalid";
+
+const matchesFleetName = (did: string, name: string) =>
+  did === `did:web:${name.replace("/", ".")}${FLEET_SUFFIX}` &&
+  Option.getOrUndefined(callerName(did)) === name;
+
+const matchesReservedName = (did: string, name: string) =>
+  matchesFleetName(did, name) ||
+  (!name.includes("/") && did === `did:web:${name}${RESERVED_FLEET_SUFFIX}`);
 
 const DocumentId = Schema.Struct({ id: Schema.String });
 
@@ -69,9 +78,9 @@ const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
       const did = yield* documentDid(document, "Reserved");
       const name = Option.getOrUndefined(callerName(did));
 
-      if (!did.endsWith(RESERVED_FLEET_SUFFIX) || name === undefined) {
+      if (name === undefined || !matchesReservedName(did, name)) {
         return yield* refuseDirectory(
-          "Reserved document id must be a recognized fleet DID"
+          "Reserved document id must name a bare reserved fleet caller or match the fleet name template"
         );
       }
 
@@ -83,10 +92,7 @@ const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
     for (const { document, name } of extras) {
       const did = yield* documentDid(document, "Extra");
 
-      if (
-        !did.endsWith(FLEET_SUFFIX) ||
-        Option.getOrUndefined(callerName(did)) !== name
-      ) {
+      if (!matchesFleetName(did, name)) {
         return yield* refuseDirectory(
           `Extra DID does not match fleet name ${name}`
         );
@@ -99,60 +105,68 @@ const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
   }
 );
 
-export const generateCallersFile = Effect.fn("generateCallersFile")(
-  function* generateCallersFile(
-    directorySource: string,
-    seedFile: string,
-    out: string,
-    documents?: CallerDocumentFiles
+type Directory = Effect.Success<ReturnType<typeof readCallerDirectory>>;
+
+const compareDids = (
+  left: typeof Document.Type,
+  right: typeof Document.Type
+) => {
+  if (left.id === right.id) {
+    return 0;
+  }
+
+  return left.id < right.id ? -1 : 1;
+};
+
+const mergeAdditions = Effect.fn("mergeCallerAdditions")(
+  function* mergeAdditions(
+    directory: Directory,
+    legacyDids: ReadonlySet<string>,
+    reserved: readonly Candidate[],
+    extras: readonly Candidate[]
   ) {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const target = path.resolve(out);
-
-    const directory = yield* readCallerDirectory(directorySource);
-
-    const supplemental =
-      documents === undefined
-        ? []
-        : yield* readSupplementalDocuments(documents);
-
-    const seed = yield* fs.readFileString(seedFile);
-    const legacy = yield* decodeCallers(seed);
-
-    const legacyDocs = yield* Schema.decodeEffect(
-      Schema.fromJsonString(Documents)
-    )(legacy.callers);
-
-    const legacyDids = new Set(legacyDocs.map(({ id }) => id));
-
-    if (legacyDids.size !== legacyDocs.length) {
-      return yield* new CallerGenerationRefused({
-        message:
-          "Legacy seed repeats a DID. Supply the trusted public callers file with each DID listed once, then retry generate-callers",
-      });
-    }
+    const reservedDids = new Set(reserved.map(({ did }) => did));
 
     const directoryEntries = directory.names.filter(
-      ({ did, status }) => did.endsWith(FLEET_SUFFIX) && status !== "retired"
+      ({ did, status }) =>
+        status !== "retired" &&
+        (did.endsWith(FLEET_SUFFIX) ||
+          reservedDids.has(did) ||
+          (directory.snapshot && did.endsWith(RESERVED_FLEET_SUFFIX)))
     );
 
-    const seen = new Map<string, Schema.Json>();
+    const sources = [
+      {
+        entries: directoryEntries,
+        directory: true,
+        allowDuplicates: directory.snapshot,
+      },
+      { entries: reserved, directory: false, allowDuplicates: false },
+      { entries: extras, directory: false, allowDuplicates: false },
+    ];
+
+    const seen = new Map<string, typeof Document.Type>();
+    const snapshotDidsByName = new Map<string, string>();
+    const suppressed = new Set<string>();
     const added = new Map<string, typeof Document.Type>();
 
-    for (const source of [directoryEntries, ...supplemental]) {
+    for (const source of sources) {
       const sourceDids = new Set<string>();
 
-      for (const entry of source) {
+      for (const entry of source.entries) {
         const { did, name } = entry;
 
-        if (Option.getOrUndefined(callerName(did)) !== name) {
+        if (
+          source.directory &&
+          (Option.getOrUndefined(callerName(did)) !== name ||
+            !matchesReservedName(did, name))
+        ) {
           return yield* refuseDirectory(
             `Directory DID does not match fleet name ${name}`
           );
         }
 
-        if (sourceDids.has(did)) {
+        if (!source.allowDuplicates && sourceDids.has(did)) {
           return yield* refuseDirectory(
             `A caller input repeats the fleet DID for ${name}`
           );
@@ -176,25 +190,86 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
           );
         }
 
+        if (directory.retiredDids.has(did)) {
+          suppressed.add(name);
+          continue;
+        }
+
+        if (source.allowDuplicates) {
+          const previousDid = snapshotDidsByName.get(name);
+
+          if (previousDid !== undefined && previousDid !== did) {
+            return yield* refuseDirectory(
+              `Snapshot has conflicting DIDs for name ${name}`
+            );
+          }
+
+          snapshotDidsByName.set(name, did);
+        }
+
         const previous = seen.get(did);
 
-        if (previous !== undefined && !sameDocument(previous, entry.document)) {
+        if (previous !== undefined && !isDeepStrictEqual(previous, document)) {
           return yield* refuseDirectory(
             `Caller inputs have conflicting documents for ${name}`
           );
         }
 
-        seen.set(did, entry.document);
+        seen.set(did, document);
 
         if (
           !legacyDids.has(did) &&
-          !directory.retiredNames.has(name) &&
-          !directory.retiredDids.has(did)
+          (!source.directory || did.endsWith(FLEET_SUFFIX))
         ) {
           added.set(did, document);
         }
       }
     }
+
+    return { added, suppressed };
+  }
+);
+
+export const generateCallersFile = Effect.fn("generateCallersFile")(
+  function* generateCallersFile(
+    directorySource: string,
+    seedFile: string,
+    out: string,
+    documents?: CallerDocumentFiles
+  ) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const target = path.resolve(out);
+
+    const directory = yield* readCallerDirectory(directorySource);
+
+    const [reserved = [], extras = []] =
+      documents === undefined
+        ? []
+        : yield* readSupplementalDocuments(documents);
+
+    const seed = yield* fs.readFileString(seedFile);
+    const legacy = yield* decodeCallers(seed);
+
+    const legacyDocs = yield* Schema.decodeEffect(
+      Schema.fromJsonString(Documents)
+    )(legacy.callers);
+
+    const legacyDids = new Set(legacyDocs.map(({ id }) => id));
+
+    if (legacyDids.size !== legacyDocs.length) {
+      return yield* new CallerGenerationRefused({
+        message:
+          "Legacy seed repeats a DID. Supply the trusted public callers file with each DID listed once, then retry generate-callers",
+      });
+    }
+
+    const { added, suppressed } = yield* mergeAdditions(
+      directory,
+      legacyDids,
+      reserved,
+      extras
+    );
 
     const closingBracket = seed.lastIndexOf("]");
 
@@ -202,7 +277,7 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
       added.size === 0
         ? seed
         : `${seed.slice(0, closingBracket)},\n${[...added.values()]
-            .toSorted((a, b) => a.id.localeCompare(b.id))
+            .toSorted(compareDids)
             .map((doc) => JSON.stringify(doc))
             .join(",\n")}\n${seed.slice(closingBracket)}`;
 
@@ -224,6 +299,12 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
           })
       )
     );
+
+    for (const name of [...suppressed].toSorted()) {
+      yield* Console.error(
+        `Skipping retired DID for ${name} in generated additions; the legacy seed is unchanged`
+      );
+    }
 
     return {
       added: added.size,

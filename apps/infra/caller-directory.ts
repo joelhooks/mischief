@@ -51,8 +51,8 @@ const SnapshotManifest = Schema.fromJsonString(
     pages: Schema.NonEmptyArray(
       Schema.Struct({
         issuer: Issuer,
-        names: Schema.Int.check(Schema.isGreaterThan(0)),
-        retired: Schema.Int.check(Schema.isGreaterThan(0)),
+        names: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+        retired: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
       })
     ),
     sha256: Schema.Struct({
@@ -69,31 +69,6 @@ export class CallerGenerationRefused extends Schema.TaggedError<
   CallerGenerationRefused,
   { readonly brand: unique symbol }
 >()("CallerGenerationRefused", { message: Schema.String }) {}
-
-const isJsonArray = Schema.is(Schema.Array(Schema.Json));
-
-const isJsonObject = Schema.is(Schema.JsonObject);
-
-const canonicalDocument = (value: Schema.Json): string => {
-  if (isJsonArray(value)) {
-    return `[${value.map(canonicalDocument).join(",")}]`;
-  }
-
-  if (isJsonObject(value)) {
-    const fields = Object.entries(value)
-      .toSorted(([left], [right]) => (left < right ? -1 : 1))
-      .map(
-        ([key, field]) => `${JSON.stringify(key)}:${canonicalDocument(field)}`
-      );
-
-    return `{${fields.join(",")}}`;
-  }
-
-  return JSON.stringify(value);
-};
-
-export const sameDocument = (left: Schema.Json, right: Schema.Json) =>
-  canonicalDocument(left) === canonicalDocument(right);
 
 export const refuseDirectory = (reason: string) =>
   new CallerGenerationRefused({
@@ -172,52 +147,20 @@ const readSnapshot = Effect.fn("readCallerSnapshot")(function* readSnapshot(
     );
   }
 
-  const retiredNames = new Set(retired.retired.map(({ name }) => name));
-  const retiredDids = new Set(retired.retired.map(({ did }) => did));
-  const byName = new Map<string, typeof Entry.Type>();
+  const retiredDids = new Set([
+    ...retired.retired.map(({ did }) => did),
+    ...names.names
+      .filter(({ status }) => status === "retired")
+      .map(({ did }) => did),
+  ]);
 
-  for (const entry of names.names) {
-    if (entry.status === "retired") {
-      retiredNames.add(entry.name);
-      retiredDids.add(entry.did);
-    }
-
-    const previous = byName.get(entry.name);
-
-    if (
-      previous !== undefined &&
-      (previous.did !== entry.did ||
-        !sameDocument(previous.document, entry.document))
-    ) {
-      return yield* refuseDirectory(
-        `Snapshot has conflicting documents for name ${entry.name}`
-      );
-    }
-
-    byName.set(entry.name, entry);
-  }
-
-  for (const entry of names.names) {
-    if (
-      entry.status !== "retired" &&
-      (retiredNames.has(entry.name) || retiredDids.has(entry.did))
-    ) {
-      return yield* refuseDirectory(
-        `Snapshot lists ${entry.name} as both live and retired`
-      );
-    }
-  }
-
-  if (byName.size !== names.names.length) {
-    return yield* refuseDirectory("Snapshot repeats a name");
-  }
-
+  const distinctNames = new Set(names.names.map(({ name }) => name));
   const issuerLabels = new Set(manifest.pages.map(({ issuer }) => issuer));
 
   if (
     issuerLabels.size !== manifest.pages.length ||
-    Object.keys(issuers).length !== names.names.length ||
-    names.names.some(({ name }) => {
+    Object.keys(issuers).length !== distinctNames.size ||
+    [...distinctNames].some((name) => {
       const issuer = issuers[name];
 
       return (
@@ -232,7 +175,7 @@ const readSnapshot = Effect.fn("readCallerSnapshot")(function* readSnapshot(
     );
   }
 
-  return { names: names.names, retiredNames, retiredDids };
+  return { names: names.names, retiredDids, snapshot: true };
 }, Effect.provide(Digest.layerWebCrypto));
 
 export const readCallerDirectory = Effect.fn("readCallerDirectory")(
@@ -272,8 +215,8 @@ export const readCallerDirectory = Effect.fn("readCallerDirectory")(
 
     return {
       names: directory.names,
-      retiredNames: new Set(retired.map(({ name }) => name)),
       retiredDids: new Set(retired.map(({ did }) => did)),
+      snapshot: false,
     };
   }
 );

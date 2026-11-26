@@ -2,6 +2,7 @@ import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { callerReach } from "@mischief/core";
 import { ConfigProvider, Effect, Exit, FileSystem, Path } from "effect";
+import * as Digest from "effect/crypto/Digest";
 
 import { callersFromConfig } from "../callers.ts";
 import { generateCallersFile } from "../generate-callers.ts";
@@ -161,7 +162,7 @@ const stageCallers = Effect.fn("stageCallers")(function* stageCallers(
     JSON.stringify({ complete: true, names, total: names.length })
   );
 
-  return { directory, out, seed };
+  return { dir, directory, out, seed };
 });
 
 it.effect(
@@ -250,6 +251,242 @@ it.effect(
 
       expect(failure).toContain("private JWK fields such as d are forbidden");
       expect(failure).not.toContain(scalar);
+      expect(yield* fs.exists(out)).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+);
+
+const first = fleetEntry("sample/first", "live");
+
+const second = fleetEntry("sample/second");
+
+const retired = fleetEntry("sample/former");
+
+const reservedDoc = documentWith(
+  PUBLIC_JWK,
+  "did:web:sample-owner.ratking-fleet.invalid"
+);
+
+const extra = fleetEntry("sample/extra");
+
+const legacy = fleetEntry("legacy/worker-0");
+
+const stageSnapshot = Effect.fn("stageCallerSnapshot")(
+  function* stageCallerSnapshot(
+    dir: string,
+    names: readonly ReturnType<typeof fleetEntry>[],
+    retirements: readonly ReturnType<typeof fleetEntry>[],
+    cursor?: string
+  ) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const digest = yield* Digest.Digest;
+    const bundle = path.join(dir, "snapshot");
+    const snapshot = "03ffb02c-ad0f-4a64-ab4f-062499c5da5a";
+
+    const files = {
+      "issuers.json": Object.fromEntries(
+        names.map(({ name }, index) => [
+          name,
+          index === 0 ? "issuer-a" : "issuer-b",
+        ])
+      ),
+      "names.json": {
+        complete: true,
+        cursor,
+        names,
+        snapshot,
+        total: names.length,
+      },
+      "retired.json": {
+        complete: true,
+        retired: retirements.map(({ did, name }) => ({
+          by: first.did,
+          did,
+          name,
+          retiredAt: "2025-01-01T00:00:00Z",
+        })),
+        snapshot,
+        total: retirements.length,
+      },
+    };
+
+    yield* fs.makeDirectory(bundle);
+
+    const hashes = yield* Effect.forEach(
+      Object.entries(files),
+      ([name, body]) =>
+        Effect.gen(function* snapshotFile() {
+          const text = `${JSON.stringify(body)}\n`;
+          yield* fs.writeFileString(path.join(bundle, name), text);
+
+          const sha256 = yield* digest.digestHex(
+            Digest.sha256,
+            new TextEncoder().encode(text)
+          );
+
+          return [name, sha256] as const;
+        })
+    );
+
+    yield* fs.writeFileString(
+      path.join(bundle, "manifest.json"),
+      JSON.stringify({
+        pages: [
+          { issuer: "issuer-a", names: 1, retired: 1 },
+          { issuer: "issuer-b", names: 1, retired: 1 },
+        ],
+        sha256: Object.fromEntries(hashes),
+        snapshot,
+        totals: { names: names.length, retired: retirements.length },
+      })
+    );
+
+    return bundle;
+  },
+  Effect.provide(Digest.layerWebCrypto)
+);
+
+const stageSupplements = Effect.fn("stageCallerSupplements")(
+  function* stageCallerSupplements(
+    dir: string,
+    docs: readonly ReturnType<typeof documentWith>[],
+    extraEntries: readonly {
+      name: string;
+      document: ReturnType<typeof documentWith>;
+    }[]
+  ) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const reserved = path.join(dir, "reserved.json");
+    const extras = path.join(dir, "extras.json");
+    yield* fs.writeFileString(reserved, JSON.stringify(docs));
+    yield* fs.writeFileString(extras, JSON.stringify(extraEntries));
+
+    return { reserved, extras };
+  }
+);
+
+it.effect(
+  "merges verified snapshot names and both supplemental inputs, without admitting a retired caller or changing the seed",
+  () =>
+    Effect.gen(function* mergedCallers() {
+      const fs = yield* FileSystem.FileSystem;
+      const { dir, out, seed } = yield* stageCallers([]);
+
+      const bundle = yield* stageSnapshot(
+        dir,
+        [first, second, legacy],
+        [retired]
+      );
+
+      const { id, ...fields } = second.document;
+
+      const extraWithGrant = {
+        ...extra,
+        document: {
+          ...extra.document,
+          mischief: { mayMail: ["sample/other"] },
+        },
+      };
+
+      const documents = yield* stageSupplements(
+        dir,
+        [reservedDoc, { ...fields, id }],
+        [extraWithGrant, retired]
+      );
+
+      const counts = yield* generateCallersFile(bundle, seed, out, documents);
+      expect(counts).toStrictEqual({ added: 4, legacy: 8, total: 12 });
+
+      const generated = yield* fs.readFileString(out);
+      const { callers, mailReach } = yield* loadCallers(out);
+      expect(
+        generated.startsWith(seedText.slice(0, seedText.lastIndexOf("]")))
+      ).toBe(true);
+      expect(callers).toContain(first.did);
+      expect(callers).toContain(second.did);
+      expect(callers).toContain(reservedDoc.id);
+      expect(callers).toContain(extra.did);
+      expect(callers).not.toContain(retired.did);
+      expect(callerReach(extra.did, mailReach).names).toEqual([extra.name]);
+      expect(callerReach(legacy.did, mailReach).names).toEqual([
+        "trusted/desk",
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+);
+
+it.effect.each([
+  ["tampered placements", /SHA-256 manifest mismatch for issuers.json/u],
+  ["conflicting names", /conflicting documents/u],
+  ["live and retired", /as both live and retired/u],
+  ["remaining cursor", /not a complete names list/u],
+] as const)("refuses a snapshot with %s before writing", ([fault, reason]) =>
+  Effect.gen(function* refusedSnapshot() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const { dir, out, seed } = yield* stageCallers([]);
+
+    const conflict = {
+      ...first,
+      document: { ...first.document, authentication: [] },
+    };
+
+    const bundle = yield* stageSnapshot(
+      dir,
+      fault === "conflicting names" ? [first, conflict] : [first, second],
+      fault === "live and retired" ? [first] : [],
+      fault === "remaining cursor" ? "next-page" : undefined
+    );
+
+    if (fault === "tampered placements") {
+      yield* fs.writeFileString(path.join(bundle, "issuers.json"), "{}\n");
+    }
+
+    const error = yield* Effect.flip(generateCallersFile(bundle, seed, out));
+    expect(String(error)).toMatch(reason);
+    expect(yield* fs.exists(out)).toBe(false);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+);
+
+it.effect.each([
+  ["conflicting documents", /conflicting documents/u],
+  ["mismatched extra name", /Extra DID does not match fleet name/u],
+  ["private reserved key", /private JWK fields such as d are forbidden/u],
+  ["duplicate DID", /repeats the fleet DID/u],
+] as const)(
+  "refuses supplemental inputs with %s before writing",
+  ([fault, reason]) =>
+    Effect.gen(function* refusedSupplements() {
+      const fs = yield* FileSystem.FileSystem;
+      const { dir, directory, out, seed } = yield* stageCallers([first]);
+
+      const reserved =
+        fault === "private reserved key"
+          ? [
+              documentWith(
+                { ...PUBLIC_JWK, d: "synthetic-private-value" },
+                reservedDoc.id
+              ),
+            ]
+          : [reservedDoc];
+
+      const extras = {
+        "conflicting documents": [
+          { ...first, document: { ...first.document, authentication: [] } },
+        ],
+        "duplicate DID": [extra, extra],
+        "mismatched extra name": [{ ...extra, name: "sample/mismatch" }],
+        "private reserved key": [],
+      }[fault];
+
+      const documents = yield* stageSupplements(dir, reserved, extras);
+
+      const error = yield* Effect.flip(
+        generateCallersFile(directory, seed, out, documents)
+      );
+
+      expect(String(error)).toMatch(reason);
+      expect(String(error)).not.toContain("synthetic-private-value");
       expect(yield* fs.exists(out)).toBe(false);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
 );

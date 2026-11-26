@@ -49,6 +49,7 @@
   },
   "include": [
     "alchemy.run.ts",
+    "caller-directory.ts",
     "callers.ts",
     "celld-build.ts",
     "celld-ops.ts",

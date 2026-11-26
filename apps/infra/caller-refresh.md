@@ -6,11 +6,13 @@ Run from the Mischief checkout with the existing celld settings and Rat King ope
 - `PREVIOUS_CALLERS_FILE`: the trusted file used in the current deployment. Copy it into the archive before planning so rollback does not depend on a mutable path.
 - `LEGACY_CALLERS_FILE`: the original trusted seed with existing grants. Do not use a previous generated file as the seed.
 - `RESERVED_PUBLIC_FILE`: the fleet-only public `DID_DOCUMENTS` array, prepared separately from the snapshot.
-- `EXTRA_PUBLIC_FILE`: public `[{"name":"…","document":{…}}]` entries for callers missing from the directory. This is a stopgap until Rat King backfills the old rows and includes reserved names in snapshots.
+- `EXTRA_PUBLIC_FILE`: public `[{"name":"…","document":{…}}]` entries for callers missing from the directory. This is a stopgap until Rat King backfills the old rows and includes reserved names in snapshots. `switchboard` and `pennywise-owner` are bare reserved DIDs from `DID_DOCUMENTS`, not extras. The generator refuses the bare form in extras.
 
 ## Pre-deploy dry run on real inputs
 
-Use the first real Rat King snapshot, the real fleet-only `DID_DOCUMENTS` array, the real 11-document extras file, and the real legacy seed. The generator checks that the seed passes and prints the caller counts. The two `jq` checks below confirm that all seed entries and grants are unchanged and that the generated caller file contains all 11 distinct extra DIDs. The total can be higher than 11: it also includes the seed, reserved, and directory callers.
+Use the first real Rat King snapshot, the real fleet-only `DID_DOCUMENTS` array, the real nine-document extras file, and the real legacy seed. The generator checks that the seed passes and prints the caller counts. The `jq` checks below verify that the seed and its grants are unchanged, all nine distinct extra DIDs are present, the extras account for exactly the DIDs absent from the other inputs, and both bare reserved DIDs are present in the reserved input and the output. If a check fails, stop and reconcile against the pinned inputs. Never lower the count to make the check pass.
+
+Keep `$RUN_DIR/dry-run-receipt.md` in the private archive. Record one provenance line per extra and reserved document: name, DID, public key fingerprint, operator `ratking resolve` result as the source, and resolution date. Where possible, compare the resolved public key with the key the agent signs with today and record the result. If you cannot verify the current signing key, say so. Never record private key material.
 
 ```sh
 set -eu
@@ -36,7 +38,15 @@ jq -en --slurpfile seed "$LEGACY_CALLERS_FILE" --slurpfile generated "$RUN_DIR/c
 jq -en --slurpfile extras "$RUN_DIR/extras.json" --slurpfile generated "$RUN_DIR/callers.json" \
   '($extras[0] | map(.document.id) | unique) as $expected |
    ($generated[0] | map(.id)) as $actual |
-   ($expected | length) == 11 and (($expected - $actual) | length) == 0'
+   ($expected | length) == 9 and (($expected - $actual) | length) == 0'
+jq -en --slurpfile seed "$LEGACY_CALLERS_FILE" --slurpfile reserved "$RUN_DIR/reserved.json" \
+  --slurpfile directory "$RUN_DIR/snapshot/names.json" --slurpfile extras "$RUN_DIR/extras.json" \
+  --slurpfile generated "$RUN_DIR/callers.json" \
+  '((($seed[0] + $reserved[0]) | map(.id)) + ($directory[0].names | map(.did)) | unique) as $other |
+   (($generated[0] | map(.id) | unique) - $other) == ($extras[0] | map(.document.id) | unique)'
+jq -en --slurpfile reserved "$RUN_DIR/reserved.json" --slurpfile generated "$RUN_DIR/callers.json" \
+  '(["switchboard", "pennywise-owner"] | map("did:web:\(.).ratking-fleet.invalid")) as $required |
+   ($required - ($reserved[0] | map(.id))) == [] and ($required - ($generated[0] | map(.id))) == []'
 export MISCHIEF_TARGET=celld ALCHEMY_TELEMETRY_DISABLED=1 MISCHIEF_ONLINE_PLAN=false
 export MISCHIEF_CALLERS_FILE="$RUN_DIR/callers.json"
 export MISCHIEF_PLAN_OUT="$RUN_DIR/plan.json"
@@ -48,5 +58,9 @@ Inspect `$RUN_DIR/plan.json`. It must show only the caller allowlist update. Sto
 The plan driver reads `MISCHIEF_ONLINE_PLAN` in [`plan.ts:37`](./plan.ts#L37) and `MISCHIEF_PLAN_OUT` in [`plan-runtime.ts:109`](./plan-runtime.ts#L109). The caller config reads `MISCHIEF_CALLERS_FILE` in [`callers.ts:130`](./callers.ts#L130).
 
 Invoke the Rat King binary directly for clean JSON stdout. Rat King's `apps/ratking-cli/src/snapshot.ts:215–226` writes only `names.json`, `retired.json`, and `issuers.json`. `apps/ratking-cli/src/snapshot-command.ts:125` writes the JSON receipt to stdout, not to `manifest.json`. That is why the command above moves the captured receipt into the bundle. If rats-nest supplies the first real bundle, archive its files and original receipt instead of recapturing them. The manifest verifies file integrity, not origin, and cannot tell you whether an issuer is missing. A complete legacy directory export can replace the first generator argument; the legacy three-argument form also remains supported.
+
+## Document-only caller access
+
+Document-only callers can use `submitPlan`, `inspectRun`, schedules, `thinkStatus`, `inspectDeskWake`, and `openApi`. Mail is self-only and the per-caller think cap applies. Peon box capabilities return HTTP 403; watches return `NotGranted`.
 
 The bundle stays at `$RUN_DIR/snapshot`. Use `$RUN_DIR/callers.json` for the reviewed plan and any separately approved deploy. For rollback, set `MISCHIEF_CALLERS_FILE` to `$RUN_DIR/previous-callers.json`, set `MISCHIEF_PLAN_OUT` to `$RUN_DIR/rollback-plan.json`, and run the same offline plan before seeking approval.

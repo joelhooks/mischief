@@ -678,6 +678,98 @@ const runGenerator = Effect.fn("runCallerGeneratorCli")(function* runGenerator(
 });
 
 it.effect(
+  "the CLI lists and counts Rat King ephemeral entries from each source without filtering the seed",
+  () =>
+    Effect.gen(function* filtersEphemeralCallers() {
+      const fs = yield* FileSystem.FileSystem;
+
+      const excluded = [
+        "probe/desk",
+        "team/desk_canary",
+        "pi-12345678",
+        "team/pi-01arz3ndektsv4rrffq69g5fav",
+        "team/pi-12345678-abcd-1234-abcd-123456789abc",
+      ].map((name) => fleetEntry(name));
+
+      const kept = [
+        "canaryapp-desk",
+        "desk-probeapp",
+        "desk-pi-12345678",
+        "pi-12345678-desk",
+      ].map((name) => fleetEntry(name));
+
+      const { dir, directory, out, seed } = yield* stageCallers([
+        ...excluded,
+        ...kept,
+      ]);
+
+      const seedCaller = fleetEntry("legacy/probe").document;
+      const seedBytes = JSON.stringify([seedCaller]);
+      yield* fs.writeFileString(seed, seedBytes);
+
+      const bundle = yield* stageSnapshot(dir, [...excluded, ...kept], []);
+
+      const bareCanary = documentWith(
+        PUBLIC_JWK,
+        "did:web:canary.ratking-fleet.invalid"
+      );
+
+      const supplements = yield* stageSupplements(
+        dir,
+        [bareCanary, ...[...excluded, ...kept].map(({ document }) => document)],
+        [...excluded, ...kept]
+      );
+
+      for (const source of [bundle, directory]) {
+        const sourceKind = source === bundle ? "snapshot" : "export";
+        const target = `${out}.${sourceKind}`;
+
+        const result = yield* runGenerator([
+          source,
+          seed,
+          target,
+          supplements.reserved,
+          supplements.extras,
+        ]);
+
+        expect(Number(result.code), result.stderr + result.stdout).toBe(0);
+        expect(result.stdout.trim()).toBe('{"added":4,"legacy":1,"total":5}');
+
+        const warnings = [
+          "Skipped ephemeral caller canary (probe/canary, reserved)",
+          "Skipped ephemeral caller entries: probe/canary=7, session=9",
+        ];
+
+        for (const kind of [sourceKind, "reserved", "extras"]) {
+          warnings.push(
+            `Skipped ephemeral caller probe/desk (probe/canary, ${kind})`,
+            `Skipped ephemeral caller team/desk_canary (probe/canary, ${kind})`,
+            `Skipped ephemeral caller pi-12345678 (session, ${kind})`,
+            `Skipped ephemeral caller team/pi-01arz3ndektsv4rrffq69g5fav (session, ${kind})`,
+            `Skipped ephemeral caller team/pi-12345678-abcd-1234-abcd-123456789abc (session, ${kind})`
+          );
+        }
+
+        expect(result.stderr.trim().split("\n")).toStrictEqual(
+          warnings.toSorted()
+        );
+
+        const { callers } = yield* loadCallers(target);
+        expect(callers).toContain(seedCaller.id);
+        expect(callers).not.toContain(bareCanary.id);
+
+        for (const { did } of excluded) {
+          expect(callers).not.toContain(did);
+        }
+
+        for (const { did } of kept) {
+          expect(callers).toContain(did);
+        }
+      }
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+);
+
+it.effect(
   "the snapshot CLI merges identical issuer entries, warns for a retired DID, and admits only the new binding",
   () =>
     Effect.gen(function* retirementAndMerge() {

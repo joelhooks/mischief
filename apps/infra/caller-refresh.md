@@ -62,6 +62,8 @@ export MISCHIEF_PLAN_OUT="$RUN_DIR/plan.json"
 mise exec pnpm@11.3.0 -- pnpm --filter @mischief/infra plan
 ```
 
+Read the skipped ephemeral caller list on stderr during the dry run. Stop if any listed name belongs to a real desk or worker.
+
 Inspect `$RUN_DIR/plan.json`. It must show only the caller allowlist update. Stop before deploy if it shows any unrelated change, deletion, or replacement. This is the real-bytes check; the repository tests use synthetic data.
 
 The plan driver reads `MISCHIEF_ONLINE_PLAN` in [`plan.ts:37`](./plan.ts#L37) and `MISCHIEF_PLAN_OUT` in [`plan-runtime.ts:109`](./plan-runtime.ts#L109). The caller config reads `MISCHIEF_CALLERS_FILE` in [`callers.ts:130`](./callers.ts#L130).

@@ -283,6 +283,7 @@ const stageSnapshot = Effect.fn("stageCallerSnapshot")(
       missingPlacement?: string | undefined;
       incorrectTotal?: boolean;
       zeroPages?: boolean;
+      fault?: string;
     }
   ) {
     const fs = yield* FileSystem.FileSystem;
@@ -290,6 +291,7 @@ const stageSnapshot = Effect.fn("stageCallerSnapshot")(
     const digest = yield* Digest.Digest;
     const bundle = path.join(dir, "snapshot");
     const snapshot = "03ffb02c-ad0f-4a64-ab4f-062499c5da5a";
+    const fault = options?.fault;
 
     const issuerPages = [
       {
@@ -314,6 +316,14 @@ const stageSnapshot = Effect.fn("stageCallerSnapshot")(
       placements.delete(options.missingPlacement);
     }
 
+    if (fault === "unknown placement issuer") {
+      placements.set(first.name, "issuer-missing");
+    }
+
+    if (fault === "extra placement key") {
+      placements.set("sample/extra", "issuer-a");
+    }
+
     const files = {
       "issuers.json": Object.fromEntries(placements),
       "names.json": {
@@ -331,8 +341,11 @@ const stageSnapshot = Effect.fn("stageCallerSnapshot")(
           name,
           retiredAt: "2025-01-01T00:00:00Z",
         })),
-        snapshot,
-        total: retirements.length,
+        snapshot:
+          fault === "mismatched snapshot ID"
+            ? "23ffb02c-ad0f-4a64-ab4f-062499c5da5a"
+            : snapshot,
+        total: retirements.length + Number(fault === "wrong retired total"),
       },
     };
 
@@ -354,19 +367,23 @@ const stageSnapshot = Effect.fn("stageCallerSnapshot")(
         })
     );
 
-    yield* fs.writeFileString(
-      path.join(bundle, "manifest.json"),
-      JSON.stringify({
-        pages: issuerPages.map(({ issuer, names: current, retired: dead }) => ({
-          issuer,
-          names: current.length,
-          retired: dead.length,
-        })),
-        sha256: Object.fromEntries(hashes),
-        snapshot,
-        totals: { names: names.length, retired: retirements.length },
-      })
-    );
+    const receipt = JSON.stringify({
+      pages: issuerPages.map(({ issuer, names: current, retired: dead }) => ({
+        issuer: fault === "duplicate labels" ? "issuer-a" : issuer,
+        names: current.length,
+        retired: dead.length,
+      })),
+      sha256: Object.fromEntries(hashes),
+      snapshot,
+      totals: { names: names.length, retired: retirements.length },
+    });
+
+    if (fault !== "missing manifest") {
+      yield* fs.writeFileString(
+        path.join(bundle, "manifest.json"),
+        fault === "malformed manifest" ? "not a receipt" : receipt
+      );
+    }
 
     return bundle;
   },
@@ -400,9 +417,17 @@ it.effect(
       const fs = yield* FileSystem.FileSystem;
       const { dir, out, seed } = yield* stageCallers([]);
 
+      const directoryGrant = {
+        ...first,
+        document: {
+          ...first.document,
+          mischief: { mayMail: ["sample/other"] },
+        },
+      };
+
       const bundle = yield* stageSnapshot(
         dir,
-        [first, second, legacy],
+        [directoryGrant, second, legacy],
         [retired, { did: reservedDoc.id, name: "sample-owner" }],
         { zeroPages: true }
       );
@@ -458,6 +483,8 @@ it.effect(
       expect(callers).toContain(extra.did);
       expect(callers).not.toContain(retired.did);
       expect(callerReach(extra.did, mailReach).names).toEqual([extra.name]);
+      expect(callerReach(first.did, mailReach).names).toEqual([first.name]);
+      expect(callerReach(second.did, mailReach).names).toEqual([second.name]);
       expect(callerReach(legacy.did, mailReach).names).toEqual([
         "trusted/desk",
       ]);
@@ -472,6 +499,13 @@ it.effect.each([
   ["missing placement", /placements do not match/u],
   ["wrong total", /IDs or totals do not match/u],
   ["remaining cursor", /not a complete names list/u],
+  ["mismatched snapshot ID", /IDs or totals do not match/u],
+  ["wrong retired total", /IDs or totals do not match/u],
+  ["missing manifest", /Cannot read the Rat King snapshot receipt/u],
+  ["malformed manifest", /Cannot read the Rat King snapshot receipt/u],
+  ["duplicate labels", /placements do not match/u],
+  ["unknown placement issuer", /placements do not match/u],
+  ["extra placement key", /placements do not match/u],
 ] as const)("refuses a snapshot with %s before writing", ([fault, reason]) =>
   Effect.gen(function* refusedSnapshot() {
     const fs = yield* FileSystem.FileSystem;
@@ -492,6 +526,7 @@ it.effect.each([
         missingPlacement:
           fault === "missing placement" ? second.name : undefined,
         incorrectTotal: fault === "wrong total",
+        fault,
       }
     );
 
@@ -501,6 +536,13 @@ it.effect.each([
 
     const error = yield* Effect.flip(generateCallersFile(bundle, seed, out));
     expect(String(error)).toMatch(reason);
+
+    if (fault !== "conflicting names") {
+      expect(String(error)).toContain(
+        "Run ratking snapshot --out <new-bundle>"
+      );
+    }
+
     expect(yield* fs.exists(out)).toBe(false);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
 );
@@ -684,12 +726,14 @@ it.effect(
 
       expect(Number(result.code)).toBe(0);
       expect(result.stdout.trim()).toBe('{"added":2,"legacy":8,"total":10}');
-      expect(result.stderr).toContain(`Skipping retired DID for ${first.name}`);
       expect(result.stderr).toContain(
-        `Skipping retired DID for ${markedRetired.name}`
+        `Skipping retired DID for "${first.name}"`
       );
       expect(result.stderr).toContain(
-        `Skipping retired DID for ${rebound.name}`
+        `Skipping retired DID for "${markedRetired.name}"`
+      );
+      expect(result.stderr).toContain(
+        `Skipping retired DID for "${rebound.name}"`
       );
       const { callers } = yield* loadCallers(out);
       expect(callers).toContain(rebound.did);
@@ -697,6 +741,180 @@ it.effect(
       expect(callers).not.toContain(first.did);
       expect(callers).not.toContain(markedRetired.did);
       expect(callers).not.toContain(reservedDoc.id);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+);
+
+it.effect.each([
+  "snapshot",
+  "extras",
+  "seed",
+  "both seed DIDs",
+  "dotted bare name",
+] as const)("refuses conflicting fleet name bindings via %s", (source) =>
+  Effect.gen(function* conflictingBindings() {
+    const fs = yield* FileSystem.FileSystem;
+    const { dir, out, seed } = yield* stageCallers([]);
+    const rebound = fleetEntry("sample-owner");
+    const bare = { ...rebound, did: reservedDoc.id, document: reservedDoc };
+    const dottedBare = { ...rebound, name: "sample-owner.pi" };
+
+    const names = {
+      snapshot: [bare, rebound],
+      extras: [first],
+      seed: [rebound],
+      "both seed DIDs": [first],
+      "dotted bare name": [dottedBare],
+    }[source];
+
+    const bundle = yield* stageSnapshot(dir, names, []);
+
+    if (source === "seed") {
+      yield* fs.writeFileString(seed, JSON.stringify([reservedDoc]));
+    }
+
+    if (source === "both seed DIDs") {
+      yield* fs.writeFileString(
+        seed,
+        JSON.stringify([reservedDoc, rebound.document])
+      );
+    }
+
+    const docs = yield* stageSupplements(
+      dir,
+      [reservedDoc],
+      source === "extras" ? [rebound] : []
+    );
+
+    const error = yield* Effect.flip(
+      generateCallersFile(bundle, seed, out, docs)
+    );
+
+    expect(String(error)).toContain(
+      source === "dotted bare name"
+        ? "DID does not match fleet name"
+        : "conflicting DIDs for name sample-owner"
+    );
+    expect(yield* fs.exists(out)).toBe(false);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+);
+
+it.effect(
+  "the snapshot CLI reports dropped fields, unused reserved rows, seed drift and inconsistent retirement pairs",
+  () =>
+    Effect.gen(function* snapshotWarnings() {
+      const { dir, out, seed } = yield* stageCallers([]);
+
+      const withGrant = {
+        ...first,
+        document: {
+          ...first.document,
+          mischief: { mayMail: ["sample/other"] },
+        },
+      };
+
+      const drifted = {
+        ...legacy,
+        document: { ...legacy.document, authentication: [] },
+      };
+
+      const unused = {
+        ...second,
+        name: "unused",
+        did: "did:web:unbound.ratking-fleet.invalid",
+        document: documentWith({}),
+      };
+
+      const sameSeedPublic = fleetEntry("legacy/worker-1");
+
+      const bundle = yield* stageSnapshot(
+        dir,
+        [withGrant, drifted, sameSeedPublic, unused, second],
+        [{ did: second.did, name: "wrong-name" }]
+      );
+
+      const docs = yield* stageSupplements(dir, [first.document], []);
+
+      const result = yield* runGenerator([
+        bundle,
+        seed,
+        out,
+        docs.reserved,
+        docs.extras,
+      ]);
+
+      expect(Number(result.code)).toBe(0);
+      expect(result.stdout.trim()).toBe('{"added":1,"legacy":8,"total":9}');
+      expect(result.stderr).toContain(
+        `Public documents agree for ${first.name}; dropped fields differ`
+      );
+      expect(result.stderr).toContain(
+        'Skipping snapshot row "unused": reserved DID is absent'
+      );
+      expect(result.stderr).toContain(
+        `Snapshot public document differs from the legacy seed for ${legacy.name}; keeping the seed`
+      );
+      expect(result.stderr).toContain(
+        `Snapshot and legacy seed public documents agree for ${sameSeedPublic.name}; dropped fields differ`
+      );
+      expect(result.stderr).toContain(
+        'Retirement name "wrong-name" does not match its fleet DID; excluding by DID'
+      );
+      const { callers, mailReach } = yield* loadCallers(out);
+      expect(callers).toContain(JSON.stringify(legacy.document));
+      expect(callers).not.toContain(second.did);
+      expect(callerReach(first.did, mailReach).names).toEqual([first.name]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+);
+
+it.effect(
+  "the legacy export skips repeated and malformed seed rows without decoding them, and retires only the old DID",
+  () =>
+    Effect.gen(function* originalExport() {
+      const fs = yield* FileSystem.FileSystem;
+      const { directory, out, seed } = yield* stageCallers([]);
+      const live = fleetEntry("sample-owner");
+
+      const old = {
+        ...live,
+        did: reservedDoc.id,
+        document: reservedDoc,
+        status: "retired",
+      };
+
+      const names = [
+        { did: legacy.did },
+        { ...legacy, document: false, name: 42, status: 42 },
+        old,
+        live,
+      ];
+
+      yield* fs.writeFileString(
+        directory,
+        JSON.stringify({ complete: true, total: names.length, names })
+      );
+      const result = yield* runGenerator([directory, seed, out]);
+      expect(Number(result.code)).toBe(0);
+      expect(result.stderr).toBe("");
+      const { callers } = yield* loadCallers(out);
+      expect(callers).toContain(live.did);
+      expect(callers).not.toContain(old.did);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+);
+
+it.effect(
+  "an empty legacy seed produces valid JSON when there is a caller to add",
+  () =>
+    Effect.gen(function* emptySeed() {
+      const fs = yield* FileSystem.FileSystem;
+      const { directory, out, seed } = yield* stageCallers([first]);
+      yield* fs.writeFileString(seed, "[  ]\n");
+      expect(yield* generateCallersFile(directory, seed, out)).toStrictEqual({
+        added: 1,
+        legacy: 0,
+        total: 1,
+      });
+      const { callers } = yield* loadCallers(out);
+      expect(callers).toBe(JSON.stringify([first.document]));
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
 );
 

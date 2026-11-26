@@ -1,13 +1,13 @@
 import { isDeepStrictEqual } from "node:util";
 
 import { callerName } from "@mischief/core";
-import { Document, Documents } from "@rat-king/mailbox-client/auth";
+import { Document } from "@rat-king/mailbox-client/auth";
 import { Console, Effect, FileSystem, Option, Path, Schema } from "effect";
 
 import {
   CallerGenerationRefused,
   readCallerDirectory,
-  refuseDirectory,
+  refuseCallers,
 } from "./caller-directory.ts";
 import { decodeCallers } from "./callers.ts";
 
@@ -25,7 +25,7 @@ const matchesReservedName = (did: string, name: string) =>
 
 const DocumentId = Schema.Struct({ id: Schema.String });
 
-const ReservedDocuments = Schema.fromJsonString(Schema.Array(Schema.Json));
+const RawDocuments = Schema.fromJsonString(Schema.Array(Schema.Json));
 
 const ExtraDocuments = Schema.fromJsonString(
   Schema.Array(Schema.Struct({ name: Schema.String, document: Schema.Json }))
@@ -38,15 +38,15 @@ interface CallerDocumentFiles {
 
 interface Candidate {
   readonly did: string;
-  readonly document: Schema.Json;
+  readonly document?: Schema.Json;
   readonly name: string;
 }
 
-const documentDid = (document: Schema.Json, source: "Reserved" | "Extra") =>
+const documentDid = (document: Schema.Json, source: "reserved" | "extras") =>
   Schema.decodeUnknownEffect(DocumentId)(document).pipe(
     Effect.map(({ id }) => id),
     Effect.mapError(() =>
-      refuseDirectory(`${source} document is missing its DID in id`)
+      refuseCallers(source, `A ${source} document is missing its DID in id`)
     )
   );
 
@@ -55,9 +55,10 @@ const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
     const fs = yield* FileSystem.FileSystem;
 
     const reserved = yield* fs.readFileString(files.reserved).pipe(
-      Effect.flatMap(Schema.decodeEffect(ReservedDocuments)),
+      Effect.flatMap(Schema.decodeEffect(RawDocuments)),
       Effect.mapError(() =>
-        refuseDirectory(
+        refuseCallers(
+          "reserved",
           "Reserved file must be an array of public DID documents in DID_DOCUMENTS format"
         )
       )
@@ -66,7 +67,8 @@ const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
     const extras = yield* fs.readFileString(files.extras).pipe(
       Effect.flatMap(Schema.decodeEffect(ExtraDocuments)),
       Effect.mapError(() =>
-        refuseDirectory(
+        refuseCallers(
+          "extras",
           "Extras file must be an array of entries with name and public document"
         )
       )
@@ -75,11 +77,12 @@ const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
     const reservedEntries: Candidate[] = [];
 
     for (const document of reserved) {
-      const did = yield* documentDid(document, "Reserved");
+      const did = yield* documentDid(document, "reserved");
       const name = Option.getOrUndefined(callerName(did));
 
       if (name === undefined || !matchesReservedName(did, name)) {
-        return yield* refuseDirectory(
+        return yield* refuseCallers(
+          "reserved",
           "Reserved document id must name a bare reserved fleet caller or match the fleet name template"
         );
       }
@@ -90,10 +93,11 @@ const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
     const extraEntries: Candidate[] = [];
 
     for (const { document, name } of extras) {
-      const did = yield* documentDid(document, "Extra");
+      const did = yield* documentDid(document, "extras");
 
       if (!matchesFleetName(did, name)) {
-        return yield* refuseDirectory(
+        return yield* refuseCallers(
+          "template",
           `Extra DID does not match fleet name ${name}`
         );
       }
@@ -118,36 +122,172 @@ const compareDids = (
   return left.id < right.id ? -1 : 1;
 };
 
+type SourceKind = "export" | "manifest" | "reserved" | "extras";
+
+const checkName = Effect.fn("checkCallerName")(function* checkName(
+  bindings: Map<string, string>,
+  name: string,
+  did: string,
+  kind: "seed" | "conflict"
+) {
+  const existing = bindings.get(name);
+
+  if (existing !== undefined && existing !== did) {
+    return yield* refuseCallers(
+      kind,
+      `Found conflicting DIDs for name ${name}`
+    );
+  }
+
+  return bindings.set(name, did);
+});
+
+const decodeCandidate = Effect.fn("decodeCallerCandidate")(
+  function* decodeCandidate(entry: Candidate, kind: SourceKind) {
+    const { did, name } = entry;
+
+    if (
+      Option.getOrUndefined(callerName(did)) !== name ||
+      !matchesReservedName(did, name)
+    ) {
+      return yield* refuseCallers(
+        "template",
+        `Directory DID does not match fleet name ${JSON.stringify(name)}`
+      );
+    }
+
+    const document = yield* Schema.decodeUnknownEffect(Document)(
+      entry.document
+    ).pipe(
+      Effect.mapError(() =>
+        refuseCallers(
+          kind,
+          `Caller entry for ${name} is not a public DID document; private JWK fields such as d are forbidden`
+        )
+      )
+    );
+
+    if (document.id !== did) {
+      return yield* refuseCallers(
+        "template",
+        `Caller document ID does not match fleet name ${name}`
+      );
+    }
+
+    return document;
+  }
+);
+
+const directoryCandidates = (
+  directory: Directory,
+  reservedDids: ReadonlySet<string>
+) => {
+  const warnings = new Set<string>();
+  const retired = new Set<string>();
+
+  for (const { did, name } of directory.retirements) {
+    if (
+      Option.getOrUndefined(callerName(did)) !== name ||
+      !matchesReservedName(did, name)
+    ) {
+      warnings.add(
+        `Retirement name ${JSON.stringify(name)} does not match its fleet DID; excluding by DID`
+      );
+    }
+
+    retired.add(did);
+  }
+
+  const directoryEntries = directory.names.filter(({ did, name, status }) => {
+    if (status === "retired") {
+      return false;
+    }
+
+    if (did.endsWith(FLEET_SUFFIX) || reservedDids.has(did)) {
+      return true;
+    }
+
+    if (directory.snapshot && did.endsWith(RESERVED_FLEET_SUFFIX)) {
+      warnings.add(
+        `Skipping snapshot row ${JSON.stringify(name)}: reserved DID is absent from the reserved file`
+      );
+    }
+
+    return false;
+  });
+
+  return { directoryEntries, retired, warnings };
+};
+
+const seedBindings = Effect.fn("bindSeedNames")(function* bindSeedNames(
+  dids: Iterable<string>
+) {
+  const bindings = new Map<string, string>();
+
+  for (const did of dids) {
+    const name = Option.getOrUndefined(callerName(did));
+
+    if (name === undefined) {
+      return yield* refuseCallers(
+        "seed",
+        "Legacy seed has a DID without a valid fleet name"
+      );
+    }
+
+    yield* checkName(bindings, name, did, "seed");
+  }
+
+  return bindings;
+});
+
+interface DecodedDocument {
+  readonly public: typeof Document.Type;
+  readonly raw: Schema.Json | undefined;
+}
+
+const warnAboutSeed = (
+  name: string,
+  seed: DecodedDocument,
+  candidate: DecodedDocument,
+  warnings: Set<string>
+) => {
+  if (!isDeepStrictEqual(seed.public, candidate.public)) {
+    warnings.add(
+      `Snapshot public document differs from the legacy seed for ${name}; keeping the seed`
+    );
+  } else if (!isDeepStrictEqual(seed.raw, candidate.raw)) {
+    warnings.add(
+      `Snapshot and legacy seed public documents agree for ${name}; dropped fields differ`
+    );
+  }
+};
+
 const mergeAdditions = Effect.fn("mergeCallerAdditions")(
   function* mergeAdditions(
     directory: Directory,
-    legacyDids: ReadonlySet<string>,
+    legacy: ReadonlyMap<string, DecodedDocument>,
     reserved: readonly Candidate[],
     extras: readonly Candidate[]
   ) {
     const reservedDids = new Set(reserved.map(({ did }) => did));
 
-    const directoryEntries = directory.names.filter(
-      ({ did, status }) =>
-        status !== "retired" &&
-        (did.endsWith(FLEET_SUFFIX) ||
-          reservedDids.has(did) ||
-          (directory.snapshot && did.endsWith(RESERVED_FLEET_SUFFIX)))
+    const { directoryEntries, retired, warnings } = directoryCandidates(
+      directory,
+      reservedDids
     );
 
     const sources = [
       {
         entries: directoryEntries,
-        directory: true,
-        allowDuplicates: directory.snapshot,
+        kind: directory.snapshot ? "manifest" : "export",
       },
-      { entries: reserved, directory: false, allowDuplicates: false },
-      { entries: extras, directory: false, allowDuplicates: false },
-    ];
+      { entries: reserved, kind: "reserved" },
+      { entries: extras, kind: "extras" },
+    ] as const;
 
-    const seen = new Map<string, typeof Document.Type>();
-    const snapshotDidsByName = new Map<string, string>();
-    const suppressed = new Set<string>();
+    const seen = new Map<string, DecodedDocument>();
+
+    const bindings = yield* seedBindings(legacy.keys());
     const added = new Map<string, typeof Document.Type>();
 
     for (const source of sources) {
@@ -156,77 +296,101 @@ const mergeAdditions = Effect.fn("mergeCallerAdditions")(
       for (const entry of source.entries) {
         const { did, name } = entry;
 
-        if (
-          source.directory &&
-          (Option.getOrUndefined(callerName(did)) !== name ||
-            !matchesReservedName(did, name))
-        ) {
-          return yield* refuseDirectory(
-            `Directory DID does not match fleet name ${name}`
+        if (retired.has(did)) {
+          warnings.add(
+            `Skipping retired DID for ${JSON.stringify(name)} in generated additions; the legacy seed is unchanged`
           );
+          continue;
         }
 
-        if (!source.allowDuplicates && sourceDids.has(did)) {
-          return yield* refuseDirectory(
+        if (source.kind !== "manifest" && sourceDids.has(did)) {
+          return yield* refuseCallers(
+            source.kind,
             `A caller input repeats the fleet DID for ${name}`
           );
         }
 
         sourceDids.add(did);
 
-        const document = yield* Schema.decodeUnknownEffect(Document)(
-          entry.document
-        ).pipe(
-          Effect.mapError(() =>
-            refuseDirectory(
-              `Caller entry for ${name} is not a public DID document; private JWK fields such as d are forbidden`
-            )
-          )
-        );
-
-        if (document.id !== did) {
-          return yield* refuseDirectory(
-            `Caller document ID does not match fleet name ${name}`
-          );
-        }
-
-        if (directory.retiredDids.has(did)) {
-          suppressed.add(name);
-          continue;
-        }
-
-        if (source.allowDuplicates) {
-          const previousDid = snapshotDidsByName.get(name);
-
-          if (previousDid !== undefined && previousDid !== did) {
-            return yield* refuseDirectory(
-              `Snapshot has conflicting DIDs for name ${name}`
-            );
-          }
-
-          snapshotDidsByName.set(name, did);
-        }
+        const document = yield* decodeCandidate(entry, source.kind);
+        yield* checkName(bindings, name, did, "conflict");
 
         const previous = seen.get(did);
 
-        if (previous !== undefined && !isDeepStrictEqual(previous, document)) {
-          return yield* refuseDirectory(
-            `Caller inputs have conflicting documents for ${name}`
-          );
+        if (previous !== undefined) {
+          if (!isDeepStrictEqual(previous.public, document)) {
+            return yield* refuseCallers(
+              "conflict",
+              `Caller inputs have conflicting documents for ${name}`
+            );
+          }
+
+          if (!isDeepStrictEqual(previous.raw, entry.document)) {
+            warnings.add(
+              `Public documents agree for ${name}; dropped fields differ between inputs`
+            );
+          }
         }
 
-        seen.set(did, document);
+        const candidate = { public: document, raw: entry.document };
+        seen.set(did, candidate);
 
-        if (
-          !legacyDids.has(did) &&
-          (!source.directory || did.endsWith(FLEET_SUFFIX))
-        ) {
-          added.set(did, document);
+        const seedDocument = legacy.get(did);
+
+        if (seedDocument !== undefined) {
+          if (source.kind === "manifest") {
+            warnAboutSeed(name, seedDocument, candidate, warnings);
+          }
+
+          continue;
         }
+
+        added.set(did, document);
       }
     }
 
-    return { added, suppressed };
+    return { added, warnings };
+  }
+);
+
+const invalidSeed = () =>
+  refuseCallers(
+    "seed",
+    "Legacy seed is not an array of public DID documents; a private JWK field such as d is forbidden"
+  );
+
+const decodeLegacySeed = Effect.fn("decodeLegacyCallerSeed")(
+  function* decodeLegacySeed(seed: string) {
+    const rows = yield* Schema.decodeEffect(RawDocuments)(seed).pipe(
+      Effect.mapError(invalidSeed)
+    );
+
+    const legacy = new Map<string, DecodedDocument>();
+
+    for (const raw of rows) {
+      const document = yield* Schema.decodeUnknownEffect(Document)(raw).pipe(
+        Effect.mapError(invalidSeed)
+      );
+
+      if (legacy.has(document.id)) {
+        return yield* refuseCallers("seed", "Legacy seed repeats a DID");
+      }
+
+      legacy.set(document.id, { public: document, raw });
+    }
+
+    if (legacy.size !== 0) {
+      yield* decodeCallers(seed).pipe(
+        Effect.catchCause(() =>
+          refuseCallers(
+            "seed",
+            "Legacy seed contains invalid caller names or grants"
+          )
+        )
+      );
+    }
+
+    return legacy;
   }
 );
 
@@ -241,42 +405,48 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
     const path = yield* Path.Path;
     const target = path.resolve(out);
 
-    const directory = yield* readCallerDirectory(directorySource);
-
     const [reserved = [], extras = []] =
       documents === undefined
         ? []
         : yield* readSupplementalDocuments(documents);
 
-    const seed = yield* fs.readFileString(seedFile);
-    const legacy = yield* decodeCallers(seed);
+    const seed = yield* fs
+      .readFileString(seedFile)
+      .pipe(
+        Effect.mapError(() =>
+          refuseCallers("seed", "Cannot read the legacy seed")
+        )
+      );
 
-    const legacyDocs = yield* Schema.decodeEffect(
-      Schema.fromJsonString(Documents)
-    )(legacy.callers);
+    const legacy = yield* decodeLegacySeed(seed);
 
-    const legacyDids = new Set(legacyDocs.map(({ id }) => id));
+    const directory = yield* readCallerDirectory(
+      directorySource,
+      new Set(legacy.keys())
+    );
 
-    if (legacyDids.size !== legacyDocs.length) {
-      return yield* new CallerGenerationRefused({
-        message:
-          "Legacy seed repeats a DID. Supply the trusted public callers file with each DID listed once, then retry generate-callers",
-      });
-    }
-
-    const { added, suppressed } = yield* mergeAdditions(
+    const { added, warnings } = yield* mergeAdditions(
       directory,
-      legacyDids,
+      legacy,
       reserved,
       extras
     );
 
+    if (legacy.size + added.size === 0) {
+      return yield* refuseCallers(
+        "seed",
+        "No public callers remain after filtering the inputs"
+      );
+    }
+
     const closingBracket = seed.lastIndexOf("]");
+
+    const separator = legacy.size === 0 ? "\n" : ",\n";
 
     const text =
       added.size === 0
         ? seed
-        : `${seed.slice(0, closingBracket)},\n${[...added.values()]
+        : `${seed.slice(0, closingBracket)}${separator}${[...added.values()]
             .toSorted(compareDids)
             .map((doc) => JSON.stringify(doc))
             .join(",\n")}\n${seed.slice(closingBracket)}`;
@@ -300,16 +470,14 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
       )
     );
 
-    for (const name of [...suppressed].toSorted()) {
-      yield* Console.error(
-        `Skipping retired DID for ${name} in generated additions; the legacy seed is unchanged`
-      );
+    for (const warning of [...warnings].toSorted()) {
+      yield* Console.error(warning);
     }
 
     return {
       added: added.size,
-      legacy: legacyDids.size,
-      total: legacyDids.size + added.size,
+      legacy: legacy.size,
+      total: legacy.size + added.size,
     };
   },
   Effect.scoped

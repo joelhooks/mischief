@@ -3,7 +3,7 @@ import * as Digest from "effect/crypto/Digest";
 
 const Entry = Schema.Struct({
   did: Schema.String,
-  document: Schema.Json,
+  document: Schema.optionalKey(Schema.Json),
   name: Schema.String,
   status: Schema.optionalKey(Schema.Literals(["live", "idle", "retired"])),
 });
@@ -15,7 +15,19 @@ const CompleteList = {
 };
 
 const DirectoryExport = Schema.fromJsonString(
-  Schema.Struct({ ...CompleteList, names: Schema.Array(Entry) })
+  Schema.Struct({ ...CompleteList, names: Schema.Array(Schema.Json) })
+);
+
+const ExportRowDid = Schema.Struct({ did: Schema.String });
+
+const ExportEntry = Schema.Struct({ ...Entry.fields, document: Schema.Json });
+
+const isRetiredExportRow = Schema.is(
+  Schema.Struct({
+    did: Schema.String,
+    name: Schema.String,
+    status: Schema.Literal("retired"),
+  })
 );
 
 const SnapshotId = Schema.String.check(Schema.isUUID());
@@ -70,10 +82,30 @@ export class CallerGenerationRefused extends Schema.TaggedError<
   { readonly brand: unique symbol }
 >()("CallerGenerationRefused", { message: Schema.String }) {}
 
-export const refuseDirectory = (reason: string) =>
+const nextCall = {
+  conflict:
+    "Ask the Rat King operator to reconcile the active name bindings or public documents, refresh the affected inputs, then retry generate-callers",
+  export:
+    "Run export-fleet-directory with all pages in a new export, then retry generate-callers",
+  extras:
+    "Refresh the named public records in <extra-documents.json>, then retry generate-callers",
+  manifest:
+    "Run ratking snapshot --out <new-bundle> and save its JSON stdout as <new-bundle>/manifest.json, then retry generate-callers with that bundle",
+  reserved:
+    "Replace <reserved-documents.json> with the fleet-only public DID_DOCUMENTS array, then retry generate-callers",
+  seed: "Supply the previous trusted <legacy-seed.json> with valid public callers and grants, then retry generate-callers",
+  source:
+    "Pass a readable snapshot directory or a complete directory-export.json as the first generate-callers argument",
+  template:
+    "Correct the named input row to use the Rat King name-derived fleet DID (with matching public document id), then retry generate-callers",
+} as const;
+
+export const refuseCallers = (kind: keyof typeof nextCall, reason: string) =>
   new CallerGenerationRefused({
-    message: `${reason}. No callers file written. Check the input files, save the ratking snapshot receipt as manifest.json if using a bundle, then retry generate-callers`,
+    message: `${reason}. No callers file written. ${nextCall[kind]}`,
   });
+
+const refuseSnapshot = (reason: string) => refuseCallers("manifest", reason);
 
 const readSnapshot = Effect.fn("readCallerSnapshot")(function* readSnapshot(
   directory: string
@@ -87,7 +119,7 @@ const readSnapshot = Effect.fn("readCallerSnapshot")(function* readSnapshot(
     .pipe(
       Effect.flatMap(Schema.decodeEffect(SnapshotManifest)),
       Effect.mapError(() =>
-        refuseDirectory(
+        refuseSnapshot(
           "Cannot read the Rat King snapshot receipt as manifest.json"
         )
       )
@@ -98,14 +130,14 @@ const readSnapshot = Effect.fn("readCallerSnapshot")(function* readSnapshot(
       const bytes = yield* fs
         .readFile(path.join(directory, file))
         .pipe(
-          Effect.mapError(() => refuseDirectory(`Cannot read snapshot ${file}`))
+          Effect.mapError(() => refuseSnapshot(`Cannot read snapshot ${file}`))
         );
 
       if (
         (yield* digest.digestHex(Digest.sha256, bytes)) !==
         manifest.sha256[file]
       ) {
-        return yield* refuseDirectory(
+        return yield* refuseSnapshot(
           `Snapshot SHA-256 manifest mismatch for ${file}`
         );
       }
@@ -116,21 +148,21 @@ const readSnapshot = Effect.fn("readCallerSnapshot")(function* readSnapshot(
   const names = yield* verified("names.json").pipe(
     Effect.flatMap(Schema.decodeEffect(SnapshotNames)),
     Effect.catchTag("SchemaError", () =>
-      refuseDirectory("Snapshot names.json is not a complete names list")
+      refuseSnapshot("Snapshot names.json is not a complete names list")
     )
   );
 
   const retired = yield* verified("retired.json").pipe(
     Effect.flatMap(Schema.decodeEffect(SnapshotRetired)),
     Effect.catchTag("SchemaError", () =>
-      refuseDirectory("Snapshot retired.json is not a complete retirement list")
+      refuseSnapshot("Snapshot retired.json is not a complete retirement list")
     )
   );
 
   const issuers = yield* verified("issuers.json").pipe(
     Effect.flatMap(Schema.decodeEffect(SnapshotIssuers)),
     Effect.catchTag("SchemaError", () =>
-      refuseDirectory("Snapshot issuers.json is not a placement map")
+      refuseSnapshot("Snapshot issuers.json is not a placement map")
     )
   );
 
@@ -142,17 +174,15 @@ const readSnapshot = Effect.fn("readCallerSnapshot")(function* readSnapshot(
     names.total !== names.names.length ||
     retired.total !== retired.retired.length
   ) {
-    return yield* refuseDirectory(
+    return yield* refuseSnapshot(
       "Snapshot IDs or totals do not match the manifest and entries"
     );
   }
 
-  const retiredDids = new Set([
-    ...retired.retired.map(({ did }) => did),
-    ...names.names
-      .filter(({ status }) => status === "retired")
-      .map(({ did }) => did),
-  ]);
+  const retirements = [
+    ...retired.retired,
+    ...names.names.filter(({ status }) => status === "retired"),
+  ];
 
   const distinctNames = new Set(names.names.map(({ name }) => name));
   const issuerLabels = new Set(manifest.pages.map(({ issuer }) => issuer));
@@ -170,23 +200,23 @@ const readSnapshot = Effect.fn("readCallerSnapshot")(function* readSnapshot(
       );
     })
   ) {
-    return yield* refuseDirectory(
+    return yield* refuseSnapshot(
       "Snapshot placements do not match its names and issuer receipts"
     );
   }
 
-  return { names: names.names, retiredDids, snapshot: true };
+  return { names: names.names, retirements, snapshot: true };
 }, Effect.provide(Digest.layerWebCrypto));
 
 export const readCallerDirectory = Effect.fn("readCallerDirectory")(
-  function* readCallerDirectory(source: string) {
+  function* readCallerDirectory(source: string, seedDids: ReadonlySet<string>) {
     const fs = yield* FileSystem.FileSystem;
 
     const info = yield* fs
       .stat(source)
       .pipe(
         Effect.mapError(() =>
-          refuseDirectory("Cannot open the Rat King directory source")
+          refuseCallers("source", "Cannot open the Rat King directory source")
         )
       );
 
@@ -197,25 +227,51 @@ export const readCallerDirectory = Effect.fn("readCallerDirectory")(
     const directory = yield* fs.readFileString(source).pipe(
       Effect.flatMap(Schema.decodeEffect(DirectoryExport)),
       Effect.mapError(() =>
-        refuseDirectory(
+        refuseCallers(
+          "export",
           "Cannot read a complete public Rat King directory export"
         )
       )
     );
 
     if (directory.total !== directory.names.length) {
-      return yield* refuseDirectory(
+      return yield* refuseCallers(
+        "export",
         "Public directory total does not match its entries"
       );
     }
 
-    const retired = directory.names.filter(
-      ({ status }) => status === "retired"
-    );
+    const names: (typeof Entry.Type)[] = [];
+    const retirements: { did: string; name: string }[] = [];
+
+    for (const row of directory.names) {
+      const { did } = yield* Schema.decodeUnknownEffect(ExportRowDid)(row).pipe(
+        Effect.mapError(() =>
+          refuseCallers("export", "A directory export row has no DID")
+        )
+      );
+
+      if (isRetiredExportRow(row)) {
+        retirements.push({ did, name: row.name });
+      }
+
+      if (!seedDids.has(did)) {
+        const entry = yield* Schema.decodeUnknownEffect(ExportEntry)(row).pipe(
+          Effect.mapError(() =>
+            refuseCallers(
+              "export",
+              "A directory export row has no valid name, status or document"
+            )
+          )
+        );
+
+        names.push(entry);
+      }
+    }
 
     return {
-      names: directory.names,
-      retiredDids: new Set(retired.map(({ did }) => did)),
+      names,
+      retirements,
       snapshot: false,
     };
   }

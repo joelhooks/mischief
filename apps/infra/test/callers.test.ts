@@ -329,7 +329,11 @@ const stageSnapshot = Effect.fn("stageCallerSnapshot")(
       "names.json": {
         complete: true,
         cursor: options?.cursor,
-        names,
+        names: names.map((entry) =>
+          fault === "malformed seed row" && entry.did === legacy.did
+            ? { ...entry, document: null, name: 42, status: true }
+            : entry
+        ),
         snapshot,
         total: names.length + Number(options?.incorrectTotal === true),
       },
@@ -825,11 +829,13 @@ it.effect(
       };
 
       const sameSeedPublic = fleetEntry("legacy/worker-1");
+      const retiredSeed = fleetEntry("legacy/worker-2");
 
       const bundle = yield* stageSnapshot(
         dir,
         [withGrant, drifted, sameSeedPublic, unused, second],
-        [{ did: second.did, name: "wrong-name" }]
+        [{ did: second.did, name: "wrong-name" }, retiredSeed],
+        { fault: "malformed seed row" }
       );
 
       const docs = yield* stageSupplements(dir, [first.document], []);
@@ -851,18 +857,58 @@ it.effect(
         'Skipping snapshot row "unused": reserved DID is absent'
       );
       expect(result.stderr).toContain(
-        `Snapshot public document differs from the legacy seed for ${legacy.name}; keeping the seed`
+        `Snapshot row document differs from the legacy seed for ${legacy.name}; keeping the seed`
       );
       expect(result.stderr).toContain(
-        `Snapshot and legacy seed public documents agree for ${sameSeedPublic.name}; dropped fields differ`
+        `Snapshot row document differs from the legacy seed for ${sameSeedPublic.name}; keeping the seed`
       );
       expect(result.stderr).toContain(
         'Retirement name "wrong-name" does not match its fleet DID; excluding by DID'
       );
       const { callers, mailReach } = yield* loadCallers(out);
+      expect(result.stderr).toContain(
+        `Snapshot retires ${retiredSeed.name}, but the trusted legacy seed keeps that caller permitted`
+      );
       expect(callers).toContain(JSON.stringify(legacy.document));
+      expect(callers).toContain(JSON.stringify(retiredSeed.document));
       expect(callers).not.toContain(second.did);
       expect(callerReach(first.did, mailReach).names).toEqual([first.name]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+);
+
+it.effect(
+  "the CLI flushes collected snapshot warnings on refusal without writing",
+  () =>
+    Effect.gen(function* warnsBeforeRefusal() {
+      const fs = yield* FileSystem.FileSystem;
+      const { dir, out, seed } = yield* stageCallers([]);
+
+      const bundle = yield* stageSnapshot(dir, [first, legacy], [], {
+        fault: "malformed seed row",
+      });
+
+      const documents = yield* stageSupplements(
+        dir,
+        [{ ...first.document, authentication: [] }],
+        []
+      );
+
+      const result = yield* runGenerator([
+        bundle,
+        seed,
+        out,
+        documents.reserved,
+        documents.extras,
+      ]);
+
+      expect(Number(result.code)).toBe(1);
+      expect(result.stderr).toContain(
+        `Snapshot row document differs from the legacy seed for ${legacy.name}; keeping the seed`
+      );
+      expect(result.stdout + result.stderr).toContain(
+        "Caller inputs have conflicting documents"
+      );
+      expect(yield* fs.exists(out)).toBe(false);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
 );
 

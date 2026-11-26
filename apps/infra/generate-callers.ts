@@ -180,9 +180,9 @@ const decodeCandidate = Effect.fn("decodeCallerCandidate")(
 
 const directoryCandidates = (
   directory: Directory,
-  reservedDids: ReadonlySet<string>
+  reservedDids: ReadonlySet<string>,
+  warnings: Set<string>
 ) => {
-  const warnings = new Set<string>();
   const retired = new Set<string>();
 
   for (const { did, name } of directory.retirements) {
@@ -216,7 +216,7 @@ const directoryCandidates = (
     return false;
   });
 
-  return { directoryEntries, retired, warnings };
+  return { directoryEntries, retired };
 };
 
 const seedBindings = Effect.fn("bindSeedNames")(function* bindSeedNames(
@@ -245,20 +245,39 @@ interface DecodedDocument {
   readonly raw: Schema.Json | undefined;
 }
 
-const warnAboutSeed = (
-  name: string,
-  seed: DecodedDocument,
-  candidate: DecodedDocument,
+const warnAboutSnapshotSeed = (
+  directory: Directory,
+  legacy: ReadonlyMap<string, DecodedDocument>,
   warnings: Set<string>
 ) => {
-  if (!isDeepStrictEqual(seed.public, candidate.public)) {
-    warnings.add(
-      `Snapshot public document differs from the legacy seed for ${name}; keeping the seed`
-    );
-  } else if (!isDeepStrictEqual(seed.raw, candidate.raw)) {
-    warnings.add(
-      `Snapshot and legacy seed public documents agree for ${name}; dropped fields differ`
-    );
+  if (!directory.snapshot) {
+    return;
+  }
+
+  const retired = new Set(directory.retirements.map(({ did }) => did));
+
+  for (const { did, document, status } of directory.seedRows) {
+    const seed = legacy.get(did);
+
+    if (seed !== undefined && !isDeepStrictEqual(seed.raw, document)) {
+      const name = Option.getOrUndefined(callerName(did)) ?? did;
+      warnings.add(
+        `Snapshot row document differs from the legacy seed for ${name}; keeping the seed`
+      );
+    }
+
+    if (status === "retired") {
+      retired.add(did);
+    }
+  }
+
+  for (const did of retired) {
+    if (legacy.has(did)) {
+      const name = Option.getOrUndefined(callerName(did)) ?? did;
+      warnings.add(
+        `Snapshot retires ${name}, but the trusted legacy seed keeps that caller permitted`
+      );
+    }
   }
 };
 
@@ -267,13 +286,15 @@ const mergeAdditions = Effect.fn("mergeCallerAdditions")(
     directory: Directory,
     legacy: ReadonlyMap<string, DecodedDocument>,
     reserved: readonly Candidate[],
-    extras: readonly Candidate[]
+    extras: readonly Candidate[],
+    warnings: Set<string>
   ) {
     const reservedDids = new Set(reserved.map(({ did }) => did));
 
-    const { directoryEntries, retired, warnings } = directoryCandidates(
+    const { directoryEntries, retired } = directoryCandidates(
       directory,
-      reservedDids
+      reservedDids,
+      warnings
     );
 
     const sources = [
@@ -335,21 +356,13 @@ const mergeAdditions = Effect.fn("mergeCallerAdditions")(
         const candidate = { public: document, raw: entry.document };
         seen.set(did, candidate);
 
-        const seedDocument = legacy.get(did);
-
-        if (seedDocument !== undefined) {
-          if (source.kind === "manifest") {
-            warnAboutSeed(name, seedDocument, candidate, warnings);
-          }
-
-          continue;
+        if (!legacy.has(did)) {
+          added.set(did, document);
         }
-
-        added.set(did, document);
       }
     }
 
-    return { added, warnings };
+    return added;
   }
 );
 
@@ -394,21 +407,17 @@ const decodeLegacySeed = Effect.fn("decodeLegacyCallerSeed")(
   }
 );
 
-export const generateCallersFile = Effect.fn("generateCallersFile")(
-  function* generateCallersFile(
+const generateWithWarnings = Effect.fn("generateCallersWithWarnings")(
+  function* generateWithWarnings(
     directorySource: string,
     seedFile: string,
     out: string,
+    warnings: Set<string>,
     documents?: CallerDocumentFiles
   ) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const target = path.resolve(out);
-
-    const [reserved = [], extras = []] =
-      documents === undefined
-        ? []
-        : yield* readSupplementalDocuments(documents);
 
     const seed = yield* fs
       .readFileString(seedFile)
@@ -425,11 +434,19 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
       new Set(legacy.keys())
     );
 
-    const { added, warnings } = yield* mergeAdditions(
+    warnAboutSnapshotSeed(directory, legacy, warnings);
+
+    const [reserved = [], extras = []] =
+      documents === undefined
+        ? []
+        : yield* readSupplementalDocuments(documents);
+
+    const added = yield* mergeAdditions(
       directory,
       legacy,
       reserved,
-      extras
+      extras,
+      warnings
     );
 
     if (legacy.size + added.size === 0) {
@@ -470,10 +487,6 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
       )
     );
 
-    for (const warning of [...warnings].toSorted()) {
-      yield* Console.error(warning);
-    }
-
     return {
       added: added.size,
       legacy: legacy.size,
@@ -481,4 +494,33 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
     };
   },
   Effect.scoped
+);
+
+export const generateCallersFile = Effect.fn("generateCallersFile")(
+  function* generateCallersFile(
+    directorySource: string,
+    seedFile: string,
+    out: string,
+    documents?: CallerDocumentFiles
+  ) {
+    const warnings = new Set<string>();
+
+    return yield* generateWithWarnings(
+      directorySource,
+      seedFile,
+      out,
+      warnings,
+      documents
+    ).pipe(
+      Effect.ensuring(
+        Effect.suspend(() =>
+          Effect.forEach(
+            [...warnings].toSorted(),
+            (warning) => Console.error(warning),
+            { discard: true }
+          )
+        )
+      )
+    );
+  }
 );

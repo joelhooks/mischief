@@ -18,7 +18,13 @@ const DirectoryExport = Schema.fromJsonString(
   Schema.Struct({ ...CompleteList, names: Schema.Array(Schema.Json) })
 );
 
-const ExportRowDid = Schema.Struct({ did: Schema.String });
+const RowDid = Schema.Struct({ did: Schema.String });
+
+const SeedSnapshotRow = Schema.Struct({
+  did: Schema.String,
+  document: Schema.optionalKey(Schema.Json),
+  status: Schema.optionalKey(Schema.Json),
+});
 
 const ExportEntry = Schema.Struct({ ...Entry.fields, document: Schema.Json });
 
@@ -39,7 +45,7 @@ const Hash = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u));
 const SnapshotNames = Schema.fromJsonString(
   Schema.Struct({
     ...CompleteList,
-    names: Schema.Array(Entry),
+    names: Schema.Array(Schema.Json),
     snapshot: SnapshotId,
   })
 );
@@ -107,8 +113,44 @@ export const refuseCallers = (kind: keyof typeof nextCall, reason: string) =>
 
 const refuseSnapshot = (reason: string) => refuseCallers("manifest", reason);
 
+const readSnapshotRows = Effect.fn("readCallerSnapshotRows")(
+  function* readSnapshotRows(
+    rows: readonly Schema.Json[],
+    seedDids: ReadonlySet<string>
+  ) {
+    const names: (typeof Entry.Type)[] = [];
+    const seedRows: (typeof SeedSnapshotRow.Type)[] = [];
+
+    for (const row of rows) {
+      const seedFields = yield* Schema.decodeUnknownEffect(SeedSnapshotRow)(
+        row
+      ).pipe(
+        Effect.mapError(() => refuseSnapshot("A snapshot names row has no DID"))
+      );
+
+      if (seedDids.has(seedFields.did)) {
+        seedRows.push(seedFields);
+        continue;
+      }
+
+      const entry = yield* Schema.decodeUnknownEffect(Entry)(row).pipe(
+        Effect.mapError(() =>
+          refuseSnapshot(
+            "Snapshot names.json has a row without a valid name or status"
+          )
+        )
+      );
+
+      names.push(entry);
+    }
+
+    return { names, seedRows };
+  }
+);
+
 const readSnapshot = Effect.fn("readCallerSnapshot")(function* readSnapshot(
-  directory: string
+  directory: string,
+  seedDids: ReadonlySet<string>
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -179,33 +221,28 @@ const readSnapshot = Effect.fn("readCallerSnapshot")(function* readSnapshot(
     );
   }
 
+  const rows = yield* readSnapshotRows(names.names, seedDids);
+
   const retirements = [
     ...retired.retired,
-    ...names.names.filter(({ status }) => status === "retired"),
+    ...rows.names.filter(({ status }) => status === "retired"),
   ];
 
-  const distinctNames = new Set(names.names.map(({ name }) => name));
+  const distinctNames = new Set(rows.names.map(({ name }) => name));
   const issuerLabels = new Set(manifest.pages.map(({ issuer }) => issuer));
 
   if (
     issuerLabels.size !== manifest.pages.length ||
-    Object.keys(issuers).length !== distinctNames.size ||
-    [...distinctNames].some((name) => {
-      const issuer = issuers[name];
-
-      return (
-        !Object.hasOwn(issuers, name) ||
-        issuer === undefined ||
-        !issuerLabels.has(issuer)
-      );
-    })
+    Object.keys(issuers).length > distinctNames.size + rows.seedRows.length ||
+    [...distinctNames].some((name) => !Object.hasOwn(issuers, name)) ||
+    Object.values(issuers).some((issuer) => !issuerLabels.has(issuer))
   ) {
     return yield* refuseSnapshot(
       "Snapshot placements do not match its names and issuer receipts"
     );
   }
 
-  return { names: names.names, retirements, snapshot: true };
+  return { ...rows, retirements, snapshot: true };
 }, Effect.provide(Digest.layerWebCrypto));
 
 export const readCallerDirectory = Effect.fn("readCallerDirectory")(
@@ -221,7 +258,7 @@ export const readCallerDirectory = Effect.fn("readCallerDirectory")(
       );
 
     if (info.type === "Directory") {
-      return yield* readSnapshot(source);
+      return yield* readSnapshot(source, seedDids);
     }
 
     const directory = yield* fs.readFileString(source).pipe(
@@ -245,7 +282,7 @@ export const readCallerDirectory = Effect.fn("readCallerDirectory")(
     const retirements: { did: string; name: string }[] = [];
 
     for (const row of directory.names) {
-      const { did } = yield* Schema.decodeUnknownEffect(ExportRowDid)(row).pipe(
+      const { did } = yield* Schema.decodeUnknownEffect(RowDid)(row).pipe(
         Effect.mapError(() =>
           refuseCallers("export", "A directory export row has no DID")
         )
@@ -272,6 +309,7 @@ export const readCallerDirectory = Effect.fn("readCallerDirectory")(
     return {
       names,
       retirements,
+      seedRows: [],
       snapshot: false,
     };
   }

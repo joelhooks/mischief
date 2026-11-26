@@ -15,6 +15,60 @@ const FLEET_SUFFIX = ".pi.ratking-fleet.invalid";
 
 const RESERVED_FLEET_SUFFIX = ".ratking-fleet.invalid";
 
+const PROBE_OR_CANARY = /(?:^|[/_-])(?:probe|canary)(?:$|[/_-])/iu;
+
+const PI_SESSION =
+  /(?:^|\/)pi-(?:[0-9a-hjkmnp-tv-z]{26}|[0-9a-f]{8,}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{5,12})$/iu;
+
+type SkipGeneratedName = (name: string) => boolean;
+
+const countEphemeralNames = () => {
+  const counts = { probeOrCanary: 0, session: 0 };
+
+  const skip = (name: string) => {
+    if (PROBE_OR_CANARY.test(name)) {
+      counts.probeOrCanary += 1;
+
+      return true;
+    }
+
+    if (PI_SESSION.test(name)) {
+      counts.session += 1;
+
+      return true;
+    }
+
+    return false;
+  };
+
+  const warning = () =>
+    counts.probeOrCanary + counts.session === 0
+      ? []
+      : [
+          `Skipped ephemeral caller entries: probe/canary=${counts.probeOrCanary}, session=${counts.session}`,
+        ];
+
+  return { skip, warning };
+};
+
+const skipReservedDid = (did: string, skip: SkipGeneratedName) => {
+  const prefix = "did:web:";
+  const templated = did.endsWith(FLEET_SUFFIX);
+  const suffix = templated ? FLEET_SUFFIX : RESERVED_FLEET_SUFFIX;
+
+  if (!did.startsWith(prefix) || !did.endsWith(suffix)) {
+    return false;
+  }
+
+  const label = did.slice(prefix.length, -suffix.length);
+
+  const encodedName = templated
+    ? /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)?$/iu
+    : /^[a-z0-9_-]+$/iu;
+
+  return encodedName.test(label) && skip(label.replace(".", "/"));
+};
+
 const matchesFleetName = (did: string, name: string) =>
   did === `did:web:${name.replace("/", ".")}${FLEET_SUFFIX}` &&
   Option.getOrUndefined(callerName(did)) === name;
@@ -51,7 +105,10 @@ const documentDid = (document: Schema.Json, source: "reserved" | "extras") =>
   );
 
 const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
-  function* readSupplementalDocuments(files: CallerDocumentFiles) {
+  function* readSupplementalDocuments(
+    files: CallerDocumentFiles,
+    skip: SkipGeneratedName
+  ) {
     const fs = yield* FileSystem.FileSystem;
 
     const reserved = yield* fs.readFileString(files.reserved).pipe(
@@ -78,6 +135,11 @@ const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
 
     for (const document of reserved) {
       const did = yield* documentDid(document, "reserved");
+
+      if (skipReservedDid(did, skip)) {
+        continue;
+      }
+
       const name = Option.getOrUndefined(callerName(did));
 
       if (name === undefined || !matchesReservedName(did, name)) {
@@ -93,6 +155,10 @@ const readSupplementalDocuments = Effect.fn("readSupplementalDocuments")(
     const extraEntries: Candidate[] = [];
 
     for (const { document, name } of extras) {
+      if (skip(name)) {
+        continue;
+      }
+
       const did = yield* documentDid(document, "extras");
 
       if (!matchesFleetName(did, name)) {
@@ -413,6 +479,7 @@ const generateWithWarnings = Effect.fn("generateCallersWithWarnings")(
     seedFile: string,
     out: string,
     warnings: Set<string>,
+    skip: SkipGeneratedName,
     documents?: CallerDocumentFiles
   ) {
     const fs = yield* FileSystem.FileSystem;
@@ -439,10 +506,13 @@ const generateWithWarnings = Effect.fn("generateCallersWithWarnings")(
     const [reserved = [], extras = []] =
       documents === undefined
         ? []
-        : yield* readSupplementalDocuments(documents);
+        : yield* readSupplementalDocuments(documents, skip);
 
     const added = yield* mergeAdditions(
-      directory,
+      {
+        ...directory,
+        names: directory.names.filter(({ name }) => !skip(name)),
+      },
       legacy,
       reserved,
       extras,
@@ -504,18 +574,20 @@ export const generateCallersFile = Effect.fn("generateCallersFile")(
     documents?: CallerDocumentFiles
   ) {
     const warnings = new Set<string>();
+    const ephemeral = countEphemeralNames();
 
     return yield* generateWithWarnings(
       directorySource,
       seedFile,
       out,
       warnings,
+      ephemeral.skip,
       documents
     ).pipe(
       Effect.ensuring(
         Effect.suspend(() =>
           Effect.forEach(
-            [...warnings].toSorted(),
+            [...warnings, ...ephemeral.warning()].toSorted(),
             (warning) => Console.error(warning),
             { discard: true }
           )
